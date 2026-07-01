@@ -17,14 +17,14 @@ export default async function SettingsPage() {
   const workspaceId = profile?.current_workspace_id;
 
   let workspace = null;
-  let members = [];
+  let memberCount = 0;
   if (workspaceId) {
-    const [{ data: ws }, { data: mem }] = await Promise.all([
+    const [{ data: ws }, { count }] = await Promise.all([
       supabase.from('workspaces').select('id, name, created_at').eq('id', workspaceId).single(),
-      supabase.from('workspace_members').select('role, profiles(name, role)').eq('workspace_id', workspaceId),
+      supabase.from('workspace_members').select('user_id', { count: 'exact', head: true }).eq('workspace_id', workspaceId),
     ]);
     workspace = ws;
-    members = mem || [];
+    memberCount = count || 0;
   }
 
   return (
@@ -47,7 +47,7 @@ export default async function SettingsPage() {
       }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>חברי הצוות</div>
-          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>{members.length} משתמשים ב-workspace</div>
+          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>{memberCount} משתמשים ב-workspace</div>
         </div>
         <Link href="/dashboard/settings/users" style={{
           background: '#0a0a0a', color: '#fff', textDecoration: 'none', fontSize: 13,

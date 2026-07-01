@@ -1,4 +1,5 @@
 import { createClient } from '../../../../lib/supabase/server';
+import { createAdminClient } from '../../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import InviteForm from './InviteForm';
 import MemberRow from './MemberRow';
@@ -25,10 +26,22 @@ export default async function UsersManagementPage() {
 
   const canManage = myMembership?.role === 'owner' || myMembership?.role === 'admin';
 
-  const { data: members } = await supabase
-    .from('workspace_members')
-    .select('user_id, role, profiles(name, role)')
-    .eq('workspace_id', workspaceId);
+  let members = [];
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('workspace_members')
+      .select('user_id, role, profiles(name, role)')
+      .eq('workspace_id', workspaceId);
+    members = data || [];
+  } catch {
+    // אם אין service role key מוגדר, נחזור לשאילתה הרגילה (עלולה להחזיר פחות פרטים)
+    const { data } = await supabase
+      .from('workspace_members')
+      .select('user_id, role, profiles(name, role)')
+      .eq('workspace_id', workspaceId);
+    members = data || [];
+  }
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 24px' }}>
