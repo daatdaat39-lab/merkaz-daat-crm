@@ -1,6 +1,7 @@
 import { createClient } from '../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Sidebar from './components/Sidebar';
+import Topbar from './components/Topbar';
 
 export default async function DashboardLayout({ children }) {
   const supabase = createClient();
@@ -67,8 +68,11 @@ export default async function DashboardLayout({ children }) {
         switchWorkspaceAction={switchWorkspace}
         logoutAction={handleLogout}
       />
-      <div style={{ flex: 1, overflowY: 'auto', background: '#f9f9f9' }}>
-        {children}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg-secondary)' }}>
+        <Topbar />
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          {children}
+        </div>
       </div>
     </div>
   );
