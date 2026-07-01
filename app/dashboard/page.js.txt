@@ -1,10 +1,8 @@
 import { createClient } from '../../lib/supabase/server';
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 export default async function DashboardPage() {
-  const cookieStore = cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
@@ -22,8 +20,7 @@ export default async function DashboardPage() {
 
   async function handleLogout() {
     'use server';
-    const cookieStore = cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = createClient();
     await supabase.auth.signOut();
     redirect('/login');
   }
@@ -57,4 +54,25 @@ export default async function DashboardPage() {
         <thead>
           <tr style={{ background: '#EFE6CC' }}>
             {['שם','טלפון','מייל','תחום','תגיות'].map(h => (
-              <th key={h} style={{ textAlign: 'right',
+              <th key={h} style={{ textAlign: 'right', fontSize: 11.5, color: '#6B6151', padding: '10px 12px' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {(contacts || []).map(c => (
+            <tr key={c.id} style={{ borderBottom: '1px solid #DFD2AC' }}>
+              <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.first} {c.last}</td>
+              <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.phone || '—'}</td>
+              <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.email || '—'}</td>
+              <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.dept || '—'}</td>
+              <td style={{ padding: '10px 12px', fontSize: 13 }}>{(c.tags || []).join(', ') || '—'}</td>
+            </tr>
+          ))}
+          {(!contacts || contacts.length === 0) && (
+            <tr><td colSpan={5} style={{ padding: '10px 12px', fontSize: 13, color: '#6B6151' }}>אין אנשי קשר</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}

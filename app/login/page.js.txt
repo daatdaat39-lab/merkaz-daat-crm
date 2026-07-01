@@ -33,17 +33,13 @@ export default function LoginPage() {
       }}>
         <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', textAlign: 'center', marginTop: 0 }}>מרכז דעת</h1>
         <p style={{ textAlign: 'center', color: '#6B6151', fontSize: 13, marginTop: -8 }}>התחברות למערכת</p>
-
         <label style={{ fontSize: 12, color: '#6B6151' }}>אימייל</label>
         <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
           style={{ width: '100%', padding: 10, margin: '6px 0 14px', borderRadius: 7, border: '1px solid #DFD2AC' }} />
-
         <label style={{ fontSize: 12, color: '#6B6151' }}>סיסמה</label>
         <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
           style={{ width: '100%', padding: 10, margin: '6px 0 18px', borderRadius: 7, border: '1px solid #DFD2AC' }} />
-
         {error && <div style={{ color: '#9C4A3C', fontSize: 12.5, marginBottom: 12 }}>{error}</div>}
-
         <button type="submit" disabled={loading} style={{
           width: '100%', padding: 11, borderRadius: 8, border: 'none',
           background: '#1F4A41', color: '#fff', fontWeight: 600, cursor: 'pointer',
