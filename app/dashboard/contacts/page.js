@@ -1,5 +1,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { StageBadge, Tag, initials } from '../components/ui';
 
 export default async function ContactsPage() {
   const supabase = createClient();
@@ -19,17 +21,17 @@ export default async function ContactsPage() {
   if (workspaceId) {
     const { data } = await supabase
       .from('contacts')
-      .select('id, first, last, phone, email, dept, tags, created_at')
+      .select('id, first, last, phone, email, dept, tags, stage, source, created_at')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false });
     contacts = data || [];
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '28px 24px' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: 0, fontSize: 20 }}>אנשי קשר</h1>
-        <p style={{ margin: '4px 0 0', color: '#6B6151', fontSize: 12.5 }}>
+        <p style={{ margin: '4px 0 0', color: '#6b6b6b', fontSize: 12.5 }}>
           {contacts.length} אנשי קשר ב-workspace הפעיל
         </p>
       </div>
@@ -37,33 +39,19 @@ export default async function ContactsPage() {
       {!workspaceId && (
         <div
           style={{
-            background: '#FBF3E7',
-            border: '1px solid #EAD8B4',
-            borderRadius: 10,
-            padding: '12px 16px',
-            fontSize: 12.5,
-            marginBottom: 18,
-            color: '#7A5A21',
+            background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8,
+            padding: '12px 16px', fontSize: 12.5, marginBottom: 18, color: '#92400e',
           }}
         >
-          לא נמצא workspace פעיל עבור המשתמש. יש לפנות למנהל המערכת.
+          לא נמצא workspace פעיל עבור המשתמש.
         </div>
       )}
 
-      <table
-        style={{
-          width: '100%',
-          borderCollapse: 'collapse',
-          background: '#FFFDF6',
-          border: '1px solid #DFD2AC',
-          borderRadius: 10,
-          overflow: 'hidden',
-        }}
-      >
+      <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
         <thead>
-          <tr style={{ background: '#EFE6CC' }}>
-            {['שם', 'טלפון', 'מייל', 'תחום', 'תגיות'].map((h) => (
-              <th key={h} style={{ textAlign: 'right', fontSize: 11.5, color: '#6B6151', padding: '10px 12px' }}>
+          <tr style={{ background: '#f9f9f9' }}>
+            {['שם', 'סטטוס', 'טלפון', 'מייל', 'תחום', 'מקור', 'תגיות'].map((h) => (
+              <th key={h} style={{ textAlign: 'right', fontSize: 11, color: '#9b9b9b', padding: '10px 16px', textTransform: 'uppercase' }}>
                 {h}
               </th>
             ))}
@@ -71,20 +59,31 @@ export default async function ContactsPage() {
         </thead>
         <tbody>
           {contacts.map((c) => (
-            <tr key={c.id} style={{ borderBottom: '1px solid #DFD2AC' }}>
-              <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.first} {c.last}</td>
-              <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.phone || '—'}</td>
-              <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.email || '—'}</td>
-              <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.dept || '—'}</td>
-              <td style={{ padding: '10px 12px', fontSize: 13 }}>{(c.tags || []).join(', ') || '—'}</td>
+            <tr key={c.id} style={{ borderBottom: '1px solid #f2f2f2' }}>
+              <td style={{ padding: '12px 16px', fontSize: 13 }}>
+                <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
+                  <span style={{
+                    width: 28, height: 28, background: '#f2f2f2', border: '1px solid #e5e5e5', borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#6b6b6b', flexShrink: 0,
+                  }}>
+                    {initials(c.first, c.last)}
+                  </span>
+                  {c.first} {c.last}
+                </Link>
+              </td>
+              <td style={{ padding: '12px 16px', fontSize: 13 }}><StageBadge stage={c.stage} /></td>
+              <td style={{ padding: '12px 16px', fontSize: 13 }}>{c.phone || '—'}</td>
+              <td style={{ padding: '12px 16px', fontSize: 13 }}>{c.email || '—'}</td>
+              <td style={{ padding: '12px 16px', fontSize: 13 }}>{c.dept || '—'}</td>
+              <td style={{ padding: '12px 16px', fontSize: 13 }}>{c.source || '—'}</td>
+              <td style={{ padding: '12px 16px', fontSize: 13 }}>
+                {(c.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
+                {(!c.tags || c.tags.length === 0) && '—'}
+              </td>
             </tr>
           ))}
           {contacts.length === 0 && (
-            <tr>
-              <td colSpan={5} style={{ padding: '10px 12px', fontSize: 13, color: '#6B6151' }}>
-                אין אנשי קשר
-              </td>
-            </tr>
+            <tr><td colSpan={7} style={{ padding: '12px 16px', fontSize: 13, color: '#9b9b9b' }}>אין אנשי קשר</td></tr>
           )}
         </tbody>
       </table>
