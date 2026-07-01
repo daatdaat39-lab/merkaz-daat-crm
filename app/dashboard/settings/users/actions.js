@@ -27,7 +27,7 @@ async function getManagerContext() {
   return { user, workspaceId };
 }
 
-export async function inviteMemberWithPassword({ email, name, role }) {
+export async function inviteMemberWithPassword({ email, name, role, dept }) {
   const ctx = await getManagerContext();
   if (!ctx) return { error: 'אין לך הרשאה להזמין משתמשים' };
   if (!email) return { error: 'יש להזין כתובת אימייל' };
@@ -63,7 +63,7 @@ export async function inviteMemberWithPassword({ email, name, role }) {
 
   const { error: profileError } = await admin
     .from('profiles')
-    .upsert({ id: userId, name: displayName, role: 'user', level: 'rep' }, { onConflict: 'id' });
+    .upsert({ id: userId, name: displayName, role: 'user', level: 'rep', dept: dept || null }, { onConflict: 'id' });
   if (profileError) return { error: profileError.message };
 
   const { error: memberError } = await admin
@@ -114,6 +114,26 @@ export async function changeMemberRole(targetUserId, role) {
     .update({ role })
     .eq('workspace_id', ctx.workspaceId)
     .eq('user_id', targetUserId);
+  if (error) return { error: error.message };
+
+  return { success: true };
+}
+
+export async function updateMemberDept(targetUserId, dept) {
+  const ctx = await getManagerContext();
+  if (!ctx) return { error: 'אין לך הרשאה' };
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    return { error: e.message };
+  }
+
+  const { error } = await admin
+    .from('profiles')
+    .update({ dept: dept || null })
+    .eq('id', targetUserId);
   if (error) return { error: error.message };
 
   return { success: true };

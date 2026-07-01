@@ -39,7 +39,7 @@ export default async function UsersManagementPage() {
     if (userIds.length > 0) {
       const { data: profileRows } = await admin
         .from('profiles')
-        .select('id, name, role')
+        .select('id, name, role, dept')
         .in('id', userIds);
       profilesById = Object.fromEntries((profileRows || []).map((p) => [p.id, p]));
     }
@@ -82,6 +82,7 @@ export default async function UsersManagementPage() {
               userId={m.user_id}
               name={m.profiles?.name || 'משתמש'}
               role={m.role}
+              dept={m.profiles?.dept}
               isSelf={m.user_id === user.id}
             />
           ) : (
