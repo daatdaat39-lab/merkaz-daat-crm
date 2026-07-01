@@ -29,18 +29,28 @@ export default async function UsersManagementPage() {
   let members = [];
   try {
     const admin = createAdminClient();
-    const { data } = await admin
+    const { data: memberRows } = await admin
       .from('workspace_members')
-      .select('user_id, role, profiles(name, role)')
+      .select('user_id, role')
       .eq('workspace_id', workspaceId);
-    members = data || [];
+
+    const userIds = (memberRows || []).map((m) => m.user_id);
+    let profilesById = {};
+    if (userIds.length > 0) {
+      const { data: profileRows } = await admin
+        .from('profiles')
+        .select('id, name, role')
+        .in('id', userIds);
+      profilesById = Object.fromEntries((profileRows || []).map((p) => [p.id, p]));
+    }
+
+    members = (memberRows || []).map((m) => ({
+      user_id: m.user_id,
+      role: m.role,
+      profiles: profilesById[m.user_id] || null,
+    }));
   } catch {
-    // אם אין service role key מוגדר, נחזור לשאילתה הרגילה (עלולה להחזיר פחות פרטים)
-    const { data } = await supabase
-      .from('workspace_members')
-      .select('user_id, role, profiles(name, role)')
-      .eq('workspace_id', workspaceId);
-    members = data || [];
+    members = [];
   }
 
   return (
