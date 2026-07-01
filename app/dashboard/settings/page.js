@@ -1,5 +1,6 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import NotConnectedButton from '../components/NotConnectedButton';
 
 export default async function SettingsPage() {
@@ -40,21 +41,20 @@ export default async function SettingsPage() {
         )}
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20 }}>
-        <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
-          חברי הצוות ({members.length})
+      <div style={{
+        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
+      }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>חברי הצוות</div>
+          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>{members.length} משתמשים ב-workspace</div>
         </div>
-        {members.map((m, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 18px', borderBottom: '1px solid #f2f2f2', fontSize: 13 }}>
-            <span>{m.profiles?.name || 'משתמש'}</span>
-            <span style={{
-              fontSize: 11, color: '#6b6b6b', background: '#f2f2f2', padding: '2px 9px', borderRadius: 10,
-            }}>
-              {m.role === 'owner' ? 'בעלים' : m.role === 'admin' ? 'מנהל' : 'חבר'}
-            </span>
-          </div>
-        ))}
-        {members.length === 0 && <div style={{ padding: '14px 18px', fontSize: 13, color: '#9b9b9b' }}>אין חברים</div>}
+        <Link href="/dashboard/settings/users" style={{
+          background: '#0a0a0a', color: '#fff', textDecoration: 'none', fontSize: 13,
+          padding: '7px 16px', borderRadius: 6,
+        }}>
+          ניהול משתמשים →
+        </Link>
       </div>
 
       <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20 }}>
@@ -87,7 +87,7 @@ export default async function SettingsPage() {
         background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px',
         fontSize: 12.5, color: '#92400e',
       }}>
-        ניהול הזמנות חברי צוות חדשים ואינטגרציות (מייל/וואטסאפ) יתווספו בשלב הבא.
+        אינטגרציות (מייל/וואטסאפ/טלפוניה) יתווספו בשלב הבא — ניהול משתמשים כבר פעיל.
       </div>
     </div>
   );
