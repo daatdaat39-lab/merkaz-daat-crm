@@ -63,7 +63,7 @@ export async function inviteMemberWithPassword({ email, name, role }) {
 
   const { error: profileError } = await admin
     .from('profiles')
-    .upsert({ id: userId, name: displayName, role: 'user', level: '' }, { onConflict: 'id' });
+    .upsert({ id: userId, name: displayName, role: 'user', level: 'rep' }, { onConflict: 'id' });
   if (profileError) return { error: profileError.message };
 
   const { error: memberError } = await admin
