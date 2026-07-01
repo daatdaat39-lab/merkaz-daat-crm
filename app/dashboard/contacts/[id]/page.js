@@ -2,6 +2,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { StageBadge, Tag, initials, STAGE_ORDER, STAGE_LABELS } from '../../components/ui';
 import ContactTabs from './ContactTabs';
+import NotConnectedButton from '../../components/NotConnectedButton';
 
 export default async function ContactDetailPage({ params }) {
   const supabase = createClient();
@@ -106,6 +107,15 @@ export default async function ContactDetailPage({ params }) {
         </form>
       </div>
 
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        <NotConnectedButton label="חיוג" icon="📞" message="חיוג מתוך המערכת (ימות המשיח) — עדיין לא מחובר" />
+        <NotConnectedButton label="וואטסאפ" icon="💬" message="שליחת וואטסאפ — עדיין לא מחובר" />
+        <NotConnectedButton label="מייל" icon="✉️" message="שליחת מייל — עדיין לא מחובר" />
+        <NotConnectedButton label="קביעת פגישה ביומן" icon="📅" message="חיבור ל-Google Calendar — עדיין לא מחובר" />
+        <NotConnectedButton label="סיכום AI" icon="✨" message="סיכום שיחות ב-AI — עדיין לא מחובר" />
+        <NotConnectedButton label="בדיקת כפילויות" icon="🔗" message="זיהוי ומיזוג כפילויות — עדיין לא מחובר" />
+      </div>
+
       <div style={{ display: 'flex', gap: 20 }}>
         {/* עמודה שמאלית - מידע קבוע */}
         <div style={{ width: 240, flexShrink: 0 }}>
@@ -120,6 +130,26 @@ export default async function ContactDetailPage({ params }) {
             <div style={{ marginTop: 12 }}>
               {(contact.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
             </div>
+          </div>
+
+          <div style={{ background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: 16, marginTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 10 }}>
+              מסמכים
+            </div>
+            <div style={{ fontSize: 12, color: '#9b9b9b', marginBottom: 10 }}>אין מסמכים</div>
+            <NotConnectedButton
+              label="העלאת מסמך"
+              icon="📎"
+              message="העלאת תעודת בגרות / גיליון ציונים — עדיין לא מחובר"
+              style={{ width: '100%', justifyContent: 'center' }}
+            />
+          </div>
+
+          <div style={{ background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: 16, marginTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 10 }}>
+              הקלטות שיחה
+            </div>
+            <div style={{ fontSize: 12, color: '#9b9b9b' }}>אין הקלטות (טלפוניה לא מחוברת)</div>
           </div>
         </div>
 

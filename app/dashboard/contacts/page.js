@@ -2,6 +2,7 @@ import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { StageBadge, Tag, initials } from '../components/ui';
+import NotConnectedButton from '../components/NotConnectedButton';
 
 export default async function ContactsPage() {
   const supabase = createClient();
@@ -28,18 +29,24 @@ export default async function ContactsPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: 0, fontSize: 20 }}>אנשי קשר</h1>
-        <p style={{ margin: '4px 0 0', color: '#6b6b6b', fontSize: 12.5 }}>
-          {contacts.length} אנשי קשר ב-workspace הפעיל
-        </p>
+    <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ fontFamily: 'var(--font-heading)', margin: 0, fontSize: 20 }}>אנשי קשר</h1>
+          <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 12.5 }}>
+            {contacts.length} אנשי קשר ב-workspace הפעיל
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <NotConnectedButton label="ייבוא מאקסל" icon="⬆" message="ייבוא מאקסל — עדיין לא מחובר" />
+          <NotConnectedButton label="איש קשר חדש" icon="+" variant="primary" message="הוספת איש קשר ידנית — בקרוב" />
+        </div>
       </div>
 
       {!workspaceId && (
         <div
           style={{
-            background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8,
+            background: 'var(--amber-bg)', border: '1px solid #fde68a', borderRadius: 8,
             padding: '12px 16px', fontSize: 12.5, marginBottom: 18, color: '#92400e',
           }}
         >
@@ -47,11 +54,11 @@ export default async function ContactsPage() {
         </div>
       )}
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
         <thead>
-          <tr style={{ background: '#f9f9f9' }}>
-            {['שם', 'סטטוס', 'טלפון', 'מייל', 'תחום', 'מקור', 'תגיות'].map((h) => (
-              <th key={h} style={{ textAlign: 'right', fontSize: 11, color: '#9b9b9b', padding: '10px 16px', textTransform: 'uppercase' }}>
+          <tr style={{ background: 'var(--bg-secondary)' }}>
+            {['שם', 'סטטוס', 'טלפון', 'מייל', 'תחום', 'מקור', 'תגיות', 'פעולות מהירות'].map((h) => (
+              <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>
                 {h}
               </th>
             ))}
@@ -59,12 +66,12 @@ export default async function ContactsPage() {
         </thead>
         <tbody>
           {contacts.map((c) => (
-            <tr key={c.id} style={{ borderBottom: '1px solid #f2f2f2' }}>
+            <tr key={c.id} style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
                 <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
                   <span style={{
-                    width: 28, height: 28, background: '#f2f2f2', border: '1px solid #e5e5e5', borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: '#6b6b6b', flexShrink: 0,
+                    width: 28, height: 28, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0,
                   }}>
                     {initials(c.first, c.last)}
                   </span>
@@ -80,10 +87,17 @@ export default async function ContactsPage() {
                 {(c.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
                 {(!c.tags || c.tags.length === 0) && '—'}
               </td>
+              <td style={{ padding: '12px 16px', fontSize: 13 }}>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <NotConnectedButton icon="📞" label="חיוג" variant="icon" message="חיוג מתוך המערכת — עדיין לא מחובר" />
+                  <NotConnectedButton icon="💬" label="וואטסאפ" variant="icon" message="וואטסאפ — עדיין לא מחובר" />
+                  <NotConnectedButton icon="✉️" label="מייל" variant="icon" message="שליחת מייל — עדיין לא מחובר" />
+                </div>
+              </td>
             </tr>
           ))}
           {contacts.length === 0 && (
-            <tr><td colSpan={7} style={{ padding: '12px 16px', fontSize: 13, color: '#9b9b9b' }}>אין אנשי קשר</td></tr>
+            <tr><td colSpan={8} style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>אין אנשי קשר</td></tr>
           )}
         </tbody>
       </table>

@@ -23,6 +23,14 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    label: 'תקשורת',
+    items: [
+      { href: '/dashboard/whatsapp', label: 'וואטסאפ', icon: '💬' },
+      { href: '/dashboard/email', label: 'מייל', icon: '✉️' },
+      { href: '/dashboard/calls', label: 'שיחות', icon: '📞' },
+    ],
+  },
+  {
     label: 'ניהול',
     items: [
       { href: '/dashboard/reports', label: 'דוחות', icon: '📊' },

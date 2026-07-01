@@ -1,5 +1,6 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
+import NotConnectedButton from '../components/NotConnectedButton';
 
 export default async function SettingsPage() {
   const supabase = createClient();
@@ -54,6 +55,32 @@ export default async function SettingsPage() {
           </div>
         ))}
         {members.length === 0 && <div style={{ padding: '14px 18px', fontSize: 13, color: '#9b9b9b' }}>אין חברים</div>}
+      </div>
+
+      <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20 }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
+          אינטגרציות
+        </div>
+        {[
+          { label: 'WhatsApp Business', desc: 'שליחה וקבלה מתוך המערכת' },
+          { label: 'Google Workspace (Email)', desc: 'תיבת מייל נפרדת ל-workspace' },
+          { label: 'טלפוניה (ימות המשיח)', desc: 'חיוג, הקלטות, תמלול' },
+          { label: 'SMS', desc: 'שליחה ידנית ואוטומטית' },
+          { label: 'קשר (סליקה וקבלות)', desc: 'תרומות, הוראות קבע, קבלות' },
+          { label: 'Google Calendar', desc: 'סנכרון פגישות' },
+          { label: 'מנוע אוטומציות', desc: 'טריגר → תנאי → פעולה' },
+        ].map((item) => (
+          <div key={item.label} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '12px 18px', borderBottom: '1px solid #f2f2f2',
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</div>
+              <div style={{ fontSize: 11.5, color: '#9b9b9b' }}>{item.desc}</div>
+            </div>
+            <NotConnectedButton label="חיבור" message={`חיבור ${item.label} — עדיין לא מחובר`} />
+          </div>
+        ))}
       </div>
 
       <div style={{
