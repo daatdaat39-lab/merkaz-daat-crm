@@ -2,6 +2,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { StageBadge, Tag, initials, STAGE_ORDER, STAGE_LABELS } from '../../components/ui';
 import ContactTabs from './ContactTabs';
+import StageSelector from './StageSelector';
 import NotConnectedButton from '../../components/NotConnectedButton';
 
 export default async function ContactDetailPage({ params }) {
@@ -90,21 +91,7 @@ export default async function ContactDetailPage({ params }) {
             {contact.dept && <span>{contact.dept}</span>}
           </div>
         </div>
-        <form action={updateStage}>
-          <select
-            name="stage"
-            defaultValue={contact.stage}
-            onChange={(e) => e.target.form.requestSubmit()}
-            style={{
-              border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 12.5,
-              background: '#fff', cursor: 'pointer',
-            }}
-          >
-            {STAGE_ORDER.map((s) => (
-              <option key={s} value={s}>{STAGE_LABELS[s]}</option>
-            ))}
-          </select>
-        </form>
+        <StageSelector currentStage={contact.stage} action={updateStage} />
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
