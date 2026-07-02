@@ -1,5 +1,20 @@
 export const WS_COLORS = ['#2563eb', '#7c3aed', '#16a34a', '#d97706', '#dc2626'];
 
+// מיפוי בין שם מחלקה למילות מפתח שמזהות שייכות דרך תגיות/dept
+export const DEPT_KEYWORDS = {
+  'תרומות': ['תרומה'],
+  'לימודי': ['לימוד'],
+  'מנהלה': ['מנהלה'],
+};
+
+// בודק אם איש קשר שייך למחלקה נתונה, לפי שדה dept או לפי אחת התגיות שלו
+export function contactMatchesDept(contact, dept) {
+  if (!dept) return true;
+  if (contact.dept === dept) return true;
+  const keywords = DEPT_KEYWORDS[dept] || [dept];
+  return (contact.tags || []).some((tag) => keywords.some((kw) => tag.includes(kw)));
+}
+
 export const STAGE_LABELS = {
   open: 'פתוח',
   meeting: 'פגישה',
