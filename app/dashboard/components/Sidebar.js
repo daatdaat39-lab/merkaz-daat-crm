@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { WS_COLORS } from './ui';
 
 const NAV_SECTIONS = [
   {
@@ -39,8 +40,6 @@ const NAV_SECTIONS = [
   },
 ];
 
-const WS_COLORS = ['#2563eb', '#7c3aed', '#16a34a', '#d97706', '#dc2626'];
-
 export default function Sidebar({
   profile,
   userEmail,
@@ -74,6 +73,7 @@ export default function Sidebar({
         style={{
           padding: '20px 16px 16px',
           borderBottom: '1px solid #e5e5e5',
+          borderTop: `3px solid ${WS_COLORS[currentIndex >= 0 ? currentIndex % WS_COLORS.length : 0]}`,
           display: 'flex',
           alignItems: 'center',
           gap: 10,

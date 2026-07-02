@@ -1,3 +1,5 @@
+export const WS_COLORS = ['#2563eb', '#7c3aed', '#16a34a', '#d97706', '#dc2626'];
+
 export const STAGE_LABELS = {
   open: 'פתוח',
   meeting: 'פגישה',

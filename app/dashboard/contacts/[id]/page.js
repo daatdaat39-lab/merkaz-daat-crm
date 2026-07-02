@@ -19,6 +19,19 @@ export default async function ContactDetailPage({ params }) {
 
   const workspaceId = profile?.current_workspace_id;
 
+  const { data: myMembership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', user.id)
+    .single();
+
+  const { data: myProfile } = await supabase
+    .from('profiles')
+    .select('dept')
+    .eq('id', user.id)
+    .single();
+
   const { data: contact } = await supabase
     .from('contacts')
     .select('*')
@@ -27,6 +40,10 @@ export default async function ContactDetailPage({ params }) {
     .single();
 
   if (!contact) notFound();
+
+  const isManager = myMembership?.role === 'owner' || myMembership?.role === 'admin';
+  const viewerDept = myProfile?.dept;
+  const canViewFull = isManager || !viewerDept || !contact.dept || viewerDept === contact.dept;
 
   const [{ data: meetings }, { data: tasks }] = await Promise.all([
     supabase
@@ -141,14 +158,44 @@ export default async function ContactDetailPage({ params }) {
         </div>
 
         {/* עמודה ראשית - טאבים */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <ContactTabs
-            meetings={meetings || []}
-            tasks={tasks || []}
-            notes={contact.notes}
-            toggleTaskAction={toggleTask}
-            updateNotesAction={updateNotes}
-          />
+        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+          {canViewFull ? (
+            <ContactTabs
+              meetings={meetings || []}
+              tasks={tasks || []}
+              notes={contact.notes}
+              toggleTaskAction={toggleTask}
+              updateNotesAction={updateNotes}
+            />
+          ) : (
+            <div style={{ position: 'relative', minHeight: 220 }}>
+              <div style={{ filter: 'blur(6px)', pointerEvents: 'none', userSelect: 'none' }}>
+                <ContactTabs
+                  meetings={meetings || []}
+                  tasks={tasks || []}
+                  notes={contact.notes}
+                  toggleTaskAction={toggleTask}
+                  updateNotesAction={updateNotes}
+                />
+              </div>
+              <div style={{
+                position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center', gap: 8,
+                background: 'rgba(255,255,255,0.55)', borderRadius: 8,
+              }}>
+                <div style={{ fontSize: 24 }}>🔒</div>
+                <div style={{
+                  background: '#0a0a0a', color: '#fff', fontSize: 13, fontWeight: 500,
+                  padding: '8px 18px', borderRadius: 20,
+                }}>
+                  אין לך הרשאה לצפות בתוכן זה
+                </div>
+                <div style={{ fontSize: 11.5, color: '#6b6b6b' }}>
+                  איש הקשר שייך למחלקת "{contact.dept}" — פנה למנהל אם נדרשת גישה
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

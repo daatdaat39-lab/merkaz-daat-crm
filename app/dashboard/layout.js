@@ -25,6 +25,7 @@ export default async function DashboardLayout({ children }) {
     .map((m) => ({ id: m.workspaces.id, name: m.workspaces.name, role: m.role }));
 
   const currentWorkspaceId = profile?.current_workspace_id || workspaces[0]?.id || null;
+  const currentWorkspaceIndex = workspaces.findIndex((w) => w.id === currentWorkspaceId);
 
   async function switchWorkspace(formData) {
     'use server';
@@ -69,7 +70,7 @@ export default async function DashboardLayout({ children }) {
         logoutAction={handleLogout}
       />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg-secondary)' }}>
-        <Topbar />
+        <Topbar workspaceColorIndex={currentWorkspaceIndex} />
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {children}
         </div>

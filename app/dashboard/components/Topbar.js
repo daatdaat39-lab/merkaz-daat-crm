@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import NotConnectedButton from './NotConnectedButton';
+import { WS_COLORS } from './ui';
 
 const TITLES = {
   '/dashboard': 'לוח בקרה',
@@ -18,14 +19,16 @@ const TITLES = {
   '/dashboard/settings': 'הגדרות',
 };
 
-export default function Topbar() {
+export default function Topbar({ workspaceColorIndex = 0 }) {
   const pathname = usePathname();
   const title = pathname.startsWith('/dashboard/contacts/') ? 'איש קשר' : (TITLES[pathname] || 'מרכז דעת');
+  const accent = WS_COLORS[workspaceColorIndex >= 0 ? workspaceColorIndex % WS_COLORS.length : 0];
 
   return (
     <div style={{
       background: 'var(--bg)',
-      borderBottom: '1px solid var(--border)',
+      borderBottom: `1px solid var(--border)`,
+      borderTop: `2px solid ${accent}`,
       padding: '0 24px',
       height: 52,
       display: 'flex',
