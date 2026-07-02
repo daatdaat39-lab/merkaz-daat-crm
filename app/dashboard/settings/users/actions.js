@@ -98,6 +98,45 @@ export async function resetMemberPassword(targetUserId) {
   return { success: true, password: tempPassword };
 }
 
+export async function setMemberPassword(targetUserId, newPassword) {
+  const ctx = await getManagerContext();
+  if (!ctx) return { error: 'אין לך הרשאה' };
+  if (!newPassword || newPassword.length < 6) return { error: 'הסיסמה חייבת להכיל לפחות 6 תווים' };
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    return { error: e.message };
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(targetUserId, { password: newPassword });
+  if (error) return { error: error.message };
+
+  return { success: true, password: newPassword };
+}
+
+export async function changeMemberEmail(targetUserId, newEmail) {
+  const ctx = await getManagerContext();
+  if (!ctx) return { error: 'אין לך הרשאה' };
+  if (!newEmail || !newEmail.includes('@')) return { error: 'כתובת אימייל לא תקינה' };
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    return { error: e.message };
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(targetUserId, {
+    email: newEmail,
+    email_confirm: true,
+  });
+  if (error) return { error: error.message };
+
+  return { success: true, email: newEmail };
+}
+
 export async function changeMemberRole(targetUserId, role) {
   const ctx = await getManagerContext();
   if (!ctx) return { error: 'אין לך הרשאה' };

@@ -44,10 +44,15 @@ export default async function UsersManagementPage() {
       profilesById = Object.fromEntries((profileRows || []).map((p) => [p.id, p]));
     }
 
+    let emailsById = {};
+    const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    (usersList?.users || []).forEach((u) => { emailsById[u.id] = u.email; });
+
     members = (memberRows || []).map((m) => ({
       user_id: m.user_id,
       role: m.role,
       profiles: profilesById[m.user_id] || null,
+      email: emailsById[m.user_id] || '',
     }));
   } catch {
     members = [];
@@ -83,6 +88,7 @@ export default async function UsersManagementPage() {
               name={m.profiles?.name || 'משתמש'}
               role={m.role}
               dept={m.profiles?.dept}
+              email={m.email}
               isSelf={m.user_id === user.id}
             />
           ) : (
