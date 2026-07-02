@@ -7,7 +7,7 @@ import {
   updateMemberDept, changeMemberEmail, setMemberPassword,
 } from './actions';
 
-export default function MemberRow({ userId, name, role, dept, email, isSelf }) {
+export default function MemberRow({ userId, name, role, dept, email, allMemberships, isSelf }) {
   const [isPending, startTransition] = useTransition();
   const [resetResult, setResetResult] = useState(null);
   const [emailValue, setEmailValue] = useState(email || '');
@@ -75,6 +75,18 @@ export default function MemberRow({ userId, name, role, dept, email, isSelf }) {
         <div style={{ flex: 1, minWidth: 100 }}>
           <div style={{ fontSize: 13, fontWeight: 500 }}>{name}</div>
           <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{email}</div>
+          {allMemberships && allMemberships.length > 1 && (
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+              {allMemberships.map((m, i) => (
+                <span key={i} style={{
+                  fontSize: 10, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
+                  padding: '1px 7px', borderRadius: 8,
+                }}>
+                  {m.workspaceName} ({m.role === 'owner' ? 'בעלים' : m.role === 'admin' ? 'מנהל' : 'חבר'})
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <select

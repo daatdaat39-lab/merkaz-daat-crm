@@ -48,11 +48,26 @@ export default async function UsersManagementPage() {
     const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
     (usersList?.users || []).forEach((u) => { emailsById[u.id] = u.email; });
 
+    // כל החברויות של המשתמשים האלה בכל ה-workspaces (לא רק הנוכחי) - לתצוגת "כל המחלקות שלו"
+    let allMembershipsByUser = {};
+    if (userIds.length > 0) {
+      const { data: allMemberships } = await admin
+        .from('workspace_members')
+        .select('user_id, role, workspaces (name)')
+        .in('user_id', userIds);
+      (allMemberships || []).forEach((m) => {
+        if (!m.workspaces) return;
+        allMembershipsByUser[m.user_id] = allMembershipsByUser[m.user_id] || [];
+        allMembershipsByUser[m.user_id].push({ workspaceName: m.workspaces.name, role: m.role });
+      });
+    }
+
     members = (memberRows || []).map((m) => ({
       user_id: m.user_id,
       role: m.role,
       profiles: profilesById[m.user_id] || null,
       email: emailsById[m.user_id] || '',
+      allMemberships: allMembershipsByUser[m.user_id] || [],
     }));
   } catch {
     members = [];
@@ -89,6 +104,7 @@ export default async function UsersManagementPage() {
               role={m.role}
               dept={m.profiles?.dept}
               email={m.email}
+              allMemberships={m.allMemberships}
               isSelf={m.user_id === user.id}
             />
           ) : (

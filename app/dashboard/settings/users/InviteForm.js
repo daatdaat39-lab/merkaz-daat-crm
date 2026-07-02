@@ -102,7 +102,7 @@ export default function InviteForm() {
           marginTop: 10, background: 'var(--green-bg)', border: '1px solid #86efac', borderRadius: 8,
           padding: '12px 16px', fontSize: 12.5, color: '#166534',
         }}>
-          ✅ המשתמש כבר קיים במערכת — הוא נוסף ל-workspace הזה עם הפרטים הקיימים שלו.
+          ✅ המשתמש כבר קיים במערכת — הוא **נוסף כמחלקה נוספת** ל-workspace הזה (החברות שלו במחלקות אחרות לא נפגעה).
         </div>
       )}
     </div>
