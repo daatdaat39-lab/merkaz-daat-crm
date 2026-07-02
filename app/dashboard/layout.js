@@ -22,10 +22,26 @@ export default async function DashboardLayout({ children }) {
 
   const workspaces = (memberships || [])
     .filter((m) => m.workspaces)
-    .map((m) => ({ id: m.workspaces.id, name: m.workspaces.name, role: m.role }));
+    .map((m) => ({ id: m.workspaces.id, name: m.workspaces.name, role: m.role, restricted: false }));
+
+  // ה-workspace הראשי ("מרכז דעת — ראשי") מוצג לכולם בבורר, גם אם המשתמש לא חבר בו בפועל —
+  // אבל אז הגישה אליו תיחסם עם הודעה במקום להציג תוכן
+  const { data: mainWs } = await supabase
+    .from('workspaces')
+    .select('id, name')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .single();
+
+  const mainWorkspaceId = mainWs?.id || null;
+  const alreadyHasMain = workspaces.some((w) => w.id === mainWorkspaceId);
+  if (mainWs && !alreadyHasMain) {
+    workspaces.unshift({ id: mainWs.id, name: mainWs.name, role: null, restricted: true });
+  }
 
   const currentWorkspaceId = profile?.current_workspace_id || workspaces[0]?.id || null;
   const currentWorkspaceIndex = workspaces.findIndex((w) => w.id === currentWorkspaceId);
+  const hasAccessToCurrent = workspaces.some((w) => w.id === currentWorkspaceId && !w.restricted);
 
   async function switchWorkspace(formData) {
     'use server';
@@ -34,15 +50,21 @@ export default async function DashboardLayout({ children }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !workspaceId) return;
 
-    // מוודאים שהמשתמש באמת חבר ב-workspace הזה לפני שמעדכנים
-    const { data: membership } = await supabase
-      .from('workspace_members')
-      .select('workspace_id')
-      .eq('user_id', user.id)
-      .eq('workspace_id', workspaceId)
-      .single();
+    // ה-workspace הראשי תמיד ניתן לבחירה (הגישה אליו נבדקת ומוצגת בנפרד)
+    const { data: mainWs } = await supabase
+      .from('workspaces').select('id').order('created_at', { ascending: true }).limit(1).single();
 
-    if (!membership) return;
+    if (workspaceId !== mainWs?.id) {
+      // לכל workspace אחר מוודאים שהמשתמש באמת חבר בו לפני שמעדכנים
+      const { data: membership } = await supabase
+        .from('workspace_members')
+        .select('workspace_id')
+        .eq('user_id', user.id)
+        .eq('workspace_id', workspaceId)
+        .single();
+
+      if (!membership) return;
+    }
 
     await supabase
       .from('profiles')
@@ -72,7 +94,19 @@ export default async function DashboardLayout({ children }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg-secondary)' }}>
         <Topbar workspaceColorIndex={currentWorkspaceIndex} />
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {children}
+          {hasAccessToCurrent ? children : (
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              height: '100%', gap: 10, textAlign: 'center', padding: 40,
+            }}>
+              <div style={{ fontSize: 40 }}>🔒</div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>אין לך גישה למחלקה זו</div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', maxWidth: 340 }}>
+                "{workspaces.find((w) => w.id === currentWorkspaceId)?.name}" הוא workspace מוגבל.
+                פנה למנהל המערכת אם אתה זקוק לגישה, או עבור ל-workspace אחר מהתפריט בצד.
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

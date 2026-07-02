@@ -184,6 +184,7 @@ export default function Sidebar({
                     }}
                   />
                   {w.name}
+                  {w.restricted && <span style={{ marginRight: 'auto', fontSize: 11 }}>🔒</span>}
                 </button>
               </form>
             ))}

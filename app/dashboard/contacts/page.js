@@ -1,7 +1,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { StageBadge, Tag, initials, contactMatchesDept } from '../components/ui';
+import { StageBadge, Tag, initials } from '../components/ui';
 import NotConnectedButton from '../components/NotConnectedButton';
 
 export default async function ContactsPage() {
@@ -12,21 +12,11 @@ export default async function ContactsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('current_workspace_id, dept')
+    .select('current_workspace_id')
     .eq('id', user.id)
     .single();
 
   const workspaceId = profile?.current_workspace_id;
-
-  const { data: myMembership } = await supabase
-    .from('workspace_members')
-    .select('role')
-    .eq('workspace_id', workspaceId)
-    .eq('user_id', user.id)
-    .single();
-
-  const isManager = myMembership?.role === 'owner' || myMembership?.role === 'admin';
-  const viewerDept = isManager ? null : profile?.dept;
 
   let contacts = [];
   if (workspaceId) {
@@ -35,7 +25,7 @@ export default async function ContactsPage() {
       .select('id, first, last, phone, email, dept, tags, stage, source, created_at')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false });
-    contacts = (data || []).filter((c) => contactMatchesDept(c, viewerDept));
+    contacts = data || [];
   }
 
   return (
@@ -44,7 +34,7 @@ export default async function ContactsPage() {
         <div>
           <h1 style={{ fontFamily: 'var(--font-heading)', margin: 0, fontSize: 20 }}>אנשי קשר</h1>
           <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 12.5 }}>
-            {contacts.length} אנשי קשר{viewerDept ? ` — מסונן למחלקת "${viewerDept}"` : ' ב-workspace הפעיל'}
+            {contacts.length} אנשי קשר ב-workspace הפעיל
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

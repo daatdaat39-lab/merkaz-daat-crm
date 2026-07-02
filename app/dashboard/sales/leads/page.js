@@ -10,21 +10,11 @@ export default async function SalesLeadsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('current_workspace_id, dept')
+    .select('current_workspace_id')
     .eq('id', user.id)
     .single();
 
   const workspaceId = profile?.current_workspace_id;
-
-  const { data: myMembership } = await supabase
-    .from('workspace_members')
-    .select('role')
-    .eq('workspace_id', workspaceId)
-    .eq('user_id', user.id)
-    .single();
-
-  const isManager = myMembership?.role === 'owner' || myMembership?.role === 'admin';
-  const viewerDept = isManager ? null : profile?.dept;
 
   let leads = [];
   if (workspaceId) {
@@ -37,25 +27,21 @@ export default async function SalesLeadsPage() {
     leads = data || [];
   }
 
-  // כל מחלקה מוכרת + "אחר" לכל מה שלא שייך לאף מחלקה מוכרת
+  // מחלקים לתת-קטגוריות לפי תגית (לצורך ארגון בלבד - כל חברי ה-workspace רואים הכל)
   const departments = Object.keys(DEPT_KEYWORDS);
   const categorized = departments
-    .filter((d) => !viewerDept || d === viewerDept) // נציג מחלקה רואה רק את הקטגוריה שלו
-    .map((dept) => ({
-      dept,
-      leads: leads.filter((l) => contactMatchesDept(l, dept)),
-    }))
+    .map((dept) => ({ dept, leads: leads.filter((l) => contactMatchesDept(l, dept)) }))
     .filter((group) => group.leads.length > 0);
 
   const categorizedIds = new Set(categorized.flatMap((g) => g.leads.map((l) => l.id)));
-  const uncategorized = viewerDept ? [] : leads.filter((l) => !categorizedIds.has(l.id));
+  const uncategorized = leads.filter((l) => !categorizedIds.has(l.id));
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '28px 24px' }}>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: 0, fontSize: 20 }}>לידים</h1>
         <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 12.5 }}>
-          לידים פתוחים מחולקים לפי מחלקה{viewerDept ? ` — מסונן ל-"${viewerDept}"` : ''}
+          {leads.length} לידים פתוחים, מחולקים לתת-קטגוריות
         </p>
       </div>
 
@@ -63,9 +49,9 @@ export default async function SalesLeadsPage() {
         <LeadGroup key={group.dept} title={group.dept} leads={group.leads} />
       ))}
 
-      {uncategorized.length > 0 && <LeadGroup title="ללא מחלקה מזוהה" leads={uncategorized} />}
+      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} />}
 
-      {categorized.length === 0 && uncategorized.length === 0 && (
+      {leads.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים פתוחים כרגע</div>
       )}
     </div>
