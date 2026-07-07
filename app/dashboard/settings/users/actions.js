@@ -24,13 +24,26 @@ async function getManagerContext() {
     .from('workspace_members').select('role').eq('workspace_id', workspaceId).eq('user_id', user.id).single();
   if (!membership || (membership.role !== 'owner' && membership.role !== 'admin')) return null;
 
-  return { user, workspaceId };
+  return { user, workspaceId, role: membership.role };
+}
+
+// מונע מ-admin (שאינו owner) לגעת בחבר שהוא owner, או להעניק תפקיד owner למישהו —
+// אחרת admin יכול להשתלט על חשבון ה-owner (סיסמה/מייל) או לקדם את עצמו
+async function getTargetRole(admin, workspaceId, targetUserId) {
+  const { data } = await admin
+    .from('workspace_members')
+    .select('role')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', targetUserId)
+    .single();
+  return data?.role || null;
 }
 
 export async function inviteMemberWithPassword({ email, name, role, dept }) {
   const ctx = await getManagerContext();
   if (!ctx) return { error: 'אין לך הרשאה להזמין משתמשים' };
   if (!email) return { error: 'יש להזין כתובת אימייל' };
+  if (role === 'owner' && ctx.role !== 'owner') return { error: 'רק owner יכול להזמין משתמש בתפקיד owner' };
 
   let admin;
   try {
@@ -91,6 +104,11 @@ export async function resetMemberPassword(targetUserId) {
     return { error: e.message };
   }
 
+  if (ctx.role !== 'owner') {
+    const targetRole = await getTargetRole(admin, ctx.workspaceId, targetUserId);
+    if (targetRole === 'owner') return { error: 'רק owner יכול לאפס סיסמה של owner אחר' };
+  }
+
   const tempPassword = generatePassword();
   const { error } = await admin.auth.admin.updateUserById(targetUserId, { password: tempPassword });
   if (error) return { error: error.message };
@@ -108,6 +126,11 @@ export async function setMemberPassword(targetUserId, newPassword) {
     admin = createAdminClient();
   } catch (e) {
     return { error: e.message };
+  }
+
+  if (ctx.role !== 'owner') {
+    const targetRole = await getTargetRole(admin, ctx.workspaceId, targetUserId);
+    if (targetRole === 'owner') return { error: 'רק owner יכול לקבוע סיסמה ל-owner אחר' };
   }
 
   const { error } = await admin.auth.admin.updateUserById(targetUserId, { password: newPassword });
@@ -128,6 +151,11 @@ export async function changeMemberEmail(targetUserId, newEmail) {
     return { error: e.message };
   }
 
+  if (ctx.role !== 'owner') {
+    const targetRole = await getTargetRole(admin, ctx.workspaceId, targetUserId);
+    if (targetRole === 'owner') return { error: 'רק owner יכול לשנות את כתובת המייל של owner אחר' };
+  }
+
   const { error } = await admin.auth.admin.updateUserById(targetUserId, {
     email: newEmail,
     email_confirm: true,
@@ -146,6 +174,12 @@ export async function changeMemberRole(targetUserId, role) {
     admin = createAdminClient();
   } catch (e) {
     return { error: e.message };
+  }
+
+  if (ctx.role !== 'owner') {
+    if (role === 'owner') return { error: 'רק owner יכול להעניק תפקיד owner' };
+    const targetRole = await getTargetRole(admin, ctx.workspaceId, targetUserId);
+    if (targetRole === 'owner') return { error: 'רק owner יכול לשנות תפקיד של owner אחר' };
   }
 
   const { error } = await admin
@@ -188,6 +222,11 @@ export async function removeMemberFromWorkspace(targetUserId) {
     admin = createAdminClient();
   } catch (e) {
     return { error: e.message };
+  }
+
+  if (ctx.role !== 'owner') {
+    const targetRole = await getTargetRole(admin, ctx.workspaceId, targetUserId);
+    if (targetRole === 'owner') return { error: 'רק owner יכול להסיר owner אחר' };
   }
 
   const { error } = await admin
