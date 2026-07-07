@@ -74,6 +74,11 @@ export async function inviteMemberWithPassword({ email, name, role, dept }) {
     isNewUser = false;
   }
 
+  if (ctx.role !== 'owner') {
+    const existingRole = await getTargetRole(admin, ctx.workspaceId, userId);
+    if (existingRole === 'owner') return { error: 'רק owner יכול לשנות הרשאות של owner קיים' };
+  }
+
   const { error: profileError } = await admin
     .from('profiles')
     .upsert({ id: userId, name: displayName, role: 'user', level: 'rep', dept: dept || null }, { onConflict: 'id' });
