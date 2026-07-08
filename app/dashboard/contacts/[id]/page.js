@@ -11,19 +11,11 @@ export default async function ContactDetailPage({ params }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('current_workspace_id')
-    .eq('id', user.id)
-    .single();
-
-  const workspaceId = profile?.current_workspace_id;
-
+  // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace
   const { data: contact } = await supabase
     .from('contacts')
     .select('*')
     .eq('id', params.id)
-    .eq('workspace_id', workspaceId)
     .single();
 
   if (!contact) notFound();

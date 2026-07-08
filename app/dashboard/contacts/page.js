@@ -10,23 +10,12 @@ export default async function ContactsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('current_workspace_id')
-    .eq('id', user.id)
-    .single();
-
-  const workspaceId = profile?.current_workspace_id;
-
-  let contacts = [];
-  if (workspaceId) {
-    const { data } = await supabase
-      .from('contacts')
-      .select('id, first, last, phone, email, dept, tags, stage, source, created_at')
-      .eq('workspace_id', workspaceId)
-      .order('created_at', { ascending: false });
-    contacts = data || [];
-  }
+  // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים)
+  const { data } = await supabase
+    .from('contacts')
+    .select('id, first, last, phone, email, dept, tags, stage, source, created_at')
+    .order('created_at', { ascending: false });
+  const contacts = data || [];
 
   return (
     <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>
@@ -34,7 +23,7 @@ export default async function ContactsPage() {
         <div>
           <h1 style={{ fontFamily: 'var(--font-heading)', margin: 0, fontSize: 20 }}>אנשי קשר</h1>
           <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 12.5 }}>
-            {contacts.length} אנשי קשר ב-workspace הפעיל
+            {contacts.length} אנשי קשר (כל המחלקות)
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -42,17 +31,6 @@ export default async function ContactsPage() {
           <NotConnectedButton label="איש קשר חדש" icon="+" variant="primary" message="הוספת איש קשר ידנית — בקרוב" />
         </div>
       </div>
-
-      {!workspaceId && (
-        <div
-          style={{
-            background: 'var(--amber-bg)', border: '1px solid #fde68a', borderRadius: 8,
-            padding: '12px 16px', fontSize: 12.5, marginBottom: 18, color: '#92400e',
-          }}
-        >
-          לא נמצא workspace פעיל עבור המשתמש.
-        </div>
-      )}
 
       <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
         <thead>
