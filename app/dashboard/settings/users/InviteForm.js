@@ -8,7 +8,6 @@ export default function InviteForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('member');
-  const [dept, setDept] = useState('');
   const [result, setResult] = useState(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -17,13 +16,12 @@ export default function InviteForm() {
     e.preventDefault();
     setResult(null);
     startTransition(async () => {
-      const res = await inviteMemberWithPassword({ email, name, role, dept });
+      const res = await inviteMemberWithPassword({ email, name, role });
       setResult(res);
       if (res.success) {
         setName('');
         setEmail('');
         setRole('member');
-        setDept('');
         router.refresh();
       }
     });
@@ -52,15 +50,6 @@ export default function InviteForm() {
           <option value="member">חבר</option>
           <option value="admin">מנהל</option>
           <option value="owner">בעלים</option>
-        </select>
-        <select
-          value={dept} onChange={(e) => setDept(e.target.value)}
-          style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px', fontSize: 13 }}
-        >
-          <option value="">ללא מחלקה</option>
-          <option value="לימודי">לימודי</option>
-          <option value="תרומות">תרומות</option>
-          <option value="מנהלה">מנהלה</option>
         </select>
         <button type="submit" disabled={isPending} style={{
           background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6,

@@ -27,8 +27,8 @@ async function getManagerContext() {
   return { user, workspaceId, role: membership.role };
 }
 
-// מונע מ-admin (שאינו owner) לגעת בחבר שהוא owner, או להעניק תפקיד owner למישהו —
-// אחרת admin יכול להשתלט על חשבון ה-owner (סיסמה/מייל) או לקדם את עצמו
+// מונע מ-admin (שאינו owner) לגעת בחבר שהוא owner באותו workspace ספציפי, או להעניק תפקיד owner —
+// אחרת admin יכול להשתלט על חשבון ה-owner או לקדם את עצמו
 async function getTargetRole(admin, workspaceId, targetUserId) {
   const { data } = await admin
     .from('workspace_members')
@@ -39,7 +39,21 @@ async function getTargetRole(admin, workspaceId, targetUserId) {
   return data?.role || null;
 }
 
-export async function inviteMemberWithPassword({ email, name, role, dept }) {
+// בדיקה גלובלית (לא מוגבלת ל-workspace אחד): האם המשתמש הוא owner באיזשהו workspace.
+// חייבים להשתמש בזו (ולא ב-getTargetRole המוגבל ל-workspace אחד) לפני פעולות שמשפיעות
+// על החשבון כולו (סיסמה/מייל) — אחרת admin שאינו קשור בכלל ל-workspace של owner אחר
+// יכול היה לאפס לו סיסמה רק כי הבדיקה חיפשה את התפקיד ב-workspace הלא נכון.
+async function isOwnerAnywhere(admin, targetUserId) {
+  const { data } = await admin
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', targetUserId)
+    .eq('role', 'owner')
+    .limit(1);
+  return (data?.length || 0) > 0;
+}
+
+export async function inviteMemberWithPassword({ email, name, role }) {
   const ctx = await getManagerContext();
   if (!ctx) return { error: 'אין לך הרשאה להזמין משתמשים' };
   if (!email) return { error: 'יש להזין כתובת אימייל' };
@@ -81,7 +95,7 @@ export async function inviteMemberWithPassword({ email, name, role, dept }) {
 
   const { error: profileError } = await admin
     .from('profiles')
-    .upsert({ id: userId, name: displayName, role: 'user', level: 'rep', dept: dept || null }, { onConflict: 'id' });
+    .upsert({ id: userId, name: displayName, role: 'user', level: 'rep' }, { onConflict: 'id' });
   if (profileError) return { error: profileError.message };
 
   const { error: memberError } = await admin
@@ -109,9 +123,8 @@ export async function resetMemberPassword(targetUserId) {
     return { error: e.message };
   }
 
-  if (ctx.role !== 'owner') {
-    const targetRole = await getTargetRole(admin, ctx.workspaceId, targetUserId);
-    if (targetRole === 'owner') return { error: 'רק owner יכול לאפס סיסמה של owner אחר' };
+  if (ctx.role !== 'owner' && await isOwnerAnywhere(admin, targetUserId)) {
+    return { error: 'רק owner יכול לאפס סיסמה של owner' };
   }
 
   const tempPassword = generatePassword();
@@ -133,9 +146,8 @@ export async function setMemberPassword(targetUserId, newPassword) {
     return { error: e.message };
   }
 
-  if (ctx.role !== 'owner') {
-    const targetRole = await getTargetRole(admin, ctx.workspaceId, targetUserId);
-    if (targetRole === 'owner') return { error: 'רק owner יכול לקבוע סיסמה ל-owner אחר' };
+  if (ctx.role !== 'owner' && await isOwnerAnywhere(admin, targetUserId)) {
+    return { error: 'רק owner יכול לקבוע סיסמה ל-owner' };
   }
 
   const { error } = await admin.auth.admin.updateUserById(targetUserId, { password: newPassword });
@@ -156,9 +168,8 @@ export async function changeMemberEmail(targetUserId, newEmail) {
     return { error: e.message };
   }
 
-  if (ctx.role !== 'owner') {
-    const targetRole = await getTargetRole(admin, ctx.workspaceId, targetUserId);
-    if (targetRole === 'owner') return { error: 'רק owner יכול לשנות את כתובת המייל של owner אחר' };
+  if (ctx.role !== 'owner' && await isOwnerAnywhere(admin, targetUserId)) {
+    return { error: 'רק owner יכול לשנות את כתובת המייל של owner' };
   }
 
   const { error } = await admin.auth.admin.updateUserById(targetUserId, {
@@ -170,9 +181,16 @@ export async function changeMemberEmail(targetUserId, newEmail) {
   return { success: true, email: newEmail };
 }
 
-export async function changeMemberRole(targetUserId, role) {
-  const ctx = await getManagerContext();
-  if (!ctx) return { error: 'אין לך הרשאה' };
+// קובע/מסיר חברות של משתמש ב-workspace ספציפי (מזוהה מפורשות, לא מוסק מה-workspace
+// הנוכחי של המבצע) — כדי לאפשר ל-owner לנהל שיוך מחלקות מכל מסך אחד.
+// role: 'member' | 'admin' | 'owner' | null (null = הסרה מה-workspace הזה)
+export async function setMembership(targetUserId, workspaceId, role) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'אין לך הרשאה' };
+  if (targetUserId === user.id && role !== 'owner') {
+    return { error: 'אי אפשר לשנות/להסיר את ההרשאות של עצמך' };
+  }
 
   let admin;
   try {
@@ -181,64 +199,30 @@ export async function changeMemberRole(targetUserId, role) {
     return { error: e.message };
   }
 
-  if (ctx.role !== 'owner') {
+  const actorRole = await getTargetRole(admin, workspaceId, user.id);
+  if (actorRole !== 'owner' && actorRole !== 'admin') {
+    return { error: 'אין לך הרשאה לנהל את המחלקה הזו' };
+  }
+
+  if (actorRole !== 'owner') {
     if (role === 'owner') return { error: 'רק owner יכול להעניק תפקיד owner' };
-    const targetRole = await getTargetRole(admin, ctx.workspaceId, targetUserId);
-    if (targetRole === 'owner') return { error: 'רק owner יכול לשנות תפקיד של owner אחר' };
+    const targetCurrentRole = await getTargetRole(admin, workspaceId, targetUserId);
+    if (targetCurrentRole === 'owner') return { error: 'רק owner יכול לשנות הרשאות של owner במחלקה זו' };
+  }
+
+  if (role === null) {
+    const { error } = await admin
+      .from('workspace_members')
+      .delete()
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', targetUserId);
+    if (error) return { error: error.message };
+    return { success: true };
   }
 
   const { error } = await admin
     .from('workspace_members')
-    .update({ role })
-    .eq('workspace_id', ctx.workspaceId)
-    .eq('user_id', targetUserId);
-  if (error) return { error: error.message };
-
-  return { success: true };
-}
-
-export async function updateMemberDept(targetUserId, dept) {
-  const ctx = await getManagerContext();
-  if (!ctx) return { error: 'אין לך הרשאה' };
-
-  let admin;
-  try {
-    admin = createAdminClient();
-  } catch (e) {
-    return { error: e.message };
-  }
-
-  const { error } = await admin
-    .from('profiles')
-    .update({ dept: dept || null })
-    .eq('id', targetUserId);
-  if (error) return { error: error.message };
-
-  return { success: true };
-}
-
-export async function removeMemberFromWorkspace(targetUserId) {
-  const ctx = await getManagerContext();
-  if (!ctx) return { error: 'אין לך הרשאה' };
-  if (targetUserId === ctx.user.id) return { error: 'אי אפשר להסיר את עצמך' };
-
-  let admin;
-  try {
-    admin = createAdminClient();
-  } catch (e) {
-    return { error: e.message };
-  }
-
-  if (ctx.role !== 'owner') {
-    const targetRole = await getTargetRole(admin, ctx.workspaceId, targetUserId);
-    if (targetRole === 'owner') return { error: 'רק owner יכול להסיר owner אחר' };
-  }
-
-  const { error } = await admin
-    .from('workspace_members')
-    .delete()
-    .eq('workspace_id', ctx.workspaceId)
-    .eq('user_id', targetUserId);
+    .upsert({ workspace_id: workspaceId, user_id: targetUserId, role }, { onConflict: 'workspace_id,user_id' });
   if (error) return { error: error.message };
 
   return { success: true };

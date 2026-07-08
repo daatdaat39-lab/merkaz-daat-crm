@@ -3,11 +3,10 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  changeMemberRole, removeMemberFromWorkspace, resetMemberPassword,
-  updateMemberDept, changeMemberEmail, setMemberPassword,
+  setMembership, resetMemberPassword, changeMemberEmail, setMemberPassword,
 } from './actions';
 
-export default function MemberRow({ userId, name, role, dept, email, allMemberships, isSelf }) {
+export default function MemberRow({ userId, name, role, workspaceId, email, allMemberships, isSelf }) {
   const [isPending, startTransition] = useTransition();
   const [resetResult, setResetResult] = useState(null);
   const [emailValue, setEmailValue] = useState(email || '');
@@ -19,15 +18,7 @@ export default function MemberRow({ userId, name, role, dept, email, allMembersh
   function handleRoleChange(e) {
     const newRole = e.target.value;
     startTransition(async () => {
-      await changeMemberRole(userId, newRole);
-      router.refresh();
-    });
-  }
-
-  function handleDeptChange(e) {
-    const newDept = e.target.value;
-    startTransition(async () => {
-      await updateMemberDept(userId, newDept);
+      await setMembership(userId, workspaceId, newRole);
       router.refresh();
     });
   }
@@ -35,7 +26,7 @@ export default function MemberRow({ userId, name, role, dept, email, allMembersh
   function handleRemove() {
     if (!confirm(`להסיר את ${name} מה-workspace?`)) return;
     startTransition(async () => {
-      await removeMemberFromWorkspace(userId);
+      await setMembership(userId, workspaceId, null);
       router.refresh();
     });
   }
@@ -98,18 +89,6 @@ export default function MemberRow({ userId, name, role, dept, email, allMembersh
           <option value="member">חבר</option>
           <option value="admin">מנהל</option>
           <option value="owner">בעלים</option>
-        </select>
-
-        <select
-          defaultValue={dept || ''}
-          onChange={handleDeptChange}
-          disabled={isPending}
-          style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '5px 8px', fontSize: 12 }}
-        >
-          <option value="">ללא מחלקה</option>
-          <option value="לימודי">לימודי</option>
-          <option value="תרומות">תרומות</option>
-          <option value="מנהלה">מנהלה</option>
         </select>
 
         <button
