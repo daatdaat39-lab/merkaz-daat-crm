@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { setMembership, resetMemberPassword, setMemberPassword, changeMemberEmail } from './actions';
+import { setMembership, resetMemberPassword, setMemberPassword, changeMemberEmail, updateMemberName } from './actions';
 
 export default function AllUsersTable({ workspaces, users, currentUserId }) {
   return (
@@ -42,11 +42,22 @@ export default function AllUsersTable({ workspaces, users, currentUserId }) {
 function UserRow({ user: u, workspaces, currentUserId }) {
   const [isPending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
+  const [nameValue, setNameValue] = useState(u.name || '');
+  const [nameResult, setNameResult] = useState(null);
   const [emailValue, setEmailValue] = useState(u.email || '');
   const [emailResult, setEmailResult] = useState(null);
   const [customPassword, setCustomPassword] = useState('');
   const [resetResult, setResetResult] = useState(null);
   const router = useRouter();
+
+  function handleSaveName() {
+    if (!nameValue.trim() || nameValue === u.name) return;
+    startTransition(async () => {
+      const res = await updateMemberName(u.id, nameValue);
+      setNameResult(res);
+      if (res.success) router.refresh();
+    });
+  }
 
   function handleMembershipChange(workspaceId, value) {
     const role = value === '' ? null : value;
@@ -126,6 +137,30 @@ function UserRow({ user: u, workspaces, currentUserId }) {
               margin: '0 18px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border)',
               borderRadius: 8, padding: 14, display: 'flex', flexDirection: 'column', gap: 12,
             }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>שם מלא</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    value={nameValue}
+                    onChange={(e) => setNameValue(e.target.value)}
+                    type="text"
+                    style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
+                  />
+                  <button
+                    onClick={handleSaveName}
+                    disabled={isPending || !nameValue.trim() || nameValue === u.name}
+                    style={{
+                      background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6,
+                      padding: '7px 14px', fontSize: 12.5, cursor: 'pointer', opacity: (!nameValue.trim() || nameValue === u.name) ? 0.5 : 1,
+                    }}
+                  >
+                    עדכון
+                  </button>
+                </div>
+                {nameResult?.success && <div style={{ fontSize: 11.5, color: 'var(--green)', marginTop: 4 }}>✓ השם עודכן</div>}
+                {nameResult?.error && <div style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4 }}>שגיאה: {nameResult.error}</div>}
+              </div>
+
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>שם משתמש (אימייל להתחברות)</div>
                 <div style={{ display: 'flex', gap: 8 }}>

@@ -275,15 +275,21 @@ export default function Sidebar({
               type="submit"
               title="התנתקות"
               style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
                 background: 'transparent',
-                border: 'none',
+                border: '1px solid #e5e5e5',
+                borderRadius: 6,
                 cursor: 'pointer',
-                color: '#9b9b9b',
-                fontSize: 15,
-                padding: 4,
+                color: '#6b6b6b',
+                fontSize: 12,
+                padding: '5px 10px',
+                whiteSpace: 'nowrap',
               }}
             >
-              ⏻
+              <span style={{ fontSize: 14 }}>⏻</span>
+              התנתקות
             </button>
           </form>
         </div>

@@ -156,6 +156,24 @@ export async function setMemberPassword(targetUserId, newPassword) {
   return { success: true, password: newPassword };
 }
 
+export async function updateMemberName(targetUserId, name) {
+  const ctx = await getManagerContext();
+  if (!ctx) return { error: 'אין לך הרשאה' };
+  if (!name || !name.trim()) return { error: 'יש להזין שם' };
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    return { error: e.message };
+  }
+
+  const { error } = await admin.from('profiles').update({ name: name.trim() }).eq('id', targetUserId);
+  if (error) return { error: error.message };
+
+  return { success: true, name: name.trim() };
+}
+
 export async function changeMemberEmail(targetUserId, newEmail) {
   const ctx = await getManagerContext();
   if (!ctx) return { error: 'אין לך הרשאה' };

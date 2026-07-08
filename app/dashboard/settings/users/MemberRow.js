@@ -3,17 +3,28 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  setMembership, resetMemberPassword, changeMemberEmail, setMemberPassword,
+  setMembership, resetMemberPassword, changeMemberEmail, setMemberPassword, updateMemberName,
 } from './actions';
 
 export default function MemberRow({ userId, name, role, workspaceId, email, allMemberships, isSelf }) {
   const [isPending, startTransition] = useTransition();
   const [resetResult, setResetResult] = useState(null);
+  const [nameValue, setNameValue] = useState(name || '');
+  const [nameResult, setNameResult] = useState(null);
   const [emailValue, setEmailValue] = useState(email || '');
   const [emailResult, setEmailResult] = useState(null);
   const [customPassword, setCustomPassword] = useState('');
   const [expanded, setExpanded] = useState(false);
   const router = useRouter();
+
+  function handleSaveName() {
+    if (!nameValue.trim() || nameValue === name) return;
+    startTransition(async () => {
+      const res = await updateMemberName(userId, nameValue);
+      setNameResult(res);
+      if (res.success) router.refresh();
+    });
+  }
 
   function handleRoleChange(e) {
     const newRole = e.target.value;
@@ -115,6 +126,31 @@ export default function MemberRow({ userId, name, role, workspaceId, email, allM
           margin: '0 18px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border)',
           borderRadius: 8, padding: 14, display: 'flex', flexDirection: 'column', gap: 12,
         }}>
+          {/* עריכת שם מלא */}
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>שם מלא</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                type="text"
+                style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
+              />
+              <button
+                onClick={handleSaveName}
+                disabled={isPending || !nameValue.trim() || nameValue === name}
+                style={{
+                  background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6,
+                  padding: '7px 14px', fontSize: 12.5, cursor: 'pointer', opacity: (!nameValue.trim() || nameValue === name) ? 0.5 : 1,
+                }}
+              >
+                עדכון
+              </button>
+            </div>
+            {nameResult?.success && <div style={{ fontSize: 11.5, color: 'var(--green)', marginTop: 4 }}>✓ השם עודכן</div>}
+            {nameResult?.error && <div style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4 }}>שגיאה: {nameResult.error}</div>}
+          </div>
+
           {/* עריכת שם משתמש (אימייל) */}
           <div>
             <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>שם משתמש (אימייל להתחברות)</div>
