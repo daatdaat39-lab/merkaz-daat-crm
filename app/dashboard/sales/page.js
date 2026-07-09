@@ -1,6 +1,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { STAGE_LABELS, STAGE_ORDER } from '../components/ui';
+import { STAGE_LABELS } from '../components/ui';
+import { getPipeline } from '../components/pipelines';
 
 export default async function SalesDashboardPage() {
   const supabase = createClient();
@@ -9,11 +10,13 @@ export default async function SalesDashboardPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('current_workspace_id')
+    .select('current_workspace_id, workspaces:current_workspace_id (name)')
     .eq('id', user.id)
     .single();
 
   const workspaceId = profile?.current_workspace_id;
+  const workspaceName = profile?.workspaces?.name;
+  const pipeline = getPipeline(workspaceName);
 
   let contacts = [];
   if (workspaceId) {
@@ -22,7 +25,7 @@ export default async function SalesDashboardPage() {
   }
 
   const total = contacts.length;
-  const closedWon = contacts.filter((c) => c.stage === 'registered').length;
+  const closedWon = contacts.filter((c) => c.stage === pipeline.wonStage).length;
   const closedLost = contacts.filter((c) => c.stage === 'closed').length;
   const inProgress = total - closedWon - closedLost;
   const conversionRate = total ? Math.round((closedWon / total) * 100) : 0;
@@ -33,7 +36,7 @@ export default async function SalesDashboardPage() {
     sourceCounts[s] = (sourceCounts[s] || 0) + 1;
   });
 
-  const stageCounts = STAGE_ORDER.reduce((acc, s) => {
+  const stageCounts = pipeline.order.reduce((acc, s) => {
     acc[s] = contacts.filter((c) => c.stage === s).length;
     return acc;
   }, {});
@@ -61,7 +64,7 @@ export default async function SalesDashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>פייפליין לפי שלב</div>
-          {STAGE_ORDER.map((s) => {
+          {pipeline.order.map((s) => {
             const max = Math.max(1, ...Object.values(stageCounts));
             const pct = Math.round((stageCounts[s] / max) * 100);
             return (

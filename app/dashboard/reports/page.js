@@ -1,6 +1,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { STAGE_LABELS, STAGE_ORDER } from '../components/ui';
+import { STAGE_LABELS } from '../components/ui';
+import { getPipeline } from '../components/pipelines';
 
 export default async function ReportsPage() {
   const supabase = createClient();
@@ -9,22 +10,26 @@ export default async function ReportsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('current_workspace_id')
+    .select('current_workspace_id, workspaces:current_workspace_id (name)')
     .eq('id', user.id)
     .single();
 
   const workspaceId = profile?.current_workspace_id;
+  const pipeline = getPipeline(profile?.workspaces?.name);
 
   let contacts = [];
+  let workspaceContacts = [];
   let tasks = [];
   let meetings = [];
   if (workspaceId) {
-    const [{ data: c }, { data: t }, { data: m }] = await Promise.all([
+    const [{ data: c }, { data: wc }, { data: t }, { data: m }] = await Promise.all([
       supabase.from('contacts').select('dept, stage, created_at'),
+      supabase.from('contacts').select('stage').eq('workspace_id', workspaceId),
       supabase.from('tasks').select('done').eq('workspace_id', workspaceId),
       supabase.from('meetings').select('meeting_date').eq('workspace_id', workspaceId),
     ]);
     contacts = c || [];
+    workspaceContacts = wc || [];
     tasks = t || [];
     meetings = m || [];
   }
@@ -42,8 +47,8 @@ export default async function ReportsPage() {
   const pastMeetings = meetings.filter((m) => m.meeting_date < today).length;
   const futureMeetings = meetings.filter((m) => m.meeting_date >= today).length;
 
-  const stageCounts = STAGE_ORDER.reduce((acc, s) => {
-    acc[s] = contacts.filter((c) => c.stage === s).length;
+  const stageCounts = pipeline.order.reduce((acc, s) => {
+    acc[s] = workspaceContacts.filter((c) => c.stage === s).length;
     return acc;
   }, {});
 
@@ -86,7 +91,7 @@ export default async function ReportsPage() {
 
         <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>התפלגות לפי שלב</div>
-          {STAGE_ORDER.map((s) => {
+          {pipeline.order.map((s) => {
             const max = Math.max(1, ...Object.values(stageCounts));
             const pct = Math.round((stageCounts[s] / max) * 100);
             return (

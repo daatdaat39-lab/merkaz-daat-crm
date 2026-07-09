@@ -4,8 +4,8 @@ import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { importContacts } from './actions';
 
-const COLUMNS = ['first', 'last', 'phone', 'phone2', 'email', 'dept', 'source', 'tags'];
-const HEADERS_HE = ['שם פרטי', 'שם משפחה', 'טלפון', 'טלפון נוסף', 'מייל', 'תחום', 'מקור', 'תגיות (מופרדות בפסיק)'];
+const COLUMNS = ['first', 'last', 'idnum', 'phone', 'phone2', 'email', 'dept', 'source', 'tags'];
+const HEADERS_HE = ['שם פרטי', 'שם משפחה', 'ת"ז', 'טלפון', 'טלפון נוסף', 'מייל', 'תחום', 'מקור', 'תגיות (מופרדות בפסיק)'];
 
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -34,7 +34,7 @@ function downloadBlob(content, filename, type) {
 
 export function DownloadTemplateButton() {
   function handleClick() {
-    const csv = '﻿' + HEADERS_HE.join(',') + '\n' + 'ישראל,ישראלי,050-1234567,,israel@example.com,לימודי,הפניה,לקוח פוטנציאלי\n';
+    const csv = '﻿' + HEADERS_HE.join(',') + '\n' + 'ישראל,ישראלי,123456789,050-1234567,,israel@example.com,לימודי,הפניה,לקוח פוטנציאלי\n';
     downloadBlob(csv, 'תבנית-ייבוא-אנשי-קשר.csv', 'text/csv;charset=utf-8;');
   }
   return (
@@ -47,7 +47,7 @@ export function DownloadTemplateButton() {
 export function ExportContactsButton({ contacts }) {
   function handleClick() {
     const rows = contacts.map((c) => [
-      c.first || '', c.last || '', c.phone || '', c.phone2 || '', c.email || '', c.dept || '', c.source || '', (c.tags || []).join('; '),
+      c.first || '', c.last || '', c.idnum || '', c.phone || '', c.phone2 || '', c.email || '', c.dept || '', c.source || '', (c.tags || []).join('; '),
     ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','));
     const csv = '﻿' + [HEADERS_HE.join(','), ...rows].join('\n');
     downloadBlob(csv, `אנשי-קשר-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8;');
@@ -92,7 +92,11 @@ export function ImportContactsButton() {
         {isPending ? 'מייבא...' : '⬆ ייבוא מאקסל (CSV)'}
       </button>
       <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={handleFile} style={{ display: 'none' }} />
-      {result?.success && <span style={{ fontSize: 12, color: 'var(--green, #2f7d4f)' }}>✓ יובאו {result.count} אנשי קשר</span>}
+      {result?.success && (
+        <span style={{ fontSize: 12, color: 'var(--green, #2f7d4f)' }}>
+          ✓ {result.created} נוצרו{result.merged > 0 ? `, ${result.merged} אוחדו עם קיימים` : ''}
+        </span>
+      )}
       {result?.error && <span style={{ fontSize: 12, color: 'var(--red, #b23b2f)' }}>שגיאה: {result.error}</span>}
     </div>
   );

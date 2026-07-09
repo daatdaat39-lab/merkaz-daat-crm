@@ -1,5 +1,6 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { getPipeline } from '../../components/pipelines';
 import PipelineBoard from './PipelineBoard';
 
 export default async function SalesPipelinePage() {
@@ -9,34 +10,38 @@ export default async function SalesPipelinePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('current_workspace_id')
+    .select('current_workspace_id, workspaces:current_workspace_id (name)')
     .eq('id', user.id)
     .single();
 
   const workspaceId = profile?.current_workspace_id;
+  const workspaceName = profile?.workspaces?.name;
+  const pipeline = getPipeline(workspaceName);
 
   let contacts = [];
   if (workspaceId) {
     const { data } = await supabase
       .from('contacts')
-      .select('id, first, last, tags, source, stage, created_at')
+      .select('id, first, last, tags, source, stage, closed_reason, created_at')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false });
     contacts = data || [];
   }
 
-  async function moveStage(contactId, stage) {
+  async function moveStage(contactId, stage, closedReason) {
     'use server';
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !contactId || !stage) return;
-    await supabase.from('contacts').update({ stage }).eq('id', contactId);
+    await supabase.from('contacts')
+      .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
+      .eq('id', contactId);
   }
 
   return (
     <div style={{ padding: '28px 24px' }}>
       <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>פייפליין</h1>
-      <PipelineBoard contacts={contacts} moveStageAction={moveStage} />
+      <PipelineBoard contacts={contacts} moveStageAction={moveStage} stages={pipeline.order} />
     </div>
   );
 }

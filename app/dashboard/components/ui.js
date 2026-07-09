@@ -1,4 +1,10 @@
+import { STAGE_LABELS, STAGE_COLORS, PIPELINES } from './pipelines';
+
 export const WS_COLORS = ['#2563eb', '#7c3aed', '#16a34a', '#d97706', '#dc2626'];
+
+export { STAGE_LABELS, STAGE_COLORS };
+// ברירת מחדל למקומות ישנים שעדיין לא עודכנו לשלב-פר-מחלקה (ר' pipelines.js)
+export const STAGE_ORDER = PIPELINES['דעת למדני'].order;
 
 // מיפוי בין שם מחלקה למילות מפתח שמזהות שייכות דרך תגיות/dept
 export const DEPT_KEYWORDS = {
@@ -14,24 +20,6 @@ export function contactMatchesDept(contact, dept) {
   const keywords = DEPT_KEYWORDS[dept] || [dept];
   return (contact.tags || []).some((tag) => keywords.some((kw) => tag.includes(kw)));
 }
-
-export const STAGE_LABELS = {
-  open: 'פתוח',
-  meeting: 'פגישה',
-  process: 'בתהליך רישום',
-  registered: 'נרשם',
-  closed: 'סגור',
-};
-
-export const STAGE_ORDER = ['open', 'meeting', 'process', 'registered', 'closed'];
-
-export const STAGE_COLORS = {
-  open: { bg: '#eff6ff', color: '#2563eb' },
-  meeting: { bg: '#f5f3ff', color: '#7c3aed' },
-  process: { bg: '#fffbeb', color: '#d97706' },
-  registered: { bg: '#f0fdf4', color: '#16a34a' },
-  closed: { bg: '#fef2f2', color: '#dc2626' },
-};
 
 export function StageBadge({ stage }) {
   const c = STAGE_COLORS[stage] || STAGE_COLORS.open;

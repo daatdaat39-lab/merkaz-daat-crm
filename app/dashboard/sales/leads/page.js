@@ -1,6 +1,7 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { DEPT_KEYWORDS, contactMatchesDept } from '../../components/ui';
+import { getPipeline } from '../../components/pipelines';
 import AddContactForm from '../../contacts/AddContactForm';
 import LeadRow from './LeadRow';
 
@@ -11,11 +12,13 @@ export default async function SalesLeadsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('current_workspace_id')
+    .select('current_workspace_id, workspaces:current_workspace_id (name)')
     .eq('id', user.id)
     .single();
 
   const workspaceId = profile?.current_workspace_id;
+  const workspaceName = profile?.workspaces?.name;
+  const pipeline = getPipeline(workspaceName);
 
   let leads = [];
   let agents = [];
@@ -24,7 +27,7 @@ export default async function SalesLeadsPage() {
       .from('contacts')
       .select('id, first, last, phone, email, source, stage, dept, tags, agent_id, last_activity_at, created_at')
       .eq('workspace_id', workspaceId)
-      .in('stage', ['open', 'meeting'])
+      .in('stage', pipeline.leadStages)
       .order('created_at', { ascending: false });
     leads = data || [];
 

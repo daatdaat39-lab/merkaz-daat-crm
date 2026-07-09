@@ -2,14 +2,16 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import Link from 'next/link';
-import { STAGE_LABELS, STAGE_ORDER, StageBadge } from '../../components/ui';
+import { STAGE_LABELS } from '../../components/ui';
+import { CLOSE_REASONS } from '../../components/pipelines';
 
-export default function PipelineBoard({ contacts, moveStageAction }) {
+export default function PipelineBoard({ contacts, moveStageAction, stages }) {
   const [view, setView] = useState('kanban'); // 'kanban' | 'table'
   const [search, setSearch] = useState('');
   const [dragOverStage, setDragOverStage] = useState(null);
   const [isPending, startTransition] = useTransition();
   const [localContacts, setLocalContacts] = useState(contacts);
+  const [closingId, setClosingId] = useState(null);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return localContacts;
@@ -20,10 +22,10 @@ export default function PipelineBoard({ contacts, moveStageAction }) {
     );
   }, [localContacts, search]);
 
-  function moveContact(contactId, newStage) {
-    setLocalContacts((prev) => prev.map((c) => (c.id === contactId ? { ...c, stage: newStage } : c)));
+  function moveContact(contactId, newStage, closedReason) {
+    setLocalContacts((prev) => prev.map((c) => (c.id === contactId ? { ...c, stage: newStage, closed_reason: closedReason || null } : c)));
     startTransition(async () => {
-      await moveStageAction(contactId, newStage);
+      await moveStageAction(contactId, newStage, closedReason);
     });
   }
 
@@ -31,7 +33,14 @@ export default function PipelineBoard({ contacts, moveStageAction }) {
     e.preventDefault();
     setDragOverStage(null);
     const contactId = e.dataTransfer.getData('text/contact-id');
-    if (contactId) moveContact(contactId, stage);
+    if (!contactId) return;
+    if (stage === 'closed') setClosingId(contactId);
+    else moveContact(contactId, stage);
+  }
+
+  function handleCloseConfirm(contactId, reason) {
+    moveContact(contactId, 'closed', reason);
+    setClosingId(null);
   }
 
   return (
@@ -67,7 +76,7 @@ export default function PipelineBoard({ contacts, moveStageAction }) {
 
       {view === 'kanban' ? (
         <div style={{ display: 'flex', gap: 0, overflowX: 'auto', paddingBottom: 8 }}>
-          {STAGE_ORDER.map((stage, i) => {
+          {stages.map((stage, i) => {
             const stageContacts = filtered.filter((c) => c.stage === stage);
             return (
               <div
@@ -104,7 +113,18 @@ export default function PipelineBoard({ contacts, moveStageAction }) {
                           {c.source}
                         </span>
                       )}
-                      <div style={{ fontSize: 10, color: '#c0c0c0', marginTop: 6 }}>גרור לשלב אחר ⠿</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                        <div style={{ fontSize: 10, color: '#c0c0c0' }}>גרור לשלב אחר ⠿</div>
+                        <button
+                          onClick={() => setClosingId(c.id)}
+                          style={{ background: 'none', border: 'none', color: '#c0392b', fontSize: 10, cursor: 'pointer' }}
+                        >
+                          ✕ סגירה
+                        </button>
+                      </div>
+                      {closingId === c.id && (
+                        <CloseReasonPicker onConfirm={(reason) => handleCloseConfirm(c.id, reason)} onCancel={() => setClosingId(null)} />
+                      )}
                     </div>
                   ))}
                   {stageContacts.length === 0 && (
@@ -114,12 +134,36 @@ export default function PipelineBoard({ contacts, moveStageAction }) {
               </div>
             );
           })}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOverStage('closed'); }}
+            onDragLeave={() => setDragOverStage(null)}
+            onDrop={(e) => handleDrop(e, 'closed')}
+            style={{
+              minWidth: 200, flexShrink: 0, borderLeft: '1px solid #e5e5e5',
+              background: dragOverStage === 'closed' ? '#fef2f2' : 'transparent', transition: 'background 0.1s',
+            }}
+          >
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e5e5', background: '#f9f9f9' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#a3392f' }}>{STAGE_LABELS.closed}</div>
+              <div style={{ fontSize: 11, color: '#9b9b9b' }}>{filtered.filter((c) => c.stage === 'closed').length} לידים</div>
+            </div>
+            <div style={{ padding: 8, minHeight: 120 }}>
+              {filtered.filter((c) => c.stage === 'closed').map((c) => (
+                <div key={c.id} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px', marginBottom: 8, opacity: 0.8 }}>
+                  <Link href={`/dashboard/contacts/${c.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{c.first} {c.last}</div>
+                  </Link>
+                  {c.closed_reason && <div style={{ fontSize: 10.5, color: '#9b9b9b', marginTop: 3 }}>{c.closed_reason}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
           <thead>
             <tr style={{ background: '#f9f9f9' }}>
-              {['שם', 'שלב', 'מקור', 'נוצר'].map((h) => (
+              {['שם', 'שלב', 'מקור', 'נוצר', ''].map((h) => (
                 <th key={h} style={{ textAlign: 'right', fontSize: 11, color: '#9b9b9b', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
               ))}
             </tr>
@@ -134,23 +178,46 @@ export default function PipelineBoard({ contacts, moveStageAction }) {
                 </td>
                 <td style={{ padding: '10px 16px', fontSize: 13 }}>
                   <select
-                    defaultValue={c.stage}
-                    onChange={(e) => moveContact(c.id, e.target.value)}
+                    value={c.stage}
+                    onChange={(e) => {
+                      if (e.target.value === 'closed') setClosingId(c.id);
+                      else moveContact(c.id, e.target.value);
+                    }}
                     style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', fontSize: 12 }}
                   >
-                    {STAGE_ORDER.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+                    {stages.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+                    <option value="closed">{STAGE_LABELS.closed}</option>
                   </select>
+                  {closingId === c.id && (
+                    <CloseReasonPicker onConfirm={(reason) => handleCloseConfirm(c.id, reason)} onCancel={() => setClosingId(null)} />
+                  )}
                 </td>
                 <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.source || '—'}</td>
                 <td style={{ padding: '10px 16px', fontSize: 13 }}>{new Date(c.created_at).toLocaleDateString('he-IL')}</td>
+                <td style={{ padding: '10px 16px', fontSize: 12, color: '#9b9b9b' }}>{c.stage === 'closed' ? c.closed_reason : ''}</td>
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={4} style={{ padding: '12px 16px', fontSize: 13, color: '#9b9b9b' }}>אין תוצאות</td></tr>
+              <tr><td colSpan={5} style={{ padding: '12px 16px', fontSize: 13, color: '#9b9b9b' }}>אין תוצאות</td></tr>
             )}
           </tbody>
         </table>
       )}
+    </div>
+  );
+}
+
+function CloseReasonPicker({ onConfirm, onCancel }) {
+  const [reason, setReason] = useState(CLOSE_REASONS[0]);
+  return (
+    <div style={{ marginTop: 8, padding: 8, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6 }} onClick={(e) => e.stopPropagation()}>
+      <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 11.5, border: '1px solid var(--border)', borderRadius: 4, padding: '4px 6px', marginBottom: 6 }}>
+        {CLOSE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+      </select>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, background: '#a3392f', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>אישור</button>
+        <button onClick={onCancel} style={{ flex: 1, fontSize: 11, background: '#fff', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>ביטול</button>
+      </div>
     </div>
   );
 }

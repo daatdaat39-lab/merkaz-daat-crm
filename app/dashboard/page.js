@@ -1,7 +1,8 @@
 import { createClient } from '../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { STAGE_LABELS, STAGE_ORDER } from './components/ui';
+import { STAGE_LABELS } from './components/ui';
+import { getPipeline } from './components/pipelines';
 
 export default async function DashboardHome() {
   const supabase = createClient();
@@ -11,19 +12,22 @@ export default async function DashboardHome() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('current_workspace_id, name')
+    .select('current_workspace_id, name, workspaces:current_workspace_id (name)')
     .eq('id', user.id)
     .single();
 
   const workspaceId = profile?.current_workspace_id;
+  const pipeline = getPipeline(profile?.workspaces?.name);
 
   let contacts = [];
+  let workspaceContacts = [];
   let meetings = [];
   let openTasks = [];
 
   if (workspaceId) {
-    const [{ data: c }, { data: m }, { data: t }] = await Promise.all([
+    const [{ data: c }, { data: wc }, { data: m }, { data: t }] = await Promise.all([
       supabase.from('contacts').select('id, stage, created_at'),
+      supabase.from('contacts').select('stage').eq('workspace_id', workspaceId),
       supabase
         .from('meetings')
         .select('id, meeting_date, meeting_time, title, contacts(first,last)')
@@ -34,12 +38,13 @@ export default async function DashboardHome() {
       supabase.from('tasks').select('id').eq('workspace_id', workspaceId).eq('done', false),
     ]);
     contacts = c || [];
+    workspaceContacts = wc || [];
     meetings = m || [];
     openTasks = t || [];
   }
 
-  const stageCounts = STAGE_ORDER.reduce((acc, s) => {
-    acc[s] = contacts.filter((c) => c.stage === s).length;
+  const stageCounts = pipeline.order.reduce((acc, s) => {
+    acc[s] = workspaceContacts.filter((c) => c.stage === s).length;
     return acc;
   }, {});
 
@@ -88,7 +93,7 @@ export default async function DashboardHome() {
             פילוח לפי שלב בפייפליין
           </div>
           <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {STAGE_ORDER.map((s) => {
+            {pipeline.order.map((s) => {
               const max = Math.max(1, ...Object.values(stageCounts));
               const pct = Math.round((stageCounts[s] / max) * 100);
               return (

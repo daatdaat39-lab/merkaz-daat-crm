@@ -2,6 +2,7 @@
 
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { getPipeline, roleTag } from '../components/pipelines';
 
 const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'dept', 'source', 'idnum'];
 
@@ -17,10 +18,28 @@ async function requireUser() {
   return { supabase, user };
 }
 
-async function currentWorkspaceId(supabase, user) {
+async function currentWorkspace(supabase, user) {
   const { data: profile } = await supabase
-    .from('profiles').select('current_workspace_id').eq('id', user.id).single();
-  return profile?.current_workspace_id || null;
+    .from('profiles').select('current_workspace_id, workspaces:current_workspace_id (name)').eq('id', user.id).single();
+  return { id: profile?.current_workspace_id || null, name: profile?.workspaces?.name || null };
+}
+
+// מחפש איש קשר קיים לפי ת"ז/טלפון/מייל (זיהוי כפילויות לפי האפיון) - לצורך
+// "ליד נכנס": אם האדם כבר קיים, לא נוצר כרטיס כפול - מעדכנים את הקיים
+async function findExistingMatch(supabase, { idnum, phone, email }) {
+  const clauses = [];
+  if (idnum) clauses.push(`idnum.eq.${idnum}`);
+  if (phone) clauses.push(`phone.eq.${phone}`);
+  if (email) clauses.push(`email.eq.${email}`);
+  if (clauses.length === 0) return null;
+
+  const { data } = await supabase
+    .from('contacts')
+    .select('id, workspace_id, stage, tags, workspaces:workspace_id (name)')
+    .or(clauses.join(','))
+    .limit(1);
+
+  return data?.[0] || null;
 }
 
 // עדכון פרטי איש קשר - כל משתמש מחובר יכול (contacts משותפים לכולם)
@@ -39,20 +58,53 @@ export async function updateContact(contactId, formData) {
   redirect(`/dashboard/contacts/${contactId}`);
 }
 
-// יצירת איש קשר חדש (ידני) - נכנס ל-workspace הנוכחי של היוצר, אבל יהיה גלוי לכולם
+// יצירת ליד/איש קשר חדש (ידני) - נכנס ל-workspace הנוכחי של היוצר.
+// לפני היצירה מחפש התאמה קיימת (ת"ז/טלפון/מייל) - אם נמצאה, לא נוצר כרטיס כפול:
+// האיש הקיים "עובר" למחלקה הנוכחית (שלב ראשון ב-pipeline שלה), ומקבל תגית
+// שמשמרת את ההיסטוריה שלו במחלקה הקודמת (למשל "בוגר דעת למדני").
 export async function createContact(formData) {
   const { supabase, user } = await requireUser();
-  const workspaceId = await currentWorkspaceId(supabase, user);
-  if (!workspaceId) return { error: 'לא נמצא workspace פעיל' };
+  const workspace = await currentWorkspace(supabase, user);
+  if (!workspace.id) return { error: 'לא נמצא workspace פעיל' };
 
   const first = (formData.get('first') || '').toString().trim();
   if (!first) return { error: 'יש להזין שם פרטי' };
 
-  const insert = { workspace_id: workspaceId, stage: 'open', last_activity_at: new Date().toISOString() };
-  for (const field of EDITABLE_FIELDS) {
-    if (formData.has(field)) insert[field] = formData.get(field) || null;
+  const idnum = (formData.get('idnum') || '').toString().trim() || null;
+  const phone = (formData.get('phone') || '').toString().trim() || null;
+  const email = (formData.get('email') || '').toString().trim() || null;
+  const newTags = formData.has('tags') ? parseTags(formData.get('tags')) : [];
+  const pipeline = getPipeline(workspace.name);
+
+  const existing = await findExistingMatch(supabase, { idnum, phone, email });
+
+  if (existing) {
+    const previousTag = roleTag(existing.workspaces?.name, existing.stage);
+    const mergedTags = Array.from(new Set([...(existing.tags || []), ...newTags, ...(previousTag ? [previousTag] : [])]));
+
+    const update = {
+      workspace_id: workspace.id,
+      stage: pipeline.order[0],
+      tags: mergedTags,
+      last_activity_at: new Date().toISOString(),
+    };
+    for (const field of EDITABLE_FIELDS) {
+      if (formData.has(field) && formData.get(field)) update[field] = formData.get(field);
+    }
+
+    const { error } = await supabase.from('contacts').update(update).eq('id', existing.id);
+    if (error) return { error: error.message };
+
+    redirect(`/dashboard/contacts/${existing.id}`);
   }
-  if (formData.has('tags')) insert.tags = parseTags(formData.get('tags'));
+
+  const insert = {
+    workspace_id: workspace.id, stage: pipeline.order[0], last_activity_at: new Date().toISOString(),
+    idnum, phone, email, tags: newTags,
+  };
+  for (const field of EDITABLE_FIELDS) {
+    if (formData.has(field) && !(field in insert)) insert[field] = formData.get(field) || null;
+  }
 
   const { data, error } = await supabase.from('contacts').insert(insert).select('id').single();
   if (error) return { error: error.message };
@@ -92,36 +144,60 @@ export async function mergeContacts(keepId, duplicateId) {
   redirect(`/dashboard/contacts/${keepId}`);
 }
 
-// ייבוא אנשי קשר בכמות (מקובץ CSV/אקסל) - נכנס ל-workspace הנוכחי
+// ייבוא אנשי קשר בכמות (מקובץ CSV/אקסל) - נכנס ל-workspace הנוכחי.
+// כמו ביצירה ידנית: לכל שורה נבדקת התאמה קיימת (ת"ז/טלפון/מייל) לפני יצירה,
+// כדי למנוע כרטיסים כפולים ולשמר היסטוריה בין-מחלקתית כתגית.
 export async function importContacts(rows) {
   const { supabase, user } = await requireUser();
-  const workspaceId = await currentWorkspaceId(supabase, user);
-  if (!workspaceId) return { error: 'לא נמצא workspace פעיל' };
+  const workspace = await currentWorkspace(supabase, user);
+  if (!workspace.id) return { error: 'לא נמצא workspace פעיל' };
   if (!Array.isArray(rows) || rows.length === 0) return { error: 'לא נמצאו שורות לייבוא' };
 
   const now = new Date().toISOString();
-  const insert = rows
-    .filter((r) => (r.first || '').toString().trim())
-    .map((r) => ({
-      workspace_id: workspaceId,
-      stage: 'open',
+  const pipeline = getPipeline(workspace.name);
+  const validRows = rows.filter((r) => (r.first || '').toString().trim());
+  if (validRows.length === 0) return { error: 'אף שורה לא הכילה שם פרטי' };
+
+  let created = 0;
+  let merged = 0;
+
+  for (const r of validRows) {
+    const idnum = (r.idnum || '').toString().trim() || null;
+    const phone = (r.phone || '').toString().trim() || null;
+    const email = (r.email || '').toString().trim() || null;
+    const rowTags = (r.tags || '').toString().split(',').map((t) => t.trim()).filter(Boolean);
+
+    const existing = await findExistingMatch(supabase, { idnum, phone, email });
+
+    if (existing) {
+      const previousTag = roleTag(existing.workspaces?.name, existing.stage);
+      const mergedTags = Array.from(new Set([...(existing.tags || []), ...rowTags, ...(previousTag ? [previousTag] : [])]));
+      await supabase.from('contacts').update({
+        workspace_id: workspace.id,
+        stage: pipeline.order[0],
+        tags: mergedTags,
+        last_activity_at: now,
+      }).eq('id', existing.id);
+      merged++;
+      continue;
+    }
+
+    await supabase.from('contacts').insert({
+      workspace_id: workspace.id,
+      stage: pipeline.order[0],
       last_activity_at: now,
       first: (r.first || '').toString().trim(),
       last: (r.last || '').toString().trim() || null,
-      phone: (r.phone || '').toString().trim() || null,
+      phone, idnum, email,
       phone2: (r.phone2 || '').toString().trim() || null,
-      email: (r.email || '').toString().trim() || null,
       dept: (r.dept || '').toString().trim() || null,
       source: (r.source || '').toString().trim() || 'ייבוא אקסל',
-      tags: (r.tags || '').toString().split(',').map((t) => t.trim()).filter(Boolean),
-    }));
+      tags: rowTags,
+    });
+    created++;
+  }
 
-  if (insert.length === 0) return { error: 'אף שורה לא הכילה שם פרטי' };
-
-  const { error } = await supabase.from('contacts').insert(insert);
-  if (error) return { error: error.message };
-
-  return { success: true, count: insert.length };
+  return { success: true, count: created + merged, created, merged };
 }
 
 // חיפוש אנשי קשר (לצורך איחוד כפולים) - מחזיר עד 8 תוצאות, לא כולל את עצמו

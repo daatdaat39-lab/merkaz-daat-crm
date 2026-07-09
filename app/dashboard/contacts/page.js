@@ -16,7 +16,7 @@ export default async function ContactsPage({ searchParams }) {
   // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים)
   const { data } = await supabase
     .from('contacts')
-    .select('id, first, last, phone, phone2, email, dept, tags, stage, source, created_at')
+    .select('id, first, last, idnum, phone, phone2, email, dept, tags, stage, source, created_at')
     .order('created_at', { ascending: false });
   const allContacts = data || [];
 

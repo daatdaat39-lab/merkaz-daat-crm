@@ -46,6 +46,7 @@ export default function AddContactForm({ label = '+ איש קשר חדש', modal
             <form action={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div><span style={labelStyle}>שם פרטי *</span><input name="first" required style={inputStyle} /></div>
               <div><span style={labelStyle}>שם משפחה</span><input name="last" style={inputStyle} /></div>
+              <div><span style={labelStyle}>ת"ז</span><input name="idnum" style={inputStyle} /></div>
               <div><span style={labelStyle}>טלפון</span><input name="phone" style={inputStyle} /></div>
               <div><span style={labelStyle}>טלפון נוסף</span><input name="phone2" style={inputStyle} /></div>
               <div><span style={labelStyle}>מייל</span><input name="email" type="email" style={inputStyle} /></div>
@@ -53,6 +54,9 @@ export default function AddContactForm({ label = '+ איש קשר חדש', modal
               <div style={{ gridColumn: '1 / -1' }}>
                 <span style={labelStyle}>תגיות (מופרדות בפסיק)</span>
                 <input name="tags" style={inputStyle} />
+              </div>
+              <div style={{ gridColumn: '1 / -1', fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                אם נמצא כבר איש קשר עם אותו ת"ז/טלפון/מייל - הוא יעודכן וישויך למחלקה הזו, במקום ליצור כפילות.
               </div>
               {error && <div style={{ gridColumn: '1 / -1', color: 'var(--red, #b23b2f)', fontSize: 12 }}>שגיאה: {error}</div>}
               <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, marginTop: 4 }}>

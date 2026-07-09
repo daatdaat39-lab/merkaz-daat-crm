@@ -1,6 +1,7 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
-import { StageBadge, Tag, initials, STAGE_ORDER, STAGE_LABELS } from '../../components/ui';
+import { StageBadge, Tag, initials } from '../../components/ui';
+import { getPipeline } from '../../components/pipelines';
 import ContactTabs from './ContactTabs';
 import StageSelector from './StageSelector';
 import ContactEditPanel from './ContactEditPanel';
@@ -15,11 +16,13 @@ export default async function ContactDetailPage({ params }) {
   // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace
   const { data: contact } = await supabase
     .from('contacts')
-    .select('*')
+    .select('*, workspaces:workspace_id (name)')
     .eq('id', params.id)
     .single();
 
   if (!contact) notFound();
+
+  const pipeline = getPipeline(contact.workspaces?.name);
 
   const [{ data: meetings }, { data: tasks }] = await Promise.all([
     supabase
@@ -40,9 +43,10 @@ export default async function ContactDetailPage({ params }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const stage = formData.get('stage');
+    const closedReason = formData.get('closed_reason');
     await supabase
       .from('contacts')
-      .update({ stage, last_activity_at: new Date().toISOString() })
+      .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
       .eq('id', contact.id);
     redirect(`/dashboard/contacts/${contact.id}`);
   }
@@ -84,7 +88,7 @@ export default async function ContactDetailPage({ params }) {
             {contact.dept && <span>{contact.dept}</span>}
           </div>
         </div>
-        <StageSelector currentStage={contact.stage} action={updateStage} />
+        <StageSelector currentStage={contact.stage} currentClosedReason={contact.closed_reason} stages={pipeline.order} action={updateStage} />
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -109,6 +113,7 @@ export default async function ContactDetailPage({ params }) {
             <InfoRow label="מקור" value={contact.source} />
             <InfoRow label="ת.ז / מזהה" value={contact.idnum} />
             <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
+            {contact.stage === 'closed' && <InfoRow label="סיבת סגירה" value={contact.closed_reason} />}
             <div style={{ marginTop: 12 }}>
               {(contact.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
             </div>
