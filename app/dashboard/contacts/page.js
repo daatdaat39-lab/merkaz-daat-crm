@@ -3,8 +3,11 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { StageBadge, Tag, initials } from '../components/ui';
 import NotConnectedButton from '../components/NotConnectedButton';
+import AddContactForm from './AddContactForm';
+import TagFilter from './TagFilter';
+import { DownloadTemplateButton, ExportContactsButton, ImportContactsButton } from './ImportExportButtons';
 
-export default async function ContactsPage() {
+export default async function ContactsPage({ searchParams }) {
   const supabase = createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -13,9 +16,13 @@ export default async function ContactsPage() {
   // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים)
   const { data } = await supabase
     .from('contacts')
-    .select('id, first, last, phone, email, dept, tags, stage, source, created_at')
+    .select('id, first, last, phone, phone2, email, dept, tags, stage, source, created_at')
     .order('created_at', { ascending: false });
-  const contacts = data || [];
+  const allContacts = data || [];
+
+  const allTags = Array.from(new Set(allContacts.flatMap((c) => c.tags || []))).sort();
+  const activeTag = searchParams?.tag || '';
+  const contacts = activeTag ? allContacts.filter((c) => (c.tags || []).includes(activeTag)) : allContacts;
 
   return (
     <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>
@@ -23,12 +30,15 @@ export default async function ContactsPage() {
         <div>
           <h1 style={{ fontFamily: 'var(--font-heading)', margin: 0, fontSize: 20 }}>אנשי קשר</h1>
           <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 12.5 }}>
-            {contacts.length} אנשי קשר (כל המחלקות)
+            {contacts.length} אנשי קשר{activeTag ? ` (מסונן לפי "${activeTag}")` : ' (כל המחלקות)'}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <NotConnectedButton label="ייבוא מאקסל" icon="⬆" message="ייבוא מאקסל — עדיין לא מחובר" />
-          <NotConnectedButton label="איש קשר חדש" icon="+" variant="primary" message="הוספת איש קשר ידנית — בקרוב" />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TagFilter tags={allTags} />
+          <DownloadTemplateButton />
+          <ImportContactsButton />
+          <ExportContactsButton contacts={contacts} />
+          <AddContactForm />
         </div>
       </div>
 

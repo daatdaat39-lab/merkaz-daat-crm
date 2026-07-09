@@ -1,6 +1,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
+import { addMeeting } from './actions';
+import MeetingRow from './MeetingRow';
 
 export default async function CalendarPage() {
   const supabase = createClient();
@@ -21,7 +22,7 @@ export default async function CalendarPage() {
     const [{ data: m }, { data: c }] = await Promise.all([
       supabase
         .from('meetings')
-        .select('id, title, meeting_date, meeting_time, type, location, contacts(id, first, last)')
+        .select('id, title, meeting_date, meeting_time, type, location, notes, contacts(id, first, last, phone, email)')
         .eq('workspace_id', workspaceId)
         .order('meeting_date', { ascending: true })
         .order('meeting_time', { ascending: true }),
@@ -29,30 +30,6 @@ export default async function CalendarPage() {
     ]);
     meetings = m || [];
     contacts = c || [];
-  }
-
-  async function addMeeting(formData) {
-    'use server';
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: profile } = await supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single();
-    const workspaceId = profile?.current_workspace_id;
-    const contactId = formData.get('contact_id');
-    const date = formData.get('meeting_date');
-    const time = formData.get('meeting_time');
-    const type = formData.get('type') || 'פרונטלי';
-    if (!workspaceId || !contactId || !date || !time) return;
-
-    await supabase.from('meetings').insert({
-      workspace_id: workspaceId,
-      contact_id: contactId,
-      meeting_date: date,
-      meeting_time: time,
-      type,
-      agent_id: user.id,
-    });
-    redirect('/dashboard/calendar');
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -86,6 +63,7 @@ export default async function CalendarPage() {
           <option value="טלפוני">טלפוני</option>
           <option value="זום">זום</option>
         </select>
+        <input name="location" placeholder="מיקום (אופציונלי)" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }} />
         <button type="submit" style={{
           background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: 13, cursor: 'pointer',
         }}>
@@ -103,24 +81,7 @@ export default async function CalendarPage() {
             {new Date(date).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {list.map((m) => (
-              <div key={m.id} style={{
-                display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: '1px solid #e5e5e5',
-                borderRadius: 8, padding: '10px 14px',
-              }}>
-                <div style={{ fontSize: 13, fontWeight: 600, width: 50, direction: 'ltr', textAlign: 'left' }}>
-                  {m.meeting_time?.slice(0, 5)}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <Link href={`/dashboard/contacts/${m.contacts?.id}`} style={{ fontSize: 13, fontWeight: 500, textDecoration: 'none', color: 'inherit' }}>
-                    {m.contacts?.first} {m.contacts?.last}
-                  </Link>
-                  <div style={{ fontSize: 11, color: '#9b9b9b' }}>
-                    {m.type}{m.location ? ` · ${m.location}` : ''}
-                  </div>
-                </div>
-              </div>
-            ))}
+            {list.map((m) => <MeetingRow key={m.id} m={m} />)}
           </div>
         </div>
       ))}
@@ -129,15 +90,7 @@ export default async function CalendarPage() {
         <details style={{ marginTop: 20 }}>
           <summary style={{ fontSize: 12, color: '#9b9b9b', cursor: 'pointer' }}>פגישות שעברו ({past.length})</summary>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-            {past.map((m) => (
-              <div key={m.id} style={{
-                display: 'flex', alignItems: 'center', gap: 12, background: '#f9f9f9', border: '1px solid #e5e5e5',
-                borderRadius: 8, padding: '10px 14px', opacity: 0.75,
-              }}>
-                <div style={{ fontSize: 12, width: 90 }}>{new Date(m.meeting_date).toLocaleDateString('he-IL')}</div>
-                <div style={{ flex: 1, fontSize: 13 }}>{m.contacts?.first} {m.contacts?.last}</div>
-              </div>
-            ))}
+            {past.map((m) => <MeetingRow key={m.id} m={m} compact />)}
           </div>
         </details>
       )}

@@ -1,6 +1,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
+import { addTask } from './actions';
+import TaskRow from './TaskRow';
 
 export default async function TasksPage() {
   const supabase = createClient();
@@ -21,7 +22,7 @@ export default async function TasksPage() {
     const [{ data: t }, { data: c }] = await Promise.all([
       supabase
         .from('tasks')
-        .select('id, title, description, due_date, done, contacts(id, first, last)')
+        .select('id, title, description, due_date, due_time, remind_minutes_before, done, contacts(id, first, last)')
         .eq('workspace_id', workspaceId)
         .order('done', { ascending: true })
         .order('due_date', { ascending: true }),
@@ -31,41 +32,12 @@ export default async function TasksPage() {
     contacts = c || [];
   }
 
-  async function toggleTask(formData) {
-    'use server';
-    const supabase = createClient();
-    const taskId = formData.get('task_id');
-    const done = formData.get('done') === 'true';
-    await supabase.from('tasks').update({ done }).eq('id', taskId);
-    redirect('/dashboard/tasks');
-  }
-
-  async function addTask(formData) {
-    'use server';
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data: profile } = await supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single();
-    const workspaceId = profile?.current_workspace_id;
-    if (!workspaceId) return;
-
-    const title = formData.get('title');
-    const dueDate = formData.get('due_date') || null;
-    const contactId = formData.get('contact_id') || null;
-    if (!title) return;
-
-    await supabase.from('tasks').insert({
-      workspace_id: workspaceId,
-      title,
-      due_date: dueDate,
-      contact_id: contactId,
-      assigned_to: user.id,
-    });
-    redirect('/dashboard/tasks');
-  }
-
   const openTasks = tasks.filter((t) => !t.done);
   const doneTasks = tasks.filter((t) => t.done);
+  const overdueCount = openTasks.filter((t) => {
+    if (!t.due_date) return false;
+    return new Date(`${t.due_date}T${t.due_time || '23:59'}`).getTime() < Date.now();
+  }).length;
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px' }}>
@@ -85,6 +57,14 @@ export default async function TasksPage() {
           ))}
         </select>
         <input type="date" name="due_date" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }} />
+        <input type="time" name="due_time" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }} />
+        <select name="remind_minutes_before" defaultValue="" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }}>
+          <option value="">ללא תזכורת</option>
+          <option value="15">15 דקות לפני</option>
+          <option value="30">30 דקות לפני</option>
+          <option value="60">שעה לפני</option>
+          <option value="1440">יום לפני</option>
+        </select>
         <button type="submit" style={{
           background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: 13, cursor: 'pointer',
         }}>
@@ -93,10 +73,10 @@ export default async function TasksPage() {
       </form>
 
       <div style={{ fontSize: 12, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
-        פתוחות ({openTasks.length})
+        פתוחות ({openTasks.length}){overdueCount > 0 && <span style={{ color: 'var(--danger, #a3392f)' }}> · ⚠ {overdueCount} עברו את המועד</span>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-        {openTasks.map((t) => <TaskRow key={t.id} t={t} toggleTask={toggleTask} />)}
+        {openTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} />)}
         {openTasks.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין משימות פתוחות 🎉</div>}
       </div>
 
@@ -106,41 +86,10 @@ export default async function TasksPage() {
             הושלמו ({doneTasks.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {doneTasks.map((t) => <TaskRow key={t.id} t={t} toggleTask={toggleTask} />)}
+            {doneTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} />)}
           </div>
         </>
       )}
     </div>
-  );
-}
-
-function TaskRow({ t, toggleTask }) {
-  return (
-    <form action={toggleTask} style={{
-      display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1px solid #e5e5e5',
-      borderRadius: 8, padding: '10px 14px',
-    }}>
-      <input type="hidden" name="task_id" value={t.id} />
-      <input type="hidden" name="done" value={(!t.done).toString()} />
-      <button type="submit" style={{
-        width: 18, height: 18, borderRadius: 4, border: '1px solid #d0d0d0',
-        background: t.done ? '#16a34a' : '#fff', color: '#fff', fontSize: 11, cursor: 'pointer', flexShrink: 0,
-      }}>
-        {t.done ? '✓' : ''}
-      </button>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, textDecoration: t.done ? 'line-through' : 'none', color: t.done ? '#9b9b9b' : '#0a0a0a' }}>
-          {t.title}
-        </div>
-        <div style={{ fontSize: 11, color: '#9b9b9b', display: 'flex', gap: 8 }}>
-          {t.contacts && (
-            <Link href={`/dashboard/contacts/${t.contacts.id}`} style={{ color: '#9b9b9b' }}>
-              {t.contacts.first} {t.contacts.last}
-            </Link>
-          )}
-          {t.due_date && <span>יעד: {new Date(t.due_date).toLocaleDateString('he-IL')}</span>}
-        </div>
-      </div>
-    </form>
   );
 }

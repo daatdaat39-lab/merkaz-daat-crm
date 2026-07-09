@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation';
 import { StageBadge, Tag, initials, STAGE_ORDER, STAGE_LABELS } from '../../components/ui';
 import ContactTabs from './ContactTabs';
 import StageSelector from './StageSelector';
+import ContactEditPanel from './ContactEditPanel';
 import NotConnectedButton from '../../components/NotConnectedButton';
 
 export default async function ContactDetailPage({ params }) {
@@ -41,7 +42,7 @@ export default async function ContactDetailPage({ params }) {
     const stage = formData.get('stage');
     await supabase
       .from('contacts')
-      .update({ stage })
+      .update({ stage, last_activity_at: new Date().toISOString() })
       .eq('id', contact.id);
     redirect(`/dashboard/contacts/${contact.id}`);
   }
@@ -59,7 +60,7 @@ export default async function ContactDetailPage({ params }) {
     'use server';
     const supabase = createClient();
     const notes = formData.get('notes');
-    await supabase.from('contacts').update({ notes }).eq('id', contact.id);
+    await supabase.from('contacts').update({ notes, last_activity_at: new Date().toISOString() }).eq('id', contact.id);
     redirect(`/dashboard/contacts/${contact.id}`);
   }
 
@@ -103,13 +104,17 @@ export default async function ContactDetailPage({ params }) {
               פרטי קשר
             </div>
             <InfoRow label="טלפון" value={contact.phone} />
+            <InfoRow label="טלפון נוסף" value={contact.phone2} />
             <InfoRow label="מייל" value={contact.email} />
             <InfoRow label="מקור" value={contact.source} />
+            <InfoRow label="ת.ז / מזהה" value={contact.idnum} />
             <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
             <div style={{ marginTop: 12 }}>
               {(contact.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
             </div>
           </div>
+
+          <ContactEditPanel contact={contact} />
 
           <div style={{ background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: 16, marginTop: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 10 }}>
