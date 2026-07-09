@@ -26,7 +26,7 @@ export default async function CalendarPage() {
         .eq('workspace_id', workspaceId)
         .order('meeting_date', { ascending: true })
         .order('meeting_time', { ascending: true }),
-      supabase.from('contacts').select('id, first, last').eq('workspace_id', workspaceId).order('first'),
+      supabase.from('contacts').select('id, first, last').order('first'),
     ]);
     meetings = m || [];
     contacts = c || [];

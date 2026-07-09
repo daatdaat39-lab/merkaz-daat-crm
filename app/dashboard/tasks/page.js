@@ -26,7 +26,7 @@ export default async function TasksPage() {
         .eq('workspace_id', workspaceId)
         .order('done', { ascending: true })
         .order('due_date', { ascending: true }),
-      supabase.from('contacts').select('id, first, last').eq('workspace_id', workspaceId).order('first'),
+      supabase.from('contacts').select('id, first, last').order('first'),
     ]);
     tasks = t || [];
     contacts = c || [];
