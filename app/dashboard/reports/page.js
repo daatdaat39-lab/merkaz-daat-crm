@@ -20,7 +20,7 @@ export default async function ReportsPage() {
   let meetings = [];
   if (workspaceId) {
     const [{ data: c }, { data: t }, { data: m }] = await Promise.all([
-      supabase.from('contacts').select('dept, stage, created_at').eq('workspace_id', workspaceId),
+      supabase.from('contacts').select('dept, stage, created_at'),
       supabase.from('tasks').select('done').eq('workspace_id', workspaceId),
       supabase.from('meetings').select('meeting_date').eq('workspace_id', workspaceId),
     ]);

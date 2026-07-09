@@ -23,7 +23,7 @@ export default async function DashboardHome() {
 
   if (workspaceId) {
     const [{ data: c }, { data: m }, { data: t }] = await Promise.all([
-      supabase.from('contacts').select('id, stage, created_at').eq('workspace_id', workspaceId),
+      supabase.from('contacts').select('id, stage, created_at'),
       supabase
         .from('meetings')
         .select('id, meeting_date, meeting_time, title, contacts(first,last)')
