@@ -19,7 +19,7 @@ const NAV_SECTIONS = [
     label: 'מכירות',
     items: [
       { href: '/dashboard/sales', label: 'דשבורד מכירות', icon: '📈' },
-      { href: '/dashboard/sales/pipeline', label: 'פייפליין', icon: '🔀' },
+      { href: '/dashboard/sales/pipeline', label: 'תהליכים', icon: '🔀' },
       { href: '/dashboard/sales/leads', label: 'לידים', icon: '🎯' },
     ],
   },

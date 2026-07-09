@@ -90,7 +90,7 @@ export default async function DashboardHome() {
         {/* פילוח לפי שלב */}
         <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
-            פילוח לפי שלב בפייפליין
+            פילוח לפי שלב בתהליך
           </div>
           <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {pipeline.order.map((s) => {

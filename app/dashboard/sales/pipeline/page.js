@@ -40,7 +40,7 @@ export default async function SalesPipelinePage() {
 
   return (
     <div style={{ padding: '28px 24px' }}>
-      <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>פייפליין</h1>
+      <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>תהליכים</h1>
       <PipelineBoard contacts={contacts} moveStageAction={moveStage} stages={pipeline.order} />
     </div>
   );

@@ -10,7 +10,7 @@ const TITLES = {
   '/dashboard/tasks': 'משימות',
   '/dashboard/calendar': 'יומן',
   '/dashboard/sales': 'דשבורד מכירות',
-  '/dashboard/sales/pipeline': 'פייפליין',
+  '/dashboard/sales/pipeline': 'תהליכים',
   '/dashboard/sales/leads': 'לידים',
   '/dashboard/whatsapp': 'וואטסאפ',
   '/dashboard/email': 'מייל',

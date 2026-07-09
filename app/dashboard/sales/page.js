@@ -63,7 +63,7 @@ export default async function SalesDashboardPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
-          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>פייפליין לפי שלב</div>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>תהליך לפי שלב</div>
           {pipeline.order.map((s) => {
             const max = Math.max(1, ...Object.values(stageCounts));
             const pct = Math.round((stageCounts[s] / max) * 100);
