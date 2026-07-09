@@ -158,7 +158,6 @@ export default function Sidebar({
                 <input type="hidden" name="workspace_id" value={w.id} />
                 <button
                   type="submit"
-                  onClick={() => setWsOpen(false)}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
