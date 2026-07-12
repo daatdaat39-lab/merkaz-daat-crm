@@ -24,7 +24,7 @@ export default async function ContactDetailPage({ params }) {
 
   const pipeline = getPipeline(contact.workspaces?.name);
 
-  const [{ data: meetings }, { data: tasks }] = await Promise.all([
+  const [{ data: meetings }, { data: tasks }, { data: tagRows }] = await Promise.all([
     supabase
       .from('meetings')
       .select('id, title, meeting_date, meeting_time, type, location, notes')
@@ -35,7 +35,10 @@ export default async function ContactDetailPage({ params }) {
       .select('id, title, due_date, done')
       .eq('contact_id', contact.id)
       .order('created_at', { ascending: false }),
+    supabase.from('contacts').select('tags'),
   ]);
+
+  const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
 
   async function updateStage(formData) {
     'use server';
@@ -119,7 +122,7 @@ export default async function ContactDetailPage({ params }) {
             </div>
           </div>
 
-          <ContactEditPanel contact={contact} />
+          <ContactEditPanel contact={contact} existingTags={existingTags} />
 
           <div style={{ background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: 16, marginTop: 12 }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 10 }}>

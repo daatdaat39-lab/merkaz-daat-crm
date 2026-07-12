@@ -59,10 +59,11 @@ export function ExportContactsButton({ contacts }) {
   );
 }
 
-export function ImportContactsButton() {
+export function ImportContactsButton({ workspaces = [], defaultWorkspaceId = '' }) {
   const fileRef = useRef(null);
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState(null);
+  const [workspaceId, setWorkspaceId] = useState(defaultWorkspaceId);
   const router = useRouter();
 
   function handleFile(e) {
@@ -77,7 +78,7 @@ export function ImportContactsButton() {
         return;
       }
       startTransition(async () => {
-        const res = await importContacts(rows);
+        const res = await importContacts(rows, workspaceId);
         setResult(res);
         if (res.success) router.refresh();
       });
@@ -88,6 +89,15 @@ export function ImportContactsButton() {
 
   return (
     <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      {workspaces.length > 0 && (
+        <select
+          value={workspaceId}
+          onChange={(e) => setWorkspaceId(e.target.value)}
+          style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 }}
+        >
+          {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+        </select>
+      )}
       <button type="button" onClick={() => fileRef.current?.click()} disabled={isPending} style={ghostBtn()}>
         {isPending ? 'מייבא...' : '⬆ ייבוא מאקסל (CSV)'}
       </button>

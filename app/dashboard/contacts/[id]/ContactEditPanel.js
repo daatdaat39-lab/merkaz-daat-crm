@@ -3,11 +3,12 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateContact, deleteContact, mergeContacts, searchContacts } from '../actions';
+import TagPicker from '../TagPicker';
 
 const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 };
 const labelStyle = { fontSize: 10.5, color: '#9b9b9b', marginBottom: 3, display: 'block' };
 
-export default function ContactEditPanel({ contact }) {
+export default function ContactEditPanel({ contact, existingTags = [] }) {
   const [mode, setMode] = useState(null); // null | 'edit' | 'merge'
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
@@ -50,8 +51,8 @@ export default function ContactEditPanel({ contact }) {
           <div><span style={labelStyle}>תחום/מחלקה</span><input name="dept" defaultValue={contact.dept || ''} style={inputStyle} /></div>
           <div><span style={labelStyle}>מקור</span><input name="source" defaultValue={contact.source || ''} style={inputStyle} /></div>
           <div style={{ gridColumn: '1 / -1' }}>
-            <span style={labelStyle}>תגיות (מופרדות בפסיק)</span>
-            <input name="tags" defaultValue={(contact.tags || []).join(', ')} style={inputStyle} />
+            <span style={labelStyle}>תגיות</span>
+            <TagPicker existingTags={existingTags} defaultTags={contact.tags || []} />
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <button type="submit" style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: 13, cursor: 'pointer' }}>

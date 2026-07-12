@@ -2,11 +2,15 @@
 
 import { useState, useTransition } from 'react';
 import { createContact } from './actions';
+import TagPicker from './TagPicker';
 
 const inputStyle = { width: '100%', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 };
 const labelStyle = { fontSize: 10.5, color: 'var(--text-secondary)', marginBottom: 3, display: 'block' };
 
-export default function AddContactForm({ label = '+ איש קשר חדש', modalTitle = 'איש קשר חדש' }) {
+export default function AddContactForm({
+  label = '+ איש קשר חדש', modalTitle = 'איש קשר חדש',
+  workspaces = [], defaultWorkspaceId = '', existingTags = [],
+}) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
@@ -44,6 +48,14 @@ export default function AddContactForm({ label = '+ איש קשר חדש', modal
           >
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{modalTitle}</div>
             <form action={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {workspaces.length > 0 && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <span style={labelStyle}>מחלקה</span>
+                  <select name="workspace_id" defaultValue={defaultWorkspaceId} style={inputStyle}>
+                    {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                </div>
+              )}
               <div><span style={labelStyle}>שם פרטי *</span><input name="first" required style={inputStyle} /></div>
               <div><span style={labelStyle}>שם משפחה</span><input name="last" style={inputStyle} /></div>
               <div><span style={labelStyle}>ת"ז</span><input name="idnum" style={inputStyle} /></div>
@@ -52,8 +64,8 @@ export default function AddContactForm({ label = '+ איש קשר חדש', modal
               <div><span style={labelStyle}>מייל</span><input name="email" type="email" style={inputStyle} /></div>
               <div><span style={labelStyle}>מקור</span><input name="source" style={inputStyle} /></div>
               <div style={{ gridColumn: '1 / -1' }}>
-                <span style={labelStyle}>תגיות (מופרדות בפסיק)</span>
-                <input name="tags" style={inputStyle} />
+                <span style={labelStyle}>תגיות</span>
+                <TagPicker existingTags={existingTags} />
               </div>
               <div style={{ gridColumn: '1 / -1', fontSize: 11.5, color: 'var(--text-secondary)' }}>
                 אם נמצא כבר איש קשר עם אותו ת"ז/טלפון/מייל - הוא יעודכן וישויך למחלקה הזו, במקום ליצור כפילות.

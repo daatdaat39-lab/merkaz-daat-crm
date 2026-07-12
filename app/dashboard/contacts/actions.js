@@ -24,6 +24,28 @@ async function currentWorkspace(supabase, user) {
   return { id: profile?.current_workspace_id || null, name: profile?.workspaces?.name || null };
 }
 
+// מחלקה מפורשת שנבחרה בטופס (במקום להניח שזו תמיד ה-workspace הפעיל של היוצר)
+async function resolveTargetWorkspace(supabase, user, explicitId) {
+  if (!explicitId) return currentWorkspace(supabase, user);
+  const { data } = await supabase.from('workspaces').select('id, name').eq('id', explicitId).single();
+  return data ? { id: data.id, name: data.name } : currentWorkspace(supabase, user);
+}
+
+export async function listWorkspaces() {
+  const { supabase } = await requireUser();
+  const { data } = await supabase.from('workspaces').select('id, name').order('created_at', { ascending: true });
+  return data || [];
+}
+
+// כל התגיות שכבר בשימוש במערכת (לרשימה הנפתחת בטופס תגיות)
+export async function listAllTags() {
+  const { supabase } = await requireUser();
+  const { data } = await supabase.from('contacts').select('tags');
+  const set = new Set();
+  (data || []).forEach((c) => (c.tags || []).forEach((t) => set.add(t)));
+  return Array.from(set).sort();
+}
+
 // מחפש איש קשר קיים לפי ת"ז/טלפון/מייל (זיהוי כפילויות לפי האפיון) - לצורך
 // "ליד נכנס": אם האדם כבר קיים, לא נוצר כרטיס כפול - מעדכנים את הקיים
 async function findExistingMatch(supabase, { idnum, phone, email }) {
@@ -64,7 +86,7 @@ export async function updateContact(contactId, formData) {
 // שמשמרת את ההיסטוריה שלו במחלקה הקודמת (למשל "בוגר דעת למדני").
 export async function createContact(formData) {
   const { supabase, user } = await requireUser();
-  const workspace = await currentWorkspace(supabase, user);
+  const workspace = await resolveTargetWorkspace(supabase, user, formData.get('workspace_id'));
   if (!workspace.id) return { error: 'לא נמצא workspace פעיל' };
 
   const first = (formData.get('first') || '').toString().trim();
@@ -147,9 +169,9 @@ export async function mergeContacts(keepId, duplicateId) {
 // ייבוא אנשי קשר בכמות (מקובץ CSV/אקסל) - נכנס ל-workspace הנוכחי.
 // כמו ביצירה ידנית: לכל שורה נבדקת התאמה קיימת (ת"ז/טלפון/מייל) לפני יצירה,
 // כדי למנוע כרטיסים כפולים ולשמר היסטוריה בין-מחלקתית כתגית.
-export async function importContacts(rows) {
+export async function importContacts(rows, workspaceId) {
   const { supabase, user } = await requireUser();
-  const workspace = await currentWorkspace(supabase, user);
+  const workspace = await resolveTargetWorkspace(supabase, user, workspaceId);
   if (!workspace.id) return { error: 'לא נמצא workspace פעיל' };
   if (!Array.isArray(rows) || rows.length === 0) return { error: 'לא נמצאו שורות לייבוא' };
 

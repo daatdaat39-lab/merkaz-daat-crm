@@ -40,6 +40,12 @@ export default async function SalesLeadsPage() {
       .map((m) => ({ id: m.profiles.id, name: m.profiles.name || 'משתמש' }));
   }
 
+  const [{ data: workspaces }, { data: tagRows }] = await Promise.all([
+    supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
+    supabase.from('contacts').select('tags'),
+  ]);
+  const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
+
   // מחלקים לתת-קטגוריות לפי תגית (לצורך ארגון בלבד - כל חברי ה-workspace רואים הכל)
   const departments = Object.keys(DEPT_KEYWORDS);
   const categorized = departments
@@ -63,7 +69,10 @@ export default async function SalesLeadsPage() {
             )}
           </p>
         </div>
-        <AddContactForm label="+ צור ליד חדש" modalTitle="ליד חדש" />
+        <AddContactForm
+          label="+ צור ליד חדש" modalTitle="ליד חדש"
+          workspaces={workspaces || []} defaultWorkspaceId={workspaceId || ''} existingTags={existingTags}
+        />
       </div>
 
       {categorized.map((group) => (

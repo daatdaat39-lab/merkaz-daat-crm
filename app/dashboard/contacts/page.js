@@ -14,10 +14,14 @@ export default async function ContactsPage({ searchParams }) {
   if (!user) redirect('/login');
 
   // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים)
-  const { data } = await supabase
-    .from('contacts')
-    .select('id, first, last, idnum, phone, phone2, email, dept, tags, stage, source, created_at')
-    .order('created_at', { ascending: false });
+  const [{ data }, { data: workspaces }, { data: profile }] = await Promise.all([
+    supabase
+      .from('contacts')
+      .select('id, first, last, idnum, phone, phone2, email, dept, tags, stage, source, created_at')
+      .order('created_at', { ascending: false }),
+    supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
+    supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
+  ]);
   const allContacts = data || [];
 
   const allTags = Array.from(new Set(allContacts.flatMap((c) => c.tags || []))).sort();
@@ -36,9 +40,9 @@ export default async function ContactsPage({ searchParams }) {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <TagFilter tags={allTags} />
           <DownloadTemplateButton />
-          <ImportContactsButton />
+          <ImportContactsButton workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} />
           <ExportContactsButton contacts={contacts} />
-          <AddContactForm />
+          <AddContactForm workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} existingTags={allTags} />
         </div>
       </div>
 
