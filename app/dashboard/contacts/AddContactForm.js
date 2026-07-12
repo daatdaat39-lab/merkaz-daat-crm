@@ -1,11 +1,13 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
-import { createContact, checkPossibleDuplicates, mergeNewLeadInto } from './actions';
+import { useState, useTransition } from 'react';
+import { createContact, checkPossibleDuplicates, mergeResolvedLead } from './actions';
 import TagPicker from './TagPicker';
+import MergeFieldsPicker from './MergeFieldsPicker';
 
 const inputStyle = { width: '100%', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 };
 const labelStyle = { fontSize: 10.5, color: 'var(--text-secondary)', marginBottom: 3, display: 'block' };
+const FORM_FIELDS = ['first', 'last', 'idnum', 'phone', 'phone2', 'email', 'source', 'dept'];
 
 export default function AddContactForm({
   label = '+ איש קשר חדש', modalTitle = 'איש קשר חדש',
@@ -14,9 +16,9 @@ export default function AddContactForm({
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
-  const [duplicates, setDuplicates] = useState(null); // null = not checked yet, [] = checked, none found
-  const [pendingData, setPendingData] = useState(null);
-  const formRef = useRef(null);
+  const [duplicates, setDuplicates] = useState(null); // null = not checked yet
+  const [pendingData, setPendingData] = useState(null); // FormData from the create form
+  const [mergeCandidate, setMergeCandidate] = useState(null); // duplicate chosen to compare fields with
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -37,13 +39,6 @@ export default function AddContactForm({
     });
   }
 
-  function handleMergeInto(existingId) {
-    startTransition(async () => {
-      const res = await mergeNewLeadInto(existingId, pendingData);
-      if (res?.error) setError(res.error);
-    });
-  }
-
   function handleNotDuplicate() {
     pendingData.set('force_new', 'true');
     startTransition(async () => {
@@ -52,12 +47,25 @@ export default function AddContactForm({
     });
   }
 
+  function handleMergeConfirm(resolvedFields) {
+    startTransition(async () => {
+      const res = await mergeResolvedLead(mergeCandidate.id, resolvedFields, pendingData.get('workspace_id'));
+      if (res?.error) setError(res.error);
+    });
+  }
+
   function closeModal() {
     setOpen(false);
     setDuplicates(null);
     setPendingData(null);
+    setMergeCandidate(null);
     setError(null);
   }
+
+  const newValues = pendingData
+    ? Object.fromEntries(FORM_FIELDS.map((k) => [k, pendingData.get(k) || '']))
+    : {};
+  if (pendingData) newValues.tags = (pendingData.get('tags') || '').split(',').map((t) => t.trim()).filter(Boolean);
 
   return (
     <>
@@ -80,9 +88,19 @@ export default function AddContactForm({
         }} onClick={closeModal}>
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 10, padding: 22, width: 460, maxWidth: '100%' }}
+            style={{ background: '#fff', borderRadius: 10, padding: 22, width: 480, maxWidth: '100%' }}
           >
-            {duplicates && duplicates.length > 0 ? (
+            {mergeCandidate ? (
+              <>
+                <MergeFieldsPicker
+                  existing={mergeCandidate}
+                  newValues={newValues}
+                  onConfirm={handleMergeConfirm}
+                  onCancel={() => setMergeCandidate(null)}
+                />
+                {error && <div style={{ color: 'var(--red, #b23b2f)', fontSize: 12, marginTop: 10 }}>שגיאה: {error}</div>}
+              </>
+            ) : duplicates && duplicates.length > 0 ? (
               <div>
                 <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>⚠ נמצאו אנשי קשר עם פרטים דומים</div>
                 <p style={{ fontSize: 12.5, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
@@ -96,11 +114,11 @@ export default function AddContactForm({
                         {d.phone || d.email || 'ללא פרטי קשר'} · {d.workspaceName} · {d.stageLabel}
                       </div>
                       <button
-                        onClick={() => handleMergeInto(d.id)}
+                        onClick={() => setMergeCandidate(d)}
                         disabled={isPending}
                         style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}
                       >
-                        כן, זה אותו אדם — מיזוג
+                        כן, זה אותו אדם — בחירת פרטים למיזוג
                       </button>
                     </div>
                   ))}
@@ -122,7 +140,7 @@ export default function AddContactForm({
             ) : (
               <>
                 <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 14 }}>{modalTitle}</div>
-                <form ref={formRef} onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {workspaces.length > 0 && (
                     <div style={{ gridColumn: '1 / -1' }}>
                       <span style={labelStyle}>מחלקה</span>

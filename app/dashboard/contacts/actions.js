@@ -100,34 +100,37 @@ export async function checkPossibleDuplicates({ first, last, phone, email, idnum
 
   const { data } = await supabase
     .from('contacts')
-    .select('id, first, last, phone, email, stage, workspaces:workspace_id (name)')
+    .select('id, first, last, idnum, phone, phone2, email, source, dept, tags, stage, workspaces:workspace_id (name)')
     .or(clauses.join(','))
     .limit(5);
 
   return (data || []).map((c) => ({
-    id: c.id, first: c.first, last: c.last, phone: c.phone, email: c.email,
+    id: c.id, first: c.first, last: c.last, idnum: c.idnum, phone: c.phone, phone2: c.phone2,
+    email: c.email, source: c.source, dept: c.dept, tags: c.tags || [],
     stageLabel: STAGE_LABELS[c.stage] || c.stage, workspaceName: c.workspaces?.name || '',
   }));
 }
 
-// שיוך ליד חדש (מהטופס) לאיש קשר קיים שאושר ידנית ע"י המשתמש כאותו אדם
-export async function mergeNewLeadInto(existingId, formData) {
+// שיוך ליד חדש לאיש קשר קיים, אחרי שהמשתמש בחר ידנית שדה-שדה מה להשאיר
+// (resolvedFields: אובייקט רגיל עם הערכים הסופיים שנבחרו, לא FormData)
+export async function mergeResolvedLead(existingId, resolvedFields, workspaceId) {
   const { supabase, user } = await requireUser();
-  const workspace = await resolveTargetWorkspace(supabase, user, formData.get('workspace_id'));
+  const workspace = await resolveTargetWorkspace(supabase, user, workspaceId);
   if (!workspace.id) return { error: 'לא נמצא workspace פעיל' };
 
   const { data: existing } = await supabase
-    .from('contacts').select('tags, stage, workspaces:workspace_id (name)').eq('id', existingId).single();
+    .from('contacts').select('stage, workspaces:workspace_id (name)').eq('id', existingId).single();
   if (!existing) return { error: 'איש הקשר לא נמצא' };
 
   const pipeline = getPipeline(workspace.name);
-  const newTags = formData.has('tags') ? parseTags(formData.get('tags')) : [];
   const previousTag = roleTag(existing.workspaces?.name, existing.stage);
-  const mergedTags = Array.from(new Set([...(existing.tags || []), ...newTags, ...(previousTag ? [previousTag] : [])]));
+  const finalTags = Array.from(new Set([...(resolvedFields.tags || []), ...(previousTag ? [previousTag] : [])]));
 
-  const update = { workspace_id: workspace.id, stage: pipeline.order[0], tags: mergedTags, last_activity_at: new Date().toISOString() };
+  const update = {
+    workspace_id: workspace.id, stage: pipeline.order[0], tags: finalTags, last_activity_at: new Date().toISOString(),
+  };
   for (const field of EDITABLE_FIELDS) {
-    if (formData.has(field) && formData.get(field)) update[field] = formData.get(field);
+    if (field in resolvedFields) update[field] = resolvedFields[field] || null;
   }
 
   const { error } = await supabase.from('contacts').update(update).eq('id', existingId);
