@@ -31,6 +31,25 @@ async function resolveTargetWorkspace(supabase, user, explicitId) {
   return data ? { id: data.id, name: data.name } : currentWorkspace(supabase, user);
 }
 
+// אחרי יצירת/שיוך ליד למחלקה שונה מזו שהמשתמש נמצא בה כרגע, מעביר אותו
+// אליה אוטומטית - אבל רק אם יש לו באמת חברות שם (אחרת הוא ייחסם עם
+// "אין לך גישה למחלקה זו" כשהוא מגיע לשם)
+async function maybeSwitchActiveWorkspace(supabase, user, targetWorkspaceId) {
+  const { data: profile } = await supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single();
+  if (profile?.current_workspace_id === targetWorkspaceId) return;
+
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('workspace_id')
+    .eq('user_id', user.id)
+    .eq('workspace_id', targetWorkspaceId)
+    .single();
+
+  if (membership) {
+    await supabase.from('profiles').update({ current_workspace_id: targetWorkspaceId }).eq('id', user.id);
+  }
+}
+
 export async function listWorkspaces() {
   const { supabase } = await requireUser();
   const { data } = await supabase.from('workspaces').select('id, name').order('created_at', { ascending: true });
@@ -114,6 +133,7 @@ export async function mergeNewLeadInto(existingId, formData) {
   const { error } = await supabase.from('contacts').update(update).eq('id', existingId);
   if (error) return { error: error.message };
 
+  await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
   redirect(`/dashboard/contacts/${existingId}`);
 }
 
@@ -171,6 +191,7 @@ export async function createContact(formData) {
     const { error } = await supabase.from('contacts').update(update).eq('id', existing.id);
     if (error) return { error: error.message };
 
+    await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
     redirect(`/dashboard/contacts/${existing.id}`);
   }
 
@@ -185,6 +206,7 @@ export async function createContact(formData) {
   const { data, error } = await supabase.from('contacts').insert(insert).select('id').single();
   if (error) return { error: error.message };
 
+  await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
   redirect(`/dashboard/contacts/${data.id}`);
 }
 
