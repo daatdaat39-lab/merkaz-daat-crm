@@ -24,7 +24,7 @@ export default async function ContactDetailPage({ params }) {
   const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }] = await Promise.all([
     supabase
       .from('contact_departments')
-      .select('id, stage, closed_reason, workspace_id, workspaces:workspace_id (name)')
+      .select('id, stage, closed_reason, workspace_id, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
       .eq('contact_id', contact.id),
     supabase.from('workspaces').select('id, name').order('name'),
     supabase
@@ -46,6 +46,7 @@ export default async function ContactDetailPage({ params }) {
     workspaceName: row.workspaces?.name || 'מחלקה',
     stage: row.stage,
     closedReason: row.closed_reason,
+    inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
   }));
 
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();

@@ -4,8 +4,8 @@ import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { importContacts } from './actions';
 
-const COLUMNS = ['first', 'last', 'idnum', 'phone', 'phone2', 'email', 'dept', 'source', 'tags'];
-const HEADERS_HE = ['שם פרטי', 'שם משפחה', 'ת"ז', 'טלפון', 'טלפון נוסף', 'מייל', 'תחום', 'מקור', 'תגיות (מופרדות בפסיק)'];
+const COLUMNS = ['first', 'last', 'idnum', 'phone', 'phone2', 'email', 'dept', 'source', 'reason', 'tags'];
+const HEADERS_HE = ['שם פרטי', 'שם משפחה', 'ת"ז', 'טלפון', 'טלפון נוסף', 'מייל', 'תחום', 'מקור', 'מהות הפנייה', 'תגיות (מופרדות בפסיק)'];
 
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
@@ -34,7 +34,7 @@ function downloadBlob(content, filename, type) {
 
 export function DownloadTemplateButton() {
   function handleClick() {
-    const csv = '﻿' + HEADERS_HE.join(',') + '\n' + 'ישראל,ישראלי,123456789,050-1234567,,israel@example.com,לימודי,הפניה,לקוח פוטנציאלי\n';
+    const csv = '﻿' + HEADERS_HE.join(',') + '\n' + 'ישראל,ישראלי,123456789,050-1234567,,israel@example.com,לימודי,הפניה,התעניינות ברישום לקורס,לקוח פוטנציאלי\n';
     downloadBlob(csv, 'תבנית-ייבוא-אנשי-קשר.csv', 'text/csv;charset=utf-8;');
   }
   return (

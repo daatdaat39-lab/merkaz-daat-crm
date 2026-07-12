@@ -25,16 +25,21 @@ export default async function SalesLeadsPage() {
   if (workspaceId) {
     const { data } = await supabase
       .from('contact_departments')
-      .select('id, stage, agent_id, last_activity_at, contacts:contact_id (id, first, last, phone, email, source, dept, tags)')
+      .select('id, stage, agent_id, last_activity_at, contacts:contact_id (id, first, last, phone, email, source, dept, tags), lead_inquiries (reason, created_at)')
       .eq('workspace_id', workspaceId)
       .in('stage', pipeline.leadStages)
       .order('last_activity_at', { ascending: false });
     leads = (data || [])
       .filter((row) => row.contacts)
-      .map((row) => ({
-        ...row.contacts,
-        departmentRowId: row.id, stage: row.stage, agent_id: row.agent_id, last_activity_at: row.last_activity_at,
-      }));
+      .map((row) => {
+        const inquiries = [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        return {
+          ...row.contacts,
+          departmentRowId: row.id, stage: row.stage, agent_id: row.agent_id, last_activity_at: row.last_activity_at,
+          latestReason: inquiries[0]?.reason || null,
+          inquiryCount: inquiries.length,
+        };
+      });
 
     const { data: members } = await supabase
       .from('workspace_members')
@@ -102,7 +107,7 @@ function LeadGroup({ title, leads, agents, workspaceId }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
         <thead>
           <tr style={{ background: 'var(--bg-secondary)' }}>
-            {['שם', 'סטטוס', 'טלפון', 'מייל', 'מקור', 'טיפול אחרון', 'נציג מטפל'].map((h) => (
+            {['שם', 'סטטוס', 'טלפון', 'מייל', 'מקור', 'מהות הפנייה', 'טיפול אחרון', 'נציג מטפל'].map((h) => (
               <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
             ))}
           </tr>

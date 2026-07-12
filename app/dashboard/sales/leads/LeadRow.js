@@ -45,6 +45,14 @@ export default function LeadRow({ contact: c, agents, workspaceId }) {
       <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.email || '—'}</td>
       <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.source || '—'}</td>
       <td style={{ padding: '10px 16px', fontSize: 12.5 }}>
+        {c.inquiryCount > 1 && (
+          <div style={{ color: 'var(--danger, #a3392f)', fontWeight: 600, fontSize: 11, marginBottom: 2 }}>
+            🔄 פנייה נוספת ({c.inquiryCount})
+          </div>
+        )}
+        {c.latestReason || '—'}
+      </td>
+      <td style={{ padding: '10px 16px', fontSize: 12.5 }}>
         {overdue && <span style={{ color: 'var(--danger, #a3392f)', fontWeight: 600 }}>⚠ </span>}
         {elapsedLabel(c.last_activity_at) || '—'}
       </td>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { createContact, checkPossibleDuplicates, mergeResolvedLead } from './actions';
+import { getInquiryReasons } from '../components/pipelines';
 import TagPicker from './TagPicker';
 import MergeFieldsPicker from './MergeFieldsPicker';
 
@@ -19,6 +20,11 @@ export default function AddContactForm({
   const [duplicates, setDuplicates] = useState(null); // null = not checked yet
   const [pendingData, setPendingData] = useState(null); // FormData from the create form
   const [mergeCandidate, setMergeCandidate] = useState(null); // duplicate chosen to compare fields with
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(defaultWorkspaceId);
+  const [reason, setReason] = useState('');
+
+  const selectedWorkspace = workspaces.find((w) => w.id === selectedWorkspaceId);
+  const reasonOptions = getInquiryReasons(selectedWorkspace?.name);
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -49,7 +55,10 @@ export default function AddContactForm({
 
   function handleMergeConfirm(resolvedFields) {
     startTransition(async () => {
-      const res = await mergeResolvedLead(mergeCandidate.id, resolvedFields, pendingData.get('workspace_id'));
+      const res = await mergeResolvedLead(
+        mergeCandidate.id, resolvedFields, pendingData.get('workspace_id'),
+        pendingData.get('reason'), pendingData.get('reason_note')
+      );
       if (res?.error) setError(res.error);
     });
   }
@@ -60,6 +69,7 @@ export default function AddContactForm({
     setPendingData(null);
     setMergeCandidate(null);
     setError(null);
+    setReason('');
   }
 
   const newValues = pendingData
@@ -111,7 +121,14 @@ export default function AddContactForm({
                     <div key={d.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px' }}>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{d.first} {d.last}</div>
                       <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', margin: '2px 0 8px' }}>
-                        {d.phone || d.email || 'ללא פרטי קשר'} · {(d.departments && d.departments.length) ? d.departments.join(', ') : 'ללא מחלקה'}
+                        {d.phone || d.email || 'ללא פרטי קשר'}
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                        {(d.departments && d.departments.length) ? d.departments.map((dep) => (
+                          <span key={dep.name} style={{ fontSize: 11, background: '#f2f2f2', borderRadius: 4, padding: '2px 8px' }}>
+                            {dep.name} · {dep.stageLabel}
+                          </span>
+                        )) : <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ללא מחלקה</span>}
                       </div>
                       <button
                         onClick={() => setMergeCandidate(d)}
@@ -144,7 +161,12 @@ export default function AddContactForm({
                   {workspaces.length > 0 && (
                     <div style={{ gridColumn: '1 / -1' }}>
                       <span style={labelStyle}>מחלקה</span>
-                      <select name="workspace_id" defaultValue={defaultWorkspaceId} style={inputStyle}>
+                      <select
+                        name="workspace_id"
+                        value={selectedWorkspaceId}
+                        onChange={(e) => { setSelectedWorkspaceId(e.target.value); setReason(''); }}
+                        style={inputStyle}
+                      >
                         {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                       </select>
                     </div>
@@ -156,6 +178,19 @@ export default function AddContactForm({
                   <div><span style={labelStyle}>טלפון נוסף</span><input name="phone2" style={inputStyle} /></div>
                   <div><span style={labelStyle}>מייל</span><input name="email" type="email" style={inputStyle} /></div>
                   <div><span style={labelStyle}>מקור</span><input name="source" style={inputStyle} /></div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <span style={labelStyle}>מהות הפנייה *</span>
+                    <select name="reason" required value={reason} onChange={(e) => setReason(e.target.value)} style={inputStyle}>
+                      <option value="" disabled>בחר...</option>
+                      {reasonOptions.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  {reason === 'אחר' && (
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <span style={labelStyle}>פירוט מהות הפנייה</span>
+                      <input name="reason_note" style={inputStyle} placeholder="למשל: שאלה על העברת נקודות זכות" />
+                    </div>
+                  )}
                   <div style={{ gridColumn: '1 / -1' }}>
                     <span style={labelStyle}>תגיות</span>
                     <TagPicker existingTags={existingTags} />
