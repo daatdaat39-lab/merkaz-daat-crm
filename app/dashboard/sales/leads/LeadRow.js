@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { STAGE_LABELS, initials } from '../../components/ui';
+import { STAGE_LABELS, STAGE_COLORS, initials } from '../../components/ui';
 import { CLOSE_REASONS } from '../../components/pipelines';
 import { assignAgent, updateLeadStage } from '../../contacts/actions';
 
@@ -64,7 +64,11 @@ export default function LeadRow({ contact: c, agents, workspaceId, stages = [] }
           value={c.stage}
           onChange={handleStageChange}
           disabled={isPending}
-          style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '4px 6px', fontSize: 12 }}
+          style={{
+            border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 500, cursor: 'pointer',
+            background: (STAGE_COLORS[c.stage] || STAGE_COLORS.open).bg,
+            color: (STAGE_COLORS[c.stage] || STAGE_COLORS.open).color,
+          }}
         >
           {stages.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
           <option value="closed">{STAGE_LABELS.closed}</option>

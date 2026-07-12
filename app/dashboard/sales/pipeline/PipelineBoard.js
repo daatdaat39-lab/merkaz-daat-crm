@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import Link from 'next/link';
-import { STAGE_LABELS } from '../../components/ui';
+import { STAGE_LABELS, STAGE_COLORS } from '../../components/ui';
 import { CLOSE_REASONS } from '../../components/pipelines';
 
 export default function PipelineBoard({ contacts, moveStageAction, stages }) {
@@ -183,7 +183,11 @@ export default function PipelineBoard({ contacts, moveStageAction, stages }) {
                       if (e.target.value === 'closed') setClosingId(c.departmentRowId);
                       else moveContact(c.departmentRowId, e.target.value);
                     }}
-                    style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', fontSize: 12 }}
+                    style={{
+                      border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                      background: (STAGE_COLORS[c.stage] || STAGE_COLORS.open).bg,
+                      color: (STAGE_COLORS[c.stage] || STAGE_COLORS.open).color,
+                    }}
                   >
                     {stages.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
                     <option value="closed">{STAGE_LABELS.closed}</option>
