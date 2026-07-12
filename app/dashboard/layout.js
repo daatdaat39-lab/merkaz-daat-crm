@@ -39,7 +39,18 @@ export default async function DashboardLayout({ children }) {
     workspaces.unshift({ id: mainWs.id, name: mainWs.name, role: null, restricted: true });
   }
 
-  const currentWorkspaceId = profile?.current_workspace_id || workspaces[0]?.id || null;
+  let currentWorkspaceId = profile?.current_workspace_id || null;
+
+  // אם למשתמש אין current_workspace_id שמור (למשל משתמש חדש שהוזמן ולא נבחרה
+  // לו ברירת מחדל), אבל יש לו חברות אמיתית באיזשהו workspace - קובעים אחת
+  // ושומרים אותה בפועל בפרופיל. בלי זה, כל עמוד בנפרד (לידים/משימות/יומן
+  // וכו') קורא current_workspace_id ישירות מה-DB ומקבל null, כך שהתוכן
+  // נראה ריק גם שהסיידבר מראה הכל תקין (כי כאן יש נפילה זמנית בזיכרון בלבד).
+  if (!currentWorkspaceId && workspaces.length > 0) {
+    currentWorkspaceId = workspaces[0].id;
+    await supabase.from('profiles').update({ current_workspace_id: currentWorkspaceId }).eq('id', user.id);
+  }
+
   const currentWorkspaceIndex = workspaces.findIndex((w) => w.id === currentWorkspaceId);
   const hasAccessToCurrent = workspaces.some((w) => w.id === currentWorkspaceId && !w.restricted);
 

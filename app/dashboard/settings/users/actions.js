@@ -93,9 +93,14 @@ export async function inviteMemberWithPassword({ email, name, role }) {
     if (existingRole === 'owner') return { error: 'רק owner יכול לשנות הרשאות של owner קיים' };
   }
 
+  // רק למשתמש חדש קובעים current_workspace_id אוטומטית - למשתמש קיים לא
+  // רוצים "לגנוב" לו את המחלקה הפעילה כרגע רק כי הוזמן גם למחלקה נוספת
+  const profileUpsert = { id: userId, name: displayName, role: 'user', level: 'rep' };
+  if (isNewUser) profileUpsert.current_workspace_id = ctx.workspaceId;
+
   const { error: profileError } = await admin
     .from('profiles')
-    .upsert({ id: userId, name: displayName, role: 'user', level: 'rep' }, { onConflict: 'id' });
+    .upsert(profileUpsert, { onConflict: 'id' });
   if (profileError) return { error: profileError.message };
 
   const { error: memberError } = await admin
