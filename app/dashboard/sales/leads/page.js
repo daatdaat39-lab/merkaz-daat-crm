@@ -86,10 +86,10 @@ export default async function SalesLeadsPage() {
       </div>
 
       {categorized.map((group) => (
-        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} />
+        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} stages={pipeline.order} />
       ))}
 
-      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} />}
+      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} stages={pipeline.order} />}
 
       {leads.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים פתוחים כרגע</div>
@@ -98,7 +98,7 @@ export default async function SalesLeadsPage() {
   );
 }
 
-function LeadGroup({ title, leads, agents, workspaceId }) {
+function LeadGroup({ title, leads, agents, workspaceId, stages }) {
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
@@ -113,7 +113,7 @@ function LeadGroup({ title, leads, agents, workspaceId }) {
           </tr>
         </thead>
         <tbody>
-          {leads.map((c) => <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} />)}
+          {leads.map((c) => <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} stages={stages} />)}
         </tbody>
       </table>
     </div>

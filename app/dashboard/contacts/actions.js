@@ -277,6 +277,18 @@ export async function updateDepartmentStage(departmentRowId, stage, closedReason
   redirect(`/dashboard/contacts/${row.contact_id}`);
 }
 
+// כמו updateDepartmentStage, אבל בלי redirect - לשימוש במסכי לידים/תהליכים
+// שבהם משנים סטטוס מבלי לעזוב את המסך (אותה טבלה, אז השינוי מסונכרן
+// אוטומטית בין לידים לתהליכים - שניהם קוראים מאותה שורת contact_departments)
+export async function updateLeadStage(departmentRowId, stage, closedReason) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from('contact_departments')
+    .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
+    .eq('id', departmentRowId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 // איחוד שני אנשי קשר כפולים: keepId נשאר, duplicateId נמחק אחרי שהפגישות/משימות
 // והשיוכים למחלקות שלו עוברים אליו
 export async function mergeContacts(keepId, duplicateId) {
