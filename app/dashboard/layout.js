@@ -54,6 +54,14 @@ export default async function DashboardLayout({ children }) {
   const currentWorkspaceIndex = workspaces.findIndex((w) => w.id === currentWorkspaceId);
   const hasAccessToCurrent = workspaces.some((w) => w.id === currentWorkspaceId && !w.restricted);
 
+  // לכפתור "איש קשר חדש" הגלובלי בסרגל העליון - כל המחלקות (לא רק אלה
+  // שהמשתמש חבר בהן, כמו במסך אנשי הקשר) והתגיות הקיימות במערכת
+  const [{ data: allWorkspaces }, { data: tagRows }] = await Promise.all([
+    supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
+    supabase.from('contacts').select('tags'),
+  ]);
+  const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
+
   async function switchWorkspace(formData) {
     'use server';
     const workspaceId = formData.get('workspace_id');
@@ -103,7 +111,12 @@ export default async function DashboardLayout({ children }) {
         logoutAction={handleLogout}
       />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg-secondary)' }}>
-        <Topbar workspaceColorIndex={currentWorkspaceIndex} />
+        <Topbar
+          workspaceColorIndex={currentWorkspaceIndex}
+          workspaces={allWorkspaces || []}
+          defaultWorkspaceId={currentWorkspaceId || ''}
+          existingTags={existingTags}
+        />
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {hasAccessToCurrent ? children : (
             <div style={{

@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import NotConnectedButton from './NotConnectedButton';
+import AddContactForm from '../contacts/AddContactForm';
 import { WS_COLORS } from './ui';
 
 const TITLES = {
@@ -19,7 +20,7 @@ const TITLES = {
   '/dashboard/settings': 'הגדרות',
 };
 
-export default function Topbar({ workspaceColorIndex = 0 }) {
+export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defaultWorkspaceId = '', existingTags = [] }) {
   const pathname = usePathname();
   const title = pathname.startsWith('/dashboard/contacts/') ? 'איש קשר' : (TITLES[pathname] || 'מרכז דעת');
   const accent = WS_COLORS[workspaceColorIndex >= 0 ? workspaceColorIndex % WS_COLORS.length : 0];
@@ -54,7 +55,12 @@ export default function Topbar({ workspaceColorIndex = 0 }) {
       <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
         <NotConnectedButton icon="📞" label="שיחות" variant="icon" message="חיבור טלפוניה — עדיין לא מחובר" />
         <NotConnectedButton icon="💬" label="וואטסאפ" variant="icon" message="חיבור וואטסאפ — עדיין לא מחובר" />
-        <NotConnectedButton icon="+" label="איש קשר חדש" variant="primary" message="הוספת איש קשר ידנית — בקרוב" />
+        <AddContactForm
+          label="+ איש קשר חדש"
+          workspaces={workspaces}
+          defaultWorkspaceId={defaultWorkspaceId}
+          existingTags={existingTags}
+        />
       </div>
     </div>
   );
