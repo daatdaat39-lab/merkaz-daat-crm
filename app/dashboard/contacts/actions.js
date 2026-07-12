@@ -2,7 +2,7 @@
 
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { getPipeline, roleTag } from '../components/pipelines';
+import { getPipeline, roleTag, STAGE_LABELS } from '../components/pipelines';
 
 const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'dept', 'source', 'idnum'];
 
@@ -64,6 +64,59 @@ async function findExistingMatch(supabase, { idnum, phone, email }) {
   return data?.[0] || null;
 }
 
+// בדיקה "רכה" לפני יצירה - מציגה למשתמש התאמות אפשריות (כולל שם דומה, לא
+// רק התאמה מדויקת) כדי שהוא יאשר בעצמו אם זה אותו אדם, במקום מיזוג שקט
+export async function checkPossibleDuplicates({ first, last, phone, email, idnum }) {
+  const { supabase } = await requireUser();
+  const clauses = [];
+  if (idnum) clauses.push(`idnum.eq.${idnum}`);
+  if (phone) clauses.push(`phone.eq.${phone}`);
+  if (email) clauses.push(`email.eq.${email}`);
+  if (first && first.trim().length >= 2) {
+    const f = first.trim();
+    const l = (last || '').trim();
+    clauses.push(l ? `and(first.ilike.%${f}%,last.ilike.%${l}%)` : `first.ilike.%${f}%`);
+  }
+  if (clauses.length === 0) return [];
+
+  const { data } = await supabase
+    .from('contacts')
+    .select('id, first, last, phone, email, stage, workspaces:workspace_id (name)')
+    .or(clauses.join(','))
+    .limit(5);
+
+  return (data || []).map((c) => ({
+    id: c.id, first: c.first, last: c.last, phone: c.phone, email: c.email,
+    stageLabel: STAGE_LABELS[c.stage] || c.stage, workspaceName: c.workspaces?.name || '',
+  }));
+}
+
+// שיוך ליד חדש (מהטופס) לאיש קשר קיים שאושר ידנית ע"י המשתמש כאותו אדם
+export async function mergeNewLeadInto(existingId, formData) {
+  const { supabase, user } = await requireUser();
+  const workspace = await resolveTargetWorkspace(supabase, user, formData.get('workspace_id'));
+  if (!workspace.id) return { error: 'לא נמצא workspace פעיל' };
+
+  const { data: existing } = await supabase
+    .from('contacts').select('tags, stage, workspaces:workspace_id (name)').eq('id', existingId).single();
+  if (!existing) return { error: 'איש הקשר לא נמצא' };
+
+  const pipeline = getPipeline(workspace.name);
+  const newTags = formData.has('tags') ? parseTags(formData.get('tags')) : [];
+  const previousTag = roleTag(existing.workspaces?.name, existing.stage);
+  const mergedTags = Array.from(new Set([...(existing.tags || []), ...newTags, ...(previousTag ? [previousTag] : [])]));
+
+  const update = { workspace_id: workspace.id, stage: pipeline.order[0], tags: mergedTags, last_activity_at: new Date().toISOString() };
+  for (const field of EDITABLE_FIELDS) {
+    if (formData.has(field) && formData.get(field)) update[field] = formData.get(field);
+  }
+
+  const { error } = await supabase.from('contacts').update(update).eq('id', existingId);
+  if (error) return { error: error.message };
+
+  redirect(`/dashboard/contacts/${existingId}`);
+}
+
 // עדכון פרטי איש קשר - כל משתמש מחובר יכול (contacts משותפים לכולם)
 export async function updateContact(contactId, formData) {
   const { supabase } = await requireUser();
@@ -97,8 +150,9 @@ export async function createContact(formData) {
   const email = (formData.get('email') || '').toString().trim() || null;
   const newTags = formData.has('tags') ? parseTags(formData.get('tags')) : [];
   const pipeline = getPipeline(workspace.name);
+  const forceNew = formData.get('force_new') === 'true';
 
-  const existing = await findExistingMatch(supabase, { idnum, phone, email });
+  const existing = forceNew ? null : await findExistingMatch(supabase, { idnum, phone, email });
 
   if (existing) {
     const previousTag = roleTag(existing.workspaces?.name, existing.stage);
