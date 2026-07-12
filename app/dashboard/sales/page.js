@@ -20,8 +20,11 @@ export default async function SalesDashboardPage() {
 
   let contacts = [];
   if (workspaceId) {
-    const { data } = await supabase.from('contacts').select('stage, source, created_at').eq('workspace_id', workspaceId);
-    contacts = data || [];
+    const { data } = await supabase
+      .from('contact_departments')
+      .select('stage, created_at, contacts:contact_id (source)')
+      .eq('workspace_id', workspaceId);
+    contacts = (data || []).map((row) => ({ stage: row.stage, created_at: row.created_at, source: row.contacts?.source }));
   }
 
   const total = contacts.length;

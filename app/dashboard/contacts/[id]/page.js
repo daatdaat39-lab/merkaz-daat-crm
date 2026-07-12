@@ -1,9 +1,8 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
-import { StageBadge, Tag, initials } from '../../components/ui';
-import { getPipeline } from '../../components/pipelines';
+import { Tag, initials } from '../../components/ui';
 import ContactTabs from './ContactTabs';
-import StageSelector from './StageSelector';
+import DepartmentCards from './DepartmentCards';
 import ContactEditPanel from './ContactEditPanel';
 import NotConnectedButton from '../../components/NotConnectedButton';
 
@@ -16,15 +15,18 @@ export default async function ContactDetailPage({ params }) {
   // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace
   const { data: contact } = await supabase
     .from('contacts')
-    .select('*, workspaces:workspace_id (name)')
+    .select('*')
     .eq('id', params.id)
     .single();
 
   if (!contact) notFound();
 
-  const pipeline = getPipeline(contact.workspaces?.name);
-
-  const [{ data: meetings }, { data: tasks }, { data: tagRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }] = await Promise.all([
+    supabase
+      .from('contact_departments')
+      .select('id, stage, closed_reason, workspace_id, workspaces:workspace_id (name)')
+      .eq('contact_id', contact.id),
+    supabase.from('workspaces').select('id, name').order('name'),
     supabase
       .from('meetings')
       .select('id, title, meeting_date, meeting_time, type, location, notes')
@@ -38,21 +40,15 @@ export default async function ContactDetailPage({ params }) {
     supabase.from('contacts').select('tags'),
   ]);
 
-  const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
+  const departments = (departmentRows || []).map((row) => ({
+    id: row.id,
+    workspaceId: row.workspace_id,
+    workspaceName: row.workspaces?.name || 'מחלקה',
+    stage: row.stage,
+    closedReason: row.closed_reason,
+  }));
 
-  async function updateStage(formData) {
-    'use server';
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const stage = formData.get('stage');
-    const closedReason = formData.get('closed_reason');
-    await supabase
-      .from('contacts')
-      .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
-      .eq('id', contact.id);
-    redirect(`/dashboard/contacts/${contact.id}`);
-  }
+  const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
 
   async function toggleTask(formData) {
     'use server';
@@ -86,12 +82,11 @@ export default async function ContactDetailPage({ params }) {
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 18, fontWeight: 600 }}>{contact.first} {contact.last}</div>
-          <div style={{ fontSize: 12.5, color: '#6b6b6b', display: 'flex', gap: 10, marginTop: 3, alignItems: 'center' }}>
-            <StageBadge stage={contact.stage} />
-            {contact.dept && <span>{contact.dept}</span>}
+          <div style={{ fontSize: 12.5, color: '#6b6b6b', display: 'flex', gap: 6, marginTop: 3, alignItems: 'center', flexWrap: 'wrap' }}>
+            {departments.map((d) => <span key={d.id}>{d.workspaceName}</span>)}
+            {departments.length === 0 && <span>לא משויך למחלקה</span>}
           </div>
         </div>
-        <StageSelector currentStage={contact.stage} currentClosedReason={contact.closed_reason} stages={pipeline.order} action={updateStage} />
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -116,10 +111,13 @@ export default async function ContactDetailPage({ params }) {
             <InfoRow label="מקור" value={contact.source} />
             <InfoRow label="ת.ז / מזהה" value={contact.idnum} />
             <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
-            {contact.stage === 'closed' && <InfoRow label="סיבת סגירה" value={contact.closed_reason} />}
             <div style={{ marginTop: 12 }}>
               {(contact.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
             </div>
+          </div>
+
+          <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: 16, marginTop: 12 }}>
+            <DepartmentCards contactId={contact.id} departments={departments} allWorkspaces={allWorkspaces || []} />
           </div>
 
           <ContactEditPanel contact={contact} existingTags={existingTags} />

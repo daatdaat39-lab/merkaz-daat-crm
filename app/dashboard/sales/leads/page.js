@@ -24,12 +24,17 @@ export default async function SalesLeadsPage() {
   let agents = [];
   if (workspaceId) {
     const { data } = await supabase
-      .from('contacts')
-      .select('id, first, last, phone, email, source, stage, dept, tags, agent_id, last_activity_at, created_at')
+      .from('contact_departments')
+      .select('id, stage, agent_id, last_activity_at, contacts:contact_id (id, first, last, phone, email, source, dept, tags)')
       .eq('workspace_id', workspaceId)
       .in('stage', pipeline.leadStages)
-      .order('created_at', { ascending: false });
-    leads = data || [];
+      .order('last_activity_at', { ascending: false });
+    leads = (data || [])
+      .filter((row) => row.contacts)
+      .map((row) => ({
+        ...row.contacts,
+        departmentRowId: row.id, stage: row.stage, agent_id: row.agent_id, last_activity_at: row.last_activity_at,
+      }));
 
     const { data: members } = await supabase
       .from('workspace_members')
@@ -76,10 +81,10 @@ export default async function SalesLeadsPage() {
       </div>
 
       {categorized.map((group) => (
-        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} />
+        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} />
       ))}
 
-      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} />}
+      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} />}
 
       {leads.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים פתוחים כרגע</div>
@@ -88,7 +93,7 @@ export default async function SalesLeadsPage() {
   );
 }
 
-function LeadGroup({ title, leads, agents }) {
+function LeadGroup({ title, leads, agents, workspaceId }) {
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
@@ -103,7 +108,7 @@ function LeadGroup({ title, leads, agents }) {
           </tr>
         </thead>
         <tbody>
-          {leads.map((c) => <LeadRow key={c.id} contact={c} agents={agents} />)}
+          {leads.map((c) => <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} />)}
         </tbody>
       </table>
     </div>

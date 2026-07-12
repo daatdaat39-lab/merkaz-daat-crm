@@ -17,12 +17,15 @@ export default async function ContactsPage({ searchParams }) {
   const [{ data }, { data: workspaces }, { data: profile }] = await Promise.all([
     supabase
       .from('contacts')
-      .select('id, first, last, idnum, phone, phone2, email, dept, tags, stage, source, created_at')
+      .select('id, first, last, idnum, phone, phone2, email, dept, tags, source, created_at, contact_departments (stage, workspaces:workspace_id (name))')
       .order('created_at', { ascending: false }),
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
   ]);
-  const allContacts = data || [];
+  const allContacts = (data || []).map((c) => ({
+    ...c,
+    departments: (c.contact_departments || []).map((d) => ({ name: d.workspaces?.name || 'מחלקה', stage: d.stage })),
+  }));
 
   const allTags = Array.from(new Set(allContacts.flatMap((c) => c.tags || []))).sort();
   const activeTag = searchParams?.tag || '';
@@ -49,7 +52,7 @@ export default async function ContactsPage({ searchParams }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
         <thead>
           <tr style={{ background: 'var(--bg-secondary)' }}>
-            {['שם', 'סטטוס', 'טלפון', 'מייל', 'תחום', 'מקור', 'תגיות', 'פעולות מהירות'].map((h) => (
+            {['שם', 'מחלקות', 'טלפון', 'מייל', 'תחום', 'מקור', 'תגיות', 'פעולות מהירות'].map((h) => (
               <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>
                 {h}
               </th>
@@ -70,7 +73,17 @@ export default async function ContactsPage({ searchParams }) {
                   {c.first} {c.last}
                 </Link>
               </td>
-              <td style={{ padding: '12px 16px', fontSize: 13 }}><StageBadge stage={c.stage} /></td>
+              <td style={{ padding: '12px 16px', fontSize: 13 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {c.departments.map((d) => (
+                    <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{d.name}</span>
+                      <StageBadge stage={d.stage} />
+                    </div>
+                  ))}
+                  {c.departments.length === 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>}
+                </div>
+              </td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>{c.phone || '—'}</td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>{c.email || '—'}</td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>{c.dept || '—'}</td>

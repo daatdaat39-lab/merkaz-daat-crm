@@ -111,7 +111,7 @@ export default function AddContactForm({
                     <div key={d.id} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px' }}>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{d.first} {d.last}</div>
                       <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', margin: '2px 0 8px' }}>
-                        {d.phone || d.email || 'ללא פרטי קשר'} · {d.workspaceName} · {d.stageLabel}
+                        {d.phone || d.email || 'ללא פרטי קשר'} · {(d.departments && d.departments.length) ? d.departments.join(', ') : 'ללא מחלקה'}
                       </div>
                       <button
                         onClick={() => setMergeCandidate(d)}

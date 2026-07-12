@@ -22,24 +22,24 @@ export default function PipelineBoard({ contacts, moveStageAction, stages }) {
     );
   }, [localContacts, search]);
 
-  function moveContact(contactId, newStage, closedReason) {
-    setLocalContacts((prev) => prev.map((c) => (c.id === contactId ? { ...c, stage: newStage, closed_reason: closedReason || null } : c)));
+  function moveContact(departmentRowId, newStage, closedReason) {
+    setLocalContacts((prev) => prev.map((c) => (c.departmentRowId === departmentRowId ? { ...c, stage: newStage, closed_reason: closedReason || null } : c)));
     startTransition(async () => {
-      await moveStageAction(contactId, newStage, closedReason);
+      await moveStageAction(departmentRowId, newStage, closedReason);
     });
   }
 
   function handleDrop(e, stage) {
     e.preventDefault();
     setDragOverStage(null);
-    const contactId = e.dataTransfer.getData('text/contact-id');
-    if (!contactId) return;
-    if (stage === 'closed') setClosingId(contactId);
-    else moveContact(contactId, stage);
+    const departmentRowId = e.dataTransfer.getData('text/department-row-id');
+    if (!departmentRowId) return;
+    if (stage === 'closed') setClosingId(departmentRowId);
+    else moveContact(departmentRowId, stage);
   }
 
-  function handleCloseConfirm(contactId, reason) {
-    moveContact(contactId, 'closed', reason);
+  function handleCloseConfirm(departmentRowId, reason) {
+    moveContact(departmentRowId, 'closed', reason);
     setClosingId(null);
   }
 
@@ -96,9 +96,9 @@ export default function PipelineBoard({ contacts, moveStageAction, stages }) {
                 <div style={{ padding: 8, minHeight: 120 }}>
                   {stageContacts.map((c) => (
                     <div
-                      key={c.id}
+                      key={c.departmentRowId}
                       draggable
-                      onDragStart={(e) => e.dataTransfer.setData('text/contact-id', c.id)}
+                      onDragStart={(e) => e.dataTransfer.setData('text/department-row-id', c.departmentRowId)}
                       style={{
                         background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px',
                         marginBottom: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: 'grab',
@@ -116,14 +116,14 @@ export default function PipelineBoard({ contacts, moveStageAction, stages }) {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
                         <div style={{ fontSize: 10, color: '#c0c0c0' }}>גרור לשלב אחר ⠿</div>
                         <button
-                          onClick={() => setClosingId(c.id)}
+                          onClick={() => setClosingId(c.departmentRowId)}
                           style={{ background: 'none', border: 'none', color: '#c0392b', fontSize: 10, cursor: 'pointer' }}
                         >
                           ✕ סגירה
                         </button>
                       </div>
-                      {closingId === c.id && (
-                        <CloseReasonPicker onConfirm={(reason) => handleCloseConfirm(c.id, reason)} onCancel={() => setClosingId(null)} />
+                      {closingId === c.departmentRowId && (
+                        <CloseReasonPicker onConfirm={(reason) => handleCloseConfirm(c.departmentRowId, reason)} onCancel={() => setClosingId(null)} />
                       )}
                     </div>
                   ))}
@@ -149,7 +149,7 @@ export default function PipelineBoard({ contacts, moveStageAction, stages }) {
             </div>
             <div style={{ padding: 8, minHeight: 120 }}>
               {filtered.filter((c) => c.stage === 'closed').map((c) => (
-                <div key={c.id} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px', marginBottom: 8, opacity: 0.8 }}>
+                <div key={c.departmentRowId} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px', marginBottom: 8, opacity: 0.8 }}>
                   <Link href={`/dashboard/contacts/${c.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{c.first} {c.last}</div>
                   </Link>
@@ -170,7 +170,7 @@ export default function PipelineBoard({ contacts, moveStageAction, stages }) {
           </thead>
           <tbody>
             {filtered.map((c) => (
-              <tr key={c.id} style={{ borderBottom: '1px solid #f2f2f2' }}>
+              <tr key={c.departmentRowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
                 <td style={{ padding: '10px 16px', fontSize: 13 }}>
                   <Link href={`/dashboard/contacts/${c.id}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
                     {c.first} {c.last}
@@ -180,16 +180,16 @@ export default function PipelineBoard({ contacts, moveStageAction, stages }) {
                   <select
                     value={c.stage}
                     onChange={(e) => {
-                      if (e.target.value === 'closed') setClosingId(c.id);
-                      else moveContact(c.id, e.target.value);
+                      if (e.target.value === 'closed') setClosingId(c.departmentRowId);
+                      else moveContact(c.departmentRowId, e.target.value);
                     }}
                     style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '4px 8px', fontSize: 12 }}
                   >
                     {stages.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
                     <option value="closed">{STAGE_LABELS.closed}</option>
                   </select>
-                  {closingId === c.id && (
-                    <CloseReasonPicker onConfirm={(reason) => handleCloseConfirm(c.id, reason)} onCancel={() => setClosingId(null)} />
+                  {closingId === c.departmentRowId && (
+                    <CloseReasonPicker onConfirm={(reason) => handleCloseConfirm(c.departmentRowId, reason)} onCancel={() => setClosingId(null)} />
                   )}
                 </td>
                 <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.source || '—'}</td>
@@ -211,7 +211,7 @@ function CloseReasonPicker({ onConfirm, onCancel }) {
   const [reason, setReason] = useState(CLOSE_REASONS[0]);
   return (
     <div style={{ marginTop: 8, padding: 8, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6 }} onClick={(e) => e.stopPropagation()}>
-      <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 11.5, border: '1px solid var(--border)', borderRadius: 4, padding: '4px 6px', marginBottom: 6 }}>
+      <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 11.5, border: '1px solid var(--border)', borderRadius: 4, marginBottom: 6 }}>
         {CLOSE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
       </select>
       <div style={{ display: 'flex', gap: 6 }}>

@@ -2,7 +2,7 @@
 
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { getPipeline, roleTag, STAGE_LABELS } from '../components/pipelines';
+import { getPipeline } from '../components/pipelines';
 
 const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'dept', 'source', 'idnum'];
 
@@ -31,7 +31,7 @@ async function resolveTargetWorkspace(supabase, user, explicitId) {
   return data ? { id: data.id, name: data.name } : currentWorkspace(supabase, user);
 }
 
-// אחרי יצירת/שיוך ליד למחלקה שונה מזו שהמשתמש נמצא בה כרגע, מעביר אותו
+// אחרי הוספת/שיוך ליד למחלקה שונה מזו שהמשתמש נמצא בה כרגע, מעביר אותו
 // אליה אוטומטית - אבל רק אם יש לו באמת חברות שם (אחרת הוא ייחסם עם
 // "אין לך גישה למחלקה זו" כשהוא מגיע לשם)
 async function maybeSwitchActiveWorkspace(supabase, user, targetWorkspaceId) {
@@ -50,6 +50,28 @@ async function maybeSwitchActiveWorkspace(supabase, user, targetWorkspaceId) {
   }
 }
 
+// מוסיף איש קשר למחלקה נתונה (contact_departments) בלי לגעת בשיוך שלו
+// לשאר המחלקות - אדם יכול להיות פעיל בכמה מחלקות בו-זמנית, כל אחת עם
+// שלב משלה. אם כבר יש שיוך למחלקה הזו - רק מרעננים "טיפול אחרון".
+async function upsertDepartmentMembership(supabase, contactId, workspace) {
+  const { data: existingRow } = await supabase
+    .from('contact_departments')
+    .select('id')
+    .eq('contact_id', contactId)
+    .eq('workspace_id', workspace.id)
+    .single();
+
+  if (existingRow) {
+    await supabase.from('contact_departments').update({ last_activity_at: new Date().toISOString() }).eq('id', existingRow.id);
+    return;
+  }
+
+  const pipeline = getPipeline(workspace.name);
+  await supabase.from('contact_departments').insert({
+    contact_id: contactId, workspace_id: workspace.id, stage: pipeline.order[0], last_activity_at: new Date().toISOString(),
+  });
+}
+
 export async function listWorkspaces() {
   const { supabase } = await requireUser();
   const { data } = await supabase.from('workspaces').select('id, name').order('created_at', { ascending: true });
@@ -66,7 +88,7 @@ export async function listAllTags() {
 }
 
 // מחפש איש קשר קיים לפי ת"ז/טלפון/מייל (זיהוי כפילויות לפי האפיון) - לצורך
-// "ליד נכנס": אם האדם כבר קיים, לא נוצר כרטיס כפול - מעדכנים את הקיים
+// "ליד נכנס": אם האדם כבר קיים, לא נוצר כרטיס כפול - מוסיפים לו שיוך למחלקה
 async function findExistingMatch(supabase, { idnum, phone, email }) {
   const clauses = [];
   if (idnum) clauses.push(`idnum.eq.${idnum}`);
@@ -76,7 +98,7 @@ async function findExistingMatch(supabase, { idnum, phone, email }) {
 
   const { data } = await supabase
     .from('contacts')
-    .select('id, workspace_id, stage, tags, workspaces:workspace_id (name)')
+    .select('id, tags')
     .or(clauses.join(','))
     .limit(1);
 
@@ -100,14 +122,14 @@ export async function checkPossibleDuplicates({ first, last, phone, email, idnum
 
   const { data } = await supabase
     .from('contacts')
-    .select('id, first, last, idnum, phone, phone2, email, source, dept, tags, stage, workspaces:workspace_id (name)')
+    .select('id, first, last, idnum, phone, phone2, email, source, dept, tags, contact_departments (stage, workspaces:workspace_id (name))')
     .or(clauses.join(','))
     .limit(5);
 
   return (data || []).map((c) => ({
     id: c.id, first: c.first, last: c.last, idnum: c.idnum, phone: c.phone, phone2: c.phone2,
     email: c.email, source: c.source, dept: c.dept, tags: c.tags || [],
-    stageLabel: STAGE_LABELS[c.stage] || c.stage, workspaceName: c.workspaces?.name || '',
+    departments: (c.contact_departments || []).map((d) => d.workspaces?.name).filter(Boolean),
   }));
 }
 
@@ -118,17 +140,7 @@ export async function mergeResolvedLead(existingId, resolvedFields, workspaceId)
   const workspace = await resolveTargetWorkspace(supabase, user, workspaceId);
   if (!workspace.id) return { error: 'לא נמצא workspace פעיל' };
 
-  const { data: existing } = await supabase
-    .from('contacts').select('stage, workspaces:workspace_id (name)').eq('id', existingId).single();
-  if (!existing) return { error: 'איש הקשר לא נמצא' };
-
-  const pipeline = getPipeline(workspace.name);
-  const previousTag = roleTag(existing.workspaces?.name, existing.stage);
-  const finalTags = Array.from(new Set([...(resolvedFields.tags || []), ...(previousTag ? [previousTag] : [])]));
-
-  const update = {
-    workspace_id: workspace.id, stage: pipeline.order[0], tags: finalTags, last_activity_at: new Date().toISOString(),
-  };
+  const update = { tags: resolvedFields.tags || [] };
   for (const field of EDITABLE_FIELDS) {
     if (field in resolvedFields) update[field] = resolvedFields[field] || null;
   }
@@ -136,6 +148,7 @@ export async function mergeResolvedLead(existingId, resolvedFields, workspaceId)
   const { error } = await supabase.from('contacts').update(update).eq('id', existingId);
   if (error) return { error: error.message };
 
+  await upsertDepartmentMembership(supabase, existingId, workspace);
   await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
   redirect(`/dashboard/contacts/${existingId}`);
 }
@@ -156,10 +169,10 @@ export async function updateContact(contactId, formData) {
   redirect(`/dashboard/contacts/${contactId}`);
 }
 
-// יצירת ליד/איש קשר חדש (ידני) - נכנס ל-workspace הנוכחי של היוצר.
-// לפני היצירה מחפש התאמה קיימת (ת"ז/טלפון/מייל) - אם נמצאה, לא נוצר כרטיס כפול:
-// האיש הקיים "עובר" למחלקה הנוכחית (שלב ראשון ב-pipeline שלה), ומקבל תגית
-// שמשמרת את ההיסטוריה שלו במחלקה הקודמת (למשל "בוגר דעת למדני").
+// יצירת ליד/איש קשר חדש (ידני) - משויך למחלקה שנבחרה בטופס.
+// לפני היצירה מחפש התאמה קיימת (ת"ז/טלפון/מייל) - אם נמצאה, לא נוצר כרטיס
+// כפול: לאיש הקיים פשוט מתווסף שיוך למחלקה הזו (בלי לגעת בשיוכים אחרים
+// שכבר יש לו - אדם יכול להיות פעיל בכמה מחלקות בו-זמנית).
 export async function createContact(formData) {
   const { supabase, user } = await requireUser();
   const workspace = await resolveTargetWorkspace(supabase, user, formData.get('workspace_id'));
@@ -172,36 +185,25 @@ export async function createContact(formData) {
   const phone = (formData.get('phone') || '').toString().trim() || null;
   const email = (formData.get('email') || '').toString().trim() || null;
   const newTags = formData.has('tags') ? parseTags(formData.get('tags')) : [];
-  const pipeline = getPipeline(workspace.name);
   const forceNew = formData.get('force_new') === 'true';
 
   const existing = forceNew ? null : await findExistingMatch(supabase, { idnum, phone, email });
 
   if (existing) {
-    const previousTag = roleTag(existing.workspaces?.name, existing.stage);
-    const mergedTags = Array.from(new Set([...(existing.tags || []), ...newTags, ...(previousTag ? [previousTag] : [])]));
-
-    const update = {
-      workspace_id: workspace.id,
-      stage: pipeline.order[0],
-      tags: mergedTags,
-      last_activity_at: new Date().toISOString(),
-    };
+    const mergedTags = Array.from(new Set([...(existing.tags || []), ...newTags]));
+    const update = { tags: mergedTags };
     for (const field of EDITABLE_FIELDS) {
       if (formData.has(field) && formData.get(field)) update[field] = formData.get(field);
     }
-
     const { error } = await supabase.from('contacts').update(update).eq('id', existing.id);
     if (error) return { error: error.message };
 
+    await upsertDepartmentMembership(supabase, existing.id, workspace);
     await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
     redirect(`/dashboard/contacts/${existing.id}`);
   }
 
-  const insert = {
-    workspace_id: workspace.id, stage: pipeline.order[0], last_activity_at: new Date().toISOString(),
-    idnum, phone, email, tags: newTags,
-  };
+  const insert = { idnum, phone, email, tags: newTags };
   for (const field of EDITABLE_FIELDS) {
     if (formData.has(field) && !(field in insert)) insert[field] = formData.get(field) || null;
   }
@@ -209,6 +211,7 @@ export async function createContact(formData) {
   const { data, error } = await supabase.from('contacts').insert(insert).select('id').single();
   if (error) return { error: error.message };
 
+  await upsertDepartmentMembership(supabase, data.id, workspace);
   await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
   redirect(`/dashboard/contacts/${data.id}`);
 }
@@ -221,7 +224,41 @@ export async function deleteContact(contactId) {
   redirect('/dashboard/contacts');
 }
 
-// איחוד שני אנשי קשר כפולים: keepId נשאר, duplicateId נמחק אחרי שהפגישות/משימות שלו עוברות אליו
+// הסרת שיוך איש קשר למחלקה ספציפית בלבד (לא מוחק את הכרטיס, רק את
+// השיוך למחלקה הזו - שאר המחלקות שהוא פעיל בהן נשארות)
+export async function removeDepartmentMembership(contactId, workspaceId) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase
+    .from('contact_departments').delete().eq('contact_id', contactId).eq('workspace_id', workspaceId);
+  if (error) return { error: error.message };
+  redirect(`/dashboard/contacts/${contactId}`);
+}
+
+// הוספת שיוך למחלקה נוספת מתוך כרטיס איש הקשר עצמו
+export async function addDepartmentMembership(contactId, workspaceId) {
+  const { supabase } = await requireUser();
+  const { data: workspace } = await supabase.from('workspaces').select('id, name').eq('id', workspaceId).single();
+  if (!workspace) return { error: 'מחלקה לא נמצאה' };
+  await upsertDepartmentMembership(supabase, contactId, workspace);
+  redirect(`/dashboard/contacts/${contactId}`);
+}
+
+// עדכון שלב/סיבת סגירה של איש קשר במחלקה ספציפית
+export async function updateDepartmentStage(departmentRowId, stage, closedReason) {
+  const { supabase } = await requireUser();
+  const { data: row } = await supabase.from('contact_departments').select('contact_id').eq('id', departmentRowId).single();
+  if (!row) return { error: 'שיוך לא נמצא' };
+
+  const { error } = await supabase.from('contact_departments')
+    .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
+    .eq('id', departmentRowId);
+  if (error) return { error: error.message };
+
+  redirect(`/dashboard/contacts/${row.contact_id}`);
+}
+
+// איחוד שני אנשי קשר כפולים: keepId נשאר, duplicateId נמחק אחרי שהפגישות/משימות
+// והשיוכים למחלקות שלו עוברים אליו
 export async function mergeContacts(keepId, duplicateId) {
   const { supabase } = await requireUser();
   if (keepId === duplicateId) return { error: 'לא ניתן לאחד איש קשר עם עצמו' };
@@ -234,6 +271,19 @@ export async function mergeContacts(keepId, duplicateId) {
     .from('tasks').update({ contact_id: keepId }).eq('contact_id', duplicateId);
   if (tasksError) return { error: tasksError.message };
 
+  // מעביר שיוכי מחלקה של הכפול לכרטיס הנשאר, מדלג על מחלקות שכבר קיימות שם
+  const { data: dupDepartments } = await supabase.from('contact_departments').select('*').eq('contact_id', duplicateId);
+  const { data: keepDepartments } = await supabase.from('contact_departments').select('workspace_id').eq('contact_id', keepId);
+  const keepWorkspaceIds = new Set((keepDepartments || []).map((d) => d.workspace_id));
+  for (const d of dupDepartments || []) {
+    if (!keepWorkspaceIds.has(d.workspace_id)) {
+      await supabase.from('contact_departments').insert({
+        contact_id: keepId, workspace_id: d.workspace_id, stage: d.stage,
+        closed_reason: d.closed_reason, agent_id: d.agent_id, last_activity_at: d.last_activity_at,
+      });
+    }
+  }
+
   const { data: dup } = await supabase.from('contacts').select('tags').eq('id', duplicateId).single();
   const { data: keep } = await supabase.from('contacts').select('tags').eq('id', keepId).single();
   const mergedTags = Array.from(new Set([...(keep?.tags || []), ...(dup?.tags || [])]));
@@ -245,17 +295,15 @@ export async function mergeContacts(keepId, duplicateId) {
   redirect(`/dashboard/contacts/${keepId}`);
 }
 
-// ייבוא אנשי קשר בכמות (מקובץ CSV/אקסל) - נכנס ל-workspace הנוכחי.
+// ייבוא אנשי קשר בכמות (מקובץ CSV/אקסל) - משויכים למחלקה שנבחרה.
 // כמו ביצירה ידנית: לכל שורה נבדקת התאמה קיימת (ת"ז/טלפון/מייל) לפני יצירה,
-// כדי למנוע כרטיסים כפולים ולשמר היסטוריה בין-מחלקתית כתגית.
+// כדי למנוע כרטיסים כפולים - למי שכבר קיים רק מתווסף שיוך למחלקה הזו.
 export async function importContacts(rows, workspaceId) {
   const { supabase, user } = await requireUser();
   const workspace = await resolveTargetWorkspace(supabase, user, workspaceId);
   if (!workspace.id) return { error: 'לא נמצא workspace פעיל' };
   if (!Array.isArray(rows) || rows.length === 0) return { error: 'לא נמצאו שורות לייבוא' };
 
-  const now = new Date().toISOString();
-  const pipeline = getPipeline(workspace.name);
   const validRows = rows.filter((r) => (r.first || '').toString().trim());
   if (validRows.length === 0) return { error: 'אף שורה לא הכילה שם פרטי' };
 
@@ -271,22 +319,14 @@ export async function importContacts(rows, workspaceId) {
     const existing = await findExistingMatch(supabase, { idnum, phone, email });
 
     if (existing) {
-      const previousTag = roleTag(existing.workspaces?.name, existing.stage);
-      const mergedTags = Array.from(new Set([...(existing.tags || []), ...rowTags, ...(previousTag ? [previousTag] : [])]));
-      await supabase.from('contacts').update({
-        workspace_id: workspace.id,
-        stage: pipeline.order[0],
-        tags: mergedTags,
-        last_activity_at: now,
-      }).eq('id', existing.id);
+      const mergedTags = Array.from(new Set([...(existing.tags || []), ...rowTags]));
+      await supabase.from('contacts').update({ tags: mergedTags }).eq('id', existing.id);
+      await upsertDepartmentMembership(supabase, existing.id, workspace);
       merged++;
       continue;
     }
 
-    await supabase.from('contacts').insert({
-      workspace_id: workspace.id,
-      stage: pipeline.order[0],
-      last_activity_at: now,
+    const { data: created_contact } = await supabase.from('contacts').insert({
       first: (r.first || '').toString().trim(),
       last: (r.last || '').toString().trim() || null,
       phone, idnum, email,
@@ -294,7 +334,8 @@ export async function importContacts(rows, workspaceId) {
       dept: (r.dept || '').toString().trim() || null,
       source: (r.source || '').toString().trim() || 'ייבוא אקסל',
       tags: rowTags,
-    });
+    }).select('id').single();
+    if (created_contact) await upsertDepartmentMembership(supabase, created_contact.id, workspace);
     created++;
   }
 
@@ -316,19 +357,14 @@ export async function searchContacts(query, excludeId) {
   return data || [];
 }
 
-// קביעת נציג מטפל בליד (לתצוגה בלבד - לא נועל את הליד, כל אחד עדיין יכול לטפל)
-export async function assignAgent(contactId, agentId) {
+// קביעת נציג מטפל בליד במחלקה ספציפית (לתצוגה בלבד - לא נועל את הליד)
+export async function assignAgent(contactId, workspaceId, agentId) {
   const { supabase } = await requireUser();
   const { error } = await supabase
-    .from('contacts')
+    .from('contact_departments')
     .update({ agent_id: agentId || null, last_activity_at: new Date().toISOString() })
-    .eq('id', contactId);
+    .eq('contact_id', contactId)
+    .eq('workspace_id', workspaceId);
   if (error) return { error: error.message };
   return { success: true };
-}
-
-// עדכון "טיפול אחרון" - נקרא בכל פעולה משמעותית על הליד (למשל שינוי שלב)
-export async function touchContactActivity(contactId) {
-  const { supabase } = await requireUser();
-  await supabase.from('contacts').update({ last_activity_at: new Date().toISOString() }).eq('id', contactId);
 }

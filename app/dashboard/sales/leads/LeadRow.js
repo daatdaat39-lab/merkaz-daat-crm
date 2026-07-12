@@ -16,7 +16,7 @@ function elapsedLabel(iso) {
   return `${days} ${days === 1 ? 'יום' : 'ימים'} מאז הטיפול האחרון`;
 }
 
-export default function LeadRow({ contact: c, agents }) {
+export default function LeadRow({ contact: c, agents, workspaceId }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -25,7 +25,7 @@ export default function LeadRow({ contact: c, agents }) {
 
   function handleAgentChange(e) {
     startTransition(async () => {
-      await assignAgent(c.id, e.target.value || null);
+      await assignAgent(c.id, workspaceId, e.target.value || null);
       router.refresh();
     });
   }
