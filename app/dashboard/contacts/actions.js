@@ -170,7 +170,10 @@ export async function createContact(formData) {
 
   const insert = { idnum, phone, email, tags: newTags };
   for (const field of EDITABLE_FIELDS) {
-    if (formData.has(field) && !(field in insert)) insert[field] = formData.get(field) || null;
+    if (formData.has(field) && !(field in insert)) {
+      // contacts.last היא NOT NULL - אם נשאר ריק, שולחים מחרוזת ריקה ולא null
+      insert[field] = formData.get(field) || (field === 'last' ? '' : null);
+    }
   }
 
   const { data, error } = await supabase.from('contacts').insert(insert).select('id').single();
@@ -309,7 +312,7 @@ export async function importContacts(rows, workspaceId) {
 
     const { data: created_contact } = await supabase.from('contacts').insert({
       first: (r.first || '').toString().trim(),
-      last: (r.last || '').toString().trim() || null,
+      last: (r.last || '').toString().trim(), // contacts.last היא NOT NULL - לא לשלוח null
       phone, idnum, email,
       phone2: (r.phone2 || '').toString().trim() || null,
       dept: (r.dept || '').toString().trim() || null,

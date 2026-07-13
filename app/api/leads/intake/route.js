@@ -24,7 +24,7 @@ export async function POST(request) {
   }
 
   const first = (body.first || '').toString().trim();
-  const last = (body.last || '').toString().trim() || null;
+  const last = (body.last || '').toString().trim(); // עמודת contacts.last היא NOT NULL - לא לשלוח null
   const phone = (body.phone || '').toString().trim() || null;
   const email = (body.email || '').toString().trim() || null;
   const idnum = (body.idnum || '').toString().trim() || null;
