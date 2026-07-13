@@ -41,13 +41,17 @@ export default async function SalesLeadsPage() {
         };
       });
 
+    // אין קשר-מפתח (FK) בין workspace_members ל-profiles במסד, אז לא ניתן
+    // לבקש join מקונן אחד ישיר (profiles חוזר ריק תמיד) - שולפים בשתי שאילתות
     const { data: members } = await supabase
       .from('workspace_members')
-      .select('user_id, profiles ( id, name )')
+      .select('user_id')
       .eq('workspace_id', workspaceId);
-    agents = (members || [])
-      .filter((m) => m.profiles)
-      .map((m) => ({ id: m.profiles.id, name: m.profiles.name || 'משתמש' }));
+    const memberIds = (members || []).map((m) => m.user_id);
+    const { data: memberProfiles } = memberIds.length
+      ? await supabase.from('profiles').select('id, name').in('id', memberIds)
+      : { data: [] };
+    agents = (memberProfiles || []).map((p) => ({ id: p.id, name: p.name || 'משתמש' }));
   }
 
   const [{ data: workspaces }, { data: tagRows }] = await Promise.all([
