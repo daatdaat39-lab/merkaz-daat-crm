@@ -6,8 +6,10 @@ export const SOURCE_LINK_MAP = {
   'https://daat.org.il/דעת-למדני-תואר-ראשון-3/': 'עומרי',
 };
 
-// מנסה לזהות מפרסם לפי קישור מלא שהתקבל מהמייל. אם לא נמצא - מחזיר את
-// הקישור הגולמי (עדיף מידע חלקי על פני איבוד המידע לגמרי)
+// מנסה לזהות מפרסם לפי קישור מלא שהתקבל מהמייל. מתעלם מפרמטרים שמתווספים
+// אוטומטית לקישור (utm_source, fbclid וכו') ומסתכל רק על כתובת הדף עצמה -
+// כי אלה משתנים בכל שיתוף ולא חלק מהזיהוי של המפרסם. אם לא נמצא - מחזיר
+// את הקישור הגולמי (עדיף מידע חלקי על פני איבוד המידע לגמרי)
 export function resolveSourceFromLink(rawLink) {
   if (!rawLink) return null;
   let decoded;
@@ -16,5 +18,6 @@ export function resolveSourceFromLink(rawLink) {
   } catch {
     decoded = rawLink.trim();
   }
-  return SOURCE_LINK_MAP[decoded] || rawLink;
+  const pathOnly = decoded.split('?')[0].split('#')[0];
+  return SOURCE_LINK_MAP[pathOnly] || SOURCE_LINK_MAP[decoded] || rawLink;
 }
