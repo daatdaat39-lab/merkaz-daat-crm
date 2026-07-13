@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { findExistingMatch, upsertDepartmentMembership } from '../../../dashboard/contacts/leadIntakeCore';
+import { resolveSourceFromLink } from '../../../dashboard/components/sourceLinks';
 
 // נקודת קליטה ללידים חיצוניים (מייל אוטומטי/טופס אתר/וואטסאפ וכו', דרך
 // Zapier/Make וכיו"ב). כתובת: POST /api/leads/intake
@@ -30,7 +31,10 @@ export async function POST(request) {
   const idnum = (body.idnum || '').toString().trim() || null;
   const reason = (body.reason || '').toString().trim();
   const note = (body.note || '').toString().trim() || null;
-  const source = (body.source || '').toString().trim() || 'מייל';
+  const rawSource = (body.source || '').toString().trim();
+  // אם המקור הוא קישור (מגיע מ"קישור מקור" שה-AI חילץ מהמייל) - מתרגמים
+  // אותו לשם המפרסם לפי טבלת ההתאמה; אם זה כבר טקסט רגיל, נשאר כמו שהוא
+  const source = (rawSource.startsWith('http') ? resolveSourceFromLink(rawSource) : rawSource) || 'מייל';
   const workspaceIdParam = (body.workspace_id || '').toString().trim();
   const workspaceNameParam = (body.workspace_name || body.workspace || '').toString().trim();
 
