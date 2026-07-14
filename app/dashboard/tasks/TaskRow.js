@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toggleTask, updateTask } from './actions';
 
@@ -21,6 +22,7 @@ export default function TaskRow({ t, contacts }) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
+  const router = useRouter();
 
   const due = dueDateTime(t);
   const now = new Date();
@@ -39,22 +41,34 @@ export default function TaskRow({ t, contacts }) {
     });
   }
 
+  function handleToggle() {
+    setError(null);
+    const fd = new FormData();
+    fd.set('task_id', t.id);
+    fd.set('done', (!t.done).toString());
+    startTransition(async () => {
+      const res = await toggleTask(fd);
+      if (res?.error) setError(res.error);
+      else router.refresh();
+    });
+  }
+
   return (
     <div style={{
       background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px',
       borderColor: overdue ? 'var(--danger, #a3392f)' : '#e5e5e5',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <form action={toggleTask}>
-          <input type="hidden" name="task_id" value={t.id} />
-          <input type="hidden" name="done" value={(!t.done).toString()} />
-          <button type="submit" style={{
+        <button
+          onClick={handleToggle}
+          disabled={isPending}
+          style={{
             width: 18, height: 18, borderRadius: 4, border: '1px solid #d0d0d0',
             background: t.done ? '#16a34a' : '#fff', color: '#fff', fontSize: 11, cursor: 'pointer', flexShrink: 0,
-          }}>
-            {t.done ? '✓' : ''}
-          </button>
-        </form>
+          }}
+        >
+          {t.done ? '✓' : ''}
+        </button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, textDecoration: t.done ? 'line-through' : 'none', color: t.done ? '#9b9b9b' : '#0a0a0a' }}>
             {t.title}
@@ -81,6 +95,10 @@ export default function TaskRow({ t, contacts }) {
           {editing ? 'סגירה' : '✎ עריכה'}
         </button>
       </div>
+
+      {error && !editing && (
+        <div style={{ marginTop: 8, color: 'var(--danger, #a3392f)', fontSize: 12 }}>שגיאה: {error}</div>
+      )}
 
       {editing && (
         <form action={handleSubmit} style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>

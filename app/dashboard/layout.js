@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 
-export default async function DashboardLayout({ children }) {
+export default async function DashboardLayout({ children, modal }) {
   const supabase = createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -133,6 +133,7 @@ export default async function DashboardLayout({ children }) {
           )}
         </div>
       </div>
+      {modal}
     </div>
   );
 }

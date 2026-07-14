@@ -4,8 +4,9 @@ import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getPipeline, STAGE_LABELS } from '../components/pipelines';
 import { findExistingMatch, upsertDepartmentMembership } from './leadIntakeCore';
+import { isManagerOfAnyDepartment, requireNotFrozen } from '../lib/contactGuards';
 
-const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'dept', 'source', 'idnum'];
+const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'dept', 'source', 'idnum', 'birth_date', 'gender'];
 
 function parseTags(raw) {
   if (typeof raw !== 'string') return [];
@@ -100,6 +101,9 @@ export async function checkPossibleDuplicates({ first, last, phone, email, idnum
 // (resolvedFields: אובייקט רגיל עם הערכים הסופיים שנבחרו, לא FormData)
 export async function mergeResolvedLead(existingId, resolvedFields, workspaceId, reason, reasonNote) {
   const { supabase, user } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, existingId);
+  if (frozenError) return frozenError;
+
   const workspace = await resolveTargetWorkspace(supabase, user, workspaceId);
   if (!workspace.id) return { error: 'לא נמצא workspace פעיל' };
 
@@ -119,6 +123,8 @@ export async function mergeResolvedLead(existingId, resolvedFields, workspaceId,
 // עדכון פרטי איש קשר - כל משתמש מחובר יכול (contacts משותפים לכולם)
 export async function updateContact(contactId, formData) {
   const { supabase } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
 
   const update = {};
   for (const field of EDITABLE_FIELDS) {
@@ -129,7 +135,39 @@ export async function updateContact(contactId, formData) {
   const { error } = await supabase.from('contacts').update(update).eq('id', contactId);
   if (error) return { error: error.message };
 
-  redirect(`/dashboard/contacts/${contactId}`);
+  return { success: true };
+}
+
+// עדכון הערות חופשיות על איש קשר - בלי redirect כדי שאפשר לקרוא לזה
+// גם מתוך הכרטיס הצף (modal), לא רק מהעמוד המלא
+export async function updateContactNotes(contactId, notes) {
+  const { supabase } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const { error } = await supabase.from('contacts').update({ notes, last_activity_at: new Date().toISOString() }).eq('id', contactId);
+  if (error) return { error: error.message };
+
+  return { success: true };
+}
+
+// האם המשתמש הנוכחי owner/admin באחת המחלקות של איש הקשר - קובע אם
+// יראה את פריטי הניהול בתפריט ההגדרות (הקפאה/מיזוג/מחיקה)
+export async function canManageContact(contactId) {
+  const { supabase, user } = await requireUser();
+  return isManagerOfAnyDepartment(supabase, user.id, contactId);
+}
+
+// הקפאה/הפשרה של איש קשר - רק owner/admin של אחת מהמחלקות שלו.
+// בכוונה לא בודקים requireNotFrozen כאן - אחרת אף אחד לא יוכל להפשיר
+export async function setContactFrozen(contactId, frozen) {
+  const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfAnyDepartment(supabase, user.id, contactId);
+  if (!allowed) return { error: 'רק מנהל של אחת ממחלקות איש הקשר יכול להקפיא/להפשיר' };
+
+  const { error } = await supabase.from('contacts').update({ frozen }).eq('id', contactId);
+  if (error) return { error: error.message };
+  return { success: true, frozen };
 }
 
 // יצירת ליד/איש קשר חדש (ידני) - משויך למחלקה שנבחרה בטופס.
@@ -155,6 +193,9 @@ export async function createContact(formData) {
   const existing = forceNew ? null : await findExistingMatch(supabase, { idnum, phone, email });
 
   if (existing) {
+    const frozenError = await requireNotFrozen(supabase, existing.id);
+    if (frozenError) return frozenError;
+
     const mergedTags = Array.from(new Set([...(existing.tags || []), ...newTags]));
     const update = { tags: mergedTags };
     for (const field of EDITABLE_FIELDS) {
@@ -184,31 +225,40 @@ export async function createContact(formData) {
   redirect(`/dashboard/contacts/${data.id}`);
 }
 
-// מחיקת איש קשר - כל משתמש מחובר יכול
+// מחיקת איש קשר - רק owner/admin של אחת ממחלקות איש הקשר
 export async function deleteContact(contactId) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfAnyDepartment(supabase, user.id, contactId);
+  if (!allowed) return { error: 'רק מנהל של אחת ממחלקות איש הקשר יכול למחוק' };
+
   const { error } = await supabase.from('contacts').delete().eq('id', contactId);
   if (error) return { error: error.message };
-  redirect('/dashboard/contacts');
+  return { success: true };
 }
 
 // הסרת שיוך איש קשר למחלקה ספציפית בלבד (לא מוחק את הכרטיס, רק את
 // השיוך למחלקה הזו - שאר המחלקות שהוא פעיל בהן נשארות)
 export async function removeDepartmentMembership(contactId, workspaceId) {
   const { supabase } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
   const { error } = await supabase
     .from('contact_departments').delete().eq('contact_id', contactId).eq('workspace_id', workspaceId);
   if (error) return { error: error.message };
-  redirect(`/dashboard/contacts/${contactId}`);
+  return { success: true };
 }
 
 // הוספת שיוך למחלקה נוספת מתוך כרטיס איש הקשר עצמו
 export async function addDepartmentMembership(contactId, workspaceId, reason, reasonNote) {
   const { supabase } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
   const { data: workspace } = await supabase.from('workspaces').select('id, name').eq('id', workspaceId).single();
   if (!workspace) return { error: 'מחלקה לא נמצאה' };
   await upsertDepartmentMembership(supabase, contactId, workspace, reason, reasonNote);
-  redirect(`/dashboard/contacts/${contactId}`);
+  return { success: true };
 }
 
 // עדכון שלב/סיבת סגירה של איש קשר במחלקה ספציפית
@@ -217,19 +267,28 @@ export async function updateDepartmentStage(departmentRowId, stage, closedReason
   const { data: row } = await supabase.from('contact_departments').select('contact_id').eq('id', departmentRowId).single();
   if (!row) return { error: 'שיוך לא נמצא' };
 
+  const frozenError = await requireNotFrozen(supabase, row.contact_id);
+  if (frozenError) return frozenError;
+
   const { error } = await supabase.from('contact_departments')
     .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
     .eq('id', departmentRowId);
   if (error) return { error: error.message };
 
-  redirect(`/dashboard/contacts/${row.contact_id}`);
+  return { success: true };
 }
 
-// כמו updateDepartmentStage, אבל בלי redirect - לשימוש במסכי לידים/תהליכים
-// שבהם משנים סטטוס מבלי לעזוב את המסך (אותה טבלה, אז השינוי מסונכרן
-// אוטומטית בין לידים לתהליכים - שניהם קוראים מאותה שורת contact_departments)
+// כמו updateDepartmentStage - לשימוש במסכי לידים/תהליכים שבהם משנים
+// סטטוס מבלי לעזוב את המסך (אותה טבלה, אז השינוי מסונכרן אוטומטית בין
+// לידים לתהליכים - שניהם קוראים מאותה שורת contact_departments)
 export async function updateLeadStage(departmentRowId, stage, closedReason) {
   const { supabase } = await requireUser();
+  const { data: row } = await supabase.from('contact_departments').select('contact_id').eq('id', departmentRowId).single();
+  if (!row) return { error: 'שיוך לא נמצא' };
+
+  const frozenError = await requireNotFrozen(supabase, row.contact_id);
+  if (frozenError) return frozenError;
+
   const { error } = await supabase.from('contact_departments')
     .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
     .eq('id', departmentRowId);
@@ -240,8 +299,13 @@ export async function updateLeadStage(departmentRowId, stage, closedReason) {
 // איחוד שני אנשי קשר כפולים: keepId נשאר, duplicateId נמחק אחרי שהפגישות/משימות
 // והשיוכים למחלקות שלו עוברים אליו
 export async function mergeContacts(keepId, duplicateId) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   if (keepId === duplicateId) return { error: 'לא ניתן לאחד איש קשר עם עצמו' };
+
+  const allowed = await isManagerOfAnyDepartment(supabase, user.id, keepId);
+  if (!allowed) return { error: 'רק מנהל של אחת ממחלקות איש הקשר יכול למזג כפילויות' };
+  const frozenError = await requireNotFrozen(supabase, keepId);
+  if (frozenError) return frozenError;
 
   const { error: meetingsError } = await supabase
     .from('meetings').update({ contact_id: keepId }).eq('contact_id', duplicateId);
@@ -274,7 +338,7 @@ export async function mergeContacts(keepId, duplicateId) {
   const { error: deleteError } = await supabase.from('contacts').delete().eq('id', duplicateId);
   if (deleteError) return { error: deleteError.message };
 
-  redirect(`/dashboard/contacts/${keepId}`);
+  return { success: true };
 }
 
 // ייבוא אנשי קשר בכמות (מקובץ CSV/אקסל) - משויכים למחלקה שנבחרה.
@@ -303,6 +367,9 @@ export async function importContacts(rows, workspaceId) {
     const rowReason = (r.reason || '').toString().trim() || 'ייבוא אקסל';
 
     if (existing) {
+      const frozenError = await requireNotFrozen(supabase, existing.id);
+      if (frozenError) continue; // מדלגים על שורות של אנשי קשר מוקפאים, לא עוצרים את כל הייבוא
+
       const mergedTags = Array.from(new Set([...(existing.tags || []), ...rowTags]));
       await supabase.from('contacts').update({ tags: mergedTags }).eq('id', existing.id);
       await upsertDepartmentMembership(supabase, existing.id, workspace, rowReason);
@@ -344,6 +411,9 @@ export async function searchContacts(query, excludeId) {
 // קביעת נציג מטפל בליד במחלקה ספציפית (לתצוגה בלבד - לא נועל את הליד)
 export async function assignAgent(contactId, workspaceId, agentId) {
   const { supabase } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
   const { error } = await supabase
     .from('contact_departments')
     .update({ agent_id: agentId || null, last_activity_at: new Date().toISOString() })
