@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import NotConnectedButton from '../../components/NotConnectedButton';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], activeDepartmentName }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -35,11 +36,13 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
     { id: 'activity', label: 'פעילות' },
     { id: 'tasks', label: `משימות${tasks.length ? ` (${tasks.length})` : ''}` },
     { id: 'notes', label: 'הערות' },
+    { id: 'documents', label: 'מסמכים' },
+    { id: 'recordings', label: 'הקלטות שיחה' },
   ];
 
   return (
     <div>
-      <div style={{ display: 'flex', borderBottom: '1px solid #e5e5e5', gap: 18, marginBottom: 16 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #e5e5e5', gap: 18, marginBottom: 16, flexWrap: 'wrap' }}>
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -57,18 +60,41 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
       </div>
 
       {tab === 'activity' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {meetings.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין פעילות עדיין</div>}
-          {meetings.map((m) => (
-            <div key={m.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
-              <div style={{ fontSize: 13, fontWeight: 500 }}>{m.title || 'פגישה'}</div>
-              <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 3 }}>
-                {new Date(m.meeting_date).toLocaleDateString('he-IL')} · {m.meeting_time?.slice(0, 5)} · {m.type}
-                {m.location ? ` · ${m.location}` : ''}
-              </div>
-              {m.notes && <div style={{ fontSize: 12.5, marginTop: 6, color: '#333' }}>{m.notes}</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
+              היסטוריית פניות{activeDepartmentName ? ` — ${activeDepartmentName}` : ''}
             </div>
-          ))}
+            {inquiries.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין פניות רשומות למחלקה זו</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {inquiries.map((inq, i) => (
+                <div key={i} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                  <span style={{ color: '#333' }}>{inq.reason}</span>
+                  {inq.note && <span style={{ color: '#9b9b9b' }}> — {inq.note}</span>}
+                  <span style={{ color: '#c0c0c0' }}> · {new Date(inq.created_at).toLocaleDateString('he-IL')}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
+              פגישות
+            </div>
+            {meetings.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין פעילות עדיין</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {meetings.map((m) => (
+                <div key={m.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{m.title || 'פגישה'}</div>
+                  <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 3 }}>
+                    {new Date(m.meeting_date).toLocaleDateString('he-IL')} · {m.meeting_time?.slice(0, 5)} · {m.type}
+                    {m.location ? ` · ${m.location}` : ''}
+                  </div>
+                  {m.notes && <div style={{ fontSize: 12.5, marginTop: 6, color: '#333' }}>{m.notes}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -127,6 +153,21 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             שמירת הערות
           </button>
         </form>
+      )}
+
+      {tab === 'documents' && (
+        <div>
+          <div style={{ fontSize: 13, color: '#9b9b9b', marginBottom: 10 }}>אין מסמכים</div>
+          <NotConnectedButton
+            label="העלאת מסמך"
+            icon="📎"
+            message="העלאת תעודת בגרות / גיליון ציונים — עדיין לא מחובר"
+          />
+        </div>
+      )}
+
+      {tab === 'recordings' && (
+        <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין הקלטות (טלפוניה לא מחוברת)</div>
       )}
     </div>
   );
