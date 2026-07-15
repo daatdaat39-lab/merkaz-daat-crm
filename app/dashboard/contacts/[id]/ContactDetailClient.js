@@ -10,6 +10,7 @@ import ContactEditForm from './ContactEditForm';
 import ContactSettingsMenu from './ContactSettingsMenu';
 import ContactTabs from './ContactTabs';
 import EmailComposeModal from './EmailComposeModal';
+import WhatsAppSendModal from './WhatsAppSendModal';
 import NotConnectedButton from '../../components/NotConnectedButton';
 
 const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
@@ -19,7 +20,7 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 // (היסטוריית הפניות שם תלויה במחלקה הפעילה) - state אחד משותף למעלה.
 export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags,
-  age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections,
+  age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -28,6 +29,7 @@ export default function ContactDetailClient({
   const [newWorkspaceId, setNewWorkspaceId] = useState('');
   const [newReason, setNewReason] = useState('');
   const [composeOpen, setComposeOpen] = useState(false);
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
 
   const visibleDepartments = departments.filter((d) => viewerWorkspaceIds.includes(d.workspaceId));
   const [activeId, setActiveId] = useState(visibleDepartments[0]?.id || null);
@@ -171,7 +173,16 @@ export default function ContactDetailClient({
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         <NotConnectedButton label="חיוג" icon="📞" message="חיוג מתוך המערכת (ימות המשיח) — עדיין לא מחובר" />
-        <NotConnectedButton label="וואטסאפ" icon="💬" message="שליחת וואטסאפ — עדיין לא מחובר" />
+        {contact.phone && active && !contact.frozen ? (
+          <button
+            onClick={() => setWhatsappOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: '#fff', color: '#333', border: '1px solid #e5e5e5' }}
+          >
+            <span>💬</span><span>וואטסאפ</span>
+          </button>
+        ) : (
+          <NotConnectedButton label="וואטסאפ" icon="💬" message={!contact.phone ? 'לאיש הקשר אין מספר טלפון שמור' : !active ? 'יש לבחור מחלקה קודם' : 'איש הקשר מוקפא'} />
+        )}
         {activeConnection && contact.email && !contact.frozen ? (
           <button
             onClick={() => setComposeOpen(true)}
@@ -243,6 +254,7 @@ export default function ContactDetailClient({
             inquiries={active?.inquiries || []}
             activeDepartmentName={active?.workspaceName}
             sentEmails={active ? (sentEmails || []).filter((e) => e.workspace_id === active.workspaceId) : []}
+            sentWhatsapp={active ? (sentWhatsapp || []).filter((w) => w.workspace_id === active.workspaceId) : []}
           />
         </div>
       </div>
@@ -254,6 +266,16 @@ export default function ContactDetailClient({
           fromAddress={activeConnection.email_address}
           toAddress={contact.email}
           onClose={() => setComposeOpen(false)}
+        />
+      )}
+
+      {whatsappOpen && (
+        <WhatsAppSendModal
+          contactId={contact.id}
+          workspaceId={active?.workspaceId || null}
+          phone={contact.phone}
+          reason={active?.inquiries?.[0]?.reason}
+          onClose={() => setWhatsappOpen(false)}
         />
       )}
     </div>

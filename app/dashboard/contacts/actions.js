@@ -7,6 +7,7 @@ import { findExistingMatch, upsertDepartmentMembership } from './leadIntakeCore'
 import { isManagerOfAnyDepartment, requireNotFrozen } from '../lib/contactGuards';
 import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
+import { sendWhatsAppTemplate } from '../../../lib/inforu/whatsapp';
 
 const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'dept', 'source', 'idnum', 'birth_date', 'gender'];
 
@@ -451,6 +452,29 @@ export async function sendContactEmail(contactId, workspaceId, subject, body) {
   await supabase.from('sent_emails').insert({
     contact_id: contactId, workspace_id: workspaceId, from_address: connection.email_address,
     subject, body, sent_by: user.id,
+  });
+
+  return { success: true };
+}
+
+// שליחת הודעת WhatsApp ראשונה (תבנית מאושרת) לאיש קשר, ורישום ב-sent_whatsapp
+// כדי שיוצג בטאב "פעילות"
+export async function sendContactWhatsApp(contactId, workspaceId, reason) {
+  const { supabase, user } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const { data: contact } = await supabase.from('contacts').select('first, phone').eq('id', contactId).single();
+  if (!contact?.phone) return { error: 'לאיש הקשר אין מספר טלפון שמור' };
+
+  try {
+    await sendWhatsAppTemplate({ phone: contact.phone, firstName: contact.first, reason });
+  } catch (err) {
+    return { error: err.message };
+  }
+
+  await supabase.from('sent_whatsapp').insert({
+    contact_id: contactId, workspace_id: workspaceId, phone: contact.phone, reason, sent_by: user.id,
   });
 
   return { success: true };
