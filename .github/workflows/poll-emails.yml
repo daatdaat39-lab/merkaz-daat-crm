@@ -9,7 +9,14 @@ jobs:
   poll:
     runs-on: ubuntu-latest
     steps:
-      - name: Call poll-emails endpoint
+      # GitHub Actions לא תמיד מפעיל schedule בדיוק כל 5 דקות (יכול להתעכב).
+      # כדי לצמצם את זה, כל הפעלה בודקת 5 פעמים ברצף (כל דקה) - כך שגם אם
+      # GitHub מתעכב, בפועל בודקים מיילים חדשים בממוצע כל דקה-שתיים.
+      - name: Poll for new emails (5 checks, 1 minute apart)
         run: |
-          curl -sf -X GET "https://merkaz-daat-crm-8ubv.vercel.app/api/cron/poll-emails" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+          for i in 1 2 3 4 5; do
+            curl -sf -X GET "https://merkaz-daat-crm-8ubv.vercel.app/api/cron/poll-emails" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+            echo ""
+            if [ "$i" -lt 5 ]; then sleep 60; fi
+          done

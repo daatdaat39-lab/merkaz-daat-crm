@@ -2,6 +2,7 @@ import { createClient } from '../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
+import NewLeadToast from './components/NewLeadToast';
 
 export default async function DashboardLayout({ children, modal }) {
   const supabase = createClient();
@@ -134,6 +135,7 @@ export default async function DashboardLayout({ children, modal }) {
         </div>
       </div>
       {modal}
+      <NewLeadToast workspaceId={currentWorkspaceId} />
     </div>
   );
 }
