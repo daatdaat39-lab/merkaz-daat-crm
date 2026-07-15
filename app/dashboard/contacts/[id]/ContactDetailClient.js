@@ -275,6 +275,7 @@ export default function ContactDetailClient({
           workspaceId={active?.workspaceId || null}
           phone={contact.phone}
           reason={active?.inquiries?.[0]?.reason}
+          hasPriorMessage={active ? (sentWhatsapp || []).some((w) => w.workspace_id === active.workspaceId) : false}
           onClose={() => setWhatsappOpen(false)}
         />
       )}

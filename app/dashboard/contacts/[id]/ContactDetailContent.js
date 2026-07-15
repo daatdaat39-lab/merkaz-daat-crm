@@ -49,7 +49,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase
       .from('sent_whatsapp')
-      .select('id, workspace_id, phone, reason, sent_at')
+      .select('id, workspace_id, phone, reason, kind, message, sent_at')
       .eq('contact_id', contact.id)
       .order('sent_at', { ascending: false }),
   ]);

@@ -7,7 +7,7 @@ import { findExistingMatch, upsertDepartmentMembership } from './leadIntakeCore'
 import { isManagerOfAnyDepartment, requireNotFrozen } from '../lib/contactGuards';
 import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
-import { sendWhatsAppTemplate } from '../../../lib/inforu/whatsapp';
+import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/whatsapp';
 
 const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'dept', 'source', 'idnum', 'birth_date', 'gender'];
 
@@ -475,6 +475,31 @@ export async function sendContactWhatsApp(contactId, workspaceId, reason) {
 
   await supabase.from('sent_whatsapp').insert({
     contact_id: contactId, workspace_id: workspaceId, phone: contact.phone, reason, sent_by: user.id,
+  });
+
+  return { success: true };
+}
+
+// שליחת הודעת WhatsApp חופשית (לא תבנית) - אפשרי רק בתוך 24 שעות
+// מתשובת הלקוח האחרונה להודעת התבנית
+export async function sendContactWhatsAppChatMessage(contactId, workspaceId, message) {
+  const { supabase, user } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  if (!message?.trim()) return { error: 'יש להזין תוכן הודעה' };
+
+  const { data: contact } = await supabase.from('contacts').select('phone').eq('id', contactId).single();
+  if (!contact?.phone) return { error: 'לאיש הקשר אין מספר טלפון שמור' };
+
+  try {
+    await sendWhatsAppChat({ phone: contact.phone, message });
+  } catch (err) {
+    return { error: err.message };
+  }
+
+  await supabase.from('sent_whatsapp').insert({
+    contact_id: contactId, workspace_id: workspaceId, phone: contact.phone, kind: 'chat', message, sent_by: user.id,
   });
 
   return { success: true };
