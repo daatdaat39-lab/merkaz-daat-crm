@@ -17,7 +17,8 @@ export async function GET(request) {
   const supabase = createAdminClient();
   const { data: connections } = await supabase
     .from('email_connections')
-    .select('id, workspace_id, email_address, refresh_token, last_checked_at, created_at, workspaces:workspace_id (id, name)');
+    .select('id, workspace_id, email_address, refresh_token, last_checked_at, created_at, workspaces:workspace_id (id, name)')
+    .eq('purpose', 'intake');
 
   const results = [];
 

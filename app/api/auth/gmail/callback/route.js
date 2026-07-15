@@ -7,15 +7,17 @@ import { createAdminClient } from '../../../../../lib/supabase/admin';
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const workspaceId = searchParams.get('state');
+  const state = searchParams.get('state');
   const error = searchParams.get('error');
 
   if (error) {
     return NextResponse.json({ error: `Google דחה את הבקשה: ${error}` }, { status: 400 });
   }
-  if (!code || !workspaceId) {
-    return NextResponse.json({ error: 'חסר code או workspace_id' }, { status: 400 });
+  if (!code || !state) {
+    return NextResponse.json({ error: 'חסר code או state' }, { status: 400 });
   }
+  const [workspaceId, purposeRaw] = state.split(':');
+  const purpose = purposeRaw === 'send' ? 'send' : 'intake';
 
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -46,16 +48,17 @@ export async function GET(request) {
   const { error: dbError } = await supabase
     .from('email_connections')
     .upsert(
-      { workspace_id: workspaceId, email_address: emailAddress, refresh_token: tokenData.refresh_token },
-      { onConflict: 'email_address' }
+      { workspace_id: workspaceId, purpose, email_address: emailAddress, refresh_token: tokenData.refresh_token },
+      { onConflict: 'workspace_id,purpose' }
     );
   if (dbError) {
     return NextResponse.json({ error: dbError.message }, { status: 500 });
   }
 
+  const purposeLabel = purpose === 'send' ? 'לשליחת מיילים' : 'לקליטת לידים';
   return new NextResponse(
     `<html dir="rtl"><body style="font-family:sans-serif;text-align:center;padding:60px">
-      <h2>✅ התיבה ${emailAddress} חוברה בהצלחה!</h2>
+      <h2>✅ התיבה ${emailAddress} חוברה בהצלחה (${purposeLabel})!</h2>
       <p>אפשר לסגור את החלון הזה.</p>
     </body></html>`,
     { headers: { 'Content-Type': 'text/html; charset=utf-8' } }

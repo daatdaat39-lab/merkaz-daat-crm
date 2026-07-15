@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { getPipeline, STAGE_LABELS } from '../components/pipelines';
 import { findExistingMatch, upsertDepartmentMembership } from './leadIntakeCore';
 import { isManagerOfAnyDepartment, requireNotFrozen } from '../lib/contactGuards';
+import { getAccessToken } from '../../../lib/gmail/client';
+import { sendEmail } from '../../../lib/gmail/send';
 
 const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'dept', 'source', 'idnum', 'birth_date', 'gender'];
 
@@ -420,5 +422,36 @@ export async function assignAgent(contactId, workspaceId, agentId) {
     .eq('contact_id', contactId)
     .eq('workspace_id', workspaceId);
   if (error) return { error: error.message };
+  return { success: true };
+}
+
+// שליחת מייל לאיש קשר מהתיבה המחוברת של המחלקה הפעילה - נשלח בפועל
+// דרך Gmail API, ונרשם גם ב-sent_emails כדי שיוצג בטאב "פעילות"
+export async function sendContactEmail(contactId, workspaceId, subject, body) {
+  const { supabase, user } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  if (!subject?.trim() || !body?.trim()) return { error: 'יש למלא נושא ותוכן' };
+
+  const { data: contact } = await supabase.from('contacts').select('email').eq('id', contactId).single();
+  if (!contact?.email) return { error: 'לאיש הקשר אין כתובת מייל שמורה' };
+
+  const { data: connection } = await supabase
+    .from('email_connections').select('email_address, refresh_token').eq('workspace_id', workspaceId).eq('purpose', 'send').single();
+  if (!connection) return { error: 'תיבת המייל לשליחה של המחלקה הזו עדיין לא מחוברת' };
+
+  try {
+    const accessToken = await getAccessToken(connection.refresh_token);
+    await sendEmail(accessToken, { from: connection.email_address, to: contact.email, subject, body });
+  } catch (err) {
+    return { error: err.message };
+  }
+
+  await supabase.from('sent_emails').insert({
+    contact_id: contactId, workspace_id: workspaceId, from_address: connection.email_address,
+    subject, body, sent_by: user.id,
+  });
+
   return { success: true };
 }

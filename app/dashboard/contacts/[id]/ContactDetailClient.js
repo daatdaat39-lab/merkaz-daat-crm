@@ -9,6 +9,7 @@ import StageStepper from './StageStepper';
 import ContactEditForm from './ContactEditForm';
 import ContactSettingsMenu from './ContactSettingsMenu';
 import ContactTabs from './ContactTabs';
+import EmailComposeModal from './EmailComposeModal';
 import NotConnectedButton from '../../components/NotConnectedButton';
 
 const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
@@ -18,7 +19,7 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 // (היסטוריית הפניות שם תלויה במחלקה הפעילה) - state אחד משותף למעלה.
 export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags,
-  age, hebrewDate, isModal, toggleTaskAction, updateNotesAction,
+  age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -26,10 +27,13 @@ export default function ContactDetailClient({
   const [adding, setAdding] = useState(false);
   const [newWorkspaceId, setNewWorkspaceId] = useState('');
   const [newReason, setNewReason] = useState('');
+  const [composeOpen, setComposeOpen] = useState(false);
 
   const visibleDepartments = departments.filter((d) => viewerWorkspaceIds.includes(d.workspaceId));
   const [activeId, setActiveId] = useState(visibleDepartments[0]?.id || null);
   const active = visibleDepartments.find((d) => d.id === activeId) || visibleDepartments[0] || null;
+
+  const activeConnection = active ? (emailConnections || []).find((c) => c.workspace_id === active.workspaceId) : null;
 
   const availableToAdd = allWorkspaces.filter((w) => !departments.some((d) => d.workspaceId === w.id));
   const newWorkspace = availableToAdd.find((w) => w.id === newWorkspaceId);
@@ -168,7 +172,20 @@ export default function ContactDetailClient({
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         <NotConnectedButton label="חיוג" icon="📞" message="חיוג מתוך המערכת (ימות המשיח) — עדיין לא מחובר" />
         <NotConnectedButton label="וואטסאפ" icon="💬" message="שליחת וואטסאפ — עדיין לא מחובר" />
-        <NotConnectedButton label="מייל" icon="✉️" message="שליחת מייל — עדיין לא מחובר" />
+        {activeConnection && contact.email && !contact.frozen ? (
+          <button
+            onClick={() => setComposeOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: '#fff', color: '#333', border: '1px solid #e5e5e5' }}
+          >
+            <span>✉️</span><span>מייל</span>
+          </button>
+        ) : (
+          <NotConnectedButton
+            label="מייל"
+            icon="✉️"
+            message={!active ? 'יש לבחור מחלקה קודם' : !activeConnection ? `תיבת המייל של מחלקת "${active.workspaceName}" עדיין לא מחוברת` : !contact.email ? 'לאיש הקשר אין כתובת מייל שמורה' : 'איש הקשר מוקפא'}
+          />
+        )}
         <NotConnectedButton label="קביעת פגישה ביומן" icon="📅" message="חיבור ל-Google Calendar — עדיין לא מחובר" />
         <NotConnectedButton label="סיכום AI" icon="✨" message="סיכום שיחות ב-AI — עדיין לא מחובר" />
       </div>
@@ -225,9 +242,20 @@ export default function ContactDetailClient({
             frozen={contact.frozen}
             inquiries={active?.inquiries || []}
             activeDepartmentName={active?.workspaceName}
+            sentEmails={active ? (sentEmails || []).filter((e) => e.workspace_id === active.workspaceId) : []}
           />
         </div>
       </div>
+
+      {composeOpen && activeConnection && (
+        <EmailComposeModal
+          contactId={contact.id}
+          workspaceId={active.workspaceId}
+          fromAddress={activeConnection.email_address}
+          toAddress={contact.email}
+          onClose={() => setComposeOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import NotConnectedButton from '../../components/NotConnectedButton';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], activeDepartmentName }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], activeDepartmentName, sentEmails = [] }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -72,6 +72,23 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                   <span style={{ color: '#333' }}>{inq.reason}</span>
                   {inq.note && <span style={{ color: '#9b9b9b' }}> — {inq.note}</span>}
                   <span style={{ color: '#c0c0c0' }}> · {new Date(inq.created_at).toLocaleDateString('he-IL')}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
+              מיילים שנשלחו
+            </div>
+            {sentEmails.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>לא נשלחו מיילים למחלקה זו</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {sentEmails.map((e) => (
+                <div key={e.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                  <div style={{ fontWeight: 500 }}>{e.subject}</div>
+                  <div style={{ color: '#9b9b9b', marginTop: 2 }}>
+                    מאת {e.from_address} · {new Date(e.sent_at).toLocaleDateString('he-IL')} {new Date(e.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
               ))}
             </div>

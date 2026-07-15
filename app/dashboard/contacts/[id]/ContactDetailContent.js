@@ -23,7 +23,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
 
   if (!contact) notFound();
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -41,6 +41,12 @@ export default async function ContactDetailContent({ contactId, isModal }) {
       .order('created_at', { ascending: false }),
     supabase.from('contacts').select('tags'),
     supabase.from('workspace_members').select('workspace_id').eq('user_id', user.id),
+    supabase
+      .from('sent_emails')
+      .select('id, workspace_id, from_address, subject, body, sent_at')
+      .eq('contact_id', contact.id)
+      .order('sent_at', { ascending: false }),
+    supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
   ]);
 
   const departments = (departmentRows || []).map((row) => ({
@@ -56,6 +62,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
   const age = calculateAge(contact.birth_date);
   const hebrewDate = calculateHebrewDate(contact.birth_date);
+  const connections = emailConnections || [];
 
   return (
     <ContactDetailClient
@@ -71,6 +78,8 @@ export default async function ContactDetailContent({ contactId, isModal }) {
       isModal={isModal}
       toggleTaskAction={toggleTask}
       updateNotesAction={updateContactNotes}
+      sentEmails={sentEmailRows || []}
+      emailConnections={connections}
     />
   );
 }
