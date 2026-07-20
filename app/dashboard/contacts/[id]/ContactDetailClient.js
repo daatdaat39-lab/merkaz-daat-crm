@@ -2,12 +2,12 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { initials } from '../../components/ui';
 import { getPipeline, getInquiryReasons } from '../../components/pipelines';
 import { updateDepartmentStage, removeDepartmentMembership, addDepartmentMembership } from '../actions';
 import StageStepper from './StageStepper';
 import PersonalInfoCard from './PersonalInfoCard';
 import ContactSettingsMenu from './ContactSettingsMenu';
+import AvatarUpload from './AvatarUpload';
 import ContactTabs from './ContactTabs';
 import EmailComposeModal from './EmailComposeModal';
 import WhatsAppSendModal from './WhatsAppSendModal';
@@ -21,7 +21,7 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags,
   age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
-  nextMeeting, openTasksCount,
+  nextMeeting, openTasksCount, relatedContact,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -89,12 +89,7 @@ export default function ContactDetailClient({
 
       {/* כותרת: אווטאר + שם + לשוניות מחלקה (לחיצה מחליפה מחלקה פעילה) */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, margin: '16px 0 10px' }}>
-        <div style={{
-          width: 44, height: 44, background: '#0a0a0a', color: '#fff', borderRadius: '50%',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, fontWeight: 600, flexShrink: 0,
-        }}>
-          {initials(contact.first, contact.last)}
-        </div>
+        <AvatarUpload contact={contact} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 18, fontWeight: 600 }}>{contact.first} {contact.last}</div>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -212,6 +207,7 @@ export default function ContactDetailClient({
             openTasksCount={openTasksCount}
             agentName={active?.agentName}
             lastActivityAt={active?.lastActivityAt}
+            relatedContact={relatedContact}
           />
         </div>
 

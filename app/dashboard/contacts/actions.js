@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '../../../lib/supabase/server';
+import { createAdminClient } from '../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { getPipeline, STAGE_LABELS } from '../components/pipelines';
 import { findExistingMatch, upsertDepartmentMembership } from './leadIntakeCore';
@@ -9,7 +10,7 @@ import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/whatsapp';
 
-const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'email2', 'dept', 'source', 'idnum', 'birth_date', 'gender'];
+const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'email2', 'dept', 'source', 'idnum', 'birth_date', 'gender', 'related_contact_id', 'relation_label'];
 
 function parseTags(raw) {
   if (typeof raw !== 'string') return [];
@@ -555,4 +556,31 @@ export async function deleteEmailTemplate(id) {
   const { error } = await supabase.from('email_templates').delete().eq('id', id);
   if (error) return { error: error.message };
   return { success: true };
+}
+
+// העלאת תמונת פרופיל לאיש קשר - נשמרת ב-Storage bucket ציבורי
+// (contact-photos), עם admin client כדי לעקוף RLS על ה-bucket
+export async function uploadContactPhoto(contactId, formData) {
+  const { supabase } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const file = formData.get('photo');
+  if (!file || typeof file === 'string' || file.size === 0) return { error: 'יש לבחור קובץ תמונה' };
+  if (!file.type?.startsWith('image/')) return { error: 'יש להעלות קובץ תמונה בלבד' };
+
+  const admin = createAdminClient();
+  const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase();
+  const path = `${contactId}/${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await admin.storage
+    .from('contact-photos')
+    .upload(path, file, { contentType: file.type, upsert: true });
+  if (uploadError) return { error: uploadError.message };
+
+  const { data: publicUrlData } = admin.storage.from('contact-photos').getPublicUrl(path);
+  const { error: updateError } = await supabase.from('contacts').update({ photo_url: publicUrlData.publicUrl }).eq('id', contactId);
+  if (updateError) return { error: updateError.message };
+
+  return { success: true, url: publicUrlData.publicUrl };
 }

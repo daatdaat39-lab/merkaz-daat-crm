@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Tag } from '../../components/ui';
-import { updateContact } from '../actions';
+import { updateContact, searchContacts } from '../actions';
 import TagPicker from '../TagPicker';
 
 const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 8px', fontSize: 12.5 };
@@ -12,14 +13,16 @@ const categoryLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTra
 // כרטיס "פרטים אישיים" - מחולק לקטגוריות (זהות, פרטי קשר, פעילות
 // ומעקב), עם עריכה ישירה של השדות עצמם (לא טופס נפרד למטה). לחיצה על
 // ✎ הופכת את שורות הזהות/פרטי הקשר לשדות קלט במקום, עם שמירה/ביטול.
-export default function PersonalInfoCard({ contact, existingTags, age, hebrewDate, nextMeeting, openTasksCount, agentName, lastActivityAt }) {
+export default function PersonalInfoCard({ contact, existingTags, age, hebrewDate, nextMeeting, openTasksCount, agentName, lastActivityAt, relatedContact }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
+  const [related, setRelated] = useState(relatedContact ? { id: relatedContact.id, name: `${relatedContact.first} ${relatedContact.last}` } : null);
   const router = useRouter();
 
   function handleSubmit(formData) {
     setError(null);
+    formData.set('related_contact_id', related?.id || '');
     startTransition(async () => {
       const res = await updateContact(contact.id, formData);
       if (res?.error) { setError(res.error); return; }
@@ -65,6 +68,10 @@ export default function PersonalInfoCard({ contact, existingTags, age, hebrewDat
           <Field label="מייל" name="email" type="email" defaultValue={contact.email} />
           <Field label="מייל נוסף" name="email2" type="email" defaultValue={contact.email2} />
 
+          <div style={categoryLabel}>קשרים</div>
+          <RelatedContactPicker contactId={contact.id} related={related} setRelated={setRelated} />
+          <Field label="סוג קרבה (למשל: אב, בן זוג)" name="relation_label" defaultValue={contact.relation_label} />
+
           <div style={categoryLabel}>תגיות</div>
           <TagPicker existingTags={existingTags} defaultTags={contact.tags || []} />
 
@@ -87,6 +94,14 @@ export default function PersonalInfoCard({ contact, existingTags, age, hebrewDat
           <InfoRow label="מגדר" value={contact.gender} />
           <InfoRow label="מקור" value={contact.source} />
           <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
+          {relatedContact && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10.5, color: '#9b9b9b' }}>{contact.relation_label || 'איש קשר קשור'}</div>
+              <Link href={`/dashboard/contacts/${relatedContact.id}`} style={{ fontSize: 13, color: '#1f4d3d' }}>
+                {relatedContact.first} {relatedContact.last} →
+              </Link>
+            </div>
+          )}
 
           <div style={categoryLabel}>פרטי קשר</div>
           <InfoRow label="טלפון" value={contact.phone} />
@@ -137,6 +152,59 @@ function SelectField({ label, name, defaultValue, options }) {
       <select name={name} defaultValue={defaultValue || ''} style={inputStyle}>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
+    </div>
+  );
+}
+
+// חיפוש ובחירת איש קשר קשור (למשל קרבה משפחתית) - משתמש באותה פעולת
+// חיפוש כמו מיזוג כפילויות
+function RelatedContactPicker({ contactId, related, setRelated }) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [, startTransition] = useTransition();
+
+  function handleSearch(value) {
+    setQuery(value);
+    if (value.trim().length < 2) { setResults([]); return; }
+    startTransition(async () => {
+      const res = await searchContacts(value, contactId);
+      setResults(res);
+    });
+  }
+
+  if (related) {
+    return (
+      <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
+        <span>{related.name}</span>
+        <button type="button" onClick={() => setRelated(null)} style={{ background: 'none', border: 'none', color: '#b23b2f', fontSize: 11, cursor: 'pointer' }}>
+          הסרה
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <input
+        value={query}
+        onChange={(e) => handleSearch(e.target.value)}
+        placeholder="חיפוש איש קשר קשור..."
+        style={inputStyle}
+      />
+      {results.length > 0 && (
+        <div style={{ marginTop: 4, border: '1px solid #e5e5e5', borderRadius: 6, background: '#fff', maxHeight: 140, overflowY: 'auto' }}>
+          {results.map((r) => (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => { setRelated({ id: r.id, name: `${r.first} ${r.last}` }); setQuery(''); setResults([]); }}
+              style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', padding: '6px 8px', fontSize: 12, cursor: 'pointer' }}
+            >
+              {r.first} {r.last} <span style={{ color: '#9b9b9b' }}>{r.phone || r.email || ''}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

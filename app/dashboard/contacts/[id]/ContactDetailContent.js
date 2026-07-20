@@ -87,6 +87,12 @@ export default async function ContactDetailContent({ contactId, isModal }) {
     .sort((a, b) => new Date(`${a.meeting_date}T${a.meeting_time || '00:00'}`) - new Date(`${b.meeting_date}T${b.meeting_time || '00:00'}`))[0] || null;
   const openTasksCount = (tasks || []).filter((t) => !t.done).length;
 
+  let relatedContact = null;
+  if (contact.related_contact_id) {
+    const { data: rc } = await supabase.from('contacts').select('id, first, last').eq('id', contact.related_contact_id).single();
+    relatedContact = rc;
+  }
+
   return (
     <ContactDetailClient
       contact={contact}
@@ -108,6 +114,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
       emailTemplates={emailTemplates || []}
       nextMeeting={nextMeeting}
       openTasksCount={openTasksCount}
+      relatedContact={relatedContact}
     />
   );
 }
