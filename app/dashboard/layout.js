@@ -3,12 +3,23 @@ import { redirect } from 'next/navigation';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import NewLeadToast from './components/NewLeadToast';
+import CelebrationHost from './components/CelebrationHost';
 
 export default async function DashboardLayout({ children, modal }) {
   const supabase = createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  // "פעימת חיים" לדוח פעילות נציגים - נרשם בכל טעינת עמוד: נראה לאחרונה
+  // (profiles) + שעת הופעה ראשונה/אחרונה היום (user_activity_days),
+  // כדי לחשב "כמה זמן היה פעיל" מבלי לבנות תשתית session מלאה
+  const nowIso = new Date().toISOString();
+  const today = nowIso.slice(0, 10);
+  await supabase.from('profiles').update({ last_seen_at: nowIso }).eq('id', user.id);
+  await supabase.from('user_activity_days')
+    .upsert({ user_id: user.id, day: today, first_seen_at: nowIso, last_seen_at: nowIso }, { onConflict: 'user_id,day', ignoreDuplicates: true });
+  await supabase.from('user_activity_days').update({ last_seen_at: nowIso }).eq('user_id', user.id).eq('day', today);
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -146,6 +157,7 @@ export default async function DashboardLayout({ children, modal }) {
       </div>
       {modal}
       <NewLeadToast workspaceId={currentWorkspaceId} />
+      <CelebrationHost />
     </div>
   );
 }

@@ -3,6 +3,16 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { STAGE_LABELS } from './components/ui';
 import { getPipeline } from './components/pipelines';
+import { randomPraise } from './components/celebrate';
+
+function timeGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 5) return 'לילה טוב';
+  if (hour < 12) return 'בוקר טוב';
+  if (hour < 17) return 'צהריים טובים';
+  if (hour < 21) return 'ערב טוב';
+  return 'לילה טוב';
+}
 
 export default async function DashboardHome() {
   const supabase = createClient();
@@ -18,6 +28,20 @@ export default async function DashboardHome() {
 
   const workspaceId = profile?.current_workspace_id;
   const pipeline = getPipeline(profile?.workspaces?.name);
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toISOString();
+  const [{ count: outreachToday }, { count: outreachYesterday }] = await Promise.all([
+    supabase.from('sent_whatsapp').select('id', { count: 'exact', head: true }).eq('sent_by', user.id).eq('direction', 'out').gte('sent_at', todayStart),
+    supabase.from('sent_whatsapp').select('id', { count: 'exact', head: true }).eq('sent_by', user.id).eq('direction', 'out').gte('sent_at', yesterdayStart).lt('sent_at', todayStart),
+  ]);
+  const [{ count: emailsToday }, { count: emailsYesterday }] = await Promise.all([
+    supabase.from('sent_emails').select('id', { count: 'exact', head: true }).eq('sent_by', user.id).gte('sent_at', todayStart),
+    supabase.from('sent_emails').select('id', { count: 'exact', head: true }).eq('sent_by', user.id).gte('sent_at', yesterdayStart).lt('sent_at', todayStart),
+  ]);
+  const totalToday = (outreachToday || 0) + (emailsToday || 0);
+  const totalYesterday = (outreachYesterday || 0) + (emailsYesterday || 0);
 
   let contacts = [];
   let workspaceContacts = [];
@@ -63,9 +87,18 @@ export default async function DashboardHome() {
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
       <div style={{ marginBottom: 22 }}>
         <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: 0, fontSize: 20 }}>
-          שלום, {profile?.name || ''} 👋
+          {timeGreeting()}, {profile?.name || ''} 👋
         </h1>
-        <p style={{ margin: '4px 0 0', color: '#6b6b6b', fontSize: 12.5 }}>סקירה כללית של ה-workspace הפעיל</p>
+        <p style={{ margin: '4px 0 0', color: '#6b6b6b', fontSize: 12.5 }}>
+          {randomPraise()} · סקירה כללית של ה-workspace הפעיל
+        </p>
+        {totalYesterday > 0 && (
+          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: totalToday >= totalYesterday ? '#2f7d4f' : '#6b6b6b' }}>
+            {totalToday >= totalYesterday
+              ? `אתמול שלחת ${totalYesterday} פניות, היום כבר ${totalToday} — ${totalToday > totalYesterday ? 'קדימה, שוברים שיא! 🔥' : 'ממשיכים באותו קצב 👍'}`
+              : `אתמול שלחת ${totalYesterday} פניות, היום ${totalToday} — יש עוד זמן ביום, בוא נתפוס תאוצה 💪`}
+          </p>
+        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>

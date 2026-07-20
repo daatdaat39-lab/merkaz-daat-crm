@@ -12,6 +12,7 @@ import ContactTabs from './ContactTabs';
 import EmailComposeModal from './EmailComposeModal';
 import WhatsAppSendModal from './WhatsAppSendModal';
 import NotConnectedButton from '../../components/NotConnectedButton';
+import { celebrate } from '../../components/celebrate';
 
 const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
 
@@ -63,8 +64,11 @@ export default function ContactDetailClient({
 
   function handleStageChange(formData) {
     if (!active) return;
+    const stages = getPipeline(active.workspaceName).order;
+    const movingForward = stages.indexOf(formData.get('stage')) > stages.indexOf(active.stage);
     startTransition(async () => {
       await updateDepartmentStage(active.id, formData.get('stage'), formData.get('closed_reason'));
+      if (movingForward) celebrate();
       router.refresh();
     });
   }

@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import NotConnectedButton from '../../components/NotConnectedButton';
+import { celebrate } from '../../components/celebrate';
 
 export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], activeDepartmentName, sentEmails = [], sentWhatsapp = [] }) {
   const [tab, setTab] = useState('activity');
@@ -19,7 +20,10 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
     startTransition(async () => {
       const res = await toggleTaskAction(fd);
       if (res?.error) setError(res.error);
-      else router.refresh();
+      else {
+        if (done) celebrate();
+        router.refresh();
+      }
     });
   }
 

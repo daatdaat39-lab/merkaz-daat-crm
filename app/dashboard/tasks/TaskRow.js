@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toggleTask, updateTask } from './actions';
+import { celebrate } from '../components/celebrate';
 
 const REMIND_OPTIONS = [
   { value: '', label: 'ללא תזכורת' },
@@ -43,13 +44,17 @@ export default function TaskRow({ t, contacts, members = [] }) {
 
   function handleToggle() {
     setError(null);
+    const marking = !t.done;
     const fd = new FormData();
     fd.set('task_id', t.id);
-    fd.set('done', (!t.done).toString());
+    fd.set('done', marking.toString());
     startTransition(async () => {
       const res = await toggleTask(fd);
       if (res?.error) setError(res.error);
-      else router.refresh();
+      else {
+        if (marking) celebrate();
+        router.refresh();
+      }
     });
   }
 

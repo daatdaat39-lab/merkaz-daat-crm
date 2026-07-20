@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { STAGE_LABELS, STAGE_COLORS, initials } from '../../components/ui';
 import { assignAgent, updateLeadStage, removeDepartmentMembership } from '../../contacts/actions';
 import ContactQuickActions from '../../components/ContactQuickActions';
+import { celebrate } from '../../components/celebrate';
 
 function elapsedLabel(iso) {
   if (!iso) return null;
@@ -32,8 +33,10 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
   }
 
   function handleStageChange(e) {
+    const movingForward = stages.indexOf(e.target.value) > stages.indexOf(c.stage);
     startTransition(async () => {
       await updateLeadStage(c.departmentRowId, e.target.value, null);
+      if (movingForward) celebrate();
       router.refresh();
     });
   }
