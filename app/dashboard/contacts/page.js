@@ -14,7 +14,7 @@ export default async function ContactsPage({ searchParams }) {
   if (!user) redirect('/login');
 
   // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים)
-  const [{ data }, { data: workspaces }, { data: profile }, { data: sendConnections }, { data: whatsappTemplates }] = await Promise.all([
+  const [{ data }, { data: workspaces }, { data: profile }, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
     supabase
       .from('contacts')
       .select('id, first, last, idnum, phone, phone2, email, dept, tags, source, frozen, created_at, contact_departments (workspace_id, stage, workspaces:workspace_id (name))')
@@ -23,6 +23,7 @@ export default async function ContactsPage({ searchParams }) {
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
+    supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
   ]);
   const allContacts = (data || []).map((c) => ({
     ...c,
@@ -96,10 +97,11 @@ export default async function ContactsPage({ searchParams }) {
               </td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
                 <ContactQuickActions
-                  contact={{ id: c.id, phone: c.phone, email: c.email, frozen: c.frozen }}
+                  contact={{ id: c.id, first: c.first, phone: c.phone, email: c.email, frozen: c.frozen }}
                   departments={c.departments.map((d) => ({ workspaceId: d.workspaceId, workspaceName: d.name }))}
                   sendConnections={sendConnections || []}
                   whatsappTemplates={whatsappTemplates || []}
+                  emailTemplates={emailTemplates || []}
                 />
               </td>
             </tr>

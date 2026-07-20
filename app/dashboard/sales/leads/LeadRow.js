@@ -17,7 +17,7 @@ function elapsedLabel(iso) {
   return `${days} ${days === 1 ? 'יום' : 'ימים'} מאז הטיפול האחרון`;
 }
 
-export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], sendConnections = [], whatsappTemplates = [] }) {
+export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [] }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -99,10 +99,11 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
       <td style={{ padding: '10px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <ContactQuickActions
-            contact={{ id: c.id, phone: c.phone, email: c.email, frozen: c.frozen, latestReason: c.latestReason }}
+            contact={{ id: c.id, first: c.first, phone: c.phone, email: c.email, frozen: c.frozen, latestReason: c.latestReason }}
             departments={workspaceId ? [{ workspaceId, workspaceName }] : []}
             sendConnections={sendConnections}
             whatsappTemplates={whatsappTemplates}
+            emailTemplates={emailTemplates}
           />
           <button
             onClick={handleRemove}

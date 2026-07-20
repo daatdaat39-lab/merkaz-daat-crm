@@ -6,9 +6,10 @@ const FIELDS = [
   { key: 'first', label: 'שם פרטי' },
   { key: 'last', label: 'שם משפחה' },
   { key: 'idnum', label: 'ת"ז' },
-  { key: 'phone', label: 'טלפון' },
+  { key: 'phone', label: 'טלפון', dual: 'phone2' },
   { key: 'phone2', label: 'טלפון נוסף' },
-  { key: 'email', label: 'מייל' },
+  { key: 'email', label: 'מייל', dual: 'email2' },
+  { key: 'email2', label: 'מייל נוסף' },
   { key: 'source', label: 'מקור' },
   { key: 'dept', label: 'תחום/מחלקה' },
 ];
@@ -42,8 +43,13 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
 
   function handleConfirm() {
     const resolved = {};
-    FIELDS.forEach(({ key }) => {
-      resolved[key] = choices[key] === 'new' ? (newValues[key] || '') : (existing[key] || '');
+    FIELDS.forEach(({ key, dual }) => {
+      if (choices[key] === 'both' && dual) {
+        resolved[key] = existing[key] || '';
+        resolved[dual] = newValues[key] || '';
+      } else {
+        resolved[key] = choices[key] === 'new' ? (newValues[key] || '') : (existing[key] || '');
+      }
     });
     resolved.tags = Array.from(tagsSelected);
     onConfirm(resolved);
@@ -63,13 +69,15 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
               <th style={{ textAlign: 'right', padding: '4px 6px', fontSize: 11, color: 'var(--text-secondary)' }}>שדה</th>
               <th style={{ textAlign: 'center', padding: '4px 6px', fontSize: 11, color: 'var(--text-secondary)' }}>קיים</th>
               <th style={{ textAlign: 'center', padding: '4px 6px', fontSize: 11, color: 'var(--text-secondary)' }}>חדש</th>
+              <th style={{ textAlign: 'center', padding: '4px 6px', fontSize: 11, color: 'var(--text-secondary)' }}></th>
             </tr>
           </thead>
           <tbody>
-            {FIELDS.map(({ key, label }) => {
+            {FIELDS.map(({ key, label, dual }) => {
               const existingVal = existing[key] || '—';
               const newVal = newValues[key] || '—';
               if (existingVal === '—' && newVal === '—') return null;
+              const showBoth = dual && existingVal !== '—' && newVal !== '—' && existingVal !== newVal;
               return (
                 <tr key={key} style={{ borderBottom: '1px solid #f0f0f0' }}>
                   <td style={{ padding: '6px', fontWeight: 500 }}>{label}</td>
@@ -84,6 +92,14 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
                       <input type="radio" name={`field-${key}`} checked={choices[key] === 'new'} onChange={() => pick(key, 'new')} />
                       <span>{newVal}</span>
                     </label>
+                  </td>
+                  <td style={{ padding: '6px', textAlign: 'center' }}>
+                    {showBoth && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', cursor: 'pointer' }}>
+                        <input type="radio" name={`field-${key}`} checked={choices[key] === 'both'} onChange={() => pick(key, 'both')} />
+                        <span style={{ color: 'var(--text-secondary)' }}>שניהם</span>
+                      </label>
+                    )}
                   </td>
                 </tr>
               );

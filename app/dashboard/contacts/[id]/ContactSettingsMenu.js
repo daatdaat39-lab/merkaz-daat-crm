@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { canManageContact, setContactFrozen, deleteContact, mergeContacts, searchContacts } from '../actions';
 import NotConnectedButton from '../../components/NotConnectedButton';
+import MergeFieldsPicker from '../MergeFieldsPicker';
 
 const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 };
 
@@ -103,6 +104,7 @@ export default function ContactSettingsMenu({ contact }) {
 function MergePanel({ contact, onBack, onDone }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
+  const [picking, setPicking] = useState(null); // the duplicate contact chosen, awaiting field resolution
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
 
@@ -115,13 +117,31 @@ function MergePanel({ contact, onBack, onDone }) {
     });
   }
 
-  function handleMerge(otherId, otherName) {
-    if (!confirm(`לאחד את "${otherName}" לתוך "${contact.first} ${contact.last}"? הפגישות/משימות של "${otherName}" יעברו לכאן, ו"${otherName}" יימחק.`)) return;
+  function handleMerge(resolvedFields) {
     startTransition(async () => {
-      const res = await mergeContacts(contact.id, otherId);
+      const res = await mergeContacts(contact.id, picking.id, resolvedFields);
       if (res?.error) setError(res.error);
       else onDone();
     });
+  }
+
+  if (picking) {
+    return (
+      <div
+        onClick={() => setPicking(null)}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 10, padding: 22, width: 480, maxWidth: '92vw' }}>
+          <MergeFieldsPicker
+            existing={contact}
+            newValues={picking}
+            onConfirm={handleMerge}
+            onCancel={() => setPicking(null)}
+          />
+          {error && <div style={{ color: '#b23b2f', fontSize: 12, marginTop: 10 }}>שגיאה: {error}</div>}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -139,7 +159,7 @@ function MergePanel({ contact, onBack, onDone }) {
           <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12 }}>
             <span>{r.first} {r.last} <span style={{ color: '#9b9b9b' }}>{r.phone || r.email || ''}</span></span>
             <button
-              onClick={() => handleMerge(r.id, `${r.first} ${r.last}`)}
+              onClick={() => setPicking(r)}
               disabled={isPending}
               style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}
             >

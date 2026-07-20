@@ -14,7 +14,7 @@ const iconBtnStyle = {
 // במערכת - לא רק בכרטיס עצמו. משתמש באותם חלונות שליחה בדיוק.
 // departments: [{ workspaceId, workspaceName }] של המחלקות ששייך אליהן האיש קשר
 // sendConnections: [{ workspace_id, email_address }] - כל תיבות השליחה המחוברות במערכת
-export default function ContactQuickActions({ contact, departments = [], sendConnections = [], whatsappTemplates = [] }) {
+export default function ContactQuickActions({ contact, departments = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [] }) {
   const [modal, setModal] = useState(null);
 
   const emailConnection = departments
@@ -52,6 +52,7 @@ export default function ContactQuickActions({ contact, departments = [], sendCon
         <EmailComposeModal
           contactId={contact.id} workspaceId={emailDept.workspaceId}
           fromAddress={emailConnection.email_address} toAddress={contact.email}
+          firstName={contact.first} templates={emailTemplates}
           onClose={() => setModal(null)}
         />
       )}

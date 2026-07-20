@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import NotConnectedButton from '../components/NotConnectedButton';
 import WhatsAppTemplatesPanel from './WhatsAppTemplatesPanel';
+import EmailTemplatesPanel from './EmailTemplatesPanel';
 
 export default async function SettingsPage() {
   const supabase = createClient();
@@ -29,6 +30,7 @@ export default async function SettingsPage() {
   }
 
   const { data: whatsappTemplates } = await supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at');
+  const { data: emailTemplates } = await supabase.from('email_templates').select('id, name, subject, body').order('created_at');
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 24px' }}>
@@ -61,6 +63,7 @@ export default async function SettingsPage() {
       </div>
 
       <WhatsAppTemplatesPanel templates={whatsappTemplates || []} />
+      <EmailTemplatesPanel templates={emailTemplates || []} />
 
       <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20 }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>

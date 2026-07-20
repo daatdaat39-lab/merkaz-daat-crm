@@ -53,11 +53,12 @@ export default async function SalesLeadsPage() {
     agents = (memberProfiles || []).map((p) => ({ id: p.id, name: p.name || 'משתמש' }));
   }
 
-  const [{ data: workspaces }, { data: tagRows }, { data: sendConnections }, { data: whatsappTemplates }] = await Promise.all([
+  const [{ data: workspaces }, { data: tagRows }, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('contacts').select('tags'),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
+    supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
   ]);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
 
@@ -87,6 +88,7 @@ export default async function SalesLeadsPage() {
         <LeadsBoard
           leads={leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName}
           stages={pipeline.order} sendConnections={sendConnections || []} whatsappTemplates={whatsappTemplates || []}
+          emailTemplates={emailTemplates || []}
         />
       )}
     </div>

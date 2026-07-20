@@ -7,12 +7,20 @@ import { sendContactEmail } from '../actions';
 // חלון קטן לכתיבת מייל ושליחתו מתוך המחלקה הפעילה, דרך תיבת המייל
 // המחוברת לאותה מחלקה (email_connections). נרשם גם ב-sent_emails
 // כך שיוצג בטאב "פעילות" בכרטיס.
-export default function EmailComposeModal({ contactId, workspaceId, fromAddress, toAddress, onClose, onSent }) {
+export default function EmailComposeModal({ contactId, workspaceId, fromAddress, toAddress, firstName, templates = [], onClose, onSent }) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  function applyTemplate(id) {
+    const t = templates.find((tpl) => tpl.id === id);
+    if (!t) return;
+    const fill = (s) => s.replace(/\{שם\}/g, firstName || '');
+    setSubject(fill(t.subject));
+    setBody(fill(t.body));
+  }
 
   function handleSend() {
     setError(null);
@@ -41,6 +49,17 @@ export default function EmailComposeModal({ contactId, workspaceId, fromAddress,
         <div style={{ fontSize: 12, color: '#9b9b9b' }}>מאת {fromAddress} · אל {toAddress}</div>
 
         {error && <div style={{ color: '#b23b2f', fontSize: 12.5 }}>שגיאה: {error}</div>}
+
+        {templates.length > 0 && (
+          <select
+            defaultValue=""
+            onChange={(e) => { applyTemplate(e.target.value); e.target.value = ''; }}
+            style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 12.5, color: '#6b6b6b' }}
+          >
+            <option value="" disabled>טעינת תבנית מוכנה...</option>
+            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
 
         <input
           value={subject}

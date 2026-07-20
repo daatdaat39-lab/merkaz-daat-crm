@@ -20,7 +20,7 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 // (היסטוריית הפניות שם תלויה במחלקה הפעילה) - state אחד משותף למעלה.
 export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags,
-  age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates,
+  age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -223,6 +223,7 @@ export default function ContactDetailClient({
             <InfoRow label="טלפון" value={contact.phone} />
             <InfoRow label="טלפון נוסף" value={contact.phone2} />
             <InfoRow label="מייל" value={contact.email} />
+            <InfoRow label="מייל נוסף" value={contact.email2} />
             <InfoRow label="מקור" value={contact.source} />
             <InfoRow label="ת.ז / מזהה" value={contact.idnum} />
             <InfoRow label="תאריך לידה" value={contact.birth_date ? new Date(contact.birth_date).toLocaleDateString('he-IL') : null} />
@@ -264,6 +265,8 @@ export default function ContactDetailClient({
           workspaceId={active.workspaceId}
           fromAddress={activeConnection.email_address}
           toAddress={contact.email}
+          firstName={contact.first}
+          templates={emailTemplates || []}
           onClose={() => setComposeOpen(false)}
         />
       )}

@@ -9,7 +9,7 @@ import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/whatsapp';
 
-const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'dept', 'source', 'idnum', 'birth_date', 'gender'];
+const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'email2', 'dept', 'source', 'idnum', 'birth_date', 'gender'];
 
 function parseTags(raw) {
   if (typeof raw !== 'string') return [];
@@ -301,7 +301,7 @@ export async function updateLeadStage(departmentRowId, stage, closedReason) {
 
 // איחוד שני אנשי קשר כפולים: keepId נשאר, duplicateId נמחק אחרי שהפגישות/משימות
 // והשיוכים למחלקות שלו עוברים אליו
-export async function mergeContacts(keepId, duplicateId) {
+export async function mergeContacts(keepId, duplicateId, resolvedFields) {
   const { supabase, user } = await requireUser();
   if (keepId === duplicateId) return { error: 'לא ניתן לאחד איש קשר עם עצמו' };
 
@@ -333,10 +333,21 @@ export async function mergeContacts(keepId, duplicateId) {
     }
   }
 
-  const { data: dup } = await supabase.from('contacts').select('tags').eq('id', duplicateId).single();
-  const { data: keep } = await supabase.from('contacts').select('tags').eq('id', keepId).single();
-  const mergedTags = Array.from(new Set([...(keep?.tags || []), ...(dup?.tags || [])]));
-  await supabase.from('contacts').update({ tags: mergedTags }).eq('id', keepId);
+  if (resolvedFields) {
+    // המשתמש בחר שדה-שדה מה להשאיר (כולל אפשרות "שניהם" לטלפון/מייל) -
+    // מעדכן את הכרטיס הנשאר לפי הבחירות במקום פשוט להשאיר אותו כמו שהיה
+    const update = {};
+    for (const key of EDITABLE_FIELDS) {
+      if (resolvedFields[key] !== undefined) update[key] = resolvedFields[key] || null;
+    }
+    if (resolvedFields.tags) update.tags = resolvedFields.tags;
+    if (Object.keys(update).length > 0) await supabase.from('contacts').update(update).eq('id', keepId);
+  } else {
+    const { data: dup } = await supabase.from('contacts').select('tags').eq('id', duplicateId).single();
+    const { data: keep } = await supabase.from('contacts').select('tags').eq('id', keepId).single();
+    const mergedTags = Array.from(new Set([...(keep?.tags || []), ...(dup?.tags || [])]));
+    await supabase.from('contacts').update({ tags: mergedTags }).eq('id', keepId);
+  }
 
   const { error: deleteError } = await supabase.from('contacts').delete().eq('id', duplicateId);
   if (deleteError) return { error: deleteError.message };
@@ -403,7 +414,7 @@ export async function searchContacts(query, excludeId) {
 
   const { data } = await supabase
     .from('contacts')
-    .select('id, first, last, phone, email')
+    .select('id, first, last, phone, phone2, email, email2, idnum, source, dept, tags')
     .neq('id', excludeId)
     .or(`first.ilike.%${query}%,last.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
     .limit(8);
@@ -522,6 +533,26 @@ export async function addWhatsAppTemplate(formData) {
 export async function deleteWhatsAppTemplate(id) {
   const { supabase } = await requireUser();
   const { error } = await supabase.from('whatsapp_templates').delete().eq('id', id);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// ניהול תבניות מייל מוכנות - לשימוש חוזר בחלון שליחת מייל מהכרטיס
+export async function addEmailTemplate(formData) {
+  const { supabase } = await requireUser();
+  const name = formData.get('name')?.toString().trim();
+  const subject = formData.get('subject')?.toString().trim();
+  const body = formData.get('body')?.toString().trim();
+  if (!name || !subject || !body) return { error: 'יש למלא שם, נושא ותוכן' };
+
+  const { error } = await supabase.from('email_templates').insert({ name, subject, body });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function deleteEmailTemplate(id) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from('email_templates').delete().eq('id', id);
   if (error) return { error: error.message };
   return { success: true };
 }

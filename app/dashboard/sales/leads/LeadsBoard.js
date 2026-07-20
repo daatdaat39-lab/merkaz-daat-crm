@@ -9,7 +9,7 @@ const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding
 // לוח לידים עם סינון ומיון בצד הלקוח - הנתונים כבר נטענו מהשרת, אז
 // כל הסינון/מיון כאן מיידי בלי בקשות נוספות. הקיבוץ לפי תגית (תרומות/
 // לימודי/מנהלה) נשאר, אבל מחושב אחרי הסינון כדי שכל קבוצה תשקף אותו.
-export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sendConnections = [], whatsappTemplates = [] }) {
+export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sendConnections = [], whatsappTemplates = [], emailTemplates = [] }) {
   const [search, setSearch] = useState('');
   const [agentFilter, setAgentFilter] = useState('');
   const [stageFilter, setStageFilter] = useState('');
@@ -116,10 +116,10 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       )}
 
       {categorized.map((group) => (
-        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} />
+        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} />
       ))}
 
-      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} />}
+      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} />}
 
       {filtered.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים התואמים את הסינון</div>
@@ -128,7 +128,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
   );
 }
 
-function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, sendConnections, whatsappTemplates }) {
+function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, sendConnections, whatsappTemplates, emailTemplates }) {
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
@@ -144,7 +144,7 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
         </thead>
         <tbody>
           {leads.map((c) => (
-            <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} />
+            <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} />
           ))}
         </tbody>
       </table>

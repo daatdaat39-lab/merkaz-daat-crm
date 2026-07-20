@@ -31,6 +31,7 @@ export default function ContactEditForm({ contact, existingTags = [], onSaved })
         <div><span style={labelStyle}>טלפון</span><input name="phone" defaultValue={contact.phone || ''} style={inputStyle} /></div>
         <div><span style={labelStyle}>טלפון נוסף</span><input name="phone2" defaultValue={contact.phone2 || ''} style={inputStyle} /></div>
         <div><span style={labelStyle}>מייל</span><input name="email" type="email" defaultValue={contact.email || ''} style={inputStyle} /></div>
+        <div><span style={labelStyle}>מייל נוסף</span><input name="email2" type="email" defaultValue={contact.email2 || ''} style={inputStyle} /></div>
         <div><span style={labelStyle}>ת.ז / מזהה</span><input name="idnum" defaultValue={contact.idnum || ''} style={inputStyle} /></div>
         <div><span style={labelStyle}>תחום/מחלקה</span><input name="dept" defaultValue={contact.dept || ''} style={inputStyle} /></div>
         <div><span style={labelStyle}>מקור</span><input name="source" defaultValue={contact.source || ''} style={inputStyle} /></div>
