@@ -18,18 +18,34 @@ export default async function TasksPage() {
 
   let tasks = [];
   let contacts = [];
+  let members = [];
   if (workspaceId) {
-    const [{ data: t }, { data: c }] = await Promise.all([
+    const [{ data: t }, { data: c }, { data: workspaceMembers }] = await Promise.all([
       supabase
         .from('tasks')
-        .select('id, title, description, due_date, due_time, remind_minutes_before, done, contacts(id, first, last)')
+        .select('id, title, description, due_date, due_time, remind_minutes_before, done, assigned_to, created_by, contacts(id, first, last)')
         .eq('workspace_id', workspaceId)
         .order('done', { ascending: true })
         .order('due_date', { ascending: true }),
       supabase.from('contacts').select('id, first, last').order('first'),
+      supabase.from('workspace_members').select('user_id').eq('workspace_id', workspaceId),
     ]);
-    tasks = t || [];
     contacts = c || [];
+
+    // אין קשר-מפתח (FK) בין workspace_members ל-profiles במסד, אז שולפים
+    // בשתי שאילתות ומצרפים ידנית (כמו בעמוד הלידים)
+    const memberIds = (workspaceMembers || []).map((m) => m.user_id);
+    const { data: memberProfiles } = memberIds.length
+      ? await supabase.from('profiles').select('id, name').in('id', memberIds)
+      : { data: [] };
+    members = (memberProfiles || []).map((p) => ({ id: p.id, name: p.name || 'משתמש' }));
+    const nameById = Object.fromEntries(members.map((m) => [m.id, m.name]));
+
+    tasks = (t || []).map((task) => ({
+      ...task,
+      assignedName: nameById[task.assigned_to] || null,
+      createdName: nameById[task.created_by] || null,
+    }));
   }
 
   const openTasks = tasks.filter((t) => !t.done);
@@ -56,6 +72,11 @@ export default async function TasksPage() {
             <option key={c.id} value={c.id}>{c.first} {c.last}</option>
           ))}
         </select>
+        <select name="assigned_to" defaultValue={user.id} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }}>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>{m.id === user.id ? `${m.name} (אני)` : m.name}</option>
+          ))}
+        </select>
         <input type="date" name="due_date" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }} />
         <input type="time" name="due_time" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }} />
         <select name="remind_minutes_before" defaultValue="" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }}>
@@ -76,7 +97,7 @@ export default async function TasksPage() {
         פתוחות ({openTasks.length}){overdueCount > 0 && <span style={{ color: 'var(--danger, #a3392f)' }}> · ⚠ {overdueCount} עברו את המועד</span>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-        {openTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} />)}
+        {openTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} members={members} />)}
         {openTasks.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין משימות פתוחות 🎉</div>}
       </div>
 

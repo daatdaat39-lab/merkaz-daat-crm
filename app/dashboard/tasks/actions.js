@@ -51,7 +51,8 @@ export async function addTask(formData) {
     due_time: formData.get('due_time') || null,
     remind_minutes_before: formData.get('remind_minutes_before') || null,
     contact_id: contactId,
-    assigned_to: user.id,
+    created_by: user.id,
+    assigned_to: formData.get('assigned_to') || user.id,
   });
   if (error) return { error: error.message };
 
@@ -68,6 +69,7 @@ export async function updateTask(taskId, formData) {
     due_time: formData.get('due_time') || null,
     remind_minutes_before: formData.get('remind_minutes_before') || null,
     contact_id: formData.get('contact_id') || null,
+    assigned_to: formData.get('assigned_to') || null,
   };
   if (!update.title) return { error: 'יש להזין כותרת' };
 

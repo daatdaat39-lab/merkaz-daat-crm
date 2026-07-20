@@ -18,7 +18,7 @@ function dueDateTime(t) {
   return new Date(`${t.due_date}T${t.due_time || '23:59'}`);
 }
 
-export default function TaskRow({ t, contacts }) {
+export default function TaskRow({ t, contacts, members = [] }) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
@@ -86,6 +86,8 @@ export default function TaskRow({ t, contacts }) {
             )}
             {overdue && <span style={{ fontWeight: 600 }}>⚠ עבר המועד</span>}
             {reminderDue && <span style={{ color: '#a4691f', fontWeight: 600 }}>🔔 תזכורת</span>}
+            {t.assignedName && <span>🎯 מוקצה ל: {t.assignedName}</span>}
+            {t.createdName && <span>נוצר ע"י: {t.createdName}</span>}
           </div>
         </div>
         <button
@@ -106,6 +108,10 @@ export default function TaskRow({ t, contacts }) {
           <select name="contact_id" defaultValue={t.contacts?.id || ''} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}>
             <option value="">ללא איש קשר</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.first} {c.last}</option>)}
+          </select>
+          <select name="assigned_to" defaultValue={t.assigned_to || ''} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}>
+            <option value="">ללא הקצאה</option>
+            {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
           <input type="date" name="due_date" defaultValue={t.due_date || ''} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
           <input type="time" name="due_time" defaultValue={t.due_time ? t.due_time.slice(0, 5) : ''} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />

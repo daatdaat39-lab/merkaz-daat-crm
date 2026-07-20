@@ -96,17 +96,18 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
           <div>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
-              הודעות WhatsApp שנשלחו
+              הודעות WhatsApp
             </div>
-            {sentWhatsapp.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>לא נשלחו הודעות WhatsApp למחלקה זו</div>}
+            {sentWhatsapp.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין עדיין הודעות WhatsApp למחלקה זו</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {sentWhatsapp.map((w) => (
                 <div key={w.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                   <div style={{ fontWeight: 500 }}>
+                    {w.direction === 'in' ? '⬅️ מהלקוח: ' : '➡️ נשלח: '}
                     {w.kind === 'chat' ? w.message : `הודעת תבנית${w.reason ? ` — ${w.reason}` : ''}`}
                   </div>
                   <div style={{ color: '#9b9b9b', marginTop: 2 }}>
-                    אל {w.phone} · {new Date(w.sent_at).toLocaleDateString('he-IL')} {new Date(w.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                    {w.phone} · {new Date(w.sent_at).toLocaleDateString('he-IL')} {new Date(w.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                   </div>
                 </div>
               ))}

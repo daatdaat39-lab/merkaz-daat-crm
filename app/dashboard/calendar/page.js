@@ -42,6 +42,9 @@ export default async function CalendarPage() {
     return acc;
   }, {});
 
+  const next = upcoming[0];
+  const minutesUntilNext = next ? (new Date(`${next.meeting_date}T${next.meeting_time || '00:00'}`).getTime() - Date.now()) / 60000 : null;
+
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px' }}>
       <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>יומן פגישות</h1>
@@ -75,16 +78,50 @@ export default async function CalendarPage() {
         <div style={{ fontSize: 13, color: '#9b9b9b', marginBottom: 20 }}>אין פגישות קרובות</div>
       )}
 
-      {Object.entries(grouped).map(([date, list]) => (
-        <div key={date} style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#6b6b6b', marginBottom: 8 }}>
-            {new Date(date).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {list.map((m) => <MeetingRow key={m.id} m={m} />)}
+      {next && minutesUntilNext !== null && minutesUntilNext < 24 * 60 && minutesUntilNext > -30 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, padding: '16px 20px', borderRadius: 10,
+          background: 'linear-gradient(90deg, #fff7ed, #fffaf0)', border: '1px solid #fde3b8',
+        }}>
+          <div style={{ fontSize: 26 }}>🔔</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#c2760f', textTransform: 'uppercase', letterSpacing: 0.3 }}>
+              הפגישה הבאה שלך
+            </div>
+            <div style={{ fontSize: 14.5, fontWeight: 600, marginTop: 2 }}>
+              {next.contacts?.first} {next.contacts?.last}
+              <span style={{ fontWeight: 400, color: '#8a5a1a', marginRight: 8 }}>
+                {minutesUntilNext < 0
+                  ? 'מתחילה עכשיו'
+                  : minutesUntilNext < 60
+                  ? `בעוד ${Math.round(minutesUntilNext)} דקות`
+                  : minutesUntilNext < 24 * 60 && next.meeting_date === today
+                  ? `היום ב-${next.meeting_time?.slice(0, 5)}`
+                  : `מחר ב-${next.meeting_time?.slice(0, 5)}`}
+              </span>
+            </div>
           </div>
         </div>
-      ))}
+      )}
+
+      {Object.entries(grouped).map(([date, list]) => {
+        const isToday = date === today;
+        return (
+          <div key={date} style={{ marginBottom: 18 }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, marginBottom: 8,
+              color: isToday ? '#c2760f' : '#6b6b6b',
+              background: isToday ? '#fff3dd' : 'transparent', padding: isToday ? '3px 10px' : 0, borderRadius: 999,
+            }}>
+              {isToday && '📅'}
+              {isToday ? 'היום' : new Date(date).toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {list.map((m) => <MeetingRow key={m.id} m={m} />)}
+            </div>
+          </div>
+        );
+      })}
 
       {past.length > 0 && (
         <details style={{ marginTop: 20 }}>

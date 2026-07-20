@@ -22,23 +22,24 @@ export default async function SalesPipelinePage() {
   if (workspaceId) {
     const { data } = await supabase
       .from('contact_departments')
-      .select('id, stage, closed_reason, created_at, contacts:contact_id (id, first, last, tags, source)')
+      .select('id, stage, created_at, contacts:contact_id (id, first, last, tags, source)')
       .eq('workspace_id', workspaceId)
+      .neq('stage', 'closed')
       .order('created_at', { ascending: false });
     contacts = (data || [])
       .filter((row) => row.contacts)
       .map((row) => ({
-        ...row.contacts, departmentRowId: row.id, stage: row.stage, closed_reason: row.closed_reason, created_at: row.created_at,
+        ...row.contacts, departmentRowId: row.id, stage: row.stage, created_at: row.created_at,
       }));
   }
 
-  async function moveStage(departmentRowId, stage, closedReason) {
+  async function moveStage(departmentRowId, stage) {
     'use server';
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user || !departmentRowId || !stage) return;
     await supabase.from('contact_departments')
-      .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
+      .update({ stage, last_activity_at: new Date().toISOString() })
       .eq('id', departmentRowId);
   }
 

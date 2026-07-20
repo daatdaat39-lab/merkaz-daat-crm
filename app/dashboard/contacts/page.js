@@ -2,7 +2,7 @@ import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { StageBadge, Tag, initials } from '../components/ui';
-import NotConnectedButton from '../components/NotConnectedButton';
+import ContactQuickActions from '../components/ContactQuickActions';
 import AddContactForm from './AddContactForm';
 import TagFilter from './TagFilter';
 import { DownloadTemplateButton, ExportContactsButton, ImportContactsButton } from './ImportExportButtons';
@@ -14,17 +14,19 @@ export default async function ContactsPage({ searchParams }) {
   if (!user) redirect('/login');
 
   // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים)
-  const [{ data }, { data: workspaces }, { data: profile }] = await Promise.all([
+  const [{ data }, { data: workspaces }, { data: profile }, { data: sendConnections }, { data: whatsappTemplates }] = await Promise.all([
     supabase
       .from('contacts')
-      .select('id, first, last, idnum, phone, phone2, email, dept, tags, source, created_at, contact_departments (stage, workspaces:workspace_id (name))')
+      .select('id, first, last, idnum, phone, phone2, email, dept, tags, source, frozen, created_at, contact_departments (workspace_id, stage, workspaces:workspace_id (name))')
       .order('created_at', { ascending: false }),
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
+    supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
+    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
   ]);
   const allContacts = (data || []).map((c) => ({
     ...c,
-    departments: (c.contact_departments || []).map((d) => ({ name: d.workspaces?.name || 'מחלקה', stage: d.stage })),
+    departments: (c.contact_departments || []).map((d) => ({ workspaceId: d.workspace_id, name: d.workspaces?.name || 'מחלקה', stage: d.stage })),
   }));
 
   const allTags = Array.from(new Set(allContacts.flatMap((c) => c.tags || []))).sort();
@@ -93,11 +95,12 @@ export default async function ContactsPage({ searchParams }) {
                 {(!c.tags || c.tags.length === 0) && '—'}
               </td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <NotConnectedButton icon="📞" label="חיוג" variant="icon" message="חיוג מתוך המערכת — עדיין לא מחובר" />
-                  <NotConnectedButton icon="💬" label="וואטסאפ" variant="icon" message="וואטסאפ — עדיין לא מחובר" />
-                  <NotConnectedButton icon="✉️" label="מייל" variant="icon" message="שליחת מייל — עדיין לא מחובר" />
-                </div>
+                <ContactQuickActions
+                  contact={{ id: c.id, phone: c.phone, email: c.email, frozen: c.frozen }}
+                  departments={c.departments.map((d) => ({ workspaceId: d.workspaceId, workspaceName: d.name }))}
+                  sendConnections={sendConnections || []}
+                  whatsappTemplates={whatsappTemplates || []}
+                />
               </td>
             </tr>
           ))}

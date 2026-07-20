@@ -1,9 +1,8 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { DEPT_KEYWORDS, contactMatchesDept } from '../../components/ui';
 import { getPipeline } from '../../components/pipelines';
 import AddContactForm from '../../contacts/AddContactForm';
-import LeadRow from './LeadRow';
+import LeadsBoard from './LeadsBoard';
 
 export default async function SalesLeadsPage() {
   const supabase = createClient();
@@ -25,7 +24,7 @@ export default async function SalesLeadsPage() {
   if (workspaceId) {
     const { data } = await supabase
       .from('contact_departments')
-      .select('id, stage, agent_id, last_activity_at, contacts:contact_id (id, first, last, phone, email, source, dept, tags), lead_inquiries (reason, created_at)')
+      .select('id, stage, agent_id, last_activity_at, contacts:contact_id (id, first, last, phone, email, source, dept, tags, frozen), lead_inquiries (reason, created_at)')
       .eq('workspace_id', workspaceId)
       .in('stage', pipeline.leadStages)
       .order('last_activity_at', { ascending: false });
@@ -54,20 +53,13 @@ export default async function SalesLeadsPage() {
     agents = (memberProfiles || []).map((p) => ({ id: p.id, name: p.name || 'משתמש' }));
   }
 
-  const [{ data: workspaces }, { data: tagRows }] = await Promise.all([
+  const [{ data: workspaces }, { data: tagRows }, { data: sendConnections }, { data: whatsappTemplates }] = await Promise.all([
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('contacts').select('tags'),
+    supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
+    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
   ]);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
-
-  // מחלקים לתת-קטגוריות לפי תגית (לצורך ארגון בלבד - כל חברי ה-workspace רואים הכל)
-  const departments = Object.keys(DEPT_KEYWORDS);
-  const categorized = departments
-    .map((dept) => ({ dept, leads: leads.filter((l) => contactMatchesDept(l, dept)) }))
-    .filter((group) => group.leads.length > 0);
-
-  const categorizedIds = new Set(categorized.flatMap((g) => g.leads.map((l) => l.id)));
-  const uncategorized = leads.filter((l) => !categorizedIds.has(l.id));
 
   const overdueCount = leads.filter((l) => l.last_activity_at && (Date.now() - new Date(l.last_activity_at).getTime()) / 3600000 >= 24).length;
 
@@ -89,37 +81,14 @@ export default async function SalesLeadsPage() {
         />
       </div>
 
-      {categorized.map((group) => (
-        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} stages={pipeline.order} />
-      ))}
-
-      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} stages={pipeline.order} />}
-
-      {leads.length === 0 && (
+      {leads.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים פתוחים כרגע</div>
+      ) : (
+        <LeadsBoard
+          leads={leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName}
+          stages={pipeline.order} sendConnections={sendConnections || []} whatsappTemplates={whatsappTemplates || []}
+        />
       )}
-    </div>
-  );
-}
-
-function LeadGroup({ title, leads, agents, workspaceId, stages }) {
-  return (
-    <div style={{ marginBottom: 24 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
-        {title} ({leads.length})
-      </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-        <thead>
-          <tr style={{ background: 'var(--bg-secondary)' }}>
-            {['שם', 'סטטוס', 'טלפון', 'מייל', 'מקור', 'מהות הפנייה', 'טיפול אחרון', 'נציג מטפל'].map((h) => (
-              <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {leads.map((c) => <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} stages={stages} />)}
-        </tbody>
-      </table>
     </div>
   );
 }

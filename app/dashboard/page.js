@@ -130,14 +130,25 @@ export default async function DashboardHome() {
             {meetings.length === 0 && (
               <div style={{ padding: '14px 18px', fontSize: 13, color: '#9b9b9b' }}>אין פגישות קרובות</div>
             )}
-            {meetings.map((m) => (
-              <div key={m.id} style={{ padding: '10px 18px', borderBottom: '1px solid #f2f2f2', fontSize: 13 }}>
-                <b>{m.contacts?.first} {m.contacts?.last}</b>
-                <span style={{ color: '#9b9b9b', marginRight: 8 }}>
-                  {new Date(m.meeting_date).toLocaleDateString('he-IL')} · {m.meeting_time?.slice(0, 5)}
-                </span>
-              </div>
-            ))}
+            {meetings.map((m) => {
+              const todayStr = new Date().toISOString().slice(0, 10);
+              const isToday = m.meeting_date === todayStr;
+              const minutesUntil = (new Date(`${m.meeting_date}T${m.meeting_time || '00:00'}`).getTime() - Date.now()) / 60000;
+              const soon = isToday && minutesUntil > 0 && minutesUntil < 60;
+              return (
+                <div key={m.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid #f2f2f2', fontSize: 13,
+                  background: soon ? '#fff7ed' : 'transparent',
+                }}>
+                  <span style={{ fontSize: 14 }}>{soon ? '🔔' : isToday ? '📅' : '🗓️'}</span>
+                  <b>{m.contacts?.first} {m.contacts?.last}</b>
+                  <span style={{ color: soon ? '#c2760f' : '#9b9b9b', fontWeight: soon ? 600 : 400 }}>
+                    {isToday ? `היום · ${m.meeting_time?.slice(0, 5)}` : `${new Date(m.meeting_date).toLocaleDateString('he-IL')} · ${m.meeting_time?.slice(0, 5)}`}
+                    {soon && ` (בעוד ${Math.round(minutesUntil)} דק')`}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

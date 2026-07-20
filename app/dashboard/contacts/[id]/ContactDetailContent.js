@@ -23,7 +23,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
 
   if (!contact) notFound();
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -49,9 +49,10 @@ export default async function ContactDetailContent({ contactId, isModal }) {
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase
       .from('sent_whatsapp')
-      .select('id, workspace_id, phone, reason, kind, message, sent_at')
+      .select('id, workspace_id, phone, reason, kind, message, direction, sent_at')
       .eq('contact_id', contact.id)
       .order('sent_at', { ascending: false }),
+    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
   ]);
 
   const departments = (departmentRows || []).map((row) => ({
@@ -86,6 +87,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
       sentEmails={sentEmailRows || []}
       emailConnections={connections}
       sentWhatsapp={sentWhatsappRows || []}
+      whatsappTemplates={whatsappTemplates || []}
     />
   );
 }

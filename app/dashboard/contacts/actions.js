@@ -459,7 +459,7 @@ export async function sendContactEmail(contactId, workspaceId, subject, body) {
 
 // שליחת הודעת WhatsApp ראשונה (תבנית מאושרת) לאיש קשר, ורישום ב-sent_whatsapp
 // כדי שיוצג בטאב "פעילות"
-export async function sendContactWhatsApp(contactId, workspaceId, reason) {
+export async function sendContactWhatsApp(contactId, workspaceId, reason, templateId) {
   const { supabase, user } = await requireUser();
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
@@ -468,7 +468,7 @@ export async function sendContactWhatsApp(contactId, workspaceId, reason) {
   if (!contact?.phone) return { error: 'לאיש הקשר אין מספר טלפון שמור' };
 
   try {
-    await sendWhatsAppTemplate({ phone: contact.phone, firstName: contact.first, reason });
+    await sendWhatsAppTemplate({ phone: contact.phone, firstName: contact.first, reason, templateId });
   } catch (err) {
     return { error: err.message };
   }
@@ -502,5 +502,26 @@ export async function sendContactWhatsAppChatMessage(contactId, workspaceId, mes
     contact_id: contactId, workspace_id: workspaceId, phone: contact.phone, kind: 'chat', message, sent_by: user.id,
   });
 
+  return { success: true };
+}
+
+// ניהול רשימת תבניות WhatsApp מאושרות - לבחירה בזמן שליחה (מספר
+// תבניות אפשריות, לא רק אחת קבועה)
+export async function addWhatsAppTemplate(formData) {
+  const { supabase } = await requireUser();
+  const name = formData.get('name')?.toString().trim();
+  const templateId = formData.get('template_id')?.toString().trim();
+  const previewText = formData.get('preview_text')?.toString().trim() || null;
+  if (!name || !templateId) return { error: 'יש למלא שם ומספר תבנית' };
+
+  const { error } = await supabase.from('whatsapp_templates').insert({ name, template_id: templateId, preview_text: previewText });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function deleteWhatsAppTemplate(id) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from('whatsapp_templates').delete().eq('id', id);
+  if (error) return { error: error.message };
   return { success: true };
 }

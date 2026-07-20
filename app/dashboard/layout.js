@@ -57,11 +57,20 @@ export default async function DashboardLayout({ children, modal }) {
 
   // לכפתור "איש קשר חדש" הגלובלי בסרגל העליון - כל המחלקות (לא רק אלה
   // שהמשתמש חבר בהן, כמו במסך אנשי הקשר) והתגיות הקיימות במערכת
-  const [{ data: allWorkspaces }, { data: tagRows }] = await Promise.all([
+  const [{ data: allWorkspaces }, { data: tagRows }, { data: waRows }] = await Promise.all([
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('contacts').select('tags'),
+    supabase.from('sent_whatsapp').select('phone, direction').order('sent_at', { ascending: false }).limit(500),
   ]);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
+
+  // סופרים שיחות WhatsApp שההודעה האחרונה בהן (לכל מספר) הגיעה מהלקוח -
+  // כלומר עדיין ממתינה לתגובה שלנו
+  const latestDirectionByPhone = new Map();
+  for (const row of waRows || []) {
+    if (!latestDirectionByPhone.has(row.phone)) latestDirectionByPhone.set(row.phone, row.direction);
+  }
+  const pendingWhatsappReplies = [...latestDirectionByPhone.values()].filter((d) => d === 'in').length;
 
   async function switchWorkspace(formData) {
     'use server';
@@ -117,6 +126,7 @@ export default async function DashboardLayout({ children, modal }) {
           workspaces={allWorkspaces || []}
           defaultWorkspaceId={currentWorkspaceId || ''}
           existingTags={existingTags}
+          pendingWhatsappReplies={pendingWhatsappReplies}
         />
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {hasAccessToCurrent ? children : (

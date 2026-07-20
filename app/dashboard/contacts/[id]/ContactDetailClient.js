@@ -20,7 +20,7 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 // (היסטוריית הפניות שם תלויה במחלקה הפעילה) - state אחד משותף למעלה.
 export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags,
-  age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp,
+  age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -156,7 +156,6 @@ export default function ContactDetailClient({
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px', flexWrap: 'wrap' }}>
           <StageStepper
             currentStage={active.stage}
-            currentClosedReason={active.closedReason}
             stages={getPipeline(active.workspaceName).order}
             disabled={contact.frozen}
             action={handleStageChange}
@@ -275,7 +274,8 @@ export default function ContactDetailClient({
           workspaceId={active?.workspaceId || null}
           phone={contact.phone}
           reason={active?.inquiries?.[0]?.reason}
-          hasPriorMessage={active ? (sentWhatsapp || []).some((w) => w.workspace_id === active.workspaceId) : false}
+          thread={active ? (sentWhatsapp || []).filter((w) => w.workspace_id === active.workspaceId) : (sentWhatsapp || [])}
+          templates={whatsappTemplates || []}
           onClose={() => setWhatsappOpen(false)}
         />
       )}
