@@ -1,16 +1,20 @@
 import { HDate } from '@hebcal/core';
 
-// גיל מדויק (לוקח בחשבון אם יום ההולדת השנה כבר עבר)
+// גיל מדויק בשנים וחודשים (למשל "17 שנים ו-3 חודשים", או "8 חודשים"
+// לתינוקות/פעוטות מתחת לשנה) - לא רק שנים עגולות
 export function calculateAge(birthDateStr) {
   if (!birthDateStr) return null;
   const birth = new Date(birthDateStr);
   const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const hasHadBirthdayThisYear =
-    today.getMonth() > birth.getMonth() ||
-    (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
-  if (!hasHadBirthdayThisYear) age--;
-  return age;
+
+  let years = today.getFullYear() - birth.getFullYear();
+  let months = today.getMonth() - birth.getMonth();
+  if (today.getDate() < birth.getDate()) months--;
+  if (months < 0) { years--; months += 12; }
+
+  if (years < 1) return `${months} ${months === 1 ? 'חודש' : 'חודשים'}`;
+  if (months === 0) return `${years} ${years === 1 ? 'שנה' : 'שנים'}`;
+  return `${years} ${years === 1 ? 'שנה' : 'שנים'} ו-${months} ${months === 1 ? 'חודש' : 'חודשים'}`;
 }
 
 // תאריך עברי בגימטריה (למשל "כ׳ אייר תש״נ") - מסירים ניקוד כדי

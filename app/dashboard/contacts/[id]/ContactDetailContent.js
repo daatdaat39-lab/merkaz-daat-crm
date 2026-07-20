@@ -26,7 +26,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
   const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
     supabase
       .from('contact_departments')
-      .select('id, stage, closed_reason, workspace_id, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
+      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
       .eq('contact_id', contact.id),
     supabase.from('workspaces').select('id, name').order('name'),
     supabase
@@ -56,12 +56,22 @@ export default async function ContactDetailContent({ contactId, isModal }) {
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
   ]);
 
+  // שם הנציג המטפל לכל מחלקה - agent_id הוא user id, לא FK ל-profiles
+  // (כמו בכל שאר המערכת), אז שולפים בנפרד ומצרפים ידנית
+  const agentIds = Array.from(new Set((departmentRows || []).map((r) => r.agent_id).filter(Boolean)));
+  const { data: agentProfiles } = agentIds.length
+    ? await supabase.from('profiles').select('id, name').in('id', agentIds)
+    : { data: [] };
+  const agentNameById = Object.fromEntries((agentProfiles || []).map((p) => [p.id, p.name || 'משתמש']));
+
   const departments = (departmentRows || []).map((row) => ({
     id: row.id,
     workspaceId: row.workspace_id,
     workspaceName: row.workspaces?.name || 'מחלקה',
     stage: row.stage,
     closedReason: row.closed_reason,
+    agentName: agentNameById[row.agent_id] || null,
+    lastActivityAt: row.last_activity_at,
     inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
   }));
 
@@ -70,6 +80,12 @@ export default async function ContactDetailContent({ contactId, isModal }) {
   const age = calculateAge(contact.birth_date);
   const hebrewDate = calculateHebrewDate(contact.birth_date);
   const connections = emailConnections || [];
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const nextMeeting = (meetings || [])
+    .filter((m) => m.meeting_date >= todayStr)
+    .sort((a, b) => new Date(`${a.meeting_date}T${a.meeting_time || '00:00'}`) - new Date(`${b.meeting_date}T${b.meeting_time || '00:00'}`))[0] || null;
+  const openTasksCount = (tasks || []).filter((t) => !t.done).length;
 
   return (
     <ContactDetailClient
@@ -90,6 +106,8 @@ export default async function ContactDetailContent({ contactId, isModal }) {
       sentWhatsapp={sentWhatsappRows || []}
       whatsappTemplates={whatsappTemplates || []}
       emailTemplates={emailTemplates || []}
+      nextMeeting={nextMeeting}
+      openTasksCount={openTasksCount}
     />
   );
 }

@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Tag, initials } from '../../components/ui';
+import { initials } from '../../components/ui';
 import { getPipeline, getInquiryReasons } from '../../components/pipelines';
 import { updateDepartmentStage, removeDepartmentMembership, addDepartmentMembership } from '../actions';
 import StageStepper from './StageStepper';
-import ContactEditForm from './ContactEditForm';
+import PersonalInfoCard from './PersonalInfoCard';
 import ContactSettingsMenu from './ContactSettingsMenu';
 import ContactTabs from './ContactTabs';
 import EmailComposeModal from './EmailComposeModal';
@@ -21,10 +21,10 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags,
   age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
+  nextMeeting, openTasksCount,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  const [editOpen, setEditOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newWorkspaceId, setNewWorkspaceId] = useState('');
   const [newReason, setNewReason] = useState('');
@@ -202,43 +202,17 @@ export default function ContactDetailClient({
 
       <div style={{ display: 'flex', gap: 20, flexWrap: isModal ? 'wrap' : 'nowrap' }}>
         {/* עמודה שמאלית - פרטים אישיים */}
-        <div style={{ width: 240, flexShrink: 0 }}>
-          <div style={{ background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase' }}>
-                פרטים אישיים
-              </div>
-              <button
-                onClick={() => setEditOpen((v) => !v)}
-                disabled={contact.frozen}
-                title="עריכת פרטים"
-                style={{
-                  background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, width: 26, height: 26,
-                  cursor: contact.frozen ? 'default' : 'pointer', fontSize: 12.5, opacity: contact.frozen ? 0.5 : 1,
-                }}
-              >
-                ✎
-              </button>
-            </div>
-            <InfoRow label="טלפון" value={contact.phone} />
-            <InfoRow label="טלפון נוסף" value={contact.phone2} />
-            <InfoRow label="מייל" value={contact.email} />
-            <InfoRow label="מייל נוסף" value={contact.email2} />
-            <InfoRow label="מקור" value={contact.source} />
-            <InfoRow label="ת.ז / מזהה" value={contact.idnum} />
-            <InfoRow label="תאריך לידה" value={contact.birth_date ? new Date(contact.birth_date).toLocaleDateString('he-IL') : null} />
-            <InfoRow label="גיל" value={age} />
-            <InfoRow label="תאריך עברי" value={hebrewDate} />
-            <InfoRow label="מגדר" value={contact.gender} />
-            <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
-            <div style={{ marginTop: 12 }}>
-              {(contact.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
-            </div>
-
-            {editOpen && !contact.frozen && (
-              <ContactEditForm contact={contact} existingTags={existingTags} onSaved={() => { setEditOpen(false); router.refresh(); }} />
-            )}
-          </div>
+        <div style={{ width: 260, flexShrink: 0 }}>
+          <PersonalInfoCard
+            contact={contact}
+            existingTags={existingTags}
+            age={age}
+            hebrewDate={hebrewDate}
+            nextMeeting={nextMeeting}
+            openTasksCount={openTasksCount}
+            agentName={active?.agentName}
+            lastActivityAt={active?.lastActivityAt}
+          />
         </div>
 
         {/* עמודה ראשית - טאבים */}
@@ -282,15 +256,6 @@ export default function ContactDetailClient({
           onClose={() => setWhatsappOpen(false)}
         />
       )}
-    </div>
-  );
-}
-
-function InfoRow({ label, value }) {
-  return (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 10.5, color: '#9b9b9b' }}>{label}</div>
-      <div style={{ fontSize: 13 }}>{value || '—'}</div>
     </div>
   );
 }
