@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { getPipeline, getInquiryReasons } from '../../components/pipelines';
-import { updateDepartmentStage, removeDepartmentMembership, addDepartmentMembership } from '../actions';
+import { updateDepartmentStage, addDepartmentMembership } from '../actions';
 import StageStepper from './StageStepper';
 import PersonalInfoCard from './PersonalInfoCard';
 import ContactSettingsMenu from './ContactSettingsMenu';
@@ -41,15 +41,6 @@ export default function ContactDetailClient({
   const availableToAdd = allWorkspaces.filter((w) => !departments.some((d) => d.workspaceId === w.id));
   const newWorkspace = availableToAdd.find((w) => w.id === newWorkspaceId);
   const newReasonOptions = getInquiryReasons(newWorkspace?.name);
-
-  function handleRemove() {
-    if (!active) return;
-    if (!confirm(`להסיר את השיוך למחלקת "${active.workspaceName}"? הכרטיס עצמו לא נמחק, רק השיוך למחלקה הזו.`)) return;
-    startTransition(async () => {
-      await removeDepartmentMembership(contact.id, active.workspaceId);
-      router.refresh();
-    });
-  }
 
   function handleAdd() {
     if (!newWorkspaceId || !newReason) return;
@@ -126,7 +117,7 @@ export default function ContactDetailClient({
             )}
           </div>
         </div>
-        <ContactSettingsMenu contact={contact} />
+        <ContactSettingsMenu contact={contact} activeDepartment={active} />
       </div>
 
       {adding && (
@@ -150,9 +141,9 @@ export default function ContactDetailClient({
         </div>
       )}
 
-      {/* שורת שלבי המחלקה הפעילה - מעל כפתורי הפעולה המהירה */}
+      {/* שורת שלבי המחלקה הפעילה */}
       {active && (
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px', flexWrap: 'wrap' }}>
+        <div style={{ marginBottom: 16, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px' }}>
           <StageStepper
             currentStage={active.stage}
             currentClosedReason={active.closedReason}
@@ -160,13 +151,6 @@ export default function ContactDetailClient({
             disabled={contact.frozen}
             action={handleStageChange}
           />
-          <button
-            onClick={handleRemove}
-            disabled={isPending || contact.frozen}
-            style={{ background: 'none', border: 'none', color: '#b23b2f', fontSize: 11.5, cursor: contact.frozen ? 'default' : 'pointer', whiteSpace: 'nowrap', opacity: contact.frozen ? 0.4 : 1 }}
-          >
-            🗑 הסרה ממחלקה זו
-          </button>
         </div>
       )}
 

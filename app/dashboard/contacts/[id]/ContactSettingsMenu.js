@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { canManageContact, setContactFrozen, deleteContact, mergeContacts, searchContacts } from '../actions';
+import { canManageContact, setContactFrozen, deleteContact, mergeContacts, searchContacts, removeDepartmentMembership } from '../actions';
 import NotConnectedButton from '../../components/NotConnectedButton';
 import MergeFieldsPicker from '../MergeFieldsPicker';
 
@@ -11,7 +11,7 @@ const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6
 // תפריט ⚙ עם פעולות ניהול על איש הקשר - הקפאה/הפשרה, מיזוג עם כפול,
 // ומחיקה (מוקטנת ומוסתרת כאן בכוונה, לא כפתור בולט). כל הפעולות האלה
 // דורשות owner/admin של אחת המחלקות של איש הקשר - נבדק דרך canManageContact.
-export default function ContactSettingsMenu({ contact }) {
+export default function ContactSettingsMenu({ contact, activeDepartment }) {
   const [open, setOpen] = useState(false);
   const [canManage, setCanManage] = useState(null); // null = בבדיקה
   const [subPanel, setSubPanel] = useState(null); // null | 'merge'
@@ -40,6 +40,17 @@ export default function ContactSettingsMenu({ contact }) {
       const res = await deleteContact(contact.id);
       if (res?.error) setError(res.error);
       else router.push('/dashboard/contacts');
+    });
+  }
+
+  function handleRemoveDepartment() {
+    if (!activeDepartment) return;
+    if (!confirm(`להסיר את השיוך למחלקת "${activeDepartment.workspaceName}"? הכרטיס עצמו לא נמחק, רק השיוך למחלקה הזו.`)) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await removeDepartmentMembership(contact.id, activeDepartment.workspaceId);
+      if (res?.error) setError(res.error);
+      else { setOpen(false); router.refresh(); }
     });
   }
 
@@ -72,6 +83,11 @@ export default function ContactSettingsMenu({ contact }) {
               <button onClick={() => setSubPanel('merge')} disabled={isPending || contact.frozen} style={menuItemStyle(contact.frozen)}>
                 ⛙ מיזוג עם כפול
               </button>
+              {activeDepartment && (
+                <button onClick={handleRemoveDepartment} disabled={isPending || contact.frozen} style={{ ...menuItemStyle(contact.frozen), color: '#b23b2f' }}>
+                  🗑 הסרה ממחלקת "{activeDepartment.workspaceName}"
+                </button>
+              )}
               <div style={{ borderTop: '1px solid #f0f0f0', margin: '6px 0' }} />
               <NotConnectedButton
                 label="היסטוריית שינויים"
