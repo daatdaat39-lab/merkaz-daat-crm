@@ -1,10 +1,11 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { STAGE_LABELS, STAGE_COLORS, initials } from '../../components/ui';
-import { assignAgent, updateLeadStage, removeDepartmentMembership } from '../../contacts/actions';
+import { CLOSE_REASONS } from '../../components/pipelines';
+import { assignAgent, updateLeadStage } from '../../contacts/actions';
 import ContactQuickActions from '../../components/ContactQuickActions';
 import { celebrate } from '../../components/celebrate';
 
@@ -20,6 +21,7 @@ function elapsedLabel(iso) {
 
 export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [] }) {
   const [isPending, startTransition] = useTransition();
+  const [closing, setClosing] = useState(false);
   const router = useRouter();
 
   const hours = c.last_activity_at ? (Date.now() - new Date(c.last_activity_at).getTime()) / 3600000 : 0;
@@ -33,18 +35,20 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
   }
 
   function handleStageChange(e) {
-    const movingForward = stages.indexOf(e.target.value) > stages.indexOf(c.stage);
+    const value = e.target.value;
+    if (value === 'closed') { setClosing(true); return; }
+    const movingForward = stages.indexOf(value) > stages.indexOf(c.stage);
     startTransition(async () => {
-      await updateLeadStage(c.departmentRowId, e.target.value, null);
+      await updateLeadStage(c.departmentRowId, value, null);
       if (movingForward) celebrate();
       router.refresh();
     });
   }
 
-  function handleRemove() {
-    if (!confirm(`להסיר את ${c.first} ${c.last} ממחלקת "${workspaceName}"? הכרטיס עצמו לא נמחק.`)) return;
+  function handleCloseConfirm(reason) {
+    setClosing(false);
     startTransition(async () => {
-      await removeDepartmentMembership(c.id, workspaceId);
+      await updateLeadStage(c.departmentRowId, 'closed', reason);
       router.refresh();
     });
   }
@@ -71,7 +75,9 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
           }}
         >
           {stages.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+          <option value="closed">{STAGE_LABELS.closed}</option>
         </select>
+        {closing && <CloseReasonPicker onConfirm={handleCloseConfirm} onCancel={() => setClosing(false)} />}
       </td>
       <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.phone || '—'}</td>
       <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.email || '—'}</td>
@@ -100,24 +106,29 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
         </select>
       </td>
       <td style={{ padding: '10px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <ContactQuickActions
-            contact={{ id: c.id, first: c.first, phone: c.phone, email: c.email, frozen: c.frozen, latestReason: c.latestReason }}
-            departments={workspaceId ? [{ workspaceId, workspaceName }] : []}
-            sendConnections={sendConnections}
-            whatsappTemplates={whatsappTemplates}
-            emailTemplates={emailTemplates}
-          />
-          <button
-            onClick={handleRemove}
-            disabled={isPending}
-            title="הסרה ממחלקה זו"
-            style={{ background: 'none', border: 'none', color: 'var(--danger, #a3392f)', fontSize: 14, cursor: 'pointer', padding: 4 }}
-          >
-            🗑
-          </button>
-        </div>
+        <ContactQuickActions
+          contact={{ id: c.id, first: c.first, phone: c.phone, email: c.email, frozen: c.frozen, latestReason: c.latestReason }}
+          departments={workspaceId ? [{ workspaceId, workspaceName }] : []}
+          sendConnections={sendConnections}
+          whatsappTemplates={whatsappTemplates}
+          emailTemplates={emailTemplates}
+        />
       </td>
     </tr>
+  );
+}
+
+function CloseReasonPicker({ onConfirm, onCancel }) {
+  const [reason, setReason] = useState(CLOSE_REASONS[0]);
+  return (
+    <div style={{ marginTop: 6, padding: 8, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6, width: 200 }}>
+      <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 11.5, border: '1px solid var(--border)', borderRadius: 4, marginBottom: 6 }}>
+        {CLOSE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+      </select>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, background: '#a3392f', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>אישור</button>
+        <button onClick={onCancel} style={{ flex: 1, fontSize: 11, background: '#fff', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>ביטול</button>
+      </div>
+    </div>
   );
 }

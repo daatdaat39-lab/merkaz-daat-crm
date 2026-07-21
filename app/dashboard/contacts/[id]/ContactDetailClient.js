@@ -155,6 +155,7 @@ export default function ContactDetailClient({
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px', flexWrap: 'wrap' }}>
           <StageStepper
             currentStage={active.stage}
+            currentClosedReason={active.closedReason}
             stages={getPipeline(active.workspaceName).order}
             disabled={contact.frozen}
             action={handleStageChange}
