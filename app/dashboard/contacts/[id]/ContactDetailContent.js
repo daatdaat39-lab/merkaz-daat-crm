@@ -64,12 +64,30 @@ export default async function ContactDetailContent({ contactId, isModal }) {
     : { data: [] };
   const agentNameById = Object.fromEntries((agentProfiles || []).map((p) => [p.id, p.name || 'משתמש']));
 
+  // רשימת נציגים/מנהלים לכל מחלקה שאיש הקשר משויך אליה - לבחירת "נציג
+  // מטפל" ידנית מהכרטיס עצמו
+  const workspaceIds = Array.from(new Set((departmentRows || []).map((r) => r.workspace_id)));
+  const { data: memberRows } = workspaceIds.length
+    ? await supabase.from('workspace_members').select('workspace_id, user_id').in('workspace_id', workspaceIds)
+    : { data: [] };
+  const memberIds = Array.from(new Set((memberRows || []).map((m) => m.user_id)));
+  const { data: memberProfiles } = memberIds.length
+    ? await supabase.from('profiles').select('id, name').in('id', memberIds)
+    : { data: [] };
+  const memberNameById = Object.fromEntries((memberProfiles || []).map((p) => [p.id, p.name || 'משתמש']));
+  const agentsByWorkspace = {};
+  for (const m of memberRows || []) {
+    agentsByWorkspace[m.workspace_id] = agentsByWorkspace[m.workspace_id] || [];
+    agentsByWorkspace[m.workspace_id].push({ id: m.user_id, name: memberNameById[m.user_id] || 'משתמש' });
+  }
+
   const departments = (departmentRows || []).map((row) => ({
     id: row.id,
     workspaceId: row.workspace_id,
     workspaceName: row.workspaces?.name || 'מחלקה',
     stage: row.stage,
     closedReason: row.closed_reason,
+    agentId: row.agent_id,
     agentName: agentNameById[row.agent_id] || null,
     lastActivityAt: row.last_activity_at,
     inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
@@ -115,6 +133,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
       nextMeeting={nextMeeting}
       openTasksCount={openTasksCount}
       relatedContact={relatedContact}
+      agentsByWorkspace={agentsByWorkspace}
     />
   );
 }

@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Tag } from '../../components/ui';
-import { updateContact, searchContacts } from '../actions';
+import { updateContact, searchContacts, assignAgent } from '../actions';
 import TagPicker from '../TagPicker';
 
 const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 8px', fontSize: 12.5 };
@@ -13,12 +13,23 @@ const categoryLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTra
 // כרטיס "פרטים אישיים" - מחולק לקטגוריות (זהות, פרטי קשר, פעילות
 // ומעקב), עם עריכה ישירה של השדות עצמם (לא טופס נפרד למטה). לחיצה על
 // ✎ הופכת את שורות הזהות/פרטי הקשר לשדות קלט במקום, עם שמירה/ביטול.
-export default function PersonalInfoCard({ contact, existingTags, age, hebrewDate, nextMeeting, openTasksCount, agentName, lastActivityAt, relatedContact }) {
+export default function PersonalInfoCard({
+  contact, existingTags, age, hebrewDate, nextMeeting, openTasksCount, agentId, agentName, agents, activeWorkspaceId,
+  lastActivityAt, relatedContact,
+}) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const [related, setRelated] = useState(relatedContact ? { id: relatedContact.id, name: `${relatedContact.first} ${relatedContact.last}` } : null);
   const router = useRouter();
+
+  function handleAgentChange(e) {
+    if (!activeWorkspaceId) return;
+    startTransition(async () => {
+      await assignAgent(contact.id, activeWorkspaceId, e.target.value || null);
+      router.refresh();
+    });
+  }
 
   function handleSubmit(formData) {
     setError(null);
@@ -54,7 +65,6 @@ export default function PersonalInfoCard({ contact, existingTags, age, hebrewDat
 
       {editing ? (
         <form action={handleSubmit}>
-          <div style={categoryLabel}>זהות</div>
           <Field label="שם פרטי" name="first" defaultValue={contact.first} />
           <Field label="שם משפחה" name="last" defaultValue={contact.last} />
           <Field label="ת.ז / מזהה" name="idnum" defaultValue={contact.idnum} />
@@ -86,7 +96,6 @@ export default function PersonalInfoCard({ contact, existingTags, age, hebrewDat
         </form>
       ) : (
         <>
-          <div style={categoryLabel}>זהות</div>
           <InfoRow label="ת.ז / מזהה" value={contact.idnum} />
           <InfoRow label="תאריך לידה" value={contact.birth_date ? new Date(contact.birth_date).toLocaleDateString('he-IL') : null} />
           <InfoRow label="גיל" value={age} />
@@ -115,7 +124,17 @@ export default function PersonalInfoCard({ contact, existingTags, age, hebrewDat
             label="פגישה קרובה"
             value={nextMeeting ? `${new Date(nextMeeting.meeting_date).toLocaleDateString('he-IL')} · ${nextMeeting.meeting_time?.slice(0, 5)}` : null}
           />
-          <InfoRow label="נציג מטפל" value={agentName} />
+          {activeWorkspaceId ? (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10.5, color: '#9b9b9b', marginBottom: 2 }}>נציג מטפל</div>
+              <select value={agentId || ''} onChange={handleAgentChange} disabled={isPending} style={inputStyle}>
+                <option value="">ללא נציג</option>
+                {(agents || []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          ) : (
+            <InfoRow label="נציג מטפל" value={agentName} />
+          )}
           <InfoRow label="משימות פתוחות" value={openTasksCount > 0 ? openTasksCount : null} />
 
           <div style={{ marginTop: 12 }}>

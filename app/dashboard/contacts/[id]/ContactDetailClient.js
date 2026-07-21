@@ -22,7 +22,7 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags,
   age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
-  nextMeeting, openTasksCount, relatedContact,
+  nextMeeting, openTasksCount, relatedContact, agentsByWorkspace,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -194,7 +194,10 @@ export default function ContactDetailClient({
             hebrewDate={hebrewDate}
             nextMeeting={nextMeeting}
             openTasksCount={openTasksCount}
+            agentId={active?.agentId}
             agentName={active?.agentName}
+            agents={active ? (agentsByWorkspace?.[active.workspaceId] || []) : []}
+            activeWorkspaceId={active?.workspaceId}
             lastActivityAt={active?.lastActivityAt}
             relatedContact={relatedContact}
           />
