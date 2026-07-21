@@ -1,4 +1,5 @@
 import { createClient } from '../../../../lib/supabase/server';
+import { createAdminClient } from '../../../../lib/supabase/admin';
 import { redirect, notFound } from 'next/navigation';
 import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
 import { updateContactNotes } from '../actions';
@@ -57,12 +58,18 @@ export default async function ContactDetailContent({ contactId, isModal }) {
   ]);
 
   // שם הנציג המטפל לכל מחלקה - agent_id הוא user id, לא FK ל-profiles
-  // (כמו בכל שאר המערכת), אז שולפים בנפרד ומצרפים ידנית
+  // (כמו בכל שאר המערכת), אז שולפים בנפרד ומצרפים ידנית. כשאין name
+  // בפרופיל, נופלים חזרה לכתובת המייל (לא למחרוזת "משתמש" גנרית שלא
+  // עוזרת להבחין בין אנשים שונים)
+  const admin = createAdminClient();
+  const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const emailById = Object.fromEntries((usersList?.users || []).map((u) => [u.id, u.email]));
+
   const agentIds = Array.from(new Set((departmentRows || []).map((r) => r.agent_id).filter(Boolean)));
   const { data: agentProfiles } = agentIds.length
     ? await supabase.from('profiles').select('id, name').in('id', agentIds)
     : { data: [] };
-  const agentNameById = Object.fromEntries((agentProfiles || []).map((p) => [p.id, p.name || 'משתמש']));
+  const agentNameById = Object.fromEntries((agentProfiles || []).map((p) => [p.id, p.name || emailById[p.id] || 'משתמש']));
 
   // רשימת נציגים/מנהלים לכל מחלקה שאיש הקשר משויך אליה - לבחירת "נציג
   // מטפל" ידנית מהכרטיס עצמו
@@ -74,7 +81,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
   const { data: memberProfiles } = memberIds.length
     ? await supabase.from('profiles').select('id, name').in('id', memberIds)
     : { data: [] };
-  const memberNameById = Object.fromEntries((memberProfiles || []).map((p) => [p.id, p.name || 'משתמש']));
+  const memberNameById = Object.fromEntries((memberProfiles || []).map((p) => [p.id, p.name || emailById[p.id] || 'משתמש']));
   const agentsByWorkspace = {};
   for (const m of memberRows || []) {
     agentsByWorkspace[m.workspace_id] = agentsByWorkspace[m.workspace_id] || [];
