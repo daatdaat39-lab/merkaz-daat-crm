@@ -24,6 +24,15 @@ async function requireUser() {
   return { supabase, user };
 }
 
+// רישום שורה ביומן השינויים (audit log) של פעולות ניהול על איש קשר -
+// contact_name הוא צילום מצב של השם בזמן הפעולה, כי contact_id לבדו
+// לא מספיק לזיהוי אחרי שהכרטיס עצמו כבר נמחק
+async function logContactAudit(supabase, userId, contactId, contactName, action, detail) {
+  await supabase.from('contact_audit_log').insert({
+    contact_id: contactId, contact_name: contactName, action, detail: detail || null, performed_by: userId,
+  });
+}
+
 async function currentWorkspace(supabase, user) {
   const { data: profile } = await supabase
     .from('profiles').select('current_workspace_id, workspaces:current_workspace_id (name)').eq('id', user.id).single();
@@ -169,8 +178,10 @@ export async function setContactFrozen(contactId, frozen) {
   const allowed = await isManagerOfAnyDepartment(supabase, user.id, contactId);
   if (!allowed) return { error: 'רק מנהל של אחת ממחלקות איש הקשר יכול להקפיא/להפשיר' };
 
+  const { data: contact } = await supabase.from('contacts').select('first, last').eq('id', contactId).single();
   const { error } = await supabase.from('contacts').update({ frozen }).eq('id', contactId);
   if (error) return { error: error.message };
+  await logContactAudit(supabase, user.id, contactId, contact ? `${contact.first} ${contact.last}` : '', frozen ? 'הקפאה' : 'הפשרה');
   return { success: true, frozen };
 }
 
@@ -235,21 +246,28 @@ export async function deleteContact(contactId) {
   const allowed = await isManagerOfAnyDepartment(supabase, user.id, contactId);
   if (!allowed) return { error: 'רק מנהל של אחת ממחלקות איש הקשר יכול למחוק' };
 
+  const { data: contact } = await supabase.from('contacts').select('first, last').eq('id', contactId).single();
   const { error } = await supabase.from('contacts').delete().eq('id', contactId);
   if (error) return { error: error.message };
+  await logContactAudit(supabase, user.id, contactId, contact ? `${contact.first} ${contact.last}` : '', 'מחיקה');
   return { success: true };
 }
 
 // הסרת שיוך איש קשר למחלקה ספציפית בלבד (לא מוחק את הכרטיס, רק את
 // השיוך למחלקה הזו - שאר המחלקות שהוא פעיל בהן נשארות)
 export async function removeDepartmentMembership(contactId, workspaceId) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
 
+  const [{ data: contact }, { data: workspace }] = await Promise.all([
+    supabase.from('contacts').select('first, last').eq('id', contactId).single(),
+    supabase.from('workspaces').select('name').eq('id', workspaceId).single(),
+  ]);
   const { error } = await supabase
     .from('contact_departments').delete().eq('contact_id', contactId).eq('workspace_id', workspaceId);
   if (error) return { error: error.message };
+  await logContactAudit(supabase, user.id, contactId, contact ? `${contact.first} ${contact.last}` : '', 'הסרה ממחלקה', workspace?.name || null);
   return { success: true };
 }
 
@@ -311,6 +329,11 @@ export async function mergeContacts(keepId, duplicateId, resolvedFields) {
   const frozenError = await requireNotFrozen(supabase, keepId);
   if (frozenError) return frozenError;
 
+  const [{ data: keepContactForLog }, { data: dupContactForLog }] = await Promise.all([
+    supabase.from('contacts').select('first, last').eq('id', keepId).single(),
+    supabase.from('contacts').select('first, last').eq('id', duplicateId).single(),
+  ]);
+
   const { error: meetingsError } = await supabase
     .from('meetings').update({ contact_id: keepId }).eq('contact_id', duplicateId);
   if (meetingsError) return { error: meetingsError.message };
@@ -352,6 +375,10 @@ export async function mergeContacts(keepId, duplicateId, resolvedFields) {
 
   const { error: deleteError } = await supabase.from('contacts').delete().eq('id', duplicateId);
   if (deleteError) return { error: deleteError.message };
+
+  const keepName = keepContactForLog ? `${keepContactForLog.first} ${keepContactForLog.last}` : '';
+  const dupName = dupContactForLog ? `${dupContactForLog.first} ${dupContactForLog.last}` : '';
+  await logContactAudit(supabase, user.id, keepId, keepName, 'מיזוג כפילויות', `מוזג עם "${dupName}"`);
 
   return { success: true };
 }
@@ -406,6 +433,31 @@ export async function importContacts(rows, workspaceId) {
   }
 
   return { success: true, count: created + merged, created, merged };
+}
+
+// יומן השינויים של איש קשר (הקפאה/הפשרה/מיזוג/הסרה ממחלקה/מחיקה) -
+// לתפריט ⚙ ההגדרות בכרטיס. אין כאן בדיקת canManageContact נוספת כי
+// מי שקורא לזה כבר עבר את אותה בדיקה בתפריט עצמו
+export async function getContactAuditLog(contactId) {
+  const { supabase } = await requireUser();
+  const admin = createAdminClient();
+
+  const { data: rows } = await supabase
+    .from('contact_audit_log')
+    .select('id, action, detail, performed_by, created_at')
+    .eq('contact_id', contactId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  const userIds = Array.from(new Set((rows || []).map((r) => r.performed_by).filter(Boolean)));
+  const { data: profiles } = userIds.length
+    ? await supabase.from('profiles').select('id, name').in('id', userIds)
+    : { data: [] };
+  const { data: usersList } = userIds.length ? await admin.auth.admin.listUsers({ perPage: 1000 }) : { data: { users: [] } };
+  const emailById = Object.fromEntries((usersList?.users || []).map((u) => [u.id, u.email]));
+  const nameById = Object.fromEntries((profiles || []).map((p) => [p.id, p.name || emailById[p.id] || 'משתמש']));
+
+  return (rows || []).map((r) => ({ ...r, performedByName: r.performed_by ? nameById[r.performed_by] || 'משתמש' : 'לא ידוע' }));
 }
 
 // חיפוש אנשי קשר (לצורך איחוד כפולים) - מחזיר עד 8 תוצאות, לא כולל את עצמו

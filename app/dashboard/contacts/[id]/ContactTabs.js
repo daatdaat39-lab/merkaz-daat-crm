@@ -65,77 +65,65 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
       {tab === 'activity' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
-              היסטוריית פניות{activeDepartmentName ? ` — ${activeDepartmentName}` : ''}
-            </div>
-            {inquiries.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין פניות רשומות למחלקה זו</div>}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {inquiries.map((inq, i) => (
-                <div key={i} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
-                  <span style={{ color: '#333' }}>{inq.reason}</span>
-                  {inq.note && <span style={{ color: '#9b9b9b' }}> — {inq.note}</span>}
-                  <span style={{ color: '#c0c0c0' }}> · {new Date(inq.created_at).toLocaleDateString('he-IL')}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ActivityGroup
+            title={`היסטוריית פניות${activeDepartmentName ? ` — ${activeDepartmentName}` : ''}`}
+            items={inquiries}
+            emptyText="אין פניות רשומות למחלקה זו"
+            renderItem={(inq, i) => (
+              <div key={i} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                <span style={{ color: '#333' }}>{inq.reason}</span>
+                {inq.note && <span style={{ color: '#9b9b9b' }}> — {inq.note}</span>}
+                <span style={{ color: '#c0c0c0' }}> · {new Date(inq.created_at).toLocaleDateString('he-IL')}</span>
+              </div>
+            )}
+          />
 
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
-              מיילים שנשלחו
-            </div>
-            {sentEmails.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>לא נשלחו מיילים למחלקה זו</div>}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {sentEmails.map((e) => (
-                <div key={e.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
-                  <div style={{ fontWeight: 500 }}>{e.subject}</div>
-                  <div style={{ color: '#9b9b9b', marginTop: 2 }}>
-                    מאת {e.from_address} · {new Date(e.sent_at).toLocaleDateString('he-IL')} {new Date(e.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
+          <ActivityGroup
+            title="מיילים שנשלחו"
+            items={sentEmails}
+            emptyText="לא נשלחו מיילים למחלקה זו"
+            renderItem={(e) => (
+              <div key={e.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                <div style={{ fontWeight: 500 }}>{e.subject}</div>
+                <div style={{ color: '#9b9b9b', marginTop: 2 }}>
+                  מאת {e.from_address} · {new Date(e.sent_at).toLocaleDateString('he-IL')} {new Date(e.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            )}
+          />
 
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
-              הודעות WhatsApp
-            </div>
-            {sentWhatsapp.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין עדיין הודעות WhatsApp למחלקה זו</div>}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {sentWhatsapp.map((w) => (
-                <div key={w.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
-                  <div style={{ fontWeight: 500 }}>
-                    {w.direction === 'in' ? '⬅️ מהלקוח: ' : '➡️ נשלח: '}
-                    {w.kind === 'chat' ? w.message : `הודעת תבנית${w.reason ? ` — ${w.reason}` : ''}`}
-                  </div>
-                  <div style={{ color: '#9b9b9b', marginTop: 2 }}>
-                    {w.phone} · {new Date(w.sent_at).toLocaleDateString('he-IL')} {new Date(w.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
+          <ActivityGroup
+            title="הודעות WhatsApp"
+            items={sentWhatsapp}
+            emptyText="אין עדיין הודעות WhatsApp למחלקה זו"
+            renderItem={(w) => (
+              <div key={w.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                <div style={{ fontWeight: 500 }}>
+                  {w.direction === 'in' ? '⬅️ מהלקוח: ' : '➡️ נשלח: '}
+                  {w.kind === 'chat' ? w.message : `הודעת תבנית${w.reason ? ` — ${w.reason}` : ''}`}
                 </div>
-              ))}
-            </div>
-          </div>
+                <div style={{ color: '#9b9b9b', marginTop: 2 }}>
+                  {w.phone} · {new Date(w.sent_at).toLocaleDateString('he-IL')} {new Date(w.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            )}
+          />
 
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
-              פגישות
-            </div>
-            {meetings.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין פעילות עדיין</div>}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {meetings.map((m) => (
-                <div key={m.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{m.title || 'פגישה'}</div>
-                  <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 3 }}>
-                    {new Date(m.meeting_date).toLocaleDateString('he-IL')} · {m.meeting_time?.slice(0, 5)} · {m.type}
-                    {m.location ? ` · ${m.location}` : ''}
-                  </div>
-                  {m.notes && <div style={{ fontSize: 12.5, marginTop: 6, color: '#333' }}>{m.notes}</div>}
+          <ActivityGroup
+            title="פגישות"
+            items={meetings}
+            emptyText="אין פעילות עדיין"
+            renderItem={(m) => (
+              <div key={m.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{m.title || 'פגישה'}</div>
+                <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 3 }}>
+                  {new Date(m.meeting_date).toLocaleDateString('he-IL')} · {m.meeting_time?.slice(0, 5)} · {m.type}
+                  {m.location ? ` · ${m.location}` : ''}
                 </div>
-              ))}
-            </div>
-          </div>
+                {m.notes && <div style={{ fontSize: 12.5, marginTop: 6, color: '#333' }}>{m.notes}</div>}
+              </div>
+            )}
+          />
         </div>
       )}
 
@@ -209,6 +197,50 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
       {tab === 'recordings' && (
         <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין הקלטות (טלפוניה לא מחוברת)</div>
+      )}
+    </div>
+  );
+}
+
+const ACTIVITY_GROUP_LIMIT = 4;
+
+// קבוצת פריטים בטאב "פעילות" - מציגה כברירת מחדל רק את ה-4 האחרונים
+// (הרשימות כבר מגיעות ממוינות מהחדש לישן), עם כפתור "הצג עוד" שמרחיב
+// לרשימה המלאה - כדי שקטגוריה עם הרבה היסטוריה לא תציף את המסך.
+function ActivityGroup({ title, items, emptyText, renderItem }) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, ACTIVITY_GROUP_LIMIT);
+  const hiddenCount = items.length - visible.length;
+
+  return (
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
+        {title}
+      </div>
+      {items.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>{emptyText}</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {visible.map(renderItem)}
+      </div>
+      {hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(true)}
+          style={{
+            marginTop: 8, background: 'none', border: '1px solid #e5e5e5', borderRadius: 6,
+            padding: '5px 12px', fontSize: 12, color: '#6b6b6b', cursor: 'pointer',
+          }}
+        >
+          הצג עוד ({hiddenCount})
+        </button>
+      )}
+      {expanded && items.length > ACTIVITY_GROUP_LIMIT && (
+        <button
+          onClick={() => setExpanded(false)}
+          style={{
+            marginTop: 8, background: 'none', border: 'none', fontSize: 12, color: '#6b6b6b', cursor: 'pointer',
+          }}
+        >
+          הצג פחות
+        </button>
       )}
     </div>
   );

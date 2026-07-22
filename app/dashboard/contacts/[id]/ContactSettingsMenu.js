@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { canManageContact, setContactFrozen, deleteContact, mergeContacts, searchContacts, removeDepartmentMembership } from '../actions';
-import NotConnectedButton from '../../components/NotConnectedButton';
+import { canManageContact, setContactFrozen, deleteContact, mergeContacts, searchContacts, removeDepartmentMembership, getContactAuditLog } from '../actions';
 import MergeFieldsPicker from '../MergeFieldsPicker';
 
 const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 };
@@ -14,7 +13,7 @@ const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6
 export default function ContactSettingsMenu({ contact, activeDepartment }) {
   const [open, setOpen] = useState(false);
   const [canManage, setCanManage] = useState(null); // null = בבדיקה
-  const [subPanel, setSubPanel] = useState(null); // null | 'merge'
+  const [subPanel, setSubPanel] = useState(null); // null | 'merge' | 'history'
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
   const router = useRouter();
@@ -89,12 +88,9 @@ export default function ContactSettingsMenu({ contact, activeDepartment }) {
                 </button>
               )}
               <div style={{ borderTop: '1px solid #f0f0f0', margin: '6px 0' }} />
-              <NotConnectedButton
-                label="היסטוריית שינויים"
-                icon="🕐"
-                message="היסטוריית שינויים — עדיין לא מחובר"
-                style={{ width: '100%', justifyContent: 'flex-start', border: 'none', background: 'none', color: '#6b6b6b', fontWeight: 400 }}
-              />
+              <button onClick={() => setSubPanel('history')} disabled={isPending} style={menuItemStyle()}>
+                🕐 היסטוריית שינויים
+              </button>
               <div style={{ borderTop: '1px solid #f0f0f0', margin: '6px 0' }} />
               <button onClick={handleDelete} disabled={isPending} style={{ ...menuItemStyle(), color: '#b23b2f', fontSize: 11.5 }}>
                 🗑 מחיקת איש קשר
@@ -111,6 +107,10 @@ export default function ContactSettingsMenu({ contact, activeDepartment }) {
           {subPanel === 'merge' && (
             <MergePanel contact={contact} onBack={() => setSubPanel(null)} onDone={() => { setSubPanel(null); setOpen(false); router.refresh(); }} />
           )}
+
+          {subPanel === 'history' && (
+            <HistoryPanel contactId={contact.id} onBack={() => setSubPanel(null)} />
+          )}
         </div>
       )}
     </div>
@@ -120,12 +120,14 @@ export default function ContactSettingsMenu({ contact, activeDepartment }) {
 function MergePanel({ contact, onBack, onDone }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [picking, setPicking] = useState(null); // the duplicate contact chosen, awaiting field resolution
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
 
   function handleSearch(value) {
     setQuery(value);
+    setDropdownOpen(true);
     if (value.trim().length < 2) { setResults([]); return; }
     startTransition(async () => {
       const res = await searchContacts(value, contact.id);
@@ -168,22 +170,77 @@ function MergePanel({ contact, onBack, onDone }) {
       <p style={{ fontSize: 11.5, color: '#6b6b6b', margin: '0 0 8px' }}>
         חפש איש קשר כפול לפי שם, טלפון או מייל.
       </p>
-      <input value={query} onChange={(e) => handleSearch(e.target.value)} placeholder="חיפוש..." style={inputStyle} />
-      {error && <div style={{ color: '#b23b2f', fontSize: 12, marginTop: 8 }}>שגיאה: {error}</div>}
-      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
-        {results.map((r) => (
-          <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12 }}>
-            <span>{r.first} {r.last} <span style={{ color: '#9b9b9b' }}>{r.phone || r.email || ''}</span></span>
-            <button
-              onClick={() => setPicking(r)}
-              disabled={isPending}
-              style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}
-            >
-              איחוד
-            </button>
+      <div style={{ position: 'relative' }}>
+        <input
+          value={query}
+          onChange={(e) => handleSearch(e.target.value)}
+          onFocus={() => setDropdownOpen(true)}
+          onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
+          placeholder="חיפוש..."
+          style={inputStyle}
+        />
+        {error && <div style={{ color: '#b23b2f', fontSize: 12, marginTop: 8 }}>שגיאה: {error}</div>}
+        {dropdownOpen && query.trim().length >= 2 && (
+          <div style={{
+            position: 'absolute', top: '100%', insetInlineStart: 0, insetInlineEnd: 0, marginTop: 4,
+            background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8,
+            boxShadow: '0 6px 20px rgba(0,0,0,0.12)', maxHeight: 200, overflowY: 'auto', zIndex: 60,
+          }}>
+            {results.length === 0 && (
+              <div style={{ padding: '10px 12px', fontSize: 12, color: '#9b9b9b' }}>אין תוצאות</div>
+            )}
+            {results.map((r) => (
+              <div
+                key={r.id}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f0f0f0', padding: '8px 10px', fontSize: 12 }}
+              >
+                <span>{r.first} {r.last} <span style={{ color: '#9b9b9b' }}>{r.phone || r.email || ''}</span></span>
+                <button
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setPicking(r)}
+                  disabled={isPending}
+                  style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}
+                >
+                  איחוד
+                </button>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
+    </div>
+  );
+}
+
+// יומן השינויים - מי הקפיא/הפשיר/מיזג/הסיר ממחלקה/מחק, ומתי. נטען
+// בעצלנות (רק כשנפתח), כי זו לא הפעולה הנפוצה בתפריט הזה.
+function HistoryPanel({ contactId, onBack }) {
+  const [entries, setEntries] = useState(null); // null = בטעינה
+
+  useEffect(() => {
+    getContactAuditLog(contactId).then(setEntries);
+  }, [contactId]);
+
+  return (
+    <div>
+      <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#6b6b6b', fontSize: 12, cursor: 'pointer', marginBottom: 8 }}>
+        → חזרה
+      </button>
+      {entries === null && <div style={{ fontSize: 12, color: '#9b9b9b', padding: '6px 4px' }}>טוען...</div>}
+      {entries && entries.length === 0 && <div style={{ fontSize: 12, color: '#9b9b9b', padding: '6px 4px' }}>אין עדיין פעולות רשומות</div>}
+      {entries && entries.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
+          {entries.map((e) => (
+            <div key={e.id} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 9px', fontSize: 11.5 }}>
+              <div><b>{e.action}</b> · {e.performedByName}</div>
+              {e.detail && <div style={{ color: '#9b9b9b', marginTop: 2 }}>{e.detail}</div>}
+              <div style={{ color: '#c0c0c0', marginTop: 2 }}>
+                {new Date(e.created_at).toLocaleDateString('he-IL')} {new Date(e.created_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

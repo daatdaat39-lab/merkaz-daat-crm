@@ -1,8 +1,12 @@
+import Link from 'next/link';
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getPipeline } from '../../components/pipelines';
+import { STAGE_LABELS } from '../../components/ui';
 import AddContactForm from '../../contacts/AddContactForm';
 import LeadsBoard from './LeadsBoard';
+
+const RECENT_INQUIRY_DAYS = 3;
 
 export default async function SalesLeadsPage() {
   const supabase = createClient();
@@ -21,6 +25,8 @@ export default async function SalesLeadsPage() {
 
   let leads = [];
   let agents = [];
+  let existingElsewhereIds = new Set();
+  let advancedInquiries = [];
   if (workspaceId) {
     const { data } = await supabase
       .from('contact_departments')
@@ -51,6 +57,38 @@ export default async function SalesLeadsPage() {
       ? await supabase.from('profiles').select('id, name').in('id', memberIds)
       : { data: [] };
     agents = (memberProfiles || []).map((p) => ({ id: p.id, name: p.name || 'משתמש' }));
+
+    // "איש קשר קיים" - האם הליד הזה כבר משויך גם למחלקה אחרת (לא רק זו),
+    // כדי שנציג ידע שזה לא אדם זר לגמרי אלא מישהו שכבר מוכר למערכת
+    if (leads.length) {
+      const { data: otherDeptRows } = await supabase
+        .from('contact_departments')
+        .select('contact_id, workspace_id')
+        .in('contact_id', leads.map((l) => l.id))
+        .neq('workspace_id', workspaceId);
+      existingElsewhereIds = new Set((otherDeptRows || []).map((r) => r.contact_id));
+      leads = leads.map((l) => ({ ...l, existingElsewhere: existingElsewhereIds.has(l.id) }));
+    }
+
+    // פניות חדשות מאנשי קשר שכבר התקדמו מעבר לשלבי הליד המוקדמים (למשל
+    // "תלמיד פעיל"/"בוגר"/"תורם פעיל") באותה מחלקה - אלה לא מופיעים
+    // ברשימת הלידים הרגילה (מסוננת לפי leadStages בלבד), אבל פנייה חדשה
+    // מהם עדיין ראויה לתשומת לב, בלי לשנות את השלב המתקדם שלהם.
+    const nonLeadStages = pipeline.order.filter((s) => !pipeline.leadStages.includes(s));
+    const recentCutoff = new Date(Date.now() - RECENT_INQUIRY_DAYS * 86400000).toISOString();
+    const { data: advancedRows } = await supabase
+      .from('contact_departments')
+      .select('id, stage, contacts:contact_id (id, first, last), lead_inquiries!inner (reason, note, created_at)')
+      .eq('workspace_id', workspaceId)
+      .in('stage', nonLeadStages)
+      .gte('lead_inquiries.created_at', recentCutoff);
+    advancedInquiries = (advancedRows || [])
+      .filter((row) => row.contacts)
+      .map((row) => {
+        const latest = [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+        return { contactId: row.contacts.id, name: `${row.contacts.first} ${row.contacts.last}`, stage: row.stage, reason: latest?.reason, createdAt: latest?.created_at };
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }
 
   const [{ data: workspaces }, { data: tagRows }, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
@@ -81,6 +119,29 @@ export default async function SalesLeadsPage() {
           workspaces={workspaces || []} defaultWorkspaceId={workspaceId || ''} existingTags={existingTags}
         />
       </div>
+
+      {advancedInquiries.length > 0 && (
+        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '14px 16px', marginBottom: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: '#92400e', marginBottom: 8 }}>
+            🔔 פניות חדשות מאנשי קשר שכבר מתקדמים ({advancedInquiries.length})
+          </div>
+          <p style={{ fontSize: 12, color: '#92400e', margin: '0 0 10px' }}>
+            אלה לא "לידים" במובן הרגיל — הם כבר בשלב מתקדם ({advancedInquiries.map((a) => STAGE_LABELS[a.stage] || a.stage).filter((v, i, arr) => arr.indexOf(v) === i).join(', ')}) — אבל פנו שוב לאחרונה, ולכן לא מוצגים ברשימה הרגילה למטה.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {advancedInquiries.map((a) => (
+              <Link
+                key={a.contactId}
+                href={`/dashboard/contacts/${a.contactId}`}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', fontSize: 12.5, textDecoration: 'none', color: 'inherit' }}
+              >
+                <span><b>{a.name}</b> · {STAGE_LABELS[a.stage] || a.stage}{a.reason ? ` · ${a.reason}` : ''}</span>
+                <span style={{ color: '#9b9b9b', fontSize: 11 }}>{new Date(a.createdAt).toLocaleDateString('he-IL')}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {leads.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים פתוחים כרגע</div>

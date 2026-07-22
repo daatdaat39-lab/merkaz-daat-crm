@@ -61,6 +61,11 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
             {initials(c.first, c.last)}
           </span>
           {c.first} {c.last}
+          {c.existingElsewhere && (
+            <span title="איש הקשר הזה כבר מוכר למערכת ממחלקה אחרת" style={{ fontSize: 10, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 100, padding: '1px 8px' }}>
+              איש קשר קיים
+            </span>
+          )}
         </Link>
       </td>
       <td style={{ padding: '10px 16px', fontSize: 13 }}>

@@ -10,6 +10,7 @@ import { initials } from '../../components/ui';
 export default function AvatarUpload({ contact }) {
   const inputRef = useRef(null);
   const [error, setError] = useState(null);
+  const [lightbox, setLightbox] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -33,7 +34,9 @@ export default function AvatarUpload({ contact }) {
         <img
           src={contact.photo_url}
           alt=""
-          style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', display: 'block' }}
+          onClick={() => setLightbox(true)}
+          title="לחיצה להגדלה"
+          style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
         />
       ) : (
         <div style={{
@@ -59,6 +62,23 @@ export default function AvatarUpload({ contact }) {
       {error && (
         <div style={{ position: 'absolute', top: 48, right: 0, background: '#fff', border: '1px solid #f0d0cc', color: '#b23b2f', borderRadius: 6, padding: '4px 8px', fontSize: 11, whiteSpace: 'nowrap', zIndex: 10 }}>
           {error}
+        </div>
+      )}
+
+      {lightbox && contact.photo_url && (
+        <div
+          onClick={() => setLightbox(false)}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 2000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out', padding: 24,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={contact.photo_url}
+            alt=""
+            style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 12, boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}
+          />
         </div>
       )}
     </div>

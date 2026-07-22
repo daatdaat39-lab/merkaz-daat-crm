@@ -180,10 +180,12 @@ function SelectField({ label, name, defaultValue, options }) {
 function RelatedContactPicker({ contactId, related, setRelated }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const [, startTransition] = useTransition();
 
   function handleSearch(value) {
     setQuery(value);
+    setDropdownOpen(true);
     if (value.trim().length < 2) { setResults([]); return; }
     startTransition(async () => {
       const res = await searchContacts(value, contactId);
@@ -203,21 +205,31 @@ function RelatedContactPicker({ contactId, related, setRelated }) {
   }
 
   return (
-    <div style={{ marginBottom: 8 }}>
+    <div style={{ marginBottom: 8, position: 'relative' }}>
       <input
         value={query}
         onChange={(e) => handleSearch(e.target.value)}
+        onFocus={() => setDropdownOpen(true)}
+        onBlur={() => setTimeout(() => setDropdownOpen(false), 150)}
         placeholder="חיפוש איש קשר קשור..."
         style={inputStyle}
       />
-      {results.length > 0 && (
-        <div style={{ marginTop: 4, border: '1px solid #e5e5e5', borderRadius: 6, background: '#fff', maxHeight: 140, overflowY: 'auto' }}>
+      {dropdownOpen && query.trim().length >= 2 && (
+        <div style={{
+          position: 'absolute', top: '100%', insetInlineStart: 0, insetInlineEnd: 0, marginTop: 4,
+          border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', maxHeight: 160, overflowY: 'auto',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.12)', zIndex: 60,
+        }}>
+          {results.length === 0 && (
+            <div style={{ padding: '8px 10px', fontSize: 12, color: '#9b9b9b' }}>אין תוצאות</div>
+          )}
           {results.map((r) => (
             <button
               key={r.id}
               type="button"
-              onClick={() => { setRelated({ id: r.id, name: `${r.first} ${r.last}` }); setQuery(''); setResults([]); }}
-              style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', padding: '6px 8px', fontSize: 12, cursor: 'pointer' }}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { setRelated({ id: r.id, name: `${r.first} ${r.last}` }); setQuery(''); setResults([]); setDropdownOpen(false); }}
+              style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid #f0f0f0', padding: '7px 10px', fontSize: 12, cursor: 'pointer' }}
             >
               {r.first} {r.last} <span style={{ color: '#9b9b9b' }}>{r.phone || r.email || ''}</span>
             </button>

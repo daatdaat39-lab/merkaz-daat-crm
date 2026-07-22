@@ -27,7 +27,7 @@ export default function NewLeadToast({ workspaceId }) {
             .eq('id', payload.new.contact_id)
             .single();
           setToast({ name: contact ? `${contact.first} ${contact.last || ''}`.trim() : 'ליד חדש' });
-          setTimeout(() => setToast(null), 8000);
+          setTimeout(() => setToast(null), 10000);
         }
       )
       .subscribe();
@@ -43,22 +43,27 @@ export default function NewLeadToast({ workspaceId }) {
     <button
       onClick={() => { router.push('/dashboard/sales/leads'); setToast(null); }}
       style={{
-        position: 'fixed', bottom: 24, insetInlineStart: 24, zIndex: 500,
-        background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 10,
-        padding: '14px 18px', fontSize: 13, cursor: 'pointer', textAlign: 'right',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', gap: 10,
-        animation: 'newLeadToastIn 0.25s ease-out',
+        position: 'fixed', bottom: 28, insetInlineStart: 28, zIndex: 500,
+        background: '#1f4d3d', color: '#fff', border: '2px solid #2f7d4f', borderRadius: 14,
+        padding: '18px 24px', fontSize: 13, cursor: 'pointer', textAlign: 'right',
+        boxShadow: '0 12px 40px rgba(31,77,61,0.45), 0 0 0 6px rgba(47,125,79,0.15)',
+        display: 'flex', alignItems: 'center', gap: 14, minWidth: 280,
+        animation: 'newLeadToastIn 0.3s ease-out, newLeadToastPulse 1.8s ease-in-out 0.3s 2',
       }}
     >
-      <span style={{ fontSize: 20 }}>🎉</span>
+      <span style={{ fontSize: 30 }}>🎉</span>
       <span>
-        <div style={{ fontWeight: 600 }}>נכנס ליד חדש</div>
-        <div style={{ fontSize: 11.5, color: '#c0c0c0', marginTop: 2 }}>{toast.name} · לחץ לצפייה</div>
+        <div style={{ fontWeight: 700, fontSize: 16 }}>נכנס ליד חדש!</div>
+        <div style={{ fontSize: 13, color: '#d5e9dc', marginTop: 3 }}>{toast.name} · לחץ לצפייה</div>
       </span>
       <style>{`
         @keyframes newLeadToastIn {
-          from { transform: translateY(20px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
+          from { transform: translateY(24px) scale(0.95); opacity: 0; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes newLeadToastPulse {
+          0%, 100% { box-shadow: 0 12px 40px rgba(31,77,61,0.45), 0 0 0 6px rgba(47,125,79,0.15); }
+          50% { box-shadow: 0 12px 40px rgba(31,77,61,0.45), 0 0 0 12px rgba(47,125,79,0.3); }
         }
       `}</style>
     </button>

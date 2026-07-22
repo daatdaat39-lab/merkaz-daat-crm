@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import NewLeadToast from './components/NewLeadToast';
 import CelebrationHost from './components/CelebrationHost';
+import IdleLock from './components/IdleLock';
 
 export default async function DashboardLayout({ children, modal }) {
   const supabase = createClient();
@@ -158,6 +159,7 @@ export default async function DashboardLayout({ children, modal }) {
       {modal}
       <NewLeadToast workspaceId={currentWorkspaceId} />
       <CelebrationHost />
+      <IdleLock userEmail={user.email} />
     </div>
   );
 }
