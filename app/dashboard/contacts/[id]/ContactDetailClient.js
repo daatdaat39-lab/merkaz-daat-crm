@@ -12,6 +12,7 @@ import ContactTabs from './ContactTabs';
 import EmailComposeModal from './EmailComposeModal';
 import WhatsAppSendModal from './WhatsAppSendModal';
 import NotConnectedButton from '../../components/NotConnectedButton';
+import AiSummaryButton from './AiSummaryButton';
 import { celebrate } from '../../components/celebrate';
 
 const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
@@ -181,7 +182,7 @@ export default function ContactDetailClient({
           />
         )}
         <NotConnectedButton label="קביעת פגישה ביומן" icon="📅" message="חיבור ל-Google Calendar — עדיין לא מחובר" />
-        <NotConnectedButton label="סיכום AI" icon="✨" message="סיכום שיחות ב-AI — עדיין לא מחובר" />
+        <AiSummaryButton contactId={contact.id} />
       </div>
 
       {(openTasksCount > 0 || nextMeeting) && (

@@ -9,6 +9,7 @@ import { isManagerOfAnyDepartment, requireNotFrozen } from '../lib/contactGuards
 import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/whatsapp';
+import { summarizeContact } from '../../../lib/ai/summarizeContact';
 
 const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'email2', 'dept', 'source', 'idnum', 'birth_date', 'gender', 'related_contact_id', 'relation_label'];
 
@@ -168,6 +169,39 @@ export async function addContactTag(contactId, tag) {
   if (error) return { error: error.message };
 
   return { success: true, tags };
+}
+
+// סיכום AI של מצב איש הקשר - לפי הערות פנימיות והיסטוריית פעילות בפועל
+// (במקום להמתין לחיבור הקלטות שיחה, שעדיין לא קיים במערכת)
+export async function getAiContactSummary(contactId) {
+  const { supabase } = await requireUser();
+
+  const [{ data: contact }, { data: departmentRows }, { data: meetings }, { data: tasks }, { data: sentEmails }, { data: sentWhatsapp }] = await Promise.all([
+    supabase.from('contacts').select('first, last, notes').eq('id', contactId).single(),
+    supabase.from('contact_departments').select('lead_inquiries (reason, note)').eq('contact_id', contactId),
+    supabase.from('meetings').select('title, notes').eq('contact_id', contactId),
+    supabase.from('tasks').select('title, done').eq('contact_id', contactId),
+    supabase.from('sent_emails').select('subject').eq('contact_id', contactId),
+    supabase.from('sent_whatsapp').select('direction, kind, message, reason').eq('contact_id', contactId),
+  ]);
+  if (!contact) return { error: 'איש קשר לא נמצא' };
+
+  const inquiryRows = (departmentRows || []).flatMap((d) => d.lead_inquiries || []);
+
+  try {
+    const summary = await summarizeContact({
+      name: `${contact.first} ${contact.last}`,
+      notes: contact.notes,
+      inquiries: inquiryRows,
+      meetings: meetings || [],
+      tasks: tasks || [],
+      sentEmails: sentEmails || [],
+      sentWhatsapp: sentWhatsapp || [],
+    });
+    return { success: true, summary };
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
 // עדכון הערות חופשיות על איש קשר - בלי redirect כדי שאפשר לקרוא לזה
