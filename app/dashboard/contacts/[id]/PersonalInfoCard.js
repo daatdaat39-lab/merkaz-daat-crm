@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Tag } from '../../components/ui';
-import { updateContact, searchContacts, assignAgent } from '../actions';
+import { updateContact, searchContacts, assignAgent, addContactTag } from '../actions';
 import TagPicker from '../TagPicker';
 
 const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 8px', fontSize: 12.5 };
@@ -137,8 +137,9 @@ export default function PersonalInfoCard({
           )}
           <InfoRow label="משימות פתוחות" value={openTasksCount > 0 ? openTasksCount : null} />
 
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             {(contact.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
+            {!contact.frozen && <QuickTagAdd contactId={contact.id} existingTags={existingTags} currentTags={contact.tags || []} onAdded={() => router.refresh()} />}
           </div>
         </>
       )}
@@ -171,6 +172,93 @@ function SelectField({ label, name, defaultValue, options }) {
       <select name={name} defaultValue={defaultValue || ''} style={inputStyle}>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
+    </div>
+  );
+}
+
+// הוספת תגית מהירה מחוץ למצב עריכה - כפתור קטן שפותח חיפוש/בחירה מתוך
+// תגיות קיימות (או הוספת תגית חדשה), בלי להיכנס לטופס העריכה המלא
+function QuickTagAdd({ contactId, existingTags, currentTags, onAdded }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [isPending, startTransition] = useTransition();
+
+  const suggestions = existingTags
+    .filter((t) => !currentTags.includes(t))
+    .filter((t) => !query.trim() || t.toLowerCase().includes(query.trim().toLowerCase()))
+    .slice(0, 8);
+  const exactMatch = existingTags.some((t) => t.toLowerCase() === query.trim().toLowerCase());
+
+  function handleAdd(tag) {
+    const t = tag.trim();
+    if (!t) return;
+    startTransition(async () => {
+      await addContactTag(contactId, t);
+      setQuery('');
+      setOpen(false);
+      onAdded?.();
+    });
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (query.trim()) handleAdd(query);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{ background: '#fff', border: '1px dashed #d0d0d0', borderRadius: 4, padding: '2px 8px', fontSize: 12, color: '#666', cursor: 'pointer' }}
+      >
+        + תגית
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        autoFocus
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={handleKeyDown}
+        disabled={isPending}
+        placeholder="חיפוש/הוספת תגית..."
+        style={{ ...inputStyle, width: 160, padding: '4px 8px', fontSize: 12 }}
+      />
+      <div style={{
+        position: 'absolute', top: '100%', insetInlineStart: 0, marginTop: 4, minWidth: 160,
+        border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', maxHeight: 160, overflowY: 'auto',
+        boxShadow: '0 6px 20px rgba(0,0,0,0.12)', zIndex: 60,
+      }}>
+        {suggestions.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); handleAdd(t); }}
+            style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid #f0f0f0', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}
+          >
+            {t}
+          </button>
+        ))}
+        {query.trim() && !exactMatch && (
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); handleAdd(query); }}
+            style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: '#1f4d3d', fontWeight: 600 }}
+          >
+            + הוספת תגית חדשה: "{query.trim()}"
+          </button>
+        )}
+        {suggestions.length === 0 && !query.trim() && (
+          <div style={{ padding: '8px 10px', fontSize: 12, color: '#9b9b9b' }}>הקלידו לחיפוש או הוספה</div>
+        )}
+      </div>
     </div>
   );
 }

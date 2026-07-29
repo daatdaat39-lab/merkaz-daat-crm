@@ -4,13 +4,25 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import NotConnectedButton from '../../components/NotConnectedButton';
 import { celebrate } from '../../components/celebrate';
+import { addTask } from '../../tasks/actions';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], activeDepartmentName, sentEmails = [], sentWhatsapp = [] }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], agents = [], workspaceNameById = {} }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
+  const [addingTask, setAddingTask] = useState(false);
   const router = useRouter();
+
+  function handleAddTask(formData) {
+    setError(null);
+    formData.set('contact_id', contactId);
+    startTransition(async () => {
+      const res = await addTask(formData);
+      if (res?.error) setError(res.error);
+      else { setAddingTask(false); router.refresh(); }
+    });
+  }
 
   function handleToggleTask(taskId, done) {
     setError(null);
@@ -66,11 +78,12 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
       {tab === 'activity' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <ActivityGroup
-            title={`היסטוריית פניות${activeDepartmentName ? ` — ${activeDepartmentName}` : ''}`}
+            title="היסטוריית פניות — כל המחלקות"
             items={inquiries}
-            emptyText="אין פניות רשומות למחלקה זו"
+            emptyText="אין פניות רשומות"
             renderItem={(inq, i) => (
               <div key={i} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                <DeptTag name={inq.workspaceName} />
                 <span style={{ color: '#333' }}>{inq.reason}</span>
                 {inq.note && <span style={{ color: '#9b9b9b' }}> — {inq.note}</span>}
                 <span style={{ color: '#c0c0c0' }}> · {new Date(inq.created_at).toLocaleDateString('he-IL')}</span>
@@ -79,11 +92,12 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           />
 
           <ActivityGroup
-            title="מיילים שנשלחו"
+            title="מיילים שנשלחו — כל המחלקות"
             items={sentEmails}
-            emptyText="לא נשלחו מיילים למחלקה זו"
+            emptyText="לא נשלחו מיילים"
             renderItem={(e) => (
               <div key={e.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                <DeptTag name={workspaceNameById[e.workspace_id]} />
                 <div style={{ fontWeight: 500 }}>{e.subject}</div>
                 <div style={{ color: '#9b9b9b', marginTop: 2 }}>
                   מאת {e.from_address} · {new Date(e.sent_at).toLocaleDateString('he-IL')} {new Date(e.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
@@ -93,11 +107,12 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           />
 
           <ActivityGroup
-            title="הודעות WhatsApp"
+            title="הודעות WhatsApp — כל המחלקות"
             items={sentWhatsapp}
-            emptyText="אין עדיין הודעות WhatsApp למחלקה זו"
+            emptyText="אין עדיין הודעות WhatsApp"
             renderItem={(w) => (
               <div key={w.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                <DeptTag name={workspaceNameById[w.workspace_id]} />
                 <div style={{ fontWeight: 500 }}>
                   {w.direction === 'in' ? '⬅️ מהלקוח: ' : '➡️ נשלח: '}
                   {w.kind === 'chat' ? w.message : `הודעת תבנית${w.reason ? ` — ${w.reason}` : ''}`}
@@ -110,11 +125,12 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           />
 
           <ActivityGroup
-            title="פגישות"
+            title="פגישות — כל המחלקות"
             items={meetings}
             emptyText="אין פעילות עדיין"
             renderItem={(m) => (
               <div key={m.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
+                <DeptTag name={workspaceNameById[m.workspace_id]} />
                 <div style={{ fontSize: 13, fontWeight: 500 }}>{m.title || 'פגישה'}</div>
                 <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 3 }}>
                   {new Date(m.meeting_date).toLocaleDateString('he-IL')} · {m.meeting_time?.slice(0, 5)} · {m.type}
@@ -130,6 +146,40 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
       {tab === 'tasks' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {error && <div style={{ color: '#b23b2f', fontSize: 12 }}>שגיאה: {error}</div>}
+
+          {!frozen && (addingTask ? (
+            <form action={handleAddTask} style={{
+              display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', border: '1px solid #e5e5e5',
+              borderRadius: 8, padding: '10px 12px', background: '#f9f9f9',
+            }}>
+              <input
+                name="title" placeholder="כותרת המשימה..." autoFocus required
+                style={{ flex: '1 1 160px', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 }}
+              />
+              <input name="due_date" type="date" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 }} />
+              <input name="due_time" type="time" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 }} />
+              {agents.length > 0 && (
+                <select name="assigned_to" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 }}>
+                  <option value="">אני</option>
+                  {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              )}
+              <button type="submit" disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
+                הוספה
+              </button>
+              <button type="button" onClick={() => setAddingTask(false)} style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
+                ביטול
+              </button>
+            </form>
+          ) : (
+            <button
+              onClick={() => setAddingTask(true)}
+              style={{ alignSelf: 'flex-start', background: '#fff', border: '1px dashed #d0d0d0', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, color: '#666', cursor: 'pointer' }}
+            >
+              + משימה חדשה
+            </button>
+          ))}
+
           {tasks.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין משימות</div>}
           {tasks.map((t) => (
             <div key={t.id} style={{
@@ -149,6 +199,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
               </button>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, textDecoration: t.done ? 'line-through' : 'none', color: t.done ? '#9b9b9b' : '#0a0a0a' }}>
+                  <DeptTag name={workspaceNameById[t.workspace_id]} />
                   {t.title}
                 </div>
                 {t.due_date && (
@@ -199,6 +250,20 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
         <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין הקלטות (טלפוניה לא מחוברת)</div>
       )}
     </div>
+  );
+}
+
+// תגית קטנה בשם המחלקה - כדי לסמן בכל פריט פעילות (פגישה/משימה/מייל/
+// וואטסאפ/פנייה) איזו מחלקה יצרה אותו, כשהטאב מציג את כל המחלקות יחד
+function DeptTag({ name }) {
+  if (!name) return null;
+  return (
+    <span style={{
+      display: 'inline-block', background: '#eef2f7', color: '#3b5878', fontSize: 10.5, fontWeight: 600,
+      borderRadius: 4, padding: '2px 6px', marginInlineEnd: 6, verticalAlign: 'middle',
+    }}>
+      {name}
+    </span>
   );
 }
 

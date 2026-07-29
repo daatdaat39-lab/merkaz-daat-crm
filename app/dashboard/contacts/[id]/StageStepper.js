@@ -36,14 +36,14 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
         {stages.map((stage, i) => {
           const done = !isClosed && i <= currentIndex;
           const isCurrent = !isClosed && i === currentIndex;
           return (
-            <div key={stage} style={{ display: 'flex', alignItems: 'center' }}>
+            <div key={stage} style={{ display: 'flex', alignItems: 'center', flex: i > 0 ? '1 1 0' : '0 0 auto', minWidth: 0 }}>
               {i > 0 && (
-                <div style={{ width: 16, height: 2, background: done ? '#0a0a0a' : '#e5e5e5', marginTop: -14 }} />
+                <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: done ? '#0a0a0a' : '#e5e5e5', marginTop: -14 }} />
               )}
               <button
                 type="button"
@@ -69,7 +69,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
           );
         })}
 
-        <div style={{ width: 16, height: 2, background: isClosed ? '#a3392f' : '#e5e5e5', marginTop: -14 }} />
+        <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: isClosed ? '#a3392f' : '#e5e5e5', marginTop: -14 }} />
         <button
           type="button"
           onClick={handleCloseClick}

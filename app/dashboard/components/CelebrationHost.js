@@ -11,7 +11,7 @@ export default function CelebrationHost() {
   useEffect(() => {
     function handler(e) {
       setToast(e.detail?.message);
-      const t = setTimeout(() => setToast(null), 2200);
+      const t = setTimeout(() => setToast(null), 2600);
       return () => clearTimeout(t);
     }
     window.addEventListener('crm:celebrate', handler);
@@ -23,12 +23,19 @@ export default function CelebrationHost() {
   return (
     <div
       style={{
-        position: 'fixed', bottom: 24, insetInlineStart: 24, zIndex: 2000,
-        background: '#0a0a0a', color: '#fff', borderRadius: 999, padding: '11px 22px',
-        fontSize: 13.5, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+        position: 'fixed', top: 28, left: '50%', transform: 'translateX(-50%)', zIndex: 2000,
+        background: '#fff', color: '#0a0a0a', borderRadius: 16, padding: '18px 34px',
+        fontSize: 18, fontWeight: 700, boxShadow: '0 16px 44px rgba(0,0,0,0.18)',
+        border: '1px solid #eee', animation: 'crmCelebrateIn 0.28s ease-out', whiteSpace: 'nowrap',
       }}
     >
       {toast}
+      <style>{`
+        @keyframes crmCelebrateIn {
+          from { transform: translateX(-50%) translateY(-16px) scale(0.94); opacity: 0; }
+          to { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }

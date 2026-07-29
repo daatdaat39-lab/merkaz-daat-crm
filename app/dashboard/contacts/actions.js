@@ -151,6 +151,25 @@ export async function updateContact(contactId, formData) {
   return { success: true };
 }
 
+// הוספת תגית בודדת מהתפריט הנפתח המהיר (מחוץ למצב עריכה מלא)
+export async function addContactTag(contactId, tag) {
+  const { supabase } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const t = (tag || '').trim();
+  if (!t) return { error: 'תגית ריקה' };
+
+  const { data: existing, error: fetchError } = await supabase.from('contacts').select('tags').eq('id', contactId).single();
+  if (fetchError) return { error: fetchError.message };
+
+  const tags = Array.from(new Set([...(existing?.tags || []), t]));
+  const { error } = await supabase.from('contacts').update({ tags }).eq('id', contactId);
+  if (error) return { error: error.message };
+
+  return { success: true, tags };
+}
+
 // עדכון הערות חופשיות על איש קשר - בלי redirect כדי שאפשר לקרוא לזה
 // גם מתוך הכרטיס הצף (modal), לא רק מהעמוד המלא
 export async function updateContactNotes(contactId, notes) {

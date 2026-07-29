@@ -15,6 +15,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
   const [stageFilter, setStageFilter] = useState('');
   const [reasonFilter, setReasonFilter] = useState('');
   const [overdueOnly, setOverdueOnly] = useState(false);
+  const [overdueHours, setOverdueHours] = useState(24);
   const [sortBy, setSortBy] = useState('activity_desc');
 
   const reasonOptions = useMemo(
@@ -40,7 +41,8 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
     if (stageFilter) result = result.filter((c) => c.stage === stageFilter);
     if (reasonFilter) result = result.filter((c) => c.latestReason === reasonFilter);
     if (overdueOnly) {
-      result = result.filter((c) => c.last_activity_at && (Date.now() - new Date(c.last_activity_at).getTime()) / 3600000 >= 24);
+      const threshold = Number(overdueHours) > 0 ? Number(overdueHours) : 24;
+      result = result.filter((c) => c.last_activity_at && (Date.now() - new Date(c.last_activity_at).getTime()) / 3600000 >= threshold);
     }
 
     const agentName = (id) => agents.find((a) => a.id === id)?.name || '';
@@ -55,7 +57,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       }
     });
     return sorted;
-  }, [leads, search, agentFilter, stageFilter, reasonFilter, overdueOnly, sortBy, agents]);
+  }, [leads, search, agentFilter, stageFilter, reasonFilter, overdueOnly, overdueHours, sortBy, agents]);
 
   const departments = Object.keys(DEPT_KEYWORDS);
   const categorized = departments
@@ -90,7 +92,16 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         </select>
         <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
           <input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} />
-          רק באיחור (24+ שעות)
+          רק ליד שלא טופל מעל
+          <input
+            type="number"
+            min={1}
+            value={overdueHours}
+            disabled={!overdueOnly}
+            onChange={(e) => setOverdueHours(e.target.value)}
+            style={{ ...inputStyle, width: 52, padding: '5px 6px', opacity: overdueOnly ? 1 : 0.5 }}
+          />
+          שעות
         </label>
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inputStyle, marginInlineStart: 'auto' }}>
           <option value="activity_desc">מיון: טופל לאחרונה קודם</option>
@@ -101,7 +112,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         </select>
         {activeFilterCount > 0 && (
           <button
-            onClick={() => { setAgentFilter(''); setStageFilter(''); setReasonFilter(''); setOverdueOnly(false); setSearch(''); }}
+            onClick={() => { setAgentFilter(''); setStageFilter(''); setReasonFilter(''); setOverdueOnly(false); setOverdueHours(24); setSearch(''); }}
             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}
           >
             ניקוי סינון

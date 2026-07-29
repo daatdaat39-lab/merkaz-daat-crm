@@ -22,7 +22,7 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags,
   age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
-  nextMeeting, openTasksCount, relatedContact, agentsByWorkspace,
+  nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -184,6 +184,34 @@ export default function ContactDetailClient({
         <NotConnectedButton label="סיכום AI" icon="✨" message="סיכום שיחות ב-AI — עדיין לא מחובר" />
       </div>
 
+      {(openTasksCount > 0 || nextMeeting) && (
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+          {openTasksCount > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, background: '#eff6ff', border: '1px solid #bfdbfe',
+              borderRadius: 10, padding: '10px 16px', flex: '1 1 200px',
+            }}>
+              <span style={{ fontSize: 22, fontWeight: 700, color: '#1d4ed8' }}>{openTasksCount}</span>
+              <span style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 500 }}>משימות פתוחות</span>
+            </div>
+          )}
+          {nextMeeting && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10, background: '#fff7ed', border: '1px solid #fde3b8',
+              borderRadius: 10, padding: '10px 16px', flex: '1 1 200px',
+            }}>
+              <span style={{ fontSize: 20 }}>🔔</span>
+              <div>
+                <div style={{ fontSize: 10.5, fontWeight: 600, color: '#c2760f', textTransform: 'uppercase' }}>פגישה קרובה</div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#8a5a1a' }}>
+                  {new Date(nextMeeting.meeting_date).toLocaleDateString('he-IL')} · {nextMeeting.meeting_time?.slice(0, 5)}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 20, flexWrap: isModal ? 'wrap' : 'nowrap' }}>
         {/* עמודה שמאלית - פרטים אישיים */}
         <div style={{ width: 260, flexShrink: 0 }}>
@@ -213,10 +241,11 @@ export default function ContactDetailClient({
             toggleTaskAction={toggleTaskAction}
             updateNotesAction={updateNotesAction}
             frozen={contact.frozen}
-            inquiries={active?.inquiries || []}
-            activeDepartmentName={active?.workspaceName}
-            sentEmails={active ? (sentEmails || []).filter((e) => e.workspace_id === active.workspaceId) : []}
-            sentWhatsapp={active ? (sentWhatsapp || []).filter((w) => w.workspace_id === active.workspaceId) : []}
+            inquiries={allInquiries || []}
+            sentEmails={sentEmails || []}
+            sentWhatsapp={sentWhatsapp || []}
+            workspaceNameById={workspaceNameById || {}}
+            agents={active ? (agentsByWorkspace?.[active.workspaceId] || []) : []}
           />
         </div>
       </div>

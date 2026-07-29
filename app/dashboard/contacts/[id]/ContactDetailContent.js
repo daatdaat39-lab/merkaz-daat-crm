@@ -32,12 +32,12 @@ export default async function ContactDetailContent({ contactId, isModal }) {
     supabase.from('workspaces').select('id, name').order('name'),
     supabase
       .from('meetings')
-      .select('id, title, meeting_date, meeting_time, type, location, notes')
+      .select('id, title, meeting_date, meeting_time, type, location, notes, workspace_id')
       .eq('contact_id', contact.id)
       .order('meeting_date', { ascending: false }),
     supabase
       .from('tasks')
-      .select('id, title, due_date, done')
+      .select('id, title, due_date, done, workspace_id')
       .eq('contact_id', contact.id)
       .order('created_at', { ascending: false }),
     supabase.from('contacts').select('tags'),
@@ -100,6 +100,14 @@ export default async function ContactDetailContent({ contactId, isModal }) {
     inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
   }));
 
+  // מיפוי שם מחלקה לכל workspace - כדי לתייג פעילות (פגישות/משימות/מיילים/
+  // וואטסאפ/פניות) בכרטיס לפי המחלקה שבה היא קרתה, גם כשמציגים את כל
+  // המחלקות יחד ולא רק את הפעילה כרגע
+  const workspaceNameById = Object.fromEntries((allWorkspaces || []).map((w) => [w.id, w.name]));
+  const allInquiries = departments
+    .flatMap((d) => (d.inquiries || []).map((inq) => ({ ...inq, workspaceName: d.workspaceName })))
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
   const viewerWorkspaceIds = (viewerMemberships || []).map((m) => m.workspace_id);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
   const age = calculateAge(contact.birth_date);
@@ -141,6 +149,8 @@ export default async function ContactDetailContent({ contactId, isModal }) {
       openTasksCount={openTasksCount}
       relatedContact={relatedContact}
       agentsByWorkspace={agentsByWorkspace}
+      allInquiries={allInquiries}
+      workspaceNameById={workspaceNameById}
     />
   );
 }
