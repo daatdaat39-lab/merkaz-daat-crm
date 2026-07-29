@@ -5,20 +5,35 @@ import { useMemo, useState } from 'react';
 // בורר תגיות: צ'יפים לתגיות שנבחרו, + חיפוש/בחירה מתוך תגיות קיימות, + אפשרות
 // להוסיף תגית חדשה שלא הייתה קיימת עדיין. שומר ל-hidden input בשם `name`
 // (מופרד בפסיקים) כדי להתאים לפורמט שהשרת כבר יודע לפרש.
-export default function TagPicker({ name = 'tags', existingTags = [], defaultTags = [] }) {
+// כשמעבירים `groups` (מ-groupTagsByDepartment) התגיות המוצעות מקובצות
+// תחת כותרת מחלקה - אחרת נופלים לרשימה שטוחה רגילה מ-existingTags.
+export default function TagPicker({ name = 'tags', existingTags = [], defaultTags = [], groups = null }) {
   const [selected, setSelected] = useState(defaultTags);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
 
+  const flatExisting = groups ? groups.flatMap((g) => g.tags) : existingTags;
+
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return existingTags
+    return flatExisting
       .filter((t) => !selected.includes(t))
       .filter((t) => !q || t.toLowerCase().includes(q))
       .slice(0, 8);
-  }, [existingTags, selected, query]);
+  }, [flatExisting, selected, query]);
 
-  const exactMatch = existingTags.some((t) => t.toLowerCase() === query.trim().toLowerCase());
+  const groupedSuggestions = useMemo(() => {
+    if (!groups) return null;
+    const q = query.trim().toLowerCase();
+    return groups
+      .map((g) => ({
+        department: g.department,
+        tags: g.tags.filter((t) => !selected.includes(t)).filter((t) => !q || t.toLowerCase().includes(q)),
+      }))
+      .filter((g) => g.tags.length > 0);
+  }, [groups, selected, query]);
+
+  const exactMatch = flatExisting.some((t) => t.toLowerCase() === query.trim().toLowerCase());
 
   function addTag(tag) {
     const t = tag.trim();
@@ -73,9 +88,28 @@ export default function TagPicker({ name = 'tags', existingTags = [], defaultTag
       {open && (query.trim() || suggestions.length > 0) && (
         <div style={{
           marginTop: 4, background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: 160, overflowY: 'auto', position: 'relative', zIndex: 20,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: 200, overflowY: 'auto', position: 'relative', zIndex: 20,
         }}>
-          {suggestions.map((t) => (
+          {groupedSuggestions ? groupedSuggestions.map((g) => (
+            <div key={g.department || '__general__'}>
+              <div style={{ padding: '5px 10px 3px', fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase' }}>
+                {g.department || 'כלליות'}
+              </div>
+              {g.tags.map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onMouseDown={() => addTag(t)}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'right', padding: '6px 10px', fontSize: 12.5,
+                    background: 'none', border: 'none', cursor: 'pointer',
+                  }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )) : suggestions.map((t) => (
             <button
               key={t}
               type="button"

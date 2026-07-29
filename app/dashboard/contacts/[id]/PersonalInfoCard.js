@@ -14,7 +14,7 @@ const categoryLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTra
 // ומעקב), עם עריכה ישירה של השדות עצמם (לא טופס נפרד למטה). לחיצה על
 // ✎ הופכת את שורות הזהות/פרטי הקשר לשדות קלט במקום, עם שמירה/ביטול.
 export default function PersonalInfoCard({
-  contact, existingTags, age, hebrewDate, nextMeeting, openTasksCount, agentId, agentName, agents, activeWorkspaceId,
+  contact, existingTags, tagGroups = null, age, hebrewDate, nextMeeting, openTasksCount, agentId, agentName, agents, activeWorkspaceId,
   lastActivityAt, relatedContact,
 }) {
   const [editing, setEditing] = useState(false);
@@ -83,7 +83,7 @@ export default function PersonalInfoCard({
           <Field label="סוג קרבה (למשל: אב, בן זוג)" name="relation_label" defaultValue={contact.relation_label} />
 
           <div style={categoryLabel}>תגיות</div>
-          <TagPicker existingTags={existingTags} defaultTags={contact.tags || []} />
+          <TagPicker existingTags={existingTags} defaultTags={contact.tags || []} groups={tagGroups} />
 
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
             <button type="submit" disabled={isPending} style={{ flex: 1, background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 0', fontSize: 12.5, cursor: 'pointer' }}>
@@ -139,7 +139,7 @@ export default function PersonalInfoCard({
 
           <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             {(contact.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
-            {!contact.frozen && <QuickTagAdd contactId={contact.id} existingTags={existingTags} currentTags={contact.tags || []} onAdded={() => router.refresh()} />}
+            {!contact.frozen && <QuickTagAdd contactId={contact.id} existingTags={existingTags} groups={tagGroups} currentTags={contact.tags || []} onAdded={() => router.refresh()} />}
           </div>
         </>
       )}
@@ -178,16 +178,25 @@ function SelectField({ label, name, defaultValue, options }) {
 
 // הוספת תגית מהירה מחוץ למצב עריכה - כפתור קטן שפותח חיפוש/בחירה מתוך
 // תגיות קיימות (או הוספת תגית חדשה), בלי להיכנס לטופס העריכה המלא
-function QuickTagAdd({ contactId, existingTags, currentTags, onAdded }) {
+function QuickTagAdd({ contactId, existingTags, groups = null, currentTags, onAdded }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [isPending, startTransition] = useTransition();
 
-  const suggestions = existingTags
+  const flatExisting = groups ? groups.flatMap((g) => g.tags) : existingTags;
+  const suggestions = flatExisting
     .filter((t) => !currentTags.includes(t))
     .filter((t) => !query.trim() || t.toLowerCase().includes(query.trim().toLowerCase()))
     .slice(0, 8);
-  const exactMatch = existingTags.some((t) => t.toLowerCase() === query.trim().toLowerCase());
+  const groupedSuggestions = groups
+    ? groups
+        .map((g) => ({
+          department: g.department,
+          tags: g.tags.filter((t) => !currentTags.includes(t)).filter((t) => !query.trim() || t.toLowerCase().includes(query.trim().toLowerCase())),
+        }))
+        .filter((g) => g.tags.length > 0)
+    : null;
+  const exactMatch = flatExisting.some((t) => t.toLowerCase() === query.trim().toLowerCase());
 
   function handleAdd(tag) {
     const t = tag.trim();
@@ -233,10 +242,26 @@ function QuickTagAdd({ contactId, existingTags, currentTags, onAdded }) {
       />
       <div style={{
         position: 'absolute', top: '100%', insetInlineStart: 0, marginTop: 4, minWidth: 160,
-        border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', maxHeight: 160, overflowY: 'auto',
+        border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', maxHeight: 200, overflowY: 'auto',
         boxShadow: '0 6px 20px rgba(0,0,0,0.12)', zIndex: 60,
       }}>
-        {suggestions.map((t) => (
+        {groupedSuggestions ? groupedSuggestions.map((g) => (
+          <div key={g.department || '__general__'}>
+            <div style={{ padding: '5px 10px 3px', fontSize: 9.5, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase' }}>
+              {g.department || 'כלליות'}
+            </div>
+            {g.tags.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); handleAdd(t); }}
+                style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid #f0f0f0', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        )) : suggestions.map((t) => (
           <button
             key={t}
             type="button"

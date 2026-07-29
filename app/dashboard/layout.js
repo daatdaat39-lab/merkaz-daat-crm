@@ -5,6 +5,7 @@ import Topbar from './components/Topbar';
 import NewLeadToast from './components/NewLeadToast';
 import CelebrationHost from './components/CelebrationHost';
 import IdleLock from './components/IdleLock';
+import { groupTagsByDepartment } from './lib/tagGroups';
 
 export default async function DashboardLayout({ children, modal }) {
   const supabase = createClient();
@@ -71,10 +72,13 @@ export default async function DashboardLayout({ children, modal }) {
   // שהמשתמש חבר בהן, כמו במסך אנשי הקשר) והתגיות הקיימות במערכת
   const [{ data: allWorkspaces }, { data: tagRows }, { data: waRows }] = await Promise.all([
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
-    supabase.from('contacts').select('tags'),
+    supabase.from('contacts').select('tags, contact_departments (workspaces:workspace_id (name))'),
     supabase.from('sent_whatsapp').select('phone, direction').order('sent_at', { ascending: false }).limit(500),
   ]);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
+  const tagGroups = groupTagsByDepartment(
+    (tagRows || []).map((c) => ({ tags: c.tags, departments: (c.contact_departments || []).map((d) => ({ name: d.workspaces?.name })) }))
+  );
 
   // סופרים שיחות WhatsApp שההודעה האחרונה בהן (לכל מספר) הגיעה מהלקוח -
   // כלומר עדיין ממתינה לתגובה שלנו
@@ -138,6 +142,7 @@ export default async function DashboardLayout({ children, modal }) {
           workspaces={allWorkspaces || []}
           defaultWorkspaceId={currentWorkspaceId || ''}
           existingTags={existingTags}
+          tagGroups={tagGroups}
           pendingWhatsappReplies={pendingWhatsappReplies}
         />
         <div style={{ flex: 1, overflowY: 'auto' }}>

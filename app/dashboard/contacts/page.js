@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import AddContactForm from './AddContactForm';
 import ContactsBoard from './ContactsBoard';
 import { DownloadTemplateButton, ExportContactsButton, ImportContactsButton } from './ImportExportButtons';
+import { groupTagsByDepartment } from '../lib/tagGroups';
 
 export default async function ContactsPage() {
   const supabase = createClient();
@@ -29,6 +30,7 @@ export default async function ContactsPage() {
 
   const allTags = Array.from(new Set(allContacts.flatMap((c) => c.tags || []))).sort();
   const allDepartments = Array.from(new Set(allContacts.flatMap((c) => c.departments.map((d) => d.name)))).sort();
+  const tagGroups = groupTagsByDepartment(allContacts);
 
   return (
     <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>
@@ -43,13 +45,14 @@ export default async function ContactsPage() {
           <DownloadTemplateButton />
           <ImportContactsButton workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} />
           <ExportContactsButton contacts={allContacts} />
-          <AddContactForm workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} existingTags={allTags} />
+          <AddContactForm workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} existingTags={allTags} tagGroups={tagGroups} />
         </div>
       </div>
 
       <ContactsBoard
         contacts={allContacts}
         allTags={allTags}
+        tagGroups={tagGroups}
         allDepartments={allDepartments}
         sendConnections={sendConnections || []}
         whatsappTemplates={whatsappTemplates || []}

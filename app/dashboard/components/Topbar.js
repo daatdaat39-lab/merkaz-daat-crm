@@ -20,7 +20,7 @@ const TITLES = {
   '/dashboard/settings': 'הגדרות',
 };
 
-export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defaultWorkspaceId = '', existingTags = [], pendingWhatsappReplies = 0 }) {
+export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defaultWorkspaceId = '', existingTags = [], tagGroups = null, pendingWhatsappReplies = 0 }) {
   const pathname = usePathname();
   const router = useRouter();
   const title = pathname.startsWith('/dashboard/contacts/') ? 'איש קשר' : (TITLES[pathname] || 'מרכז דעת');
@@ -79,6 +79,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
           workspaces={workspaces}
           defaultWorkspaceId={defaultWorkspaceId}
           existingTags={existingTags}
+          tagGroups={tagGroups}
         />
       </div>
     </div>

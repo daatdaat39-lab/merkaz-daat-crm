@@ -10,7 +10,7 @@ const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding
 // רשימת אנשי קשר עם סינון/חיפוש/מיון בצד הלקוח - אותו דפוס בדיוק כמו
 // בעמוד הלידים (LeadsBoard.js), כדי שיהיה נוח לאתר איש קשר ספציפי גם
 // כשיש מאות רשומות, לא רק סינון לפי תגית כמו שהיה.
-export default function ContactsBoard({ contacts, allTags, allDepartments, sendConnections, whatsappTemplates, emailTemplates }) {
+export default function ContactsBoard({ contacts, allTags, tagGroups = null, allDepartments, sendConnections, whatsappTemplates, emailTemplates }) {
   const [search, setSearch] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
@@ -59,7 +59,11 @@ export default function ContactsBoard({ contacts, allTags, allDepartments, sendC
         </select>
         <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} style={inputStyle}>
           <option value="">כל התגיות</option>
-          {allTags.map((t) => <option key={t} value={t}>{t}</option>)}
+          {tagGroups ? tagGroups.map((g) => (
+            <optgroup key={g.department || '__general__'} label={g.department || 'כלליות'}>
+              {g.tags.map((t) => <option key={t} value={t}>{t}</option>)}
+            </optgroup>
+          )) : allTags.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inputStyle, marginInlineStart: 'auto' }}>
           <option value="created_desc">מיון: נוספו לאחרונה</option>

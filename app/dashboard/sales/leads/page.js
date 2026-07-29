@@ -5,6 +5,7 @@ import { getPipeline } from '../../components/pipelines';
 import { STAGE_LABELS } from '../../components/ui';
 import AddContactForm from '../../contacts/AddContactForm';
 import LeadsBoard from './LeadsBoard';
+import { groupTagsByDepartment } from '../../lib/tagGroups';
 
 const RECENT_INQUIRY_DAYS = 3;
 
@@ -93,12 +94,15 @@ export default async function SalesLeadsPage() {
 
   const [{ data: workspaces }, { data: tagRows }, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
-    supabase.from('contacts').select('tags'),
+    supabase.from('contacts').select('tags, contact_departments (workspaces:workspace_id (name))'),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
   ]);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
+  const tagGroups = groupTagsByDepartment(
+    (tagRows || []).map((c) => ({ tags: c.tags, departments: (c.contact_departments || []).map((d) => ({ name: d.workspaces?.name })) }))
+  );
 
   const overdueCount = leads.filter((l) => l.last_activity_at && (Date.now() - new Date(l.last_activity_at).getTime()) / 3600000 >= 24).length;
 
@@ -116,7 +120,7 @@ export default async function SalesLeadsPage() {
         </div>
         <AddContactForm
           label="+ צור ליד חדש" modalTitle="ליד חדש"
-          workspaces={workspaces || []} defaultWorkspaceId={workspaceId || ''} existingTags={existingTags}
+          workspaces={workspaces || []} defaultWorkspaceId={workspaceId || ''} existingTags={existingTags} tagGroups={tagGroups}
         />
       </div>
 

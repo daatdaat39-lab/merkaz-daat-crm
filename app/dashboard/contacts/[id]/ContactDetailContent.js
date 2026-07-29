@@ -4,6 +4,7 @@ import { redirect, notFound } from 'next/navigation';
 import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
 import { updateContactNotes } from '../actions';
 import { toggleTask } from '../../tasks/actions';
+import { groupTagsByDepartment } from '../../lib/tagGroups';
 import ContactDetailClient from './ContactDetailClient';
 
 // שולף את כל הנתונים בצד השרת ומעביר ל-ContactDetailClient (שם נמצא
@@ -40,7 +41,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
       .select('id, title, due_date, done, workspace_id')
       .eq('contact_id', contact.id)
       .order('created_at', { ascending: false }),
-    supabase.from('contacts').select('tags'),
+    supabase.from('contacts').select('tags, contact_departments (workspaces:workspace_id (name))'),
     supabase.from('workspace_members').select('workspace_id').eq('user_id', user.id),
     supabase
       .from('sent_emails')
@@ -110,6 +111,9 @@ export default async function ContactDetailContent({ contactId, isModal }) {
 
   const viewerWorkspaceIds = (viewerMemberships || []).map((m) => m.workspace_id);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
+  const tagGroups = groupTagsByDepartment(
+    (tagRows || []).map((c) => ({ tags: c.tags, departments: (c.contact_departments || []).map((d) => ({ name: d.workspaces?.name })) }))
+  );
   const age = calculateAge(contact.birth_date);
   const hebrewDate = calculateHebrewDate(contact.birth_date);
   const connections = emailConnections || [];
@@ -135,6 +139,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
       meetings={meetings || []}
       tasks={tasks || []}
       existingTags={existingTags}
+      tagGroups={tagGroups}
       age={age}
       hebrewDate={hebrewDate}
       isModal={isModal}

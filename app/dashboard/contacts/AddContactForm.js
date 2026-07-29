@@ -12,7 +12,7 @@ const FORM_FIELDS = ['first', 'last', 'idnum', 'phone', 'phone2', 'email', 'sour
 
 export default function AddContactForm({
   label = '+ איש קשר חדש', modalTitle = 'איש קשר חדש',
-  workspaces = [], defaultWorkspaceId = '', existingTags = [],
+  workspaces = [], defaultWorkspaceId = '', existingTags = [], tagGroups = null,
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -193,7 +193,7 @@ export default function AddContactForm({
                   )}
                   <div style={{ gridColumn: '1 / -1' }}>
                     <span style={labelStyle}>תגיות</span>
-                    <TagPicker existingTags={existingTags} />
+                    <TagPicker existingTags={existingTags} groups={tagGroups} />
                   </div>
                   <div style={{ gridColumn: '1 / -1', fontSize: 11.5, color: 'var(--text-secondary)' }}>
                     לפני היצירה נבדוק אם כבר קיים איש קשר דומה, ונשאל אותך אם זה אותו אדם.

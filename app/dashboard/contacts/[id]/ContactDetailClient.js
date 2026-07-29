@@ -20,7 +20,7 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 // להישלט משותף בין הלשוניות שמתחת לשם, שורת השלבים, וטאב "פעילות"
 // (היסטוריית הפניות שם תלויה במחלקה הפעילה) - state אחד משותף למעלה.
 export default function ContactDetailClient({
-  contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags,
+  contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups,
   age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById,
 }) {
@@ -218,6 +218,7 @@ export default function ContactDetailClient({
           <PersonalInfoCard
             contact={contact}
             existingTags={existingTags}
+            tagGroups={tagGroups}
             age={age}
             hebrewDate={hebrewDate}
             nextMeeting={nextMeeting}
