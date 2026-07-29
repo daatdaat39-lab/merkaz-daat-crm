@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { getPipeline } from '../../components/pipelines';
+import { getPipeline, getExtraFields } from '../../components/pipelines';
 import { STAGE_LABELS } from '../../components/ui';
 import AddContactForm from '../../contacts/AddContactForm';
 import LeadsBoard from './LeadsBoard';
@@ -23,6 +23,7 @@ export default async function SalesLeadsPage() {
   const workspaceId = profile?.current_workspace_id;
   const workspaceName = profile?.workspaces?.name;
   const pipeline = getPipeline(workspaceName);
+  const extraFields = getExtraFields(workspaceName);
 
   let leads = [];
   let agents = [];
@@ -31,7 +32,7 @@ export default async function SalesLeadsPage() {
   if (workspaceId) {
     const { data } = await supabase
       .from('contact_departments')
-      .select('id, stage, agent_id, last_activity_at, contacts:contact_id (id, first, last, phone, email, source, dept, tags, frozen), lead_inquiries (reason, created_at)')
+      .select('id, stage, agent_id, last_activity_at, extra_fields, contacts:contact_id (id, first, last, phone, email, source, dept, tags, frozen), lead_inquiries (reason, created_at)')
       .eq('workspace_id', workspaceId)
       .in('stage', pipeline.leadStages)
       .order('last_activity_at', { ascending: false });
@@ -42,6 +43,7 @@ export default async function SalesLeadsPage() {
         return {
           ...row.contacts,
           departmentRowId: row.id, stage: row.stage, agent_id: row.agent_id, last_activity_at: row.last_activity_at,
+          extra_fields: row.extra_fields || {},
           latestReason: inquiries[0]?.reason || null,
           inquiryCount: inquiries.length,
         };
@@ -153,7 +155,7 @@ export default async function SalesLeadsPage() {
         <LeadsBoard
           leads={leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName}
           stages={pipeline.order} sendConnections={sendConnections || []} whatsappTemplates={whatsappTemplates || []}
-          emailTemplates={emailTemplates || []}
+          emailTemplates={emailTemplates || []} extraFields={extraFields}
         />
       )}
     </div>

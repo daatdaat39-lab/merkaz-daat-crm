@@ -102,3 +102,26 @@ const DEFAULT_INQUIRY_REASONS = ['פנייה כללית', 'אחר'];
 export function getInquiryReasons(workspaceName) {
   return INQUIRY_REASONS[workspaceName] || DEFAULT_INQUIRY_REASONS;
 }
+
+// עמודות נוספות ייעודיות לכל מחלקה בטבלת הלידים - נשמרות ב-extra_fields
+// (jsonb) על שיוך המחלקה, כדי לא לדרוש מיגרציה חדשה בכל פעם שמוסיפים שדה.
+// אלה הצעות ברירת מחדל - ניתן להתאים/להוסיף/להסיר שדות בקלות כאן.
+export const EXTRA_FIELDS = {
+  'דעת למדני': [
+    { key: 'study_track', label: 'מסלול לימודים מבוקש', type: 'text' },
+    { key: 'initial_payment_stage', label: 'שלב תשלום ראשוני', type: 'select', options: ['טרם שולם', 'מקדמה שולמה', 'שולם במלואו'] },
+  ],
+  'דעת ותבונה': [
+    { key: 'study_track', label: 'מסלול לימודים מבוקש', type: 'text' },
+    { key: 'initial_payment_stage', label: 'שלב תשלום ראשוני', type: 'select', options: ['טרם שולם', 'מקדמה שולמה', 'שולם במלואו'] },
+  ],
+  'תרומות': [
+    { key: 'expected_donation_amount', label: 'סכום צפוי לתרומה', type: 'number' },
+    { key: 'donation_type', label: 'סוג תרומה', type: 'select', options: ['חד פעמית', 'חודשית', 'שנתית'] },
+    { key: 'donor_type', label: 'תורם חוזר או חדש', type: 'select', options: ['חדש', 'חוזר'] },
+  ],
+};
+
+export function getExtraFields(workspaceName) {
+  return EXTRA_FIELDS[workspaceName] || [];
+}

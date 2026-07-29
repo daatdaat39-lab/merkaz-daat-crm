@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { STAGE_LABELS, STAGE_COLORS, initials } from '../../components/ui';
 import { CLOSE_REASONS } from '../../components/pipelines';
-import { assignAgent, updateLeadStage } from '../../contacts/actions';
+import { assignAgent, updateLeadStage, updateDepartmentExtraField } from '../../contacts/actions';
 import ContactQuickActions from '../../components/ContactQuickActions';
 import { celebrate } from '../../components/celebrate';
 
@@ -19,10 +19,19 @@ function elapsedLabel(iso) {
   return `${days} ${days === 1 ? 'יום' : 'ימים'} מאז הטיפול האחרון`;
 }
 
-export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [], selected = false, onToggleSelect }) {
+export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [], selected = false, onToggleSelect, extraFields = [] }) {
   const [isPending, startTransition] = useTransition();
   const [closing, setClosing] = useState(false);
+  const [extraValues, setExtraValues] = useState(c.extra_fields || {});
   const router = useRouter();
+
+  function handleExtraFieldChange(key, value) {
+    setExtraValues((prev) => ({ ...prev, [key]: value }));
+    startTransition(async () => {
+      await updateDepartmentExtraField(c.departmentRowId, key, value);
+      router.refresh();
+    });
+  }
 
   const hours = c.last_activity_at ? (Date.now() - new Date(c.last_activity_at).getTime()) / 3600000 : 0;
   const overdue = hours >= 24;
@@ -113,6 +122,29 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
       </td>
+      {extraFields.map((f) => (
+        <td key={f.key} style={{ padding: '10px 16px', fontSize: 12.5 }}>
+          {f.type === 'select' ? (
+            <select
+              value={extraValues[f.key] || ''}
+              onChange={(e) => handleExtraFieldChange(f.key, e.target.value)}
+              disabled={isPending}
+              style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '4px 6px', fontSize: 12 }}
+            >
+              <option value="">—</option>
+              {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          ) : (
+            <input
+              type={f.type === 'number' ? 'number' : 'text'}
+              defaultValue={extraValues[f.key] || ''}
+              onBlur={(e) => { if (e.target.value !== (extraValues[f.key] || '')) handleExtraFieldChange(f.key, e.target.value); }}
+              disabled={isPending}
+              style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '4px 6px', fontSize: 12, width: 100 }}
+            />
+          )}
+        </td>
+      ))}
       <td style={{ padding: '10px 16px' }}>
         <ContactQuickActions
           contact={{ id: c.id, first: c.first, phone: c.phone, email: c.email, frozen: c.frozen, latestReason: c.latestReason }}

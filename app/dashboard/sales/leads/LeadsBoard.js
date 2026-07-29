@@ -11,7 +11,7 @@ const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding
 // לוח לידים עם סינון ומיון בצד הלקוח - הנתונים כבר נטענו מהשרת, אז
 // כל הסינון/מיון כאן מיידי בלי בקשות נוספות. הקיבוץ לפי תגית (תרומות/
 // לימודי/מנהלה) נשאר, אבל מחושב אחרי הסינון כדי שכל קבוצה תשקף אותו.
-export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sendConnections = [], whatsappTemplates = [], emailTemplates = [] }) {
+export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sendConnections = [], whatsappTemplates = [], emailTemplates = [], extraFields = [] }) {
   const [search, setSearch] = useState('');
   const [agentFilter, setAgentFilter] = useState('');
   const [stageFilter, setStageFilter] = useState('');
@@ -141,10 +141,10 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       <BulkActionBar selected={selected} setSelected={setSelected} agents={agents} workspaceId={workspaceId} router={router} />
 
       {categorized.map((group) => (
-        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} />
+        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} extraFields={extraFields} />
       ))}
 
-      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} />}
+      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} extraFields={extraFields} />}
 
       {filtered.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים התואמים את הסינון</div>
@@ -225,7 +225,7 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
   );
 }
 
-function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, sendConnections, whatsappTemplates, emailTemplates, selected, onToggleSelect, setSelected }) {
+function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, sendConnections, whatsappTemplates, emailTemplates, selected, onToggleSelect, setSelected, extraFields = [] }) {
   const allSelected = leads.length > 0 && leads.every((l) => selected.has(l.id));
 
   function toggleSelectAll() {
@@ -248,14 +248,18 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
             <th style={{ padding: '10px 8px', textAlign: 'center' }}>
               <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
             </th>
-            {['שם', 'סטטוס', 'טלפון', 'מייל', 'מקור', 'מהות הפנייה', 'טיפול אחרון', 'נציג מטפל', 'פעולות מהירות'].map((h) => (
+            {['שם', 'סטטוס', 'טלפון', 'מייל', 'מקור', 'מהות הפנייה', 'טיפול אחרון', 'נציג מטפל'].map((h) => (
               <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
             ))}
+            {extraFields.map((f) => (
+              <th key={f.key} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{f.label}</th>
+            ))}
+            <th style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>פעולות מהירות</th>
           </tr>
         </thead>
         <tbody>
           {leads.map((c) => (
-            <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} />
+            <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} extraFields={extraFields} />
           ))}
         </tbody>
       </table>

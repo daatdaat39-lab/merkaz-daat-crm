@@ -543,6 +543,22 @@ export async function assignAgent(contactId, workspaceId, agentId) {
   return { success: true };
 }
 
+// עדכון שדה נוסף ייעודי-מחלקה (extra_fields jsonb) על שיוך מחלקה - למשל
+// "מסלול לימודים מבוקש" או "סכום צפוי לתרומה" (ראו pipelines.js EXTRA_FIELDS)
+export async function updateDepartmentExtraField(departmentRowId, key, value) {
+  const { supabase } = await requireUser();
+
+  const { data: row } = await supabase.from('contact_departments').select('extra_fields, contact_id').eq('id', departmentRowId).single();
+  if (!row) return { error: 'שיוך מחלקה לא נמצא' };
+  const frozenError = await requireNotFrozen(supabase, row.contact_id);
+  if (frozenError) return frozenError;
+
+  const extra_fields = { ...(row.extra_fields || {}), [key]: value };
+  const { error } = await supabase.from('contact_departments').update({ extra_fields }).eq('id', departmentRowId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 // שליחת מייל לאיש קשר מהתיבה המחוברת של המחלקה הפעילה - נשלח בפועל
 // דרך Gmail API, ונרשם גם ב-sent_emails כדי שיוצג בטאב "פעילות"
 export async function sendContactEmail(contactId, workspaceId, subject, body) {
