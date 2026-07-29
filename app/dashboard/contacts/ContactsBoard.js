@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { StageBadge, Tag, initials } from '../components/ui';
 import ContactQuickActions from '../components/ContactQuickActions';
+import { addContactTag } from './actions';
 
 const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
 
@@ -15,6 +17,16 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
   const [tagFilter, setTagFilter] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [sortBy, setSortBy] = useState('created_desc');
+  const [selected, setSelected] = useState(() => new Set());
+  const router = useRouter();
+
+  function toggleSelect(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   const filtered = useMemo(() => {
     let result = contacts;
@@ -86,9 +98,26 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
         </div>
       )}
 
+      <BulkActionBar selected={selected} setSelected={setSelected} router={router} />
+
       <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
         <thead>
           <tr style={{ background: 'var(--bg-secondary)' }}>
+            <th style={{ padding: '10px 8px', textAlign: 'center' }}>
+              <input
+                type="checkbox"
+                checked={filtered.length > 0 && filtered.every((c) => selected.has(c.id))}
+                onChange={() => {
+                  setSelected((prev) => {
+                    const allSelected = filtered.length > 0 && filtered.every((c) => prev.has(c.id));
+                    const next = new Set(prev);
+                    if (allSelected) filtered.forEach((c) => next.delete(c.id));
+                    else filtered.forEach((c) => next.add(c.id));
+                    return next;
+                  });
+                }}
+              />
+            </th>
             {['שם', 'מחלקות', 'טלפון', 'מייל', 'תחום', 'מקור', 'תגיות', 'פעולות מהירות'].map((h) => (
               <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>
                 {h}
@@ -99,6 +128,9 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
         <tbody>
           {filtered.map((c) => (
             <tr key={c.id} style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
+              <td style={{ padding: '12px 8px', textAlign: 'center' }}>
+                <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} />
+              </td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
                 <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
                   <span style={{
@@ -141,10 +173,61 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
             </tr>
           ))}
           {filtered.length === 0 && (
-            <tr><td colSpan={8} style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>אין אנשי קשר התואמים את הסינון</td></tr>
+            <tr><td colSpan={9} style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>אין אנשי קשר התואמים את הסינון</td></tr>
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// סרגל פעולות קבוצתיות - כרגע רק הוספת תגית לכולם, כי אנשי קשר משותפים
+// לכל המחלקות ואין "נציג מטפל" יחיד שרלוונטי לבחור עבורם כאן (בניגוד
+// ללידים, ששייכים למחלקה אחת ברורה)
+function BulkActionBar({ selected, setSelected, router }) {
+  const [isPending, startTransition] = useTransition();
+  const [tag, setTag] = useState('');
+
+  if (selected.size === 0) return null;
+
+  function applyTag() {
+    const t = tag.trim();
+    if (!t) return;
+    const ids = Array.from(selected);
+    startTransition(async () => {
+      await Promise.all(ids.map((id) => addContactTag(id, t)));
+      setTag('');
+      setSelected(new Set());
+      router.refresh();
+    });
+  }
+
+  return (
+    <div style={{
+      display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 16,
+      background: '#eef2f7', border: '1px solid #c9d6e3', borderRadius: 8, padding: '10px 14px',
+    }}>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: '#3b5878' }}>נבחרו {selected.size} אנשי קשר</span>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <input
+          value={tag}
+          onChange={(e) => setTag(e.target.value)}
+          placeholder="הוספת תגית לכולם..."
+          style={{ ...inputStyle, fontSize: 12 }}
+        />
+        <button type="button" onClick={applyTag} disabled={isPending || !tag.trim()} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+          הוספה
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setSelected(new Set())}
+        style={{ background: 'none', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878', marginInlineStart: 'auto' }}
+      >
+        ביטול בחירה
+      </button>
     </div>
   );
 }

@@ -19,7 +19,7 @@ function elapsedLabel(iso) {
   return `${days} ${days === 1 ? 'יום' : 'ימים'} מאז הטיפול האחרון`;
 }
 
-export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [] }) {
+export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [], selected = false, onToggleSelect }) {
   const [isPending, startTransition] = useTransition();
   const [closing, setClosing] = useState(false);
   const router = useRouter();
@@ -55,6 +55,9 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
 
   return (
     <tr style={{ borderBottom: '1px solid var(--bg-tertiary)', background: overdue ? 'var(--danger-soft, #fdecea)' : 'transparent' }}>
+      <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+        <input type="checkbox" checked={selected} onChange={() => onToggleSelect?.(c.id)} />
+      </td>
       <td style={{ padding: '10px 16px', fontSize: 13 }}>
         <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
           <span style={{ width: 26, height: 26, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0 }}>

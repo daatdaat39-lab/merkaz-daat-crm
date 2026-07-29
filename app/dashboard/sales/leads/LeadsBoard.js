@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { DEPT_KEYWORDS, contactMatchesDept, STAGE_LABELS } from '../../components/ui';
+import { addContactTag, assignAgent } from '../../contacts/actions';
 import LeadRow from './LeadRow';
 
 const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
@@ -17,6 +19,16 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [overdueHours, setOverdueHours] = useState(24);
   const [sortBy, setSortBy] = useState('activity_desc');
+  const [selected, setSelected] = useState(() => new Set());
+  const router = useRouter();
+
+  function toggleSelect(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   const reasonOptions = useMemo(
     () => Array.from(new Set(leads.map((l) => l.latestReason).filter(Boolean))).sort(),
@@ -126,11 +138,13 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         </div>
       )}
 
+      <BulkActionBar selected={selected} setSelected={setSelected} agents={agents} workspaceId={workspaceId} router={router} />
+
       {categorized.map((group) => (
-        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} />
+        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} />
       ))}
 
-      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} />}
+      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} />}
 
       {filtered.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים התואמים את הסינון</div>
@@ -139,7 +153,90 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
   );
 }
 
-function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, sendConnections, whatsappTemplates, emailTemplates }) {
+// סרגל פעולות קבוצתיות - מופיע כשיש בחירה, עם הוספת תגית לכולם ושינוי
+// נציג מטפל לכולם בבת אחת (שתי הפעולות שכבר קיימות כבודדות, כאן על כמה
+// לידים יחד כדי לחסוך לחיצות כשמעבירים אחריות בין נציגים)
+function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
+  const [isPending, startTransition] = useTransition();
+  const [tag, setTag] = useState('');
+  const [bulkAgent, setBulkAgent] = useState('');
+
+  if (selected.size === 0) return null;
+
+  function applyTag() {
+    const t = tag.trim();
+    if (!t) return;
+    const ids = Array.from(selected);
+    startTransition(async () => {
+      await Promise.all(ids.map((id) => addContactTag(id, t)));
+      setTag('');
+      setSelected(new Set());
+      router.refresh();
+    });
+  }
+
+  function applyAgent() {
+    const ids = Array.from(selected);
+    startTransition(async () => {
+      await Promise.all(ids.map((id) => assignAgent(id, workspaceId, bulkAgent || null)));
+      setBulkAgent('');
+      setSelected(new Set());
+      router.refresh();
+    });
+  }
+
+  return (
+    <div style={{
+      display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 16,
+      background: '#eef2f7', border: '1px solid #c9d6e3', borderRadius: 8, padding: '10px 14px',
+    }}>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: '#3b5878' }}>נבחרו {selected.size} לידים</span>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <input
+          value={tag}
+          onChange={(e) => setTag(e.target.value)}
+          placeholder="הוספת תגית לכולם..."
+          style={{ ...inputStyle, fontSize: 12 }}
+        />
+        <button type="button" onClick={applyTag} disabled={isPending || !tag.trim()} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+          הוספה
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <select value={bulkAgent} onChange={(e) => setBulkAgent(e.target.value)} style={{ ...inputStyle, fontSize: 12 }}>
+          <option value="">ללא נציג</option>
+          {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+        <button type="button" onClick={applyAgent} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+          שינוי נציג לכולם
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setSelected(new Set())}
+        style={{ background: 'none', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878', marginInlineStart: 'auto' }}
+      >
+        ביטול בחירה
+      </button>
+    </div>
+  );
+}
+
+function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, sendConnections, whatsappTemplates, emailTemplates, selected, onToggleSelect, setSelected }) {
+  const allSelected = leads.length > 0 && leads.every((l) => selected.has(l.id));
+
+  function toggleSelectAll() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected) leads.forEach((l) => next.delete(l.id));
+      else leads.forEach((l) => next.add(l.id));
+      return next;
+    });
+  }
+
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
@@ -148,6 +245,9 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
       <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
         <thead>
           <tr style={{ background: 'var(--bg-secondary)' }}>
+            <th style={{ padding: '10px 8px', textAlign: 'center' }}>
+              <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
+            </th>
             {['שם', 'סטטוס', 'טלפון', 'מייל', 'מקור', 'מהות הפנייה', 'טיפול אחרון', 'נציג מטפל', 'פעולות מהירות'].map((h) => (
               <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
             ))}
@@ -155,7 +255,7 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
         </thead>
         <tbody>
           {leads.map((c) => (
-            <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} />
+            <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} />
           ))}
         </tbody>
       </table>
