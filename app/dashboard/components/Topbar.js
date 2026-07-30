@@ -15,6 +15,7 @@ const TITLES = {
   '/dashboard/sales': 'דשבורד מכירות',
   '/dashboard/sales/pipeline': 'תהליכים',
   '/dashboard/sales/leads': 'לידים',
+  '/dashboard/approvals': 'בקשות אישור',
   '/dashboard/chat': "צ'אט צוות",
   '/dashboard/whatsapp': 'וואטסאפ',
   '/dashboard/email': 'מייל',

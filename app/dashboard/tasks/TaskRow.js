@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toggleTask, updateTask } from './actions';
 import { celebrate } from '../components/celebrate';
+import ApprovalRequestButton from '../approvals/ApprovalRequestButton';
 
 const REMIND_OPTIONS = [
   { value: '', label: 'ללא תזכורת' },
@@ -19,7 +20,7 @@ function dueDateTime(t) {
   return new Date(`${t.due_date}T${t.due_time || '23:59'}`);
 }
 
-export default function TaskRow({ t, contacts, members = [] }) {
+export default function TaskRow({ t, contacts, members = [], currentUserId }) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
@@ -94,6 +95,11 @@ export default function TaskRow({ t, contacts, members = [] }) {
             {t.assignedName && <span>🎯 מוקצה ל: {t.assignedName}</span>}
             {t.createdName && <span>נוצר ע"י: {t.createdName}</span>}
           </div>
+          {currentUserId && (
+            <div style={{ marginTop: 6 }}>
+              <ApprovalRequestButton taskId={t.id} members={members} currentUserId={currentUserId} />
+            </div>
+          )}
         </div>
         <button
           onClick={() => setEditing((v) => !v)}

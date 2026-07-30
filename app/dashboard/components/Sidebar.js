@@ -13,6 +13,7 @@ const NAV_SECTIONS = [
       { href: '/dashboard/contacts', label: 'אנשי קשר', icon: '👥' },
       { href: '/dashboard/tasks', label: 'משימות', icon: '✅' },
       { href: '/dashboard/calendar', label: 'יומן', icon: '📅' },
+      { href: '/dashboard/approvals', label: 'בקשות אישור', icon: '🤝' },
     ],
   },
   {

@@ -109,7 +109,7 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
       {view === 'day' && (
         <DayList
           anchor={anchor} eventsByDate={eventsByDate}
-          contacts={contacts} members={members}
+          contacts={contacts} members={members} currentUserId={currentUserId}
           onAdd={() => setModalDate(toDateStr(anchor))}
         />
       )}
@@ -118,7 +118,7 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
         <details style={{ marginTop: 24 }}>
           <summary style={{ fontSize: 12, color: '#9b9b9b', cursor: 'pointer' }}>משימות ללא תאריך יעד ({undatedTasks.length})</summary>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-            {undatedTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} members={members} />)}
+            {undatedTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} members={members} currentUserId={currentUserId} />)}
           </div>
         </details>
       )}
@@ -252,7 +252,7 @@ function WeekGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventClick }) 
   );
 }
 
-function DayList({ anchor, eventsByDate, contacts, members, onAdd }) {
+function DayList({ anchor, eventsByDate, contacts, members, currentUserId, onAdd }) {
   const dateStr = toDateStr(anchor);
   const events = eventsByDate.get(dateStr) || [];
 
@@ -268,8 +268,8 @@ function DayList({ anchor, eventsByDate, contacts, members, onAdd }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {events.map((ev) => (
           ev.kind === 'meeting'
-            ? <MeetingRow key={`m-${ev.id}`} m={ev.raw} />
-            : <TaskRow key={`t-${ev.id}`} t={ev.raw} contacts={contacts} members={members} />
+            ? <MeetingRow key={`m-${ev.id}`} m={ev.raw} members={members} currentUserId={currentUserId} />
+            : <TaskRow key={`t-${ev.id}`} t={ev.raw} contacts={contacts} members={members} currentUserId={currentUserId} />
         ))}
       </div>
     </div>

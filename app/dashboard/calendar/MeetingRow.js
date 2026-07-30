@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { updateMeeting, deleteMeeting } from './actions';
+import ApprovalRequestButton from '../approvals/ApprovalRequestButton';
 
 function toIntlPhone(phone) {
   if (!phone) return null;
@@ -18,7 +19,7 @@ function meetingMessage(m) {
   return `שלום ${m.contacts?.first || ''}, נקבעה לך פגישה ב${dateStr} בשעה ${timeStr} (${m.type}${m.location ? `, ${m.location}` : ''}). מרכז דעת`;
 }
 
-export default function MeetingRow({ m, compact }) {
+export default function MeetingRow({ m, compact, members = [], currentUserId }) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
@@ -57,6 +58,11 @@ export default function MeetingRow({ m, compact }) {
           <div style={{ fontSize: 11, color: '#9b9b9b' }}>
             {m.type}{m.location ? ` · ${m.location}` : ''}
           </div>
+          {currentUserId && (
+            <div style={{ marginTop: 6 }}>
+              <ApprovalRequestButton meetingId={m.id} members={members} currentUserId={currentUserId} />
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {m.contacts?.email && (

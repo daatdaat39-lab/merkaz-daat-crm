@@ -97,7 +97,7 @@ export default async function TasksPage() {
         פתוחות ({openTasks.length}){overdueCount > 0 && <span style={{ color: 'var(--danger, #a3392f)' }}> · ⚠ {overdueCount} עברו את המועד</span>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-        {openTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} members={members} />)}
+        {openTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} members={members} currentUserId={user.id} />)}
         {openTasks.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין משימות פתוחות 🎉</div>}
       </div>
 
@@ -107,7 +107,7 @@ export default async function TasksPage() {
             הושלמו ({doneTasks.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {doneTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} />)}
+            {doneTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} members={members} currentUserId={user.id} />)}
           </div>
         </>
       )}
