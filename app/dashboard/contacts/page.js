@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import AddContactForm from './AddContactForm';
 import ContactsBoard from './ContactsBoard';
 import { DownloadTemplateButton, ExportContactsButton, ImportContactsButton } from './ImportExportButtons';
+import DepartmentImportWizard from './DepartmentImportWizard';
 import { groupTagsByDepartment } from '../lib/tagGroups';
 
 export default async function ContactsPage() {
@@ -44,6 +45,7 @@ export default async function ContactsPage() {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <DownloadTemplateButton />
           <ImportContactsButton workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} />
+          <DepartmentImportWizard workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} />
           <ExportContactsButton contacts={allContacts} />
           <AddContactForm workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} existingTags={allTags} tagGroups={tagGroups} />
         </div>

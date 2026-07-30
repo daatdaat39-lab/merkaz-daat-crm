@@ -4,8 +4,8 @@ import { createClient } from '../../../lib/supabase/server';
 import { createAdminClient } from '../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { getPipeline, STAGE_LABELS } from '../components/pipelines';
-import { findExistingMatch, upsertDepartmentMembership } from './leadIntakeCore';
-import { isManagerOfAnyDepartment, requireNotFrozen } from '../lib/contactGuards';
+import { findExistingMatch, upsertDepartmentMembership, bulkImportContactRows } from './leadIntakeCore';
+import { isManagerOfAnyDepartment, isManagerOfWorkspace, requireNotFrozen } from '../lib/contactGuards';
 import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/whatsapp';
@@ -436,6 +436,26 @@ export async function mergeContacts(keepId, duplicateId, resolvedFields) {
     await supabase.from('contacts').update({ tags: mergedTags }).eq('id', keepId);
   }
 
+  // מעביר גם היסטוריית מיילים ו-WhatsApp (יוצא+נכנס) שנשלחו/התקבלו אצל הכפול -
+  // אחרת ה-delete למטה היה מוחק אותם בפועל (contact_id ... on delete cascade
+  // בשתי הטבלאות, מיגרציות 0014/0016/0019) ואיבוד היסטוריית תקשורת אמיתית
+  const { error: emailsError } = await supabase
+    .from('sent_emails').update({ contact_id: keepId }).eq('contact_id', duplicateId);
+  if (emailsError) return { error: emailsError.message };
+  const { error: whatsappError } = await supabase
+    .from('sent_whatsapp').update({ contact_id: keepId }).eq('contact_id', duplicateId);
+  if (whatsappError) return { error: whatsappError.message };
+
+  // מצרף (לא דורס) הערות חופשיות - אלה לא בטבלת-בת נפרדת, אז בלי הצירוף
+  // הזה הן היו נעלמות לגמרי עם מחיקת הכפול למטה
+  const { data: dupNotes } = await supabase.from('contacts').select('notes').eq('id', duplicateId).single();
+  if (dupNotes?.notes?.trim()) {
+    const { data: keepNotes } = await supabase.from('contacts').select('notes').eq('id', keepId).single();
+    const dupName = dupContactForLog ? `${dupContactForLog.first} ${dupContactForLog.last}` : 'הכפול';
+    const combinedNotes = [keepNotes?.notes, `— הערות ממוזגות מ-${dupName}:\n${dupNotes.notes}`].filter(Boolean).join('\n\n');
+    await supabase.from('contacts').update({ notes: combinedNotes }).eq('id', keepId);
+  }
+
   const { error: deleteError } = await supabase.from('contacts').delete().eq('id', duplicateId);
   if (deleteError) return { error: deleteError.message };
 
@@ -496,6 +516,25 @@ export async function importContacts(rows, workspaceId) {
   }
 
   return { success: true, count: created + merged, created, merged };
+}
+
+// ייבוא בכמות מאשף הייבוא הדו-מחלקתי (DepartmentImportWizard) - מיועד
+// לקבצים ממערכות חיצוניות (כמו "קשר") שממופים לשדות המערכת מראש, עם
+// תיוג מקור+תקופה על כל הקובץ. בשונה מ-importContacts למעלה (שמאחדת רק
+// תגיות), כאן גם משלימים שדות ריקים אצל התאמה קיימת - ר' bulkImportContactRows
+// ב-leadIntakeCore.js. מותר רק לבעלים/מנהל של המחלקה הספציפית שנבחרה.
+export async function importDepartmentBatch(rows, workspaceId, sourceSystem, batchLabel) {
+  const { supabase, user } = await requireUser();
+  if (!workspaceId) return { error: 'לא נבחרה מחלקת יעד' };
+
+  const allowed = await isManagerOfWorkspace(supabase, user.id, workspaceId);
+  if (!allowed) return { error: 'רק בעלים/מנהל של המחלקה יכול לייבא אליה' };
+  if (!Array.isArray(rows) || rows.length === 0) return { error: 'לא נמצאו שורות לייבוא' };
+
+  const workspace = await resolveTargetWorkspace(supabase, user, workspaceId);
+  if (!workspace.id) return { error: 'מחלקת היעד לא נמצאה' };
+
+  return bulkImportContactRows(supabase, { rows, workspace, sourceSystem, batchLabel });
 }
 
 // יומן השינויים של איש קשר (הקפאה/הפשרה/מיזוג/הסרה ממחלקה/מחיקה) -

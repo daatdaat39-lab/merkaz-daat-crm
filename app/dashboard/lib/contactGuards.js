@@ -27,3 +27,17 @@ export async function requireNotFrozen(supabase, contactId) {
   if (contact?.frozen) return { error: 'איש הקשר מוקפא - לא ניתן לבצע שינויים עד להפשרה' };
   return null;
 }
+
+// true אם המשתמש הוא owner/admin במחלקה הנתונה עצמה - בשונה מ-
+// isManagerOfAnyDepartment למעלה, כאן אין contactId קונקרטי לבדוק מולו
+// (למשל בייבוא בכמות שמיועד למחלקה כולה, לא לאיש קשר ספציפי)
+export async function isManagerOfWorkspace(supabase, userId, workspaceId) {
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('workspace_id', workspaceId)
+    .in('role', ['owner', 'admin'])
+    .maybeSingle();
+  return !!membership;
+}
