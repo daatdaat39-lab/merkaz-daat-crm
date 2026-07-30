@@ -2,6 +2,19 @@
 
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { createZoomMeeting, isZoomConfigured } from '../../../lib/zoom/client';
+
+// יוצר קישור Zoom לפגישה מסוג "זום" אם החיבור מוגדר - בכשל לא מפיל את
+// שמירת הפגישה עצמה, רק משאיר את הקישור ריק (כמו כל אינטגרציה אחרת
+// שעדיין לא מחוברת במערכת)
+async function maybeCreateZoomLink(type, contactName, date, time) {
+  if (type !== 'זום' || !isZoomConfigured()) return null;
+  try {
+    return await createZoomMeeting({ topic: `פגישה עם ${contactName || ''}`.trim(), startDate: date, startTime: time });
+  } catch {
+    return null;
+  }
+}
 
 async function requireWorkspace() {
   const supabase = createClient();
@@ -19,6 +32,9 @@ export async function addMeeting(formData) {
   const type = formData.get('type') || 'פרונטלי';
   if (!workspaceId || !contactId || !date || !time) return;
 
+  const { data: contact } = await supabase.from('contacts').select('first, last').eq('id', contactId).single();
+  const zoomJoinUrl = await maybeCreateZoomLink(type, contact ? `${contact.first} ${contact.last}` : null, date, time);
+
   await supabase.from('meetings').insert({
     workspace_id: workspaceId,
     contact_id: contactId,
@@ -27,6 +43,7 @@ export async function addMeeting(formData) {
     type,
     location: formData.get('location') || null,
     agent_id: user.id,
+    zoom_join_url: zoomJoinUrl,
   });
   redirect('/dashboard/calendar');
 }
@@ -42,6 +59,13 @@ export async function updateMeeting(meetingId, formData) {
     notes: formData.get('notes') || null,
   };
   if (!update.meeting_date || !update.meeting_time) return { error: 'יש להזין תאריך ושעה' };
+
+  // אם הפגישה עברה לסוג "זום" ועדיין אין לה קישור - יוצרים אחד עכשיו
+  const { data: existing } = await supabase.from('meetings').select('type, zoom_join_url, contacts(first, last)').eq('id', meetingId).single();
+  if (update.type === 'זום' && !existing?.zoom_join_url) {
+    const name = existing?.contacts ? `${existing.contacts.first} ${existing.contacts.last}` : null;
+    update.zoom_join_url = await maybeCreateZoomLink(update.type, name, update.meeting_date, update.meeting_time);
+  }
 
   const { error } = await supabase.from('meetings').update(update).eq('id', meetingId);
   if (error) return { error: error.message };

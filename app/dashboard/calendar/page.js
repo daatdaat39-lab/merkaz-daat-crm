@@ -28,7 +28,7 @@ export default async function CalendarPage() {
     const [{ data: m }, { data: t }, { data: c }, { data: workspaceMembers }] = await Promise.all([
       supabase
         .from('meetings')
-        .select('id, title, meeting_date, meeting_time, type, location, notes, contacts(id, first, last, phone, email)')
+        .select('id, title, meeting_date, meeting_time, type, location, notes, zoom_join_url, contacts(id, first, last, phone, email)')
         .eq('workspace_id', workspaceId)
         .order('meeting_date', { ascending: true })
         .order('meeting_time', { ascending: true }),

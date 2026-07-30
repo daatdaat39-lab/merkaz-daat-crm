@@ -58,6 +58,13 @@ export default function MeetingRow({ m, compact, members = [], currentUserId }) 
           <div style={{ fontSize: 11, color: '#9b9b9b' }}>
             {m.type}{m.location ? ` · ${m.location}` : ''}
           </div>
+          {m.type === 'זום' && (
+            m.zoom_join_url ? (
+              <a href={m.zoom_join_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#2563eb' }}>🔗 קישור Zoom</a>
+            ) : (
+              <div style={{ fontSize: 11, color: '#c0a060' }}>Zoom לא מחובר</div>
+            )
+          )}
           {currentUserId && (
             <div style={{ marginTop: 6 }}>
               <ApprovalRequestButton meetingId={m.id} members={members} currentUserId={currentUserId} />

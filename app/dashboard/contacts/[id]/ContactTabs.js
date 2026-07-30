@@ -136,6 +136,9 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                   {new Date(m.meeting_date).toLocaleDateString('he-IL')} · {m.meeting_time?.slice(0, 5)} · {m.type}
                   {m.location ? ` · ${m.location}` : ''}
                 </div>
+                {m.type === 'זום' && m.zoom_join_url && (
+                  <a href={m.zoom_join_url} target="_blank" rel="noreferrer" style={{ display: 'block', fontSize: 11.5, color: '#2563eb', marginTop: 4 }}>🔗 קישור Zoom</a>
+                )}
                 {m.notes && <div style={{ fontSize: 12.5, marginTop: 6, color: '#333' }}>{m.notes}</div>}
               </div>
             )}

@@ -33,7 +33,7 @@ export default async function ContactDetailContent({ contactId, isModal }) {
     supabase.from('workspaces').select('id, name').order('name'),
     supabase
       .from('meetings')
-      .select('id, title, meeting_date, meeting_time, type, location, notes, workspace_id')
+      .select('id, title, meeting_date, meeting_time, type, location, notes, workspace_id, zoom_join_url')
       .eq('contact_id', contact.id)
       .order('meeting_date', { ascending: false }),
     supabase
