@@ -26,6 +26,7 @@ const NAV_SECTIONS = [
   {
     label: 'תקשורת',
     items: [
+      { href: '/dashboard/chat', label: "צ'אט צוות", icon: '🗨️' },
       { href: '/dashboard/whatsapp', label: 'וואטסאפ', icon: '💬' },
       { href: '/dashboard/email', label: 'מייל', icon: '✉️' },
       { href: '/dashboard/calls', label: 'שיחות', icon: '📞' },
