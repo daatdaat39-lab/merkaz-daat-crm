@@ -25,7 +25,10 @@ export default function ContactModalShell({ children }) {
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 200,
+        // z-index גבוה בכוונה, מעל כל חלון צף (ר' FloatingWindowsHost.js) -
+        // רק מודל אחד יכול להיות פתוח בו-זמנית (ניתוב של Next), אז זה בטוח
+        // שהוא תמיד יישאר נגיש ולא ייחסם ע"י חלון צף שכבר תופס את אותו אזור.
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 2000,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
       }}
       onClick={handleClose}

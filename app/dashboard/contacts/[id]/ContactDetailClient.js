@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { getPipeline, getInquiryReasons } from '../../components/pipelines';
 import { updateDepartmentStage, addDepartmentMembership } from '../actions';
+import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
 import StageStepper from './StageStepper';
 import PersonalInfoCard from './PersonalInfoCard';
 import ContactSettingsMenu from './ContactSettingsMenu';
@@ -14,6 +15,7 @@ import WhatsAppSendModal from './WhatsAppSendModal';
 import NotConnectedButton from '../../components/NotConnectedButton';
 import AiSummaryButton from './AiSummaryButton';
 import { celebrate } from '../../components/celebrate';
+import { useFloatingWindows } from '../../components/FloatingWindows';
 
 const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
 
@@ -22,11 +24,24 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 // (היסטוריית הפניות שם תלויה במחלקה הפעילה) - state אחד משותף למעלה.
 export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups,
-  age, hebrewDate, isModal, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
+  isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { openWindow } = useFloatingWindows();
+  const age = calculateAge(contact.birth_date);
+  const hebrewDate = calculateHebrewDate(contact.birth_date);
+
+  function handlePopOut() {
+    openWindow({
+      id: `contact-${contact.id}`,
+      kind: 'contact',
+      title: `${contact.first} ${contact.last}`,
+      props: { contactId: contact.id },
+    });
+    if (isModal) router.back();
+  }
   const [adding, setAdding] = useState(false);
   const [newWorkspaceId, setNewWorkspaceId] = useState('');
   const [newReason, setNewReason] = useState('');
@@ -118,6 +133,19 @@ export default function ContactDetailClient({
             )}
           </div>
         </div>
+        {!isFloating && (
+          <button
+            type="button"
+            onClick={handlePopOut}
+            title="פתיחה כחלון צף (אפשר להמשיך לעבוד במקום אחר ולפתוח אנשי קשר נוספים)"
+            style={{
+              width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, cursor: 'pointer', fontSize: 14, flexShrink: 0,
+            }}
+          >
+            🗗
+          </button>
+        )}
         <ContactSettingsMenu contact={contact} activeDepartment={active} />
       </div>
 

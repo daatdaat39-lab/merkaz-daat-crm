@@ -5,6 +5,8 @@ import Topbar from './components/Topbar';
 import NewLeadToast from './components/NewLeadToast';
 import CelebrationHost from './components/CelebrationHost';
 import IdleLock from './components/IdleLock';
+import { FloatingWindowsProvider } from './components/FloatingWindows';
+import FloatingWindowsHost from './components/FloatingWindowsHost';
 import { groupTagsByDepartment } from './lib/tagGroups';
 
 export default async function DashboardLayout({ children, modal }) {
@@ -127,6 +129,7 @@ export default async function DashboardLayout({ children, modal }) {
   }
 
   return (
+    <FloatingWindowsProvider>
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar
         profile={profile}
@@ -165,6 +168,8 @@ export default async function DashboardLayout({ children, modal }) {
       <NewLeadToast workspaceId={currentWorkspaceId} />
       <CelebrationHost />
       <IdleLock userEmail={user.email} />
+      <FloatingWindowsHost />
     </div>
+    </FloatingWindowsProvider>
   );
 }
