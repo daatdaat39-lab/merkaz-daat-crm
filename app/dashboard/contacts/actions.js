@@ -85,24 +85,34 @@ export async function listAllTags() {
 // רק התאמה מדויקת) כדי שהוא יאשר בעצמו אם זה אותו אדם, במקום מיזוג שקט
 export async function checkPossibleDuplicates({ first, last, phone, email, idnum }) {
   const { supabase } = await requireUser();
-  const clauses = [];
-  if (idnum) clauses.push(`idnum.eq.${idnum}`);
-  if (phone) clauses.push(`phone.eq.${phone}`);
-  if (email) clauses.push(`email.eq.${email}`);
+  const selectCols = 'id, first, last, idnum, phone, phone2, email, source, dept, tags, contact_departments (stage, workspaces:workspace_id (name))';
+
+  // שאילתות נפרדות ומפורמטות במקום .or() בנוי ממחרוזת - .or() מפרש
+  // פסיקים/סוגריים בערך כתחביר, לא כתווים מילוליים, ולא בטוח כשהערך
+  // מגיע מקלט חופשי
+  const queries = [];
+  if (idnum) queries.push(supabase.from('contacts').select(selectCols).eq('idnum', idnum).limit(5));
+  if (phone) queries.push(supabase.from('contacts').select(selectCols).eq('phone', phone).limit(5));
+  if (email) queries.push(supabase.from('contacts').select(selectCols).eq('email', email).limit(5));
   if (first && first.trim().length >= 2) {
     const f = first.trim();
     const l = (last || '').trim();
-    clauses.push(l ? `and(first.ilike.%${f}%,last.ilike.%${l}%)` : `first.ilike.%${f}%`);
+    let nameQuery = supabase.from('contacts').select(selectCols).ilike('first', `%${f}%`);
+    if (l) nameQuery = nameQuery.ilike('last', `%${l}%`);
+    queries.push(nameQuery.limit(5));
   }
-  if (clauses.length === 0) return [];
+  if (queries.length === 0) return [];
 
-  const { data } = await supabase
-    .from('contacts')
-    .select('id, first, last, idnum, phone, phone2, email, source, dept, tags, contact_departments (stage, workspaces:workspace_id (name))')
-    .or(clauses.join(','))
-    .limit(5);
+  const results = await Promise.all(queries);
+  const byId = new Map();
+  for (const { data } of results) {
+    for (const row of data || []) {
+      if (!byId.has(row.id)) byId.set(row.id, row);
+    }
+  }
+  const data = Array.from(byId.values()).slice(0, 5);
 
-  return (data || []).map((c) => ({
+  return data.map((c) => ({
     id: c.id, first: c.first, last: c.last, idnum: c.idnum, phone: c.phone, phone2: c.phone2,
     email: c.email, source: c.source, dept: c.dept, tags: c.tags || [],
     departments: (c.contact_departments || [])
@@ -518,14 +528,23 @@ export async function searchContacts(query, excludeId) {
   const { supabase } = await requireUser();
   if (!query || query.trim().length < 2) return [];
 
-  const { data } = await supabase
-    .from('contacts')
-    .select('id, first, last, phone, phone2, email, email2, idnum, source, dept, tags')
-    .neq('id', excludeId)
-    .or(`first.ilike.%${query}%,last.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
-    .limit(8);
+  const selectCols = 'id, first, last, phone, phone2, email, email2, idnum, source, dept, tags';
+  const like = `%${query}%`;
+  // שאילתות נפרדות ומפורמטות במקום .or() בנוי ממחרוזת - ר' הערה ב-checkPossibleDuplicates לעיל
+  const results = await Promise.all([
+    supabase.from('contacts').select(selectCols).neq('id', excludeId).ilike('first', like).limit(8),
+    supabase.from('contacts').select(selectCols).neq('id', excludeId).ilike('last', like).limit(8),
+    supabase.from('contacts').select(selectCols).neq('id', excludeId).ilike('phone', like).limit(8),
+    supabase.from('contacts').select(selectCols).neq('id', excludeId).ilike('email', like).limit(8),
+  ]);
 
-  return data || [];
+  const byId = new Map();
+  for (const { data } of results) {
+    for (const row of data || []) {
+      if (!byId.has(row.id)) byId.set(row.id, row);
+    }
+  }
+  return Array.from(byId.values()).slice(0, 8);
 }
 
 // קביעת נציג מטפל בליד במחלקה ספציפית (לתצוגה בלבד - לא נועל את הליד)

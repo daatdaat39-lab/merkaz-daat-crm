@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '../../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../../lib/supabase/admin';
 
 // מקבל את התשובה מ-Google אחרי שהמשתמש אישר גישה, מחליף את הקוד
 // הזמני ב-refresh_token קבוע, ושומר את החיבור למחלקה שהתבקשה
-// (workspace_id הגיע דרך פרמטר ה-state ששלחנו ב-/start)
+// (workspace_id הגיע דרך פרמטר ה-state ששלחנו ב-/start). בודקים שוב
+// כאן session+תפקיד - לא סומכים רק על ה-state שחוזר מגוגל, כי הוא
+// עובר דרך הדפדפן של מי שמאשר ולא מאומת מולנו בשום שלב אחר.
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
@@ -18,6 +21,23 @@ export async function GET(request) {
   }
   const [workspaceId, purposeRaw] = state.split(':');
   const purpose = purposeRaw === 'send' ? 'send' : 'intake';
+
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('workspace_id', workspaceId)
+    .in('role', ['owner', 'admin'])
+    .maybeSingle();
+  if (!membership) {
+    return NextResponse.json({ error: 'רק בעלים/מנהל של המחלקה יכול לחבר תיבת מייל' }, { status: 403 });
+  }
 
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -44,8 +64,8 @@ export async function GET(request) {
     return NextResponse.json({ error: 'לא ניתן היה לזהות את כתובת המייל' }, { status: 500 });
   }
 
-  const supabase = createAdminClient();
-  const { error: dbError } = await supabase
+  const admin = createAdminClient();
+  const { error: dbError } = await admin
     .from('email_connections')
     .upsert(
       { workspace_id: workspaceId, purpose, email_address: emailAddress, refresh_token: tokenData.refresh_token },

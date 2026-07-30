@@ -5,21 +5,24 @@
 // server' כדי שיהיה ניתן לייבוא גם מ-Route Handler.
 import { getPipeline } from '../components/pipelines';
 
-// מחפש איש קשר קיים לפי ת"ז/טלפון/מייל (זיהוי כפילויות לפי האפיון)
+// מחפש איש קשר קיים לפי ת"ז/טלפון/מייל (זיהוי כפילויות לפי האפיון) -
+// שאילתות נפרדות ומפורמטות במקום .or() בנוי ממחרוזת, כי הערכים האלה
+// עשויים להגיע מתוכן חיצוני לא-מהימן (מייל נכנס) ו-PostgREST מפרש
+// פסיקים/סוגריים במחרוזת .or() כתחביר, לא כתווים מילוליים.
 export async function findExistingMatch(supabase, { idnum, phone, email }) {
-  const clauses = [];
-  if (idnum) clauses.push(`idnum.eq.${idnum}`);
-  if (phone) clauses.push(`phone.eq.${phone}`);
-  if (email) clauses.push(`email.eq.${email}`);
-  if (clauses.length === 0) return null;
+  const filters = [];
+  if (idnum) filters.push(['idnum', idnum]);
+  if (phone) filters.push(['phone', phone]);
+  if (email) filters.push(['email', email]);
+  if (filters.length === 0) return null;
 
-  const { data } = await supabase
-    .from('contacts')
-    .select('id, tags')
-    .or(clauses.join(','))
-    .limit(1);
-
-  return data?.[0] || null;
+  const results = await Promise.all(
+    filters.map(([column, value]) => supabase.from('contacts').select('id, tags').eq(column, value).limit(1))
+  );
+  for (const { data } of results) {
+    if (data?.[0]) return data[0];
+  }
+  return null;
 }
 
 // מוסיף איש קשר למחלקה נתונה (contact_departments) בלי לגעת בשיוך שלו

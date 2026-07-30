@@ -14,12 +14,15 @@ export async function globalSearch(query) {
   if (!user) return { contacts: [], tasks: [] };
 
   const like = `%${q}%`;
-  const [{ data: contacts }, { data: tasks }] = await Promise.all([
-    supabase
-      .from('contacts')
-      .select('id, first, last, phone, email, contact_departments (stage, workspaces:workspace_id (name))')
-      .or(`first.ilike.${like},last.ilike.${like},phone.ilike.${like},email.ilike.${like}`)
-      .limit(8),
+  const contactSelect = 'id, first, last, phone, email, contact_departments (stage, workspaces:workspace_id (name))';
+  // שאילתות נפרדות ומפורמטות במקום .or() בנוי ממחרוזת - ר' הערה ב-checkPossibleDuplicates ב-contacts/actions.js
+  const [contactResults, { data: tasks }] = await Promise.all([
+    Promise.all([
+      supabase.from('contacts').select(contactSelect).ilike('first', like).limit(8),
+      supabase.from('contacts').select(contactSelect).ilike('last', like).limit(8),
+      supabase.from('contacts').select(contactSelect).ilike('phone', like).limit(8),
+      supabase.from('contacts').select(contactSelect).ilike('email', like).limit(8),
+    ]),
     supabase
       .from('tasks')
       .select('id, title, due_date, done, contact_id, contacts:contact_id (first, last)')
@@ -27,8 +30,16 @@ export async function globalSearch(query) {
       .limit(8),
   ]);
 
+  const contactsById = new Map();
+  for (const { data } of contactResults) {
+    for (const row of data || []) {
+      if (!contactsById.has(row.id)) contactsById.set(row.id, row);
+    }
+  }
+  const contacts = Array.from(contactsById.values()).slice(0, 8);
+
   return {
-    contacts: (contacts || []).map((c) => ({
+    contacts: contacts.map((c) => ({
       id: c.id,
       name: `${c.first} ${c.last}`,
       phone: c.phone,

@@ -9,8 +9,12 @@ import { resolveSourceFromLink } from '../../../dashboard/components/sourceLinks
 // מחליף את ה-Zap. מופעל על ידי Vercel Cron (ראו vercel.json), שמוסיף
 // אוטומטית Authorization: Bearer <CRON_SECRET>.
 export async function GET(request) {
+  const configuredSecret = process.env.CRON_SECRET;
+  if (!configuredSecret) {
+    return NextResponse.json({ error: 'CRON_SECRET לא מוגדר בשרת' }, { status: 500 });
+  }
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${configuredSecret}`) {
     return NextResponse.json({ error: 'אין הרשאה' }, { status: 401 });
   }
 
