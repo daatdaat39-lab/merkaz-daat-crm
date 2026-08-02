@@ -24,7 +24,7 @@ export async function loadContactCardData(contactId) {
   const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
     supabase
       .from('contact_departments')
-      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
+      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
       .eq('contact_id', contact.id),
     supabase.from('workspaces').select('id, name').order('name'),
     supabase
@@ -88,6 +88,7 @@ export async function loadContactCardData(contactId) {
     agentId: row.agent_id,
     agentName: agentNameById[row.agent_id] || null,
     lastActivityAt: row.last_activity_at,
+    extraFields: row.extra_fields || {},
     inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
   }));
 

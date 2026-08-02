@@ -6,6 +6,7 @@ import { getPipeline, getInquiryReasons } from '../../components/pipelines';
 import { updateDepartmentStage, addDepartmentMembership } from '../actions';
 import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
 import StageStepper from './StageStepper';
+import DonorStatsTile from './DonorStatsTile';
 import PersonalInfoCard from './PersonalInfoCard';
 import ContactSettingsMenu from './ContactSettingsMenu';
 import AvatarUpload from './AvatarUpload';
@@ -168,6 +169,10 @@ export default function ContactDetailClient({
             ביטול
           </button>
         </div>
+      )}
+
+      {active?.workspaceName === 'תרומות' && (
+        <DonorStatsTile department={active} frozen={contact.frozen} />
       )}
 
       {/* שורת שלבי המחלקה הפעילה */}
