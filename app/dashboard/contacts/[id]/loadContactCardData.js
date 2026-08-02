@@ -21,7 +21,7 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -52,6 +52,11 @@ export async function loadContactCardData(contactId) {
       .order('sent_at', { ascending: false }),
     supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
+    supabase
+      .from('donation_transactions')
+      .select('id, workspace_id, source_system, amount, transaction_date')
+      .eq('contact_id', contact.id)
+      .order('transaction_date', { ascending: false }),
   ]);
 
   const admin = createAdminClient();
@@ -137,6 +142,7 @@ export async function loadContactCardData(contactId) {
       agentsByWorkspace,
       allInquiries,
       workspaceNameById,
+      donationTransactions: donationTransactionRows || [],
     },
   };
 }

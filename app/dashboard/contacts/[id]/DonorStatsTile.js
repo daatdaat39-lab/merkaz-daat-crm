@@ -30,13 +30,21 @@ function daysUntil(dateStr) {
   return Math.round((new Date(dateStr).getTime() - Date.now()) / 86400000);
 }
 
-export default function DonorStatsTile({ department, frozen }) {
+export default function DonorStatsTile({ department, frozen, transactions = [] }) {
   const [isPending, startTransition] = useTransition();
   const [extraValues, setExtraValues] = useState(department.extraFields || {});
   const router = useRouter();
 
+  const deptTransactions = transactions.filter((t) => t.workspace_id === department.workspaceId);
+  const transactionsTotal = deptTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const earliestTransactionDate = deptTransactions.length
+    ? deptTransactions.reduce((min, t) => (t.transaction_date < min ? t.transaction_date : min), deptTransactions[0].transaction_date)
+    : null;
+
   const order = getPipeline('תרומות').order;
-  const hasDonatedBefore = order.indexOf(department.stage) >= order.indexOf('donated');
+  // "תרם בעבר" - גם מהשלב בתהליך, וגם (עכשיו) מהיסטוריית תנועות אמיתיות
+  // שיובאה ממקורות חיצוניים - שני סימנים בלתי-תלויים, כל אחד מספיק
+  const hasDonatedBefore = order.indexOf(department.stage) >= order.indexOf('donated') || deptTransactions.length > 0;
   const isStandingOrder = (extraValues.donation_type || '') === 'הוראת קבע';
   const isOneTime = (extraValues.donation_type || '') === 'חד פעמי';
   const referenceDate = isStandingOrder ? extraValues.standing_order_start_date : extraValues.donation_date;
@@ -68,6 +76,20 @@ export default function DonorStatsTile({ department, frozen }) {
           <div style={{ fontSize: 11, color: '#166534', marginTop: 2 }}>{elapsed}</div>
         )}
       </div>
+
+      {deptTransactions.length > 0 && (
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ fontSize: 10.5, fontWeight: 600, color: '#15803d', textTransform: 'uppercase', marginBottom: 4 }}>היסטוריית תרומות</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>
+            ₪{transactionsTotal.toLocaleString('he-IL')} מ-{deptTransactions.length} {deptTransactions.length === 1 ? 'תרומה' : 'תרומות'}
+          </div>
+          {earliestTransactionDate && (
+            <div style={{ fontSize: 11, color: '#166534', marginTop: 2 }}>
+              מאז {new Date(earliestTransactionDate).toLocaleDateString('he-IL')}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <label style={tileLabel()}>סוג תרומה</label>

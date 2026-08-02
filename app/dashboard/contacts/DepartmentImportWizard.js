@@ -25,6 +25,15 @@ const BASE_FIELDS = [
   { key: 'tags', label: 'תגיות (מופרדות בפסיק)' },
 ];
 
+// שדות תנועה (לא תמונת מצב) - כשממופים amount+date, כל שורה הופכת
+// לרשומה נפרדת בהיסטוריית התרומות (donation_transactions), לא רק
+// עדכון "סכום נוכחי" בכרטיס. מוצג רק למחלקת תרומות - ר' bulkImportContactRows.
+const TXN_FIELDS = [
+  { key: 'txn:amount', label: 'סכום תרומה (תנועה בודדת)' },
+  { key: 'txn:date', label: 'תאריך תרומה (תנועה בודדת)' },
+  { key: 'txn:docNumber', label: 'מספר מסמך/תנועה' },
+];
+
 function mappingStorageKey(systemName) {
   return `crm-import-mapping::${systemName.trim().toLowerCase()}`;
 }
@@ -99,15 +108,19 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
     }
 
     const rows = dataRows.map((cells) => {
-      const row = { extraFields: {} };
+      const row = { extraFields: {}, donationTransaction: {} };
       headers.forEach((h, idx) => {
         const target = mapping[h];
         if (!target || target === 'ignore') return;
         const value = String(cells[idx] ?? '').trim();
         if (!value) return;
         if (target.startsWith('extra:')) row.extraFields[target.slice(6)] = value;
+        else if (target === 'txn:amount') row.donationTransaction.amount = value;
+        else if (target === 'txn:date') row.donationTransaction.date = value;
+        else if (target === 'txn:docNumber') row.donationTransaction.docNumber = value;
         else row[target] = value;
       });
+      if (!row.donationTransaction.amount || !row.donationTransaction.date) delete row.donationTransaction;
       return row;
     });
 
@@ -155,6 +168,11 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
             <input type="text" value={systemName} onChange={(e) => applySystemName(e.target.value)} placeholder="קשר" style={input()} />
             <label style={label()}>תקופה/תאריך לתיוג (למשל: מרץ 2026)</label>
             <input type="text" value={batchLabel} onChange={(e) => setBatchLabel(e.target.value)} placeholder="מרץ 2026" style={input()} />
+            {workspace?.name === 'תרומות' && (
+              <div style={note()}>
+                💡 יש לכם גם דוח מפורט (כל תרומה בשורה נפרדת) וגם דוח מסכם לאותה תקופה? ייבאו קודם את המפורט, ורק אחר כך את המסכם — כך נמנעת ספירה כפולה של אותה תרומה.
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 18 }}>
               <button type="button" onClick={() => setStep('upload')} style={ghostBtn()}>חזרה</button>
               <button type="button" onClick={() => setStep('map')} disabled={!workspaceId} style={primaryBtn()}>המשך למיפוי עמודות</button>
@@ -178,6 +196,11 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                         {extraFields.map((f) => <option key={f.key} value={`extra:${f.key}`}>{f.label}</option>)}
                       </optgroup>
                     )}
+                    {workspace?.name === 'תרומות' && (
+                      <optgroup label="פרטי תנועה (להיסטוריה מלאה)">
+                        {TXN_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
               ))}
@@ -198,6 +221,12 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
             <ul style={{ fontSize: 13.5, lineHeight: 1.8 }}>
               <li>{result.created} אנשי קשר חדשים נוצרו</li>
               <li>{result.enriched} אנשי קשר קיימים הועשרו (שדות ריקים הושלמו, נוספה רשומת פנייה חדשה להיסטוריה)</li>
+              {(result.transactionsAdded > 0 || result.transactionsSkipped > 0) && (
+                <li>
+                  {result.transactionsAdded} תנועות תרומה נוספו להיסטוריה
+                  {result.transactionsSkipped > 0 && ` (${result.transactionsSkipped} דולגו — כבר קיימות מייבוא קודם)`}
+                </li>
+              )}
             </ul>
             <button type="button" onClick={resetAll} style={primaryBtn()}>סגירה</button>
           </div>
@@ -239,6 +268,13 @@ function dialog() {
 
 function hint() {
   return { fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 };
+}
+
+function note() {
+  return {
+    fontSize: 12.5, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a',
+    borderRadius: 6, padding: '8px 10px', marginTop: 10,
+  };
 }
 
 function label() {

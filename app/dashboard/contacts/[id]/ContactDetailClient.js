@@ -26,7 +26,7 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups,
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
-  nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById,
+  nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -172,7 +172,7 @@ export default function ContactDetailClient({
       )}
 
       {active?.workspaceName === 'תרומות' && (
-        <DonorStatsTile department={active} frozen={contact.frozen} />
+        <DonorStatsTile department={active} frozen={contact.frozen} transactions={donationTransactions || []} />
       )}
 
       {/* שורת שלבי המחלקה הפעילה */}
@@ -279,6 +279,7 @@ export default function ContactDetailClient({
             inquiries={allInquiries || []}
             sentEmails={sentEmails || []}
             sentWhatsapp={sentWhatsapp || []}
+            donationTransactions={donationTransactions || []}
             workspaceNameById={workspaceNameById || {}}
             agents={active ? (agentsByWorkspace?.[active.workspaceId] || []) : []}
           />

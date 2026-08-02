@@ -80,6 +80,33 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
 // לעולם לא לדרוס ערך שכבר קיים) בייבוא בכמות ממערכות חיצוניות
 const FILLABLE_CONTACT_FIELDS = ['phone', 'phone2', 'email', 'email2', 'idnum', 'birth_date', 'gender'];
 
+// מוסיף תנועת תרומה בודדת להיסטוריה (donation_transactions, מיגרציה
+// 0031) - לא "תמונת מצב" יחידה אלא רשומה מצטברת, כדי שאפשר יהיה לשמור
+// היסטוריה מלאה מכמה מקורות (מערכות הנהלת חשבונות שונות + בעתיד קשר
+// חי). דדופ אמיתי לפי מספר מסמך (external_doc_number, אינדקס ייחודי) -
+// אותה תנועה שמופיעה בשני קבצים/ייבואים לא נוצרת פעמיים. שורה בלי
+// amount/date תקינים פשוט מדולגת (לא שגיאה) - השדה כולו אופציונלי.
+async function insertDonationTransaction(supabase, contactId, workspaceId, sourceSystem, donationTransaction) {
+  if (!donationTransaction) return null;
+  const amount = Number(donationTransaction.amount);
+  const date = (donationTransaction.date || '').toString().trim();
+  if (!amount || !date) return null;
+
+  const { data, error } = await supabase
+    .from('donation_transactions')
+    .upsert({
+      contact_id: contactId,
+      workspace_id: workspaceId,
+      source_system: sourceSystem || null,
+      external_doc_number: (donationTransaction.docNumber || '').toString().trim() || null,
+      amount,
+      transaction_date: date,
+    }, { onConflict: 'external_doc_number', ignoreDuplicates: true })
+    .select('id');
+  if (error) return null;
+  return (data?.length || 0) > 0; // true = נוספה תנועה חדשה, false = דולגה (כבר קיימת)
+}
+
 // ייבוא בכמות ממערכת חיצונית (למשל דוח אקסל ממערכת "קשר" למחלקת
 // תרומות) - מיועד לשימוש גם מאשף הייבוא הידני וגם (בעתיד) מחיבור חי
 // לאותה מערכת, ולכן חי כאן ולא ב-actions.js. עקרון-העל: שום נתיב כאן
@@ -92,6 +119,14 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
   const reason = (batchLabel || '').trim() || 'ייבוא';
   let created = 0;
   let enriched = 0;
+  let transactionsAdded = 0;
+  let transactionsSkipped = 0;
+
+  function trackTransactionResult(added) {
+    if (added === null) return;
+    if (added) transactionsAdded++;
+    else transactionsSkipped++;
+  }
 
   for (const row of rows) {
     const first = (row.first || '').toString().trim();
@@ -121,6 +156,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
         await supabase.from('contacts').update(fill).eq('id', existing.id);
       }
       await upsertDepartmentMembership(supabase, existing.id, ws, reason, null, sourceSystem, row.extraFields);
+      trackTransactionResult(await insertDonationTransaction(supabase, existing.id, ws.id, sourceSystem, row.donationTransaction));
       enriched++;
       continue;
     }
@@ -138,9 +174,10 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
     }).select('id').single();
     if (createdContact) {
       await upsertDepartmentMembership(supabase, createdContact.id, ws, reason, null, sourceSystem, row.extraFields);
+      trackTransactionResult(await insertDonationTransaction(supabase, createdContact.id, ws.id, sourceSystem, row.donationTransaction));
       created++;
     }
   }
 
-  return { success: true, created, enriched, count: created + enriched };
+  return { success: true, created, enriched, transactionsAdded, transactionsSkipped, count: created + enriched };
 }

@@ -6,7 +6,7 @@ import NotConnectedButton from '../../components/NotConnectedButton';
 import { celebrate } from '../../components/celebrate';
 import { addTask } from '../../tasks/actions';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], agents = [], workspaceNameById = {} }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], agents = [], workspaceNameById = {} }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -120,6 +120,20 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                 <div style={{ color: '#9b9b9b', marginTop: 2 }}>
                   {w.phone} · {new Date(w.sent_at).toLocaleDateString('he-IL')} {new Date(w.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                 </div>
+              </div>
+            )}
+          />
+
+          <ActivityGroup
+            title="תרומות"
+            items={donationTransactions}
+            emptyText="אין תרומות רשומות"
+            renderItem={(t) => (
+              <div key={t.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                <DeptTag name={workspaceNameById[t.workspace_id]} />
+                <span style={{ fontWeight: 600, color: '#15803d' }}>₪{Number(t.amount).toLocaleString('he-IL')}</span>
+                <span style={{ color: '#c0c0c0' }}> · {new Date(t.transaction_date).toLocaleDateString('he-IL')}</span>
+                {t.source_system && <span style={{ color: '#9b9b9b' }}> · {t.source_system}</span>}
               </div>
             )}
           />
