@@ -47,6 +47,8 @@ export default async function DashboardHome() {
   let workspaceContacts = [];
   let meetings = [];
   let openTasks = [];
+  let upcomingCharges = [];
+  const isDonationsWorkspace = profile?.workspaces?.name === 'תרומות';
 
   if (workspaceId) {
     const [{ data: c }, { data: wc }, { data: m }, { data: t }] = await Promise.all([
@@ -65,6 +67,23 @@ export default async function DashboardHome() {
     workspaceContacts = wc || [];
     meetings = m || [];
     openTasks = t || [];
+
+    // חיובי הוראת קבע קרובים (7 ימים) - רק למחלקת תרומות. extra_fields
+    // הוא jsonb בלי אינדקס תאריך, אז מסננים/ממיינים בקוד אחרי שליפה
+    // מצומצמת (רק שיוכים עם הוראת קבע במחלקה הזו).
+    if (isDonationsWorkspace) {
+      const { data: standingOrders } = await supabase
+        .from('contact_departments')
+        .select('id, contact_id, extra_fields, contacts(first,last)')
+        .eq('workspace_id', workspaceId)
+        .eq('extra_fields->>donation_type', 'הוראת קבע');
+      const in7DaysStr = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+      // כולל גם חיובים שכבר עברו (בלי עדכון) - עוזר לזהות פיגור, לא רק להתקרב
+      upcomingCharges = (standingOrders || [])
+        .map((row) => ({ ...row, nextChargeDate: row.extra_fields?.standing_order_next_charge_date }))
+        .filter((row) => row.nextChargeDate && row.nextChargeDate <= in7DaysStr)
+        .sort((a, b) => (a.nextChargeDate < b.nextChargeDate ? -1 : 1));
+    }
   }
 
   const stageCounts = pipeline.order.reduce((acc, s) => {
@@ -185,6 +204,41 @@ export default async function DashboardHome() {
           </div>
         </div>
       </div>
+
+      {isDonationsWorkspace && (
+        <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
+            🔔 חיובי הוראת קבע קרובים (7 ימים)
+          </div>
+          <div>
+            {upcomingCharges.length === 0 && (
+              <div style={{ padding: '14px 18px', fontSize: 13, color: '#9b9b9b' }}>אין חיובי הוראת קבע קרובים</div>
+            )}
+            {upcomingCharges.map((row) => {
+              const days = Math.round((new Date(row.nextChargeDate).getTime() - Date.now()) / 86400000);
+              const overdue = days < 0;
+              return (
+                <Link
+                  key={row.id}
+                  href={`/dashboard/contacts/${row.contact_id}`}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid #f2f2f2',
+                    fontSize: 13, textDecoration: 'none', color: 'inherit',
+                    background: overdue ? '#fef2f2' : days <= 1 ? '#fff7ed' : 'transparent',
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>{overdue ? '⚠' : days <= 1 ? '🔔' : '💳'}</span>
+                  <b>{row.contacts?.first} {row.contacts?.last}</b>
+                  <span style={{ color: overdue ? '#b23b2f' : days <= 1 ? '#c2760f' : '#9b9b9b', fontWeight: overdue || days <= 1 ? 600 : 400 }}>
+                    {new Date(row.nextChargeDate).toLocaleDateString('he-IL')}
+                    {overdue ? ` (עבר לפני ${Math.abs(days)} ימים)` : days === 0 ? ' (היום)' : ` (בעוד ${days} ימים)`}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

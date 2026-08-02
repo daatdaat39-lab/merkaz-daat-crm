@@ -24,6 +24,12 @@ function elapsedSince(dateStr) {
   return remMonths > 0 ? `לפני ${yearsPart} ו-${remMonths} חודשים` : `לפני ${yearsPart}`;
 }
 
+// "עוד כמה זמן" עד תאריך עתידי (חיוב הבא בהוראת קבע) - שלילי = כבר עבר
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  return Math.round((new Date(dateStr).getTime() - Date.now()) / 86400000);
+}
+
 export default function DonorStatsTile({ department, frozen }) {
   const [isPending, startTransition] = useTransition();
   const [extraValues, setExtraValues] = useState(department.extraFields || {});
@@ -35,6 +41,7 @@ export default function DonorStatsTile({ department, frozen }) {
   const isOneTime = (extraValues.donation_type || '') === 'חד פעמי';
   const referenceDate = isStandingOrder ? extraValues.standing_order_start_date : extraValues.donation_date;
   const elapsed = elapsedSince(referenceDate);
+  const nextChargeDays = isStandingOrder ? daysUntil(extraValues.standing_order_next_charge_date) : null;
 
   function handleChange(key, value) {
     setExtraValues((prev) => ({ ...prev, [key]: value }));
@@ -129,6 +136,13 @@ export default function DonorStatsTile({ department, frozen }) {
               disabled={isPending || frozen}
               style={tileInput()}
             />
+            {nextChargeDays !== null && (
+              <span style={{ fontSize: 11, fontWeight: 600, color: nextChargeDays < 0 ? '#b23b2f' : nextChargeDays <= 3 ? '#c2760f' : '#166534' }}>
+                {nextChargeDays < 0 ? `⚠ עבר לפני ${Math.abs(nextChargeDays)} ימים`
+                  : nextChargeDays === 0 ? '🔔 היום'
+                  : `עוד ${nextChargeDays} ${nextChargeDays === 1 ? 'יום' : 'ימים'}`}
+              </span>
+            )}
           </div>
         </>
       )}
