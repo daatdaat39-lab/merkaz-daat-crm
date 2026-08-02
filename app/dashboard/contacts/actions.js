@@ -5,7 +5,7 @@ import { createAdminClient } from '../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { getPipeline, STAGE_LABELS } from '../components/pipelines';
 import { findExistingMatch, upsertDepartmentMembership, bulkImportContactRows } from './leadIntakeCore';
-import { isManagerOfAnyDepartment, isManagerOfWorkspace, requireNotFrozen } from '../lib/contactGuards';
+import { isManagerOfAnyDepartment, isManagerOfWorkspace, isManagerOfAnyWorkspace, requireNotFrozen } from '../lib/contactGuards';
 import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/whatsapp';
@@ -535,6 +535,23 @@ export async function importDepartmentBatch(rows, workspaceId, sourceSystem, bat
   if (!workspace.id) return { error: 'מחלקת היעד לא נמצאה' };
 
   return bulkImportContactRows(supabase, { rows, workspace, sourceSystem, batchLabel });
+}
+
+// מסמן זוג אנשי קשר כ"לא כפילות" מתוך תור בדיקת הכפליות (הגדרות ←
+// בדיקת כפליות) - כדי שהזוג לא יוצע שוב. ממיין את שני ה-id כדי שה-
+// unique constraint על הטבלה יעבוד בלי תלות בסדר שבו הזוג הוצג.
+export async function dismissDuplicatePair(contactIdA, contactIdB) {
+  const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
+  if (!allowed) return { error: 'רק בעלים/מנהל יכול לסמן כפילות' };
+  if (!contactIdA || !contactIdB || contactIdA === contactIdB) return { error: 'זוג לא תקין' };
+
+  const [idA, idB] = contactIdA < contactIdB ? [contactIdA, contactIdB] : [contactIdB, contactIdA];
+  const { error } = await supabase
+    .from('dismissed_duplicate_pairs')
+    .upsert({ contact_id_a: idA, contact_id_b: idB, dismissed_by: user.id }, { onConflict: 'contact_id_a,contact_id_b', ignoreDuplicates: true });
+  if (error) return { error: error.message };
+  return { success: true };
 }
 
 // יומן השינויים של איש קשר (הקפאה/הפשרה/מיזוג/הסרה ממחלקה/מחיקה) -

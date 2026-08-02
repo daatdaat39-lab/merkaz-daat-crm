@@ -41,3 +41,15 @@ export async function isManagerOfWorkspace(supabase, userId, workspaceId) {
     .maybeSingle();
   return !!membership;
 }
+
+// true אם המשתמש הוא owner/admin בכל מחלקה שהיא (לא מוגבל למחלקה אחת) -
+// לכלים "מנהלתיים" שחוצים את כל המערכת, כמו תור בדיקת כפליות
+export async function isManagerOfAnyWorkspace(supabase, userId) {
+  const { data: memberships } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('user_id', userId)
+    .in('role', ['owner', 'admin'])
+    .limit(1);
+  return (memberships?.length || 0) > 0;
+}
