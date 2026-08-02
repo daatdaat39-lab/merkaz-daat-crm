@@ -322,6 +322,7 @@ export default function ContactDetailClient({
             sentEmails={sentEmails || []}
             sentWhatsapp={sentWhatsapp || []}
             donationTransactions={donationTransactions || []}
+            callHistory={callHistory || []}
             workspaceNameById={workspaceNameById || {}}
             agents={active ? (agentsByWorkspace?.[active.workspaceId] || []) : []}
           />

@@ -6,7 +6,7 @@ import NotConnectedButton from '../../components/NotConnectedButton';
 import { celebrate } from '../../components/celebrate';
 import { addTask } from '../../tasks/actions';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], agents = [], workspaceNameById = {} }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], agents = [], workspaceNameById = {} }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -134,6 +134,19 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                 <span style={{ fontWeight: 600, color: '#15803d' }}>₪{Number(t.amount).toLocaleString('he-IL')}</span>
                 <span style={{ color: '#c0c0c0' }}> · {new Date(t.transaction_date).toLocaleDateString('he-IL')}</span>
                 {t.source_system && <span style={{ color: '#9b9b9b' }}> · {t.source_system}</span>}
+              </div>
+            )}
+          />
+
+          <ActivityGroup
+            title="היסטוריית שיחות (מיובאת)"
+            items={callHistory}
+            emptyText="אין היסטוריית שיחות מיובאת"
+            renderItem={(c) => (
+              <div key={c.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                <span style={{ fontWeight: 600 }}>📞 {c.response_text || 'שיחה'}</span>
+                {c.call_date && <span style={{ color: '#c0c0c0' }}> · {new Date(c.call_date).toLocaleDateString('he-IL')}</span>}
+                {c.source_system && <span style={{ color: '#9b9b9b' }}> · {c.source_system}</span>}
               </div>
             )}
           />

@@ -7,7 +7,7 @@
 const MAX_CONTACTS_FOR_NAME_MATCH = 2000;
 const NAME_SIMILARITY_THRESHOLD = 0.8;
 
-function normalize(str) {
+export function normalize(str) {
   return (str || '').toString().trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
@@ -28,10 +28,46 @@ function levenshtein(a, b) {
   return dp[m][n];
 }
 
-function nameSimilarity(a, b) {
+export function nameSimilarity(a, b) {
   const maxLen = Math.max(a.length, b.length);
   if (maxLen === 0) return 1;
   return 1 - levenshtein(a, b) / maxLen;
+}
+
+// מוצא לאיזה איש קשר קיים מתאימה שורה נכנסת (למשל שורה מקובץ היסטוריית
+// שיחות שיש בה רק שם, ולפעמים טלפון). מחזיר:
+//   { certain: contact }        - התאמה ודאית (טלפון/מייל זהים, או שם יחיד ומדויק)
+//   { candidates: [{contact, score}] } - מועמדים שדורשים אישור ידני
+//   {}                          - לא נמצאה שום התאמה סבירה
+// ההפרדה הזו היא מה שמאפשר למסך הייבוא להכניס אוטומטית רק את מה שברור,
+// ולהעלות לאישור המנהל כל מקרה של ספק.
+export function findMatchesForName(row, contacts) {
+  const phone = normalize(row.phone);
+  const email = normalize(row.email);
+
+  if (phone) {
+    const byPhone = contacts.filter((c) => normalize(c.phone) === phone || normalize(c.phone2) === phone);
+    if (byPhone.length === 1) return { certain: byPhone[0] };
+    if (byPhone.length > 1) return { candidates: byPhone.map((c) => ({ contact: c, score: 1 })) };
+  }
+  if (email) {
+    const byEmail = contacts.filter((c) => normalize(c.email) === email || normalize(c.email2) === email);
+    if (byEmail.length === 1) return { certain: byEmail[0] };
+    if (byEmail.length > 1) return { candidates: byEmail.map((c) => ({ contact: c, score: 1 })) };
+  }
+
+  const name = normalize(row.name);
+  if (!name) return {};
+
+  const scored = contacts
+    .map((c) => ({ contact: c, score: nameSimilarity(name, normalize(`${c.first || ''} ${c.last || ''}`)) }))
+    .filter((s) => s.score >= NAME_SIMILARITY_THRESHOLD)
+    .sort((a, b) => b.score - a.score);
+
+  if (scored.length === 0) return {};
+  // שם זהה לחלוטין ורק אצל איש קשר אחד - אין ספק אמיתי
+  if (scored.length === 1 && scored[0].score === 1) return { certain: scored[0].contact };
+  return { candidates: scored.slice(0, 5) };
 }
 
 export function pairKey(idA, idB) {

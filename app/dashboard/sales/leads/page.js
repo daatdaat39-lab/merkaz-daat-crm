@@ -137,6 +137,14 @@ export default async function SalesLeadsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {isManager && (
+            <Link href="/dashboard/sales/campaigns" style={{
+              background: '#fff', color: '#0a0a0a', border: '1px solid var(--border, #e5e5e5)', textDecoration: 'none',
+              fontSize: 13, padding: '7px 14px', borderRadius: 6,
+            }}>
+              🎯 קמפיינים
+            </Link>
+          )}
           {isManager && pendingCount > 0 && (
             <Link href="/dashboard/sales/pending" style={{
               background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', textDecoration: 'none',

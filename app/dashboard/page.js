@@ -5,6 +5,7 @@ import { STAGE_LABELS } from './components/ui';
 import { getPipeline } from './components/pipelines';
 import { randomPraise } from './components/celebrate';
 import DedicationsWidget from './DedicationsWidget';
+import { isManagerOfWorkspace } from './lib/contactGuards';
 
 function timeGreeting() {
   const hour = new Date().getHours();
@@ -49,6 +50,9 @@ export default async function DashboardHome() {
   let meetings = [];
   let openTasks = [];
   let upcomingCharges = [];
+  let endingSoon = [];
+  let pendingLeadsCount = 0;
+  let isDonationsManager = false;
   const isDonationsWorkspace = profile?.workspaces?.name === 'תרומות';
 
   // תאריכי לוח שנה/הקדשות בטווח אתמול..שבוע קדימה - לא מסונן לפי מחלקה,
@@ -107,6 +111,36 @@ export default async function DashboardHome() {
         .map((row) => ({ ...row, nextChargeDate: row.extra_fields?.standing_order_next_charge_date }))
         .filter((row) => row.nextChargeDate && row.nextChargeDate <= in7DaysStr)
         .sort((a, b) => (a.nextChargeDate < b.nextChargeDate ? -1 : 1));
+
+      // "דורש טיפול" - למנהל בלבד. שתי קטגוריות שניתן לחשב מהנתונים
+      // הקיימים: הוראות קבע שמתקרבות לסיום התשלומים, ולידים שממתינים
+      // לאישור. אשראי שנכשל יתווסף כשמערכת קשר תחובר בחיות.
+      isDonationsManager = await isManagerOfWorkspace(supabase, user.id, workspaceId);
+      if (isDonationsManager) {
+        const contactIds = (standingOrders || []).map((r) => r.contact_id);
+        const { data: txns } = contactIds.length
+          ? await supabase.from('donation_transactions').select('contact_id').in('contact_id', contactIds)
+          : { data: [] };
+        const paidByContact = {};
+        for (const t of txns || []) paidByContact[t.contact_id] = (paidByContact[t.contact_id] || 0) + 1;
+
+        endingSoon = (standingOrders || [])
+          .map((row) => {
+            const total = Number(row.extra_fields?.standing_order_total_payments) || null;
+            const paid = paidByContact[row.contact_id] || 0;
+            return { ...row, total, paid, remaining: total ? total - paid : null };
+          })
+          // "מתקרב לסיום" = נשארו 3 תשלומים או פחות (כולל כאלה שכבר הסתיימו)
+          .filter((row) => row.remaining !== null && row.remaining <= 3)
+          .sort((a, b) => a.remaining - b.remaining);
+
+        const { count: pc } = await supabase
+          .from('contact_departments')
+          .select('id', { count: 'exact', head: true })
+          .eq('workspace_id', workspaceId)
+          .eq('approval_status', 'pending');
+        pendingLeadsCount = pc || 0;
+      }
     }
   }
 
@@ -228,6 +262,46 @@ export default async function DashboardHome() {
           </div>
         </div>
       </div>
+
+      {isDonationsManager && (
+        <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
+            ⚠ דורש טיפול — מנהל מחלקה
+          </div>
+          <div>
+            {pendingLeadsCount > 0 && (
+              <Link href="/dashboard/sales/pending" style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px',
+                borderBottom: '1px solid #f2f2f2', fontSize: 13, textDecoration: 'none', color: 'inherit', background: '#fffbeb',
+              }}>
+                <span style={{ fontSize: 14 }}>📥</span>
+                <b>{pendingLeadsCount} לידים ממתינים לאישור ושיוך נציג</b>
+              </Link>
+            )}
+            {endingSoon.map((row) => (
+              <Link key={row.id} href={`/dashboard/contacts/${row.contact_id}`} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px',
+                borderBottom: '1px solid #f2f2f2', fontSize: 13, textDecoration: 'none', color: 'inherit',
+                background: row.remaining <= 0 ? '#fef2f2' : 'transparent',
+              }}>
+                <span style={{ fontSize: 14 }}>{row.remaining <= 0 ? '🔴' : '⏳'}</span>
+                <b>{row.contacts?.first} {row.contacts?.last}</b>
+                <span style={{ color: row.remaining <= 0 ? '#b23b2f' : '#c2760f', fontWeight: 600 }}>
+                  {row.remaining <= 0
+                    ? `הוראת הקבע הסתיימה (${row.paid}/${row.total})`
+                    : `נותרו ${row.remaining} תשלומים (${row.paid}/${row.total})`}
+                </span>
+              </Link>
+            ))}
+            {pendingLeadsCount === 0 && endingSoon.length === 0 && (
+              <div style={{ padding: '14px 18px', fontSize: 13, color: '#9b9b9b' }}>אין פריטים שדורשים טיפול</div>
+            )}
+            <div style={{ padding: '10px 18px', fontSize: 11.5, color: '#9b9b9b', background: '#fafafa' }}>
+              ℹ️ התראות על אשראי שנכשל יתווספו כאן אוטומטית לאחר חיבור מערכת "קשר" בחיות.
+            </div>
+          </div>
+        </div>
+      )}
 
       <DedicationsWidget groups={dedicationGroups} />
 

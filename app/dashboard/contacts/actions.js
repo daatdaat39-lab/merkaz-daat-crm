@@ -616,6 +616,50 @@ export async function dismissDuplicatePair(contactIdA, contactIdB) {
   return { success: true };
 }
 
+// ---------- ייבוא היסטוריית שיחות ----------
+// מחזיר את כל אנשי הקשר בשדות הדרושים להתאמה - נקרא מאשף ייבוא השיחות
+// כדי שההתאמה (כולל שם דומה) תיעשה בצד הלקוח לפני הכתיבה, ורק מה
+// שמעורפל יעלה לאישור ידני של המנהל.
+export async function getContactsForMatching() {
+  const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
+  if (!allowed) return { error: 'רק בעלים/מנהל יכול לייבא היסטוריית שיחות' };
+
+  const { data, error } = await supabase
+    .from('contacts').select('id, first, last, phone, phone2, email, email2');
+  if (error) return { error: error.message };
+  return { success: true, contacts: data || [] };
+}
+
+// כותב שורות שיחה שכבר הותאמו לאיש קשר (אוטומטית או באישור ידני).
+// external_row_key ייחודי - ייבוא חוזר של אותו קובץ לא יכפיל רשומות.
+export async function importCallHistory(rows) {
+  const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
+  if (!allowed) return { error: 'רק בעלים/מנהל יכול לייבא היסטוריית שיחות' };
+  if (!Array.isArray(rows) || rows.length === 0) return { error: 'לא נמצאו שורות לייבוא' };
+
+  const payload = rows
+    .filter((r) => r.contactId)
+    .map((r) => ({
+      contact_id: r.contactId,
+      call_date: (r.callDate || '').trim() || null,
+      response_text: (r.responseText || '').trim() || null,
+      source_system: (r.sourceSystem || '').trim() || null,
+      external_row_key: (r.rowKey || '').trim() || null,
+    }));
+  if (payload.length === 0) return { error: 'אף שורה לא שויכה לאיש קשר' };
+
+  const { data, error } = await supabase
+    .from('contact_call_history')
+    .upsert(payload, { onConflict: 'external_row_key', ignoreDuplicates: true })
+    .select('id');
+  if (error) return { error: error.message };
+
+  const added = data?.length || 0;
+  return { success: true, added, skipped: payload.length - added };
+}
+
 // ---------- לוח שנה והקדשות ----------
 // "זכאי ליום בלוח שנה" - איש קשר יכול לקבל כמה תאריכים, לכל אחד נוסח
 // הקדשה משלו. נשמר בטבלה נפרדת (calendar_dedications, מיגרציה 0032) ולא
