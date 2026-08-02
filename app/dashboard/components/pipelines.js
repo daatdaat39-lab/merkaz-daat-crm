@@ -118,6 +118,7 @@ export const EXTRA_FIELDS = {
   'תרומות': [
     { key: 'expected_donation_amount', label: 'סכום תרומה', type: 'number' },
     { key: 'donation_type', label: 'סוג תרומה', type: 'select', options: ['חד פעמי', 'הוראת קבע'] },
+    { key: 'donation_date', label: 'תאריך התרומה', type: 'date' },
     { key: 'standing_order_start_date', label: 'תאריך התחלה', type: 'date' },
     { key: 'standing_order_next_charge_date', label: 'תאריך חיוב הבא', type: 'date' },
     { key: 'donor_type', label: 'תורם חוזר או חדש', type: 'select', options: ['חדש', 'חוזר'] },

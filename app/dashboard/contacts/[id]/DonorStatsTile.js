@@ -8,6 +8,22 @@ import { useRouter } from 'next/navigation';
 import { getPipeline } from '../../components/pipelines';
 import { updateDepartmentExtraField } from '../actions';
 
+// "כמה זמן עבר" מתאריך נתון - ימים/חודשים/שנים, בעברית. משמש הן לתרומה
+// חד-פעמית (מ-donation_date) והן להוראת קבע (מ-standing_order_start_date).
+function elapsedSince(dateStr) {
+  if (!dateStr) return null;
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (days < 0) return null; // תאריך עתידי - לא מציגים "עבר"
+  if (days === 0) return 'היום';
+  if (days < 30) return `לפני ${days} ${days === 1 ? 'יום' : 'ימים'}`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `לפני ${months} ${months === 1 ? 'חודש' : 'חודשים'}`;
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  const yearsPart = `${years} ${years === 1 ? 'שנה' : 'שנים'}`;
+  return remMonths > 0 ? `לפני ${yearsPart} ו-${remMonths} חודשים` : `לפני ${yearsPart}`;
+}
+
 export default function DonorStatsTile({ department, frozen }) {
   const [isPending, startTransition] = useTransition();
   const [extraValues, setExtraValues] = useState(department.extraFields || {});
@@ -16,6 +32,9 @@ export default function DonorStatsTile({ department, frozen }) {
   const order = getPipeline('תרומות').order;
   const hasDonatedBefore = order.indexOf(department.stage) >= order.indexOf('donated');
   const isStandingOrder = (extraValues.donation_type || '') === 'הוראת קבע';
+  const isOneTime = (extraValues.donation_type || '') === 'חד פעמי';
+  const referenceDate = isStandingOrder ? extraValues.standing_order_start_date : extraValues.donation_date;
+  const elapsed = elapsedSince(referenceDate);
 
   function handleChange(key, value) {
     setExtraValues((prev) => ({ ...prev, [key]: value }));
@@ -37,6 +56,9 @@ export default function DonorStatsTile({ department, frozen }) {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700, color: '#15803d' }}>✓ תרם בעבר</span>
         ) : (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, color: '#6b7280' }}>טרם תרם</span>
+        )}
+        {elapsed && (
+          <div style={{ fontSize: 11, color: '#166534', marginTop: 2 }}>{elapsed}</div>
         )}
       </div>
 
@@ -66,6 +88,21 @@ export default function DonorStatsTile({ department, frozen }) {
           style={{ ...tileInput(), width: 100 }}
         />
       </div>
+
+      {isOneTime && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <label style={tileLabel()}>תאריך התרומה</label>
+          <input
+            type="date"
+            defaultValue={extraValues.donation_date || ''}
+            onBlur={(e) => {
+              if (e.target.value !== (extraValues.donation_date || '')) handleChange('donation_date', e.target.value);
+            }}
+            disabled={isPending || frozen}
+            style={tileInput()}
+          />
+        </div>
+      )}
 
       {isStandingOrder && (
         <>
