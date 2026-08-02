@@ -36,7 +36,10 @@ export default async function CampaignDetailPage({ params }) {
       .select('id, category, assigned_to, status, contacts:contact_id (id, first, last, phone, email)')
       .eq('campaign_id', campaign.id)
       .order('created_at', { ascending: true }),
-    supabase.from('contacts').select('id, first, last, phone, email').order('first'),
+    supabase
+      .from('contacts')
+      .select('id, first, last, phone, email, tags, contact_departments (stage, workspaces:workspace_id (name))')
+      .order('first'),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', campaign.workspace_id),
   ]);
 
@@ -63,7 +66,14 @@ export default async function CampaignDetailPage({ params }) {
   const memberContactIds = new Set(rows.map((r) => r.contactId));
   const availableContacts = (allContacts || [])
     .filter((c) => !memberContactIds.has(c.id))
-    .map((c) => ({ id: c.id, name: `${c.first || ''} ${c.last || ''}`.trim(), phone: c.phone, email: c.email }));
+    .map((c) => ({
+      id: c.id,
+      name: `${c.first || ''} ${c.last || ''}`.trim(),
+      phone: c.phone,
+      email: c.email,
+      tags: c.tags || [],
+      departments: (c.contact_departments || []).map((d) => d.workspaces?.name).filter(Boolean),
+    }));
 
   return (
     <div style={{ maxWidth: 1050, margin: '0 auto', padding: '28px 24px' }}>

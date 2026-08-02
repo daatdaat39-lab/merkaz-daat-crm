@@ -5,10 +5,11 @@
 // (DEDICATION_TEMPLATES) כדי שקל יהיה לשנות אותם בלי לגעת כאן.
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { DEDICATION_TEMPLATES } from '../../components/pipelines';
+import { DEDICATION_TEMPLATES, CALENDAR_ELIGIBLE_TAG } from '../../components/pipelines';
 import { addDedication, removeDedication } from '../actions';
 
-export default function CalendarDedicationsCard({ contactId, dedications = [], frozen }) {
+export default function CalendarDedicationsCard({ contactId, dedications = [], frozen, tags = [] }) {
+  const eligible = tags.includes(CALENDAR_ELIGIBLE_TAG);
   const [adding, setAdding] = useState(false);
   const [date, setDate] = useState('');
   const [template, setTemplate] = useState(DEDICATION_TEMPLATES[0]);
@@ -50,7 +51,7 @@ export default function CalendarDedicationsCard({ contactId, dedications = [], f
         <span style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase' }}>
           📅 זכאי ליום בלוח שנה
         </span>
-        {!frozen && !adding && (
+        {!frozen && !adding && eligible && (
           <button
             type="button"
             onClick={() => setAdding(true)}
@@ -60,7 +61,13 @@ export default function CalendarDedicationsCard({ contactId, dedications = [], f
         )}
       </div>
 
-      {dedications.length === 0 && !adding && (
+      {!eligible && (
+        <div style={{ fontSize: 11.5, color: '#9b9b9b', marginBottom: dedications.length ? 8 : 0 }}>
+          איש קשר זה אינו מתויג "{CALENDAR_ELIGIBLE_TAG}" - הוספת תגית זו (בכרטיס האישי, או בכמות דרך קמפיין) תאפשר הוספת תאריכים.
+        </div>
+      )}
+
+      {dedications.length === 0 && !adding && eligible && (
         <div style={{ fontSize: 12, color: '#9b9b9b' }}>לא הוגדרו תאריכים</div>
       )}
 

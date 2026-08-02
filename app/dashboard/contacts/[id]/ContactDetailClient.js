@@ -308,6 +308,7 @@ export default function ContactDetailClient({
             contactId={contact.id}
             dedications={dedications || []}
             frozen={contact.frozen}
+            tags={contact.tags || []}
           />
         </div>
 
