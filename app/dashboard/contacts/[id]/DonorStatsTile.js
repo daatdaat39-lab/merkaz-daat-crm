@@ -1,15 +1,13 @@
 'use client';
 
-// קוביית נתוני תרומה בולטת, מוצגת רק כשהמחלקה הפעילה היא "תרומות" - "תרם
-// בעבר" מחושב מהשלב בתהליך (לא שדה נפרד), ושאר השדות נערכים ישירות כאן
-// (בלי טופס נפרד), באותו דפוס בדיוק כמו העריכה הקיימת ב-LeadRow.js.
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+// קוביית נתוני תרומה, מוצגת רק כשהמחלקה הפעילה היא "תרומות".
+// **תצוגה בלבד (read-only)** - הנתונים מגיעים מהיסטוריית התרומות המיובאת
+// (donation_transactions) ומשדות המחלקה, ובעתיד יתעדכנו אוטומטית ממערכת
+// "קשר" החיה. עריכה ידנית כאן הוסרה בכוונה כדי שלא תתנגש עם מקור האמת.
 import { getPipeline } from '../../components/pipelines';
-import { updateDepartmentExtraField } from '../actions';
+import NotConnectedButton from '../../components/NotConnectedButton';
 
-// "כמה זמן עבר" מתאריך נתון - ימים/חודשים/שנים, בעברית. משמש הן לתרומה
-// חד-פעמית (מ-donation_date) והן להוראת קבע (מ-standing_order_start_date).
+// "כמה זמן עבר" מתאריך נתון - ימים/חודשים/שנים, בעברית
 function elapsedSince(dateStr) {
   if (!dateStr) return null;
   const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
@@ -24,16 +22,14 @@ function elapsedSince(dateStr) {
   return remMonths > 0 ? `לפני ${yearsPart} ו-${remMonths} חודשים` : `לפני ${yearsPart}`;
 }
 
-// "עוד כמה זמן" עד תאריך עתידי (חיוב הבא בהוראת קבע) - שלילי = כבר עבר
+// "עוד כמה זמן" עד תאריך עתידי (חיוב הבא) - שלילי = כבר עבר
 function daysUntil(dateStr) {
   if (!dateStr) return null;
   return Math.round((new Date(dateStr).getTime() - Date.now()) / 86400000);
 }
 
-export default function DonorStatsTile({ department, frozen, transactions = [] }) {
-  const [isPending, startTransition] = useTransition();
-  const [extraValues, setExtraValues] = useState(department.extraFields || {});
-  const router = useRouter();
+export default function DonorStatsTile({ department, transactions = [] }) {
+  const extra = department.extraFields || {};
 
   const deptTransactions = transactions.filter((t) => t.workspace_id === department.workspaceId);
   const transactionsTotal = deptTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
@@ -42,140 +38,122 @@ export default function DonorStatsTile({ department, frozen, transactions = [] }
     : null;
 
   const order = getPipeline('תרומות').order;
-  // "תרם בעבר" - גם מהשלב בתהליך, וגם (עכשיו) מהיסטוריית תנועות אמיתיות
-  // שיובאה ממקורות חיצוניים - שני סימנים בלתי-תלויים, כל אחד מספיק
+  // "תרם בעבר" - גם מהשלב בתהליך וגם מהיסטוריית תנועות אמיתית; כל אחד מספיק
   const hasDonatedBefore = order.indexOf(department.stage) >= order.indexOf('donated') || deptTransactions.length > 0;
-  const isStandingOrder = (extraValues.donation_type || '') === 'הוראת קבע';
-  const isOneTime = (extraValues.donation_type || '') === 'חד פעמי';
-  const referenceDate = isStandingOrder ? extraValues.standing_order_start_date : extraValues.donation_date;
-  const elapsed = elapsedSince(referenceDate);
-  const nextChargeDays = isStandingOrder ? daysUntil(extraValues.standing_order_next_charge_date) : null;
 
-  function handleChange(key, value) {
-    setExtraValues((prev) => ({ ...prev, [key]: value }));
-    startTransition(async () => {
-      await updateDepartmentExtraField(department.id, key, value);
-      router.refresh();
-    });
-  }
+  const donationType = extra.donation_type || '';
+  const isStandingOrder = donationType === 'הוראת קבע';
+  const referenceDate = isStandingOrder ? extra.standing_order_start_date : extra.donation_date;
+  const elapsed = elapsedSince(referenceDate);
+  const nextChargeDays = isStandingOrder ? daysUntil(extra.standing_order_next_charge_date) : null;
+
+  // ספירת תשלומים: כמה שולמו בפועל (מההיסטוריה) מתוך סך ההוראה.
+  // בלי סך מוגדר - ההוראה אינסופית ("ללא תאריך סיום").
+  const totalPayments = Number(extra.standing_order_total_payments) || null;
+  const paidPayments = deptTransactions.length;
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 18, flexWrap: 'wrap',
+      display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap',
       background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10,
       padding: '14px 16px', marginBottom: 16,
     }}>
-      <div style={{ flexShrink: 0 }}>
-        <div style={{ fontSize: 10.5, fontWeight: 600, color: '#15803d', textTransform: 'uppercase', marginBottom: 4 }}>נתוני תרומה</div>
+      <Block label="נתוני תרומה">
         {hasDonatedBefore ? (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700, color: '#15803d' }}>✓ תרם בעבר</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>✓ תרם בעבר</span>
         ) : (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, color: '#6b7280' }}>טרם תרם</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#6b7280' }}>טרם תרם</span>
         )}
-        {elapsed && (
-          <div style={{ fontSize: 11, color: '#166534', marginTop: 2 }}>{elapsed}</div>
-        )}
-      </div>
+        {elapsed && <div style={sub()}>{elapsed}</div>}
+      </Block>
 
       {deptTransactions.length > 0 && (
-        <div style={{ flexShrink: 0 }}>
-          <div style={{ fontSize: 10.5, fontWeight: 600, color: '#15803d', textTransform: 'uppercase', marginBottom: 4 }}>היסטוריית תרומות</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>
+        <Block label="היסטוריית תרומות">
+          <span style={value()}>
             ₪{transactionsTotal.toLocaleString('he-IL')} מ-{deptTransactions.length} {deptTransactions.length === 1 ? 'תרומה' : 'תרומות'}
-          </div>
+          </span>
           {earliestTransactionDate && (
-            <div style={{ fontSize: 11, color: '#166534', marginTop: 2 }}>
-              מאז {new Date(earliestTransactionDate).toLocaleDateString('he-IL')}
-            </div>
+            <div style={sub()}>מאז {new Date(earliestTransactionDate).toLocaleDateString('he-IL')}</div>
           )}
-        </div>
+        </Block>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <label style={tileLabel()}>סוג תרומה</label>
-        <select
-          value={extraValues.donation_type || ''}
-          onChange={(e) => handleChange('donation_type', e.target.value)}
-          disabled={isPending || frozen}
-          style={tileInput()}
-        >
-          <option value="">—</option>
-          <option value="חד פעמי">חד פעמי</option>
-          <option value="הוראת קבע">הוראת קבע</option>
-        </select>
-      </div>
+      {donationType && (
+        <Block label="סוג תרומה">
+          <span style={value()}>{donationType}</span>
+        </Block>
+      )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <label style={tileLabel()}>סכום תרומה</label>
-        <input
-          type="number"
-          defaultValue={extraValues.expected_donation_amount || ''}
-          onBlur={(e) => {
-            if (e.target.value !== (extraValues.expected_donation_amount || '')) handleChange('expected_donation_amount', e.target.value);
-          }}
-          disabled={isPending || frozen}
-          style={{ ...tileInput(), width: 100 }}
-        />
-      </div>
-
-      {isOneTime && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <label style={tileLabel()}>תאריך התרומה</label>
-          <input
-            type="date"
-            defaultValue={extraValues.donation_date || ''}
-            onBlur={(e) => {
-              if (e.target.value !== (extraValues.donation_date || '')) handleChange('donation_date', e.target.value);
-            }}
-            disabled={isPending || frozen}
-            style={tileInput()}
-          />
-        </div>
+      {extra.expected_donation_amount && (
+        <Block label="סכום תרומה">
+          <span style={value()}>₪{Number(extra.expected_donation_amount).toLocaleString('he-IL')}</span>
+        </Block>
       )}
 
       {isStandingOrder && (
         <>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <label style={tileLabel()}>תאריך התחלה</label>
-            <input
-              type="date"
-              defaultValue={extraValues.standing_order_start_date || ''}
-              onBlur={(e) => {
-                if (e.target.value !== (extraValues.standing_order_start_date || '')) handleChange('standing_order_start_date', e.target.value);
-              }}
-              disabled={isPending || frozen}
-              style={tileInput()}
-            />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <label style={tileLabel()}>תאריך חיוב הבא</label>
-            <input
-              type="date"
-              defaultValue={extraValues.standing_order_next_charge_date || ''}
-              onBlur={(e) => {
-                if (e.target.value !== (extraValues.standing_order_next_charge_date || '')) handleChange('standing_order_next_charge_date', e.target.value);
-              }}
-              disabled={isPending || frozen}
-              style={tileInput()}
-            />
-            {nextChargeDays !== null && (
-              <span style={{ fontSize: 11, fontWeight: 600, color: nextChargeDays < 0 ? '#b23b2f' : nextChargeDays <= 3 ? '#c2760f' : '#166534' }}>
-                {nextChargeDays < 0 ? `⚠ עבר לפני ${Math.abs(nextChargeDays)} ימים`
-                  : nextChargeDays === 0 ? '🔔 היום'
-                  : `עוד ${nextChargeDays} ${nextChargeDays === 1 ? 'יום' : 'ימים'}`}
-              </span>
-            )}
-          </div>
+          <Block label="תשלומים">
+            <span style={value()}>
+              {totalPayments ? `${paidPayments}/${totalPayments}` : paidPayments}
+            </span>
+            {!totalPayments && <div style={sub()}>ללא תאריך סיום</div>}
+          </Block>
+
+          {extra.standing_order_start_date && (
+            <Block label="תאריך התחלה">
+              <span style={value()}>{new Date(extra.standing_order_start_date).toLocaleDateString('he-IL')}</span>
+            </Block>
+          )}
+
+          {extra.standing_order_next_charge_date && (
+            <Block label="תאריך חיוב הבא">
+              <span style={value()}>{new Date(extra.standing_order_next_charge_date).toLocaleDateString('he-IL')}</span>
+              {nextChargeDays !== null && (
+                <div style={{
+                  ...sub(),
+                  fontWeight: 600,
+                  color: nextChargeDays < 0 ? '#b23b2f' : nextChargeDays <= 3 ? '#c2760f' : '#166534',
+                }}>
+                  {nextChargeDays < 0 ? `⚠ עבר לפני ${Math.abs(nextChargeDays)} ימים`
+                    : nextChargeDays === 0 ? '🔔 היום'
+                    : `עוד ${nextChargeDays} ${nextChargeDays === 1 ? 'יום' : 'ימים'}`}
+                </div>
+              )}
+            </Block>
+          )}
         </>
       )}
+
+      {extra.donation_date && !isStandingOrder && (
+        <Block label="תאריך התרומה">
+          <span style={value()}>{new Date(extra.donation_date).toLocaleDateString('he-IL')}</span>
+        </Block>
+      )}
+
+      <div style={{ marginInlineStart: 'auto', alignSelf: 'center' }}>
+        <NotConnectedButton
+          label="חידוש / הקמת תרומה"
+          icon="💳"
+          message="הקמת תרומה או חידוש הוראת קבע מתבצעים דרך מערכת קשר — החיבור החי עדיין לא מוגדר"
+        />
+      </div>
     </div>
   );
 }
 
-function tileLabel() {
-  return { fontSize: 10.5, color: '#166534', fontWeight: 500 };
+function Block({ label, children }) {
+  return (
+    <div style={{ flexShrink: 0 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 600, color: '#15803d', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+      {children}
+    </div>
+  );
 }
 
-function tileInput() {
-  return { border: '1px solid #bbf7d0', borderRadius: 6, padding: '5px 8px', fontSize: 13, background: '#fff' };
+function value() {
+  return { fontSize: 13, fontWeight: 700, color: '#15803d' };
+}
+
+function sub() {
+  return { fontSize: 11, color: '#166534', marginTop: 2 };
 }

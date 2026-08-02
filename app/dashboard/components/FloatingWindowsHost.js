@@ -13,7 +13,7 @@ const KIND_COMPONENTS = {
 // מרנדר בפועל את כל החלונות הצפים הפתוחים + "מגש" קטן למטה עם החלונות
 // הממוזערים. מותקן פעם אחת ב-layout, מעל כל שאר האתר (position: fixed).
 export default function FloatingWindowsHost() {
-  const { windows, closeWindow, minimizeWindow, restoreWindow, focusWindow, moveWindow } = useFloatingWindows();
+  const { windows, closeWindow, minimizeWindow, restoreWindow, focusWindow, moveWindow, toggleMaximize } = useFloatingWindows();
 
   const visible = windows.filter((w) => !w.minimized);
   const minimized = windows.filter((w) => w.minimized);
@@ -28,6 +28,7 @@ export default function FloatingWindowsHost() {
             win={w}
             onClose={() => closeWindow(w.id)}
             onMinimize={() => minimizeWindow(w.id)}
+            onToggleMaximize={() => toggleMaximize(w.id)}
             onFocus={() => focusWindow(w.id)}
             onMove={(x, y) => moveWindow(w.id, x, y)}
           >
@@ -65,11 +66,12 @@ export default function FloatingWindowsHost() {
   );
 }
 
-function FloatingWindowFrame({ win, onClose, onMinimize, onFocus, onMove, children }) {
+function FloatingWindowFrame({ win, onClose, onMinimize, onToggleMaximize, onFocus, onMove, children }) {
   const dragState = useRef(null);
 
   function handleDragStart(e) {
     onFocus();
+    if (win.maximized) return; // חלון מוגדל ממלא את המסך - אין לאן לגרור אותו
     dragState.current = { startX: e.clientX, startY: e.clientY, origX: win.x, origY: win.y };
 
     function onMouseMove(ev) {
@@ -91,7 +93,11 @@ function FloatingWindowFrame({ win, onClose, onMinimize, onFocus, onMove, childr
     <div
       onMouseDownCapture={onFocus}
       style={{
-        position: 'fixed', top: win.y, left: win.x, width: 640, maxWidth: '92vw', maxHeight: '82vh',
+        position: 'fixed',
+        // מוגדל: ממלא כמעט את כל המסך (עם שוליים קטנים כדי שעדיין ייראה כחלון)
+        ...(win.maximized
+          ? { top: 8, left: 8, right: 8, bottom: 8, width: 'auto', maxWidth: 'none', maxHeight: 'none' }
+          : { top: win.y, left: win.x, width: 640, maxWidth: '92vw', maxHeight: '82vh' }),
         background: 'var(--bg, #fff)', border: '1px solid #d0d0d0', borderRadius: 10,
         boxShadow: '0 20px 60px rgba(0,0,0,0.3)', zIndex: win.z, display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
@@ -100,14 +106,17 @@ function FloatingWindowFrame({ win, onClose, onMinimize, onFocus, onMove, childr
       <div
         onMouseDown={handleDragStart}
         style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: '#f2f2f2',
-          borderBottom: '1px solid #e5e5e5', cursor: 'move', userSelect: 'none', flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 6, padding: '9px 12px', background: '#f2f2f2',
+          borderBottom: '1px solid #e5e5e5', cursor: win.maximized ? 'default' : 'move', userSelect: 'none', flexShrink: 0,
         }}
       >
         <span style={{ flex: 1, fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {win.title}
         </span>
         <button onClick={onMinimize} title="מזעור" style={frameBtnStyle()}>—</button>
+        <button onClick={onToggleMaximize} title={win.maximized ? 'הקטנה' : 'הגדלה'} style={frameBtnStyle()}>
+          {win.maximized ? '❐' : '□'}
+        </button>
         <button onClick={onClose} title="סגירה" style={frameBtnStyle()}>✕</button>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: 18 }}>

@@ -1,12 +1,16 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { getPipeline, getInquiryReasons } from '../../components/pipelines';
+import { STAGE_LABELS } from '../../components/ui';
+import { shouldOpenPipeline } from '../../lib/pipelineVisibility';
 import { updateDepartmentStage, addDepartmentMembership } from '../actions';
 import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
 import StageStepper from './StageStepper';
 import DonorStatsTile from './DonorStatsTile';
+import StudentStatsTile from './StudentStatsTile';
+import CalendarDedicationsCard from './CalendarDedicationsCard';
 import PersonalInfoCard from './PersonalInfoCard';
 import ContactSettingsMenu from './ContactSettingsMenu';
 import AvatarUpload from './AvatarUpload';
@@ -27,6 +31,7 @@ export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups,
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
+  dedications, callHistory,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -54,6 +59,14 @@ export default function ContactDetailClient({
   const active = visibleDepartments.find((d) => d.id === activeId) || visibleDepartments[0] || null;
 
   const activeConnection = active ? (emailConnections || []).find((c) => c.workspace_id === active.workspaceId) : null;
+
+  // קוביית השלבים מקופלת כברירת מחדל ונפתחת אוטומטית רק ברגעי החלטה -
+  // ר' pipelineVisibility.js. מתחשב מחדש בכל החלפת מחלקה בכרטיס.
+  const [pipelineOpen, setPipelineOpen] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    setPipelineOpen(shouldOpenPipeline(active, getPipeline(active.workspaceName)));
+  }, [activeId, active]);
 
   const availableToAdd = allWorkspaces.filter((w) => !departments.some((d) => d.workspaceId === w.id));
   const newWorkspace = availableToAdd.find((w) => w.id === newWorkspaceId);
@@ -172,19 +185,43 @@ export default function ContactDetailClient({
       )}
 
       {active?.workspaceName === 'תרומות' && (
-        <DonorStatsTile department={active} frozen={contact.frozen} transactions={donationTransactions || []} />
+        <DonorStatsTile department={active} transactions={donationTransactions || []} />
       )}
 
-      {/* שורת שלבי המחלקה הפעילה */}
+      {active?.workspaceName === 'דעת ותבונה' && (
+        <StudentStatsTile department={active} />
+      )}
+
+      {/* שורת שלבי המחלקה הפעילה - מקופלת כברירת מחדל, נפתחת אוטומטית
+          ברגעי החלטה (פנייה חדשה / ליד יזום / הגיע ליעד / נסגר) */}
       {active && (
         <div style={{ marginBottom: 16, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px' }}>
-          <StageStepper
-            currentStage={active.stage}
-            currentClosedReason={active.closedReason}
-            stages={getPipeline(active.workspaceName).order}
-            disabled={contact.frozen}
-            action={handleStageChange}
-          />
+          {pipelineOpen ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setPipelineOpen(false)}
+                style={{ background: 'none', border: 'none', padding: 0, marginBottom: 10, fontSize: 12, color: '#6b6b6b', cursor: 'pointer' }}
+              >
+                ▾ שלבי התהליך — הסתרה
+              </button>
+              <StageStepper
+                currentStage={active.stage}
+                currentClosedReason={active.closedReason}
+                stages={getPipeline(active.workspaceName).order}
+                disabled={contact.frozen}
+                action={handleStageChange}
+              />
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPipelineOpen(true)}
+              style={{ background: 'none', border: 'none', padding: 0, fontSize: 12.5, color: '#6b6b6b', cursor: 'pointer' }}
+            >
+              ▸ שלבי התהליך — שלב נוכחי: <b style={{ color: '#0a0a0a' }}>{STAGE_LABELS[active.stage] || active.stage}</b>
+            </button>
+          )}
         </div>
       )}
 
@@ -263,6 +300,11 @@ export default function ContactDetailClient({
             activeWorkspaceId={active?.workspaceId}
             lastActivityAt={active?.lastActivityAt}
             relatedContact={relatedContact}
+          />
+          <CalendarDedicationsCard
+            contactId={contact.id}
+            dedications={dedications || []}
+            frozen={contact.frozen}
           />
         </div>
 

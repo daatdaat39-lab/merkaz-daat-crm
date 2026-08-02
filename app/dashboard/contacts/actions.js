@@ -534,7 +534,69 @@ export async function importDepartmentBatch(rows, workspaceId, sourceSystem, bat
   const workspace = await resolveTargetWorkspace(supabase, user, workspaceId);
   if (!workspace.id) return { error: 'מחלקת היעד לא נמצאה' };
 
-  return bulkImportContactRows(supabase, { rows, workspace, sourceSystem, batchLabel });
+  // לידים חדשים במחלקת תרומות ממתינים לאישור המנהל (בחירת נציג ושיגור)
+  // לפני שהם מופיעים לנציגים ברשימת הלידים - ר' sales/pending
+  const requiresApproval = workspace.name === 'תרומות';
+
+  return bulkImportContactRows(supabase, { rows, workspace, sourceSystem, batchLabel, requiresApproval });
+}
+
+// אישור ליד ממתין ושיגורו לנציג - מתוך תיבת ההמתנה של המנהל
+// (sales/pending). מותר רק לבעלים/מנהל של אותה מחלקה.
+export async function approveAndAssignLead(departmentRowId, agentId) {
+  const { supabase, user } = await requireUser();
+  if (!departmentRowId) return { error: 'לא נבחר ליד' };
+
+  const { data: row } = await supabase
+    .from('contact_departments').select('id, workspace_id').eq('id', departmentRowId).single();
+  if (!row) return { error: 'הליד לא נמצא' };
+
+  const allowed = await isManagerOfWorkspace(supabase, user.id, row.workspace_id);
+  if (!allowed) return { error: 'רק בעלים/מנהל של המחלקה יכול לאשר לידים' };
+
+  const { error } = await supabase
+    .from('contact_departments')
+    .update({
+      approval_status: 'approved',
+      agent_id: agentId || null,
+      assigned_by: user.id,
+      last_activity_at: new Date().toISOString(),
+    })
+    .eq('id', departmentRowId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// הפיכת איש קשר קיים ל"ליד יזום" ע"י המנהל - משייך אותו למחלקה (אם עוד
+// לא משויך), מסמן created_by_manager כדי שיהיה ברור בעמודת המקור שזו
+// הקצאה יזומה ולא פנייה של הלקוח, ומקצה נציג.
+export async function createManagerLead(contactId, workspaceId, agentId, reason) {
+  const { supabase, user } = await requireUser();
+  if (!contactId || !workspaceId) return { error: 'חסרים פרטים' };
+
+  const allowed = await isManagerOfWorkspace(supabase, user.id, workspaceId);
+  if (!allowed) return { error: 'רק בעלים/מנהל של המחלקה יכול ליצור ליד יזום' };
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const workspace = await resolveTargetWorkspace(supabase, user, workspaceId);
+  if (!workspace.id) return { error: 'המחלקה לא נמצאה' };
+
+  await upsertDepartmentMembership(
+    supabase, contactId, workspace, reason || 'הקצאה יזומה של המנהל', null, 'מנהל', null,
+    { createdByManager: true },
+  );
+
+  if (agentId) {
+    await supabase.from('contact_departments')
+      .update({ agent_id: agentId, assigned_by: user.id, created_by_manager: true })
+      .eq('contact_id', contactId).eq('workspace_id', workspaceId);
+  } else {
+    await supabase.from('contact_departments')
+      .update({ created_by_manager: true })
+      .eq('contact_id', contactId).eq('workspace_id', workspaceId);
+  }
+  return { success: true };
 }
 
 // מסמן זוג אנשי קשר כ"לא כפילות" מתוך תור בדיקת הכפליות (הגדרות ←
@@ -550,6 +612,44 @@ export async function dismissDuplicatePair(contactIdA, contactIdB) {
   const { error } = await supabase
     .from('dismissed_duplicate_pairs')
     .upsert({ contact_id_a: idA, contact_id_b: idB, dismissed_by: user.id }, { onConflict: 'contact_id_a,contact_id_b', ignoreDuplicates: true });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// ---------- לוח שנה והקדשות ----------
+// "זכאי ליום בלוח שנה" - איש קשר יכול לקבל כמה תאריכים, לכל אחד נוסח
+// הקדשה משלו. נשמר בטבלה נפרדת (calendar_dedications, מיגרציה 0032) ולא
+// בשדה בכרטיס, כי זו רשימה שגדלה ומוצגת גם בווידג'ט הדשבורד לפי תאריך.
+export async function addDedication(contactId, dedicationDate, dedicationText, note) {
+  const { supabase, user } = await requireUser();
+  if (!contactId || !dedicationDate || !(dedicationText || '').trim()) {
+    return { error: 'יש למלא תאריך ונוסח הקדשה' };
+  }
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const { error } = await supabase.from('calendar_dedications').insert({
+    contact_id: contactId,
+    dedication_date: dedicationDate,
+    dedication_text: dedicationText.trim(),
+    note: (note || '').trim() || null,
+    created_by: user.id,
+  });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function removeDedication(dedicationId) {
+  const { supabase } = await requireUser();
+  if (!dedicationId) return { error: 'לא נבחרה הקדשה' };
+
+  const { data: row } = await supabase
+    .from('calendar_dedications').select('contact_id').eq('id', dedicationId).single();
+  if (!row) return { error: 'ההקדשה לא נמצאה' };
+  const frozenError = await requireNotFrozen(supabase, row.contact_id);
+  if (frozenError) return frozenError;
+
+  const { error } = await supabase.from('calendar_dedications').delete().eq('id', dedicationId);
   if (error) return { error: error.message };
   return { success: true };
 }

@@ -12,7 +12,7 @@ export function useFloatingWindows() {
   return ctx;
 }
 
-// מנהל חלונות צפים גלובלי - כל חלון הוא { id, kind, title, props, minimized, x, y, z }.
+// מנהל חלונות צפים גלובלי - כל חלון הוא { id, kind, title, props, minimized, maximized, x, y, z }.
 // id ייחודי (לדוגמה contact-<contactId>) כדי שפתיחה חוזרת של אותו איש קשר
 // תתמקד בחלון הקיים במקום לפתוח כפילות - זה מה שמאפשר "לפתוח 2 אנשי קשר
 // יחד" (כל אחד עם id שונה) בלי לאפשר אותו איש קשר פעמיים בטעות.
@@ -36,6 +36,7 @@ export function FloatingWindowsProvider({ children }) {
           title: win.title,
           props: win.props || {},
           minimized: false,
+          maximized: false,
           x: 100 + offset,
           y: 70 + offset,
           z: zCounter.current,
@@ -68,9 +69,16 @@ export function FloatingWindowsProvider({ children }) {
     setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, x, y } : w)));
   }, []);
 
+  // הגדלה/שחזור - מביא גם לחזית, כי חלון מוגדל שנשאר מאחורי אחר מבלבל
+  const toggleMaximize = useCallback((id) => {
+    zCounter.current += 1;
+    const z = zCounter.current;
+    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, maximized: !w.maximized, z } : w)));
+  }, []);
+
   return (
     <FloatingWindowsContext.Provider
-      value={{ windows, openWindow, closeWindow, minimizeWindow, restoreWindow, focusWindow, moveWindow }}
+      value={{ windows, openWindow, closeWindow, minimizeWindow, restoreWindow, focusWindow, moveWindow, toggleMaximize }}
     >
       {children}
     </FloatingWindowsContext.Provider>

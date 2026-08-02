@@ -41,7 +41,7 @@ export async function findExistingMatch(supabase, { idnum, phone, email }) {
 // (מיגרציה 0010) שעד כה אף קוד לא כתב אליה. extraFields (אופציונלי) -
 // שדות נוספים למחלקה (extra_fields jsonb) - תמיד ממוזגים כך שערך קיים
 // אף פעם לא נדרס, רק מפתחות חדשים/חסרים מתווספים.
-export async function upsertDepartmentMembership(supabase, contactId, workspace, reason, note, source, extraFields) {
+export async function upsertDepartmentMembership(supabase, contactId, workspace, reason, note, source, extraFields, options = {}) {
   const { data: existingRow } = await supabase
     .from('contact_departments')
     .select('id, stage, extra_fields')
@@ -64,9 +64,13 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
     await supabase.from('contact_departments').update(update).eq('id', rowId);
   } else {
     const pipeline = getPipeline(workspace.name);
+    // שיוך חדש בלבד יכול להיווצר כ"ממתין לאישור מנהל" - שיוך קיים לעולם
+    // לא חוזר להמתנה (הוא כבר אושר פעם אחת ומטופל)
     const { data: created } = await supabase.from('contact_departments').insert({
       contact_id: contactId, workspace_id: workspace.id, stage: pipeline.order[0], last_activity_at: new Date().toISOString(),
       extra_fields: extraFields || {},
+      approval_status: options.requiresApproval ? 'pending' : 'approved',
+      created_by_manager: !!options.createdByManager,
     }).select('id').single();
     rowId = created?.id;
   }
@@ -114,9 +118,10 @@ async function insertDonationTransaction(supabase, contactId, workspaceId, sourc
 // (משלים שדות ריקים בלבד + מוסיף רשומת פנייה חדשה להיסטוריה).
 // sourceSystem/batchLabel מתויגים על כל רשומת lead_inquiries שנוצרת, כך
 // שהמקור והתקופה של כל ייבוא נשארים גלויים לצמיתות בטאב "פעילות".
-export async function bulkImportContactRows(supabase, { rows, workspaceId, workspace, sourceSystem, batchLabel }) {
+export async function bulkImportContactRows(supabase, { rows, workspaceId, workspace, sourceSystem, batchLabel, requiresApproval = false }) {
   const ws = workspace || { id: workspaceId };
   const reason = (batchLabel || '').trim() || 'ייבוא';
+  const membershipOptions = { requiresApproval };
   let created = 0;
   let enriched = 0;
   let transactionsAdded = 0;
@@ -155,7 +160,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       if (Object.keys(fill).length > 0) {
         await supabase.from('contacts').update(fill).eq('id', existing.id);
       }
-      await upsertDepartmentMembership(supabase, existing.id, ws, reason, null, sourceSystem, row.extraFields);
+      await upsertDepartmentMembership(supabase, existing.id, ws, reason, null, sourceSystem, row.extraFields, membershipOptions);
       trackTransactionResult(await insertDonationTransaction(supabase, existing.id, ws.id, sourceSystem, row.donationTransaction));
       enriched++;
       continue;
@@ -173,7 +178,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       tags: rowTags,
     }).select('id').single();
     if (createdContact) {
-      await upsertDepartmentMembership(supabase, createdContact.id, ws, reason, null, sourceSystem, row.extraFields);
+      await upsertDepartmentMembership(supabase, createdContact.id, ws, reason, null, sourceSystem, row.extraFields, membershipOptions);
       trackTransactionResult(await insertDonationTransaction(supabase, createdContact.id, ws.id, sourceSystem, row.donationTransaction));
       created++;
     }

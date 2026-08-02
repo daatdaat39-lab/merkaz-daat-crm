@@ -21,10 +21,10 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationRows }, { data: callHistoryRows }] = await Promise.all([
     supabase
       .from('contact_departments')
-      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
+      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
       .eq('contact_id', contact.id),
     supabase.from('workspaces').select('id, name').order('name'),
     supabase
@@ -57,6 +57,16 @@ export async function loadContactCardData(contactId) {
       .select('id, workspace_id, source_system, amount, transaction_date')
       .eq('contact_id', contact.id)
       .order('transaction_date', { ascending: false }),
+    supabase
+      .from('calendar_dedications')
+      .select('id, dedication_date, dedication_text, note')
+      .eq('contact_id', contact.id)
+      .order('dedication_date', { ascending: true }),
+    supabase
+      .from('contact_call_history')
+      .select('id, call_date, response_text, source_system')
+      .eq('contact_id', contact.id)
+      .order('call_date', { ascending: false }),
   ]);
 
   const admin = createAdminClient();
@@ -94,6 +104,7 @@ export async function loadContactCardData(contactId) {
     agentName: agentNameById[row.agent_id] || null,
     lastActivityAt: row.last_activity_at,
     extraFields: row.extra_fields || {},
+    createdByManager: !!row.created_by_manager,
     inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
   }));
 
@@ -143,6 +154,8 @@ export async function loadContactCardData(contactId) {
       allInquiries,
       workspaceNameById,
       donationTransactions: donationTransactionRows || [],
+      dedications: dedicationRows || [],
+      callHistory: callHistoryRows || [],
     },
   };
 }

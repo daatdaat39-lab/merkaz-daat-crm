@@ -6,6 +6,7 @@ import { STAGE_LABELS } from '../../components/ui';
 import AddContactForm from '../../contacts/AddContactForm';
 import LeadsBoard from './LeadsBoard';
 import { groupTagsByDepartment } from '../../lib/tagGroups';
+import { isManagerOfWorkspace } from '../../lib/contactGuards';
 
 const RECENT_INQUIRY_DAYS = 3;
 
@@ -32,9 +33,11 @@ export default async function SalesLeadsPage() {
   if (workspaceId) {
     const { data } = await supabase
       .from('contact_departments')
-      .select('id, stage, agent_id, last_activity_at, extra_fields, contacts:contact_id (id, first, last, phone, email, source, dept, tags, frozen), lead_inquiries (reason, created_at)')
+      .select('id, stage, agent_id, last_activity_at, extra_fields, created_by_manager, contacts:contact_id (id, first, last, phone, email, source, dept, tags, frozen), lead_inquiries (reason, created_at)')
       .eq('workspace_id', workspaceId)
       .in('stage', pipeline.leadStages)
+      // לידים שממתינים לאישור המנהל לא מוצגים לנציגים - ר' sales/pending
+      .eq('approval_status', 'approved')
       .order('last_activity_at', { ascending: false });
     leads = (data || [])
       .filter((row) => row.contacts)
@@ -44,6 +47,7 @@ export default async function SalesLeadsPage() {
           ...row.contacts,
           departmentRowId: row.id, stage: row.stage, agent_id: row.agent_id, last_activity_at: row.last_activity_at,
           extra_fields: row.extra_fields || {},
+          createdByManager: !!row.created_by_manager,
           latestReason: inquiries[0]?.reason || null,
           inquiryCount: inquiries.length,
         };
@@ -108,6 +112,18 @@ export default async function SalesLeadsPage() {
 
   const overdueCount = leads.filter((l) => l.last_activity_at && (Date.now() - new Date(l.last_activity_at).getTime()) / 3600000 >= 24).length;
 
+  // מונה לידים ממתינים לאישור - הקישור לתיבה מוצג רק לבעלים/מנהל המחלקה
+  const isManager = workspaceId ? await isManagerOfWorkspace(supabase, user.id, workspaceId) : false;
+  let pendingCount = 0;
+  if (isManager && workspaceId) {
+    const { count } = await supabase
+      .from('contact_departments')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', workspaceId)
+      .eq('approval_status', 'pending');
+    pendingCount = count || 0;
+  }
+
   return (
     <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
@@ -120,10 +136,20 @@ export default async function SalesLeadsPage() {
             )}
           </p>
         </div>
-        <AddContactForm
-          label="+ צור ליד חדש" modalTitle="ליד חדש"
-          workspaces={workspaces || []} defaultWorkspaceId={workspaceId || ''} existingTags={existingTags} tagGroups={tagGroups}
-        />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {isManager && pendingCount > 0 && (
+            <Link href="/dashboard/sales/pending" style={{
+              background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', textDecoration: 'none',
+              fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 6,
+            }}>
+              📥 {pendingCount} ממתינים לאישורך
+            </Link>
+          )}
+          <AddContactForm
+            label="+ צור ליד חדש" modalTitle="ליד חדש"
+            workspaces={workspaces || []} defaultWorkspaceId={workspaceId || ''} existingTags={existingTags} tagGroups={tagGroups}
+          />
+        </div>
       </div>
 
       {advancedInquiries.length > 0 && (

@@ -98,7 +98,17 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
       </td>
       <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.phone || '—'}</td>
       <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.email || '—'}</td>
-      <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.source || '—'}</td>
+      <td style={{ padding: '10px 16px', fontSize: 13 }}>
+        {c.createdByManager && (
+          <div style={{
+            display: 'inline-block', background: '#f5f3ff', color: '#6d28d9', fontSize: 10.5, fontWeight: 600,
+            borderRadius: 4, padding: '2px 6px', marginBottom: 3,
+          }}>
+            👤 יזום ע"י מנהל
+          </div>
+        )}
+        <div>{c.source || '—'}</div>
+      </td>
       <td style={{ padding: '10px 16px', fontSize: 12.5 }}>
         {c.inquiryCount > 1 && (
           <div style={{ color: 'var(--danger, #a3392f)', fontWeight: 600, fontSize: 11, marginBottom: 2 }}>

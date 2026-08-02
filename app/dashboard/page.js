@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { STAGE_LABELS } from './components/ui';
 import { getPipeline } from './components/pipelines';
 import { randomPraise } from './components/celebrate';
+import DedicationsWidget from './DedicationsWidget';
 
 function timeGreeting() {
   const hour = new Date().getHours();
@@ -49,6 +50,29 @@ export default async function DashboardHome() {
   let openTasks = [];
   let upcomingCharges = [];
   const isDonationsWorkspace = profile?.workspaces?.name === 'תרומות';
+
+  // תאריכי לוח שנה/הקדשות בטווח אתמול..שבוע קדימה - לא מסונן לפי מחלקה,
+  // כי ההקדשה שייכת לאיש הקשר עצמו ולא לשיוך מחלקתי מסוים
+  const dayMs = 86400000;
+  const isoDay = (offset) => new Date(Date.now() + offset * dayMs).toISOString().slice(0, 10);
+  const { data: dedicationRows } = await supabase
+    .from('calendar_dedications')
+    .select('id, contact_id, dedication_date, dedication_text, note, contacts:contact_id (first, last)')
+    .gte('dedication_date', isoDay(-1))
+    .lte('dedication_date', isoDay(7))
+    .order('dedication_date', { ascending: true });
+
+  const yesterdayStr = isoDay(-1);
+  const todayDateStr = isoDay(0);
+  const tomorrowStr = isoDay(1);
+  const dedicationGroups = { אתמול: [], היום: [], מחר: [], 'השבוע הקרוב': [] };
+  for (const row of dedicationRows || []) {
+    const item = { ...row, contactName: `${row.contacts?.first || ''} ${row.contacts?.last || ''}`.trim() };
+    if (row.dedication_date === yesterdayStr) dedicationGroups['אתמול'].push(item);
+    else if (row.dedication_date === todayDateStr) dedicationGroups['היום'].push(item);
+    else if (row.dedication_date === tomorrowStr) dedicationGroups['מחר'].push(item);
+    else dedicationGroups['השבוע הקרוב'].push(item);
+  }
 
   if (workspaceId) {
     const [{ data: c }, { data: wc }, { data: m }, { data: t }] = await Promise.all([
@@ -204,6 +228,8 @@ export default async function DashboardHome() {
           </div>
         </div>
       </div>
+
+      <DedicationsWidget groups={dedicationGroups} />
 
       {isDonationsWorkspace && (
         <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
