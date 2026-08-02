@@ -23,6 +23,7 @@ const BASE_FIELDS = [
   { key: 'birth_date', label: 'תאריך לידה' },
   { key: 'gender', label: 'מגדר' },
   { key: 'tags', label: 'תגיות (מופרדות בפסיק)' },
+  { key: 'externalId', label: 'מזהה במערכת המקור (למשל מספר לקוח בקשר)' },
 ];
 
 // שדות תנועה (לא תמונת מצב) - כשממופים amount+date, כל שורה הופכת

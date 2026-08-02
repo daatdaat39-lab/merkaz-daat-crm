@@ -90,6 +90,13 @@ export default async function DashboardLayout({ children, modal }) {
   }
   const pendingWhatsappReplies = [...latestDirectionByPhone.values()].filter((d) => d === 'in').length;
 
+  // הודעות שלא נקראו על אנשי קשר ששותפו איתי (contact_shares, מיגרציה 0033) - לתגית הפעמון
+  const { count: unreadShareCount } = await supabase
+    .from('contact_shares')
+    .select('id', { count: 'exact', head: true })
+    .eq('to_user', user.id)
+    .is('read_at', null);
+
   async function switchWorkspace(formData) {
     'use server';
     const workspaceId = formData.get('workspace_id');
@@ -147,6 +154,7 @@ export default async function DashboardLayout({ children, modal }) {
           existingTags={existingTags}
           tagGroups={tagGroups}
           pendingWhatsappReplies={pendingWhatsappReplies}
+          unreadShareCount={unreadShareCount || 0}
         />
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {hasAccessToCurrent ? children : (

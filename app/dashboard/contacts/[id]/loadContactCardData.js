@@ -21,7 +21,7 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationRows }, { data: callHistoryRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationRows }, { data: callHistoryRows }, { data: externalIdRows }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -67,6 +67,11 @@ export async function loadContactCardData(contactId) {
       .select('id, call_date, response_text, source_system')
       .eq('contact_id', contact.id)
       .order('call_date', { ascending: false }),
+    supabase
+      .from('contact_external_ids')
+      .select('id, source_system, external_id')
+      .eq('contact_id', contact.id)
+      .order('source_system'),
   ]);
 
   const admin = createAdminClient();
@@ -156,6 +161,7 @@ export async function loadContactCardData(contactId) {
       donationTransactions: donationTransactionRows || [],
       dedications: dedicationRows || [],
       callHistory: callHistoryRows || [],
+      externalIds: externalIdRows || [],
     },
   };
 }

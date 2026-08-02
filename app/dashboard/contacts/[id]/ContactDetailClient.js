@@ -13,6 +13,7 @@ import StudentStatsTile from './StudentStatsTile';
 import CalendarDedicationsCard from './CalendarDedicationsCard';
 import PersonalInfoCard from './PersonalInfoCard';
 import ContactSettingsMenu from './ContactSettingsMenu';
+import ShareContactButton from './ShareContactButton';
 import AvatarUpload from './AvatarUpload';
 import ContactTabs from './ContactTabs';
 import EmailComposeModal from './EmailComposeModal';
@@ -31,7 +32,7 @@ export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups,
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
-  dedications, callHistory,
+  dedications, callHistory, externalIds,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -160,6 +161,7 @@ export default function ContactDetailClient({
             🗗
           </button>
         )}
+        <ShareContactButton contactId={contact.id} departments={departments} agentsByWorkspace={agentsByWorkspace} />
         <ContactSettingsMenu contact={contact} activeDepartment={active} />
       </div>
 
@@ -300,6 +302,7 @@ export default function ContactDetailClient({
             activeWorkspaceId={active?.workspaceId}
             lastActivityAt={active?.lastActivityAt}
             relatedContact={relatedContact}
+            externalIds={externalIds}
           />
           <CalendarDedicationsCard
             contactId={contact.id}

@@ -15,7 +15,7 @@ const categoryLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTra
 // ✎ הופכת את שורות הזהות/פרטי הקשר לשדות קלט במקום, עם שמירה/ביטול.
 export default function PersonalInfoCard({
   contact, existingTags, tagGroups = null, age, hebrewDate, nextMeeting, openTasksCount, agentId, agentName, agents, activeWorkspaceId,
-  lastActivityAt, relatedContact,
+  lastActivityAt, relatedContact, externalIds = [],
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState(null);
@@ -45,8 +45,15 @@ export default function PersonalInfoCard({
   return (
     <div style={{ background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase' }}>
-          פרטים אישיים
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase' }}>
+            פרטים אישיים
+          </div>
+          {contact.contact_number != null && (
+            <div style={{ fontSize: 11, color: '#9b9b9b', marginTop: 2 }} title="מספר מזהה יחודי של איש הקשר במערכת">
+              מס' לקוח: #{contact.contact_number}
+            </div>
+          )}
         </div>
         <button
           onClick={() => setEditing((v) => !v)}
@@ -103,6 +110,14 @@ export default function PersonalInfoCard({
           <InfoRow label="מגדר" value={contact.gender} />
           <InfoRow label="מקור" value={contact.source} />
           <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
+          {externalIds.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10.5, color: '#9b9b9b' }}>מזהים במערכות חיצוניות</div>
+              <div style={{ fontSize: 13 }}>
+                {externalIds.map((e) => `${e.source_system}: ${e.external_id}`).join(' · ')}
+              </div>
+            </div>
+          )}
           {relatedContact && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 10.5, color: '#9b9b9b' }}>{contact.relation_label || 'איש קשר קשור'}</div>

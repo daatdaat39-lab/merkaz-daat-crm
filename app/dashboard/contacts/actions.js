@@ -924,3 +924,69 @@ export async function uploadContactPhoto(contactId, formData) {
 
   return { success: true, url: publicUrlData.publicUrl };
 }
+
+// ---------- שיתוף איש קשר בין נציגים ----------
+// הודעת טקסט חופשי שנציג שולח לנציג אחר על איש קשר ספציפי
+// (contact_shares, מיגרציה 0033) - מופיעה אצל המקבל כ"הודעה חדשה" בתיבת
+// ההודעות שלו (read_at null = טרם נקראה). כל משתמש מחובר יכול לשתף - זו
+// הודעה בין עמיתים, לא פעולת ניהול, אז אין כאן בדיקת owner/admin.
+export async function shareContactWithColleague(contactId, toUserId, message) {
+  const { supabase, user } = await requireUser();
+  if (!contactId || !toUserId) return { error: 'יש לבחור נציג לשיתוף' };
+  if (toUserId === user.id) return { error: 'לא ניתן לשתף עם עצמך' };
+  const text = (message || '').toString().trim();
+  if (!text) return { error: 'יש לכתוב הודעה' };
+
+  const { error } = await supabase.from('contact_shares').insert({
+    contact_id: contactId,
+    from_user: user.id,
+    to_user: toUserId,
+    message: text,
+  });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// כל ההודעות שהתקבלו למשתמש הנוכחי (לתיבת ההודעות /dashboard/inbox) -
+// כולל שם השולח ופרטי איש הקשר, מהחדש לישן
+export async function getMyContactShares() {
+  const { supabase, user } = await requireUser();
+  const admin = createAdminClient();
+
+  const { data: rows } = await supabase
+    .from('contact_shares')
+    .select('id, contact_id, from_user, message, created_at, read_at, contacts:contact_id (first, last)')
+    .eq('to_user', user.id)
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  const fromIds = Array.from(new Set((rows || []).map((r) => r.from_user).filter(Boolean)));
+  const { data: profiles } = fromIds.length
+    ? await supabase.from('profiles').select('id, name').in('id', fromIds)
+    : { data: [] };
+  const { data: usersList } = fromIds.length ? await admin.auth.admin.listUsers({ perPage: 1000 }) : { data: { users: [] } };
+  const emailById = Object.fromEntries((usersList?.users || []).map((u) => [u.id, u.email]));
+  const nameById = Object.fromEntries((profiles || []).map((p) => [p.id, p.name || emailById[p.id] || 'משתמש']));
+
+  return (rows || []).map((r) => ({
+    id: r.id,
+    contactId: r.contact_id,
+    contactName: r.contacts ? `${r.contacts.first || ''} ${r.contacts.last || ''}`.trim() : 'איש קשר',
+    fromName: r.from_user ? nameById[r.from_user] || 'משתמש' : 'משתמש',
+    message: r.message,
+    createdAt: r.created_at,
+    readAt: r.read_at,
+  }));
+}
+
+export async function markShareRead(shareId) {
+  const { supabase, user } = await requireUser();
+  if (!shareId) return { error: 'לא נבחרה הודעה' };
+  const { error } = await supabase
+    .from('contact_shares')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', shareId)
+    .eq('to_user', user.id);
+  if (error) return { error: error.message };
+  return { success: true };
+}

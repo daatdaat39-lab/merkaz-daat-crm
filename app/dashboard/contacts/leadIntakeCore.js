@@ -12,14 +12,31 @@ import { getPipeline } from '../components/pipelines';
 // כולל שדות נוספים (לא רק id/tags) כדי שקוד קורא (כמו ייבוא בכמות) יוכל
 // לדעת אילו שדות כבר מלאים אצל ההתאמה הקיימת בלי שאילתה נוספת - ר'
 // bulkImportContactRows למטה, שלעולם לא דורס שדה שכבר יש לו ערך.
-export async function findExistingMatch(supabase, { idnum, phone, email }) {
+// sourceSystem+externalId (אופציונלי) - אם סופקו, נבדקים ראשונים דרך
+// טבלת contact_external_ids (מיגרציה 0033): מזהה מוכר ממערכת חיצונית הוא
+// ההתאמה הכי אמינה שיש (יותר מטלפון/מייל/ת"ז, שיכולים להשתנות).
+export async function findExistingMatch(supabase, { idnum, phone, email, sourceSystem, externalId }) {
+  const select = 'id, tags, phone, phone2, email, email2, idnum, birth_date, gender';
+
+  if (sourceSystem && externalId) {
+    const { data: mapping } = await supabase
+      .from('contact_external_ids')
+      .select('contact_id')
+      .eq('source_system', sourceSystem)
+      .eq('external_id', externalId)
+      .maybeSingle();
+    if (mapping?.contact_id) {
+      const { data: byExternalId } = await supabase.from('contacts').select(select).eq('id', mapping.contact_id).limit(1);
+      if (byExternalId?.[0]) return byExternalId[0];
+    }
+  }
+
   const filters = [];
   if (idnum) filters.push(['idnum', idnum]);
   if (phone) filters.push(['phone', phone]);
   if (email) filters.push(['email', email]);
   if (filters.length === 0) return null;
 
-  const select = 'id, tags, phone, phone2, email, email2, idnum, birth_date, gender';
   const results = await Promise.all(
     filters.map(([column, value]) => supabase.from('contacts').select(select).eq(column, value).limit(1))
   );
@@ -27,6 +44,19 @@ export async function findExistingMatch(supabase, { idnum, phone, email }) {
     if (data?.[0]) return data[0];
   }
   return null;
+}
+
+// שומר/מעדכן את המזהה של איש הקשר במערכת חיצונית ספציפית
+// (contact_external_ids, מיגרציה 0033). ignoreDuplicates:true בכוונה -
+// אם אותו מזהה חיצוני כבר קיים ומצביע לכרטיס אחר, לא דורסים אותו בשקט
+// (זה בדיוק סימן לכפילות שדורשת בדיקה ידנית, לא ממוזג אוטומטית).
+async function upsertContactExternalId(supabase, contactId, sourceSystem, externalId) {
+  const source = (sourceSystem || '').toString().trim();
+  const extId = (externalId || '').toString().trim();
+  if (!source || !extId) return;
+  await supabase
+    .from('contact_external_ids')
+    .upsert({ contact_id: contactId, source_system: source, external_id: extId }, { onConflict: 'source_system,external_id', ignoreDuplicates: true });
 }
 
 // מוסיף איש קשר למחלקה נתונה (contact_departments) בלי לגעת בשיוך שלו
@@ -144,7 +174,8 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       ? row.tags
       : (row.tags || '').toString().split(',').map((t) => t.trim()).filter(Boolean);
 
-    const existing = await findExistingMatch(supabase, { idnum, phone, email });
+    const externalId = (row.externalId || '').toString().trim() || null;
+    const existing = await findExistingMatch(supabase, { idnum, phone, email, sourceSystem, externalId });
 
     if (existing) {
       const fill = {};
@@ -162,6 +193,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       }
       await upsertDepartmentMembership(supabase, existing.id, ws, reason, null, sourceSystem, row.extraFields, membershipOptions);
       trackTransactionResult(await insertDonationTransaction(supabase, existing.id, ws.id, sourceSystem, row.donationTransaction));
+      await upsertContactExternalId(supabase, existing.id, sourceSystem, externalId);
       enriched++;
       continue;
     }
@@ -180,6 +212,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
     if (createdContact) {
       await upsertDepartmentMembership(supabase, createdContact.id, ws, reason, null, sourceSystem, row.extraFields, membershipOptions);
       trackTransactionResult(await insertDonationTransaction(supabase, createdContact.id, ws.id, sourceSystem, row.donationTransaction));
+      await upsertContactExternalId(supabase, createdContact.id, sourceSystem, externalId);
       created++;
     }
   }
