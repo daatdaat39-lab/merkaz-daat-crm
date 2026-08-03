@@ -1,8 +1,7 @@
 import { createClient } from '../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { STAGE_LABELS } from './components/ui';
-import { getPipeline } from './components/pipelines';
+import { getPipeline } from './lib/pipelines';
 import { randomPraise } from './components/celebrate';
 import DedicationsWidget from './DedicationsWidget';
 import QuickAssignSelect from './QuickAssignSelect';
@@ -30,7 +29,7 @@ export default async function DashboardHome() {
     .single();
 
   const workspaceId = profile?.current_workspace_id;
-  const pipeline = getPipeline(profile?.workspaces?.name);
+  const pipeline = await getPipeline(supabase, profile?.workspaces?.name);
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
@@ -62,12 +61,15 @@ export default async function DashboardHome() {
   const isDonationsWorkspace = profile?.workspaces?.name === 'תרומות';
 
   // תאריכי לוח שנה/הקדשות בטווח אתמול..שבוע קדימה - לא מסונן לפי מחלקה,
-  // כי ההקדשה שייכת לאיש הקשר עצמו ולא לשיוך מחלקתי מסוים
+  // כי ההקדשה שייכת לאיש הקשר עצמו ולא לשיוך מחלקתי מסוים. כל שורה
+  // ב-campaign_dedication_entries שייכת בהכרח לקמפיין ההקדשות (kind=
+  // 'dedication') כי רק addDedication יוצר אותן, דרך אותו קמפיין - אין
+  // צורך לסנן לפי kind בנפרד.
   const dayMs = 86400000;
   const isoDay = (offset) => new Date(Date.now() + offset * dayMs).toISOString().slice(0, 10);
   const { data: dedicationRows } = await supabase
-    .from('calendar_dedications')
-    .select('id, contact_id, dedication_date, dedication_text, note, names, locked_at, contacts:contact_id (first, last)')
+    .from('campaign_dedication_entries')
+    .select('id, dedication_date, dedication_text, note, names, locked_at, campaign_contacts:campaign_contact_id (contact_id, contacts:contact_id (first, last))')
     .gte('dedication_date', isoDay(-1))
     .lte('dedication_date', isoDay(7))
     .order('dedication_date', { ascending: true });
@@ -77,7 +79,8 @@ export default async function DashboardHome() {
   const tomorrowStr = isoDay(1);
   const dedicationGroups = { אתמול: [], היום: [], מחר: [], 'השבוע הקרוב': [] };
   for (const row of dedicationRows || []) {
-    const item = { ...row, contactName: `${row.contacts?.first || ''} ${row.contacts?.last || ''}`.trim() };
+    const contact = row.campaign_contacts?.contacts;
+    const item = { ...row, contact_id: row.campaign_contacts?.contact_id, contactName: `${contact?.first || ''} ${contact?.last || ''}`.trim() };
     if (row.dedication_date === yesterdayStr) dedicationGroups['אתמול'].push(item);
     else if (row.dedication_date === todayDateStr) dedicationGroups['היום'].push(item);
     else if (row.dedication_date === tomorrowStr) dedicationGroups['מחר'].push(item);
@@ -253,7 +256,7 @@ export default async function DashboardHome() {
               const pct = Math.round((stageCounts[s] / max) * 100);
               return (
                 <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 90, fontSize: 12, color: '#6b6b6b', flexShrink: 0 }}>{STAGE_LABELS[s]}</div>
+                  <div style={{ width: 90, fontSize: 12, color: '#6b6b6b', flexShrink: 0 }}>{pipeline.labels[s]}</div>
                   <div style={{ flex: 1, background: '#f2f2f2', borderRadius: 4, height: 8, overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, background: '#0a0a0a', height: '100%' }} />
                   </div>

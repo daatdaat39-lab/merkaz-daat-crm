@@ -1,24 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { STAGE_LABELS } from '../../components/ui';
 import { CLOSE_REASONS } from '../../components/pipelines';
 
 // שורת נקודות אופקית לשלבי ה-pipeline של מחלקה - נקודה מלאה = הושלם,
-// לחיצה על נקודה משנה שלב (קדימה או אחורה, שניהם מותרים). "סגור" הוא
-// שבב נפרד בסוף (לא חלק מהרצף המספרי, בדיוק כמו שהיה עם ה-select הישן).
+// לחיצה על נקודה משנה שלב (קדימה או אחורה, שניהם מותרים). שלבי-צד
+// (sideStages, למשל "סגור"/"תקלה בחיוב") מוצגים כשבבים נפרדים בסוף,
+// לא כחלק מהרצף המספרי - נטענים דינמית מ-pipeline_stages (מיגרציה
+// 0036), לא קבועים בקוד, כדי שמנהל שמוסיף שלב-צד חדש בהגדרות יראה
+// אותו כאן בלי שינוי קוד. "סגור" הוא שלב-הצד היחיד עם זרימת בחירת
+// סיבה (pendingClose) - שלבי-צד אחרים (כמו "תקלה בחיוב") מוגדרים
+// ישירות בלחיצה אחת, כמו שהיה קודם.
 // closeReasons (אופציונלי) - מגיע מרשימת בחירה דינמית (הגדרות ← רשימות
 // בחירה); אם לא סופק, נופל חזרה לרשימה הקבועה בקוד.
-// hasCreditIssueStage - מוסיף שבב אדום שני "תקלה בחיוב/אשראי נכשל", לשימוש
-// ידני בלבד (אין עדיין חיבור חי שמזהה תקלות אשראי אמיתיות).
-export default function StageStepper({ currentStage, currentClosedReason, stages, action, disabled, closeReasons, hasCreditIssueStage }) {
+export default function StageStepper({ currentStage, currentClosedReason, stages, sideStages = [], labels = {}, colors = {}, action, disabled, closeReasons }) {
   const reasons = closeReasons?.length ? closeReasons : CLOSE_REASONS;
   const [pendingClose, setPendingClose] = useState(false);
   const [reason, setReason] = useState(currentClosedReason || reasons[0]);
 
   const currentIndex = stages.indexOf(currentStage);
-  const isClosed = currentStage === 'closed';
-  const isCreditIssue = currentStage === 'credit_issue';
+  const isSideActive = sideStages.includes(currentStage);
+
+  const label = (key) => labels[key] || key;
+  const color = (key) => colors[key] || { bg: '#fef2f2', color: '#a3392f' };
 
   function handleDotClick(stage) {
     if (disabled) return;
@@ -27,9 +31,10 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
     action(fd);
   }
 
-  function handleCloseClick() {
+  function handleSideClick(stage) {
     if (disabled) return;
-    setPendingClose(true);
+    if (stage === 'closed') { setPendingClose(true); return; }
+    handleDotClick(stage);
   }
 
   function handleCloseConfirm() {
@@ -44,8 +49,8 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
         {stages.map((stage, i) => {
-          const done = !isClosed && !isCreditIssue && i <= currentIndex;
-          const isCurrent = !isClosed && !isCreditIssue && i === currentIndex;
+          const done = !isSideActive && i <= currentIndex;
+          const isCurrent = !isSideActive && i === currentIndex;
           return (
             <div key={stage} style={{ display: 'flex', alignItems: 'center', flex: i > 0 ? '1 1 0' : '0 0 auto', minWidth: 0 }}>
               {i > 0 && (
@@ -55,7 +60,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
                 type="button"
                 onClick={() => handleDotClick(stage)}
                 disabled={disabled}
-                title={STAGE_LABELS[stage] || stage}
+                title={label(stage)}
                 style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                   background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: '0 2px',
@@ -68,61 +73,44 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
                   boxShadow: isCurrent ? '0 0 0 3px rgba(10,10,10,0.15)' : 'none',
                 }} />
                 <span style={{ fontSize: 9.5, color: isCurrent ? '#0a0a0a' : '#9b9b9b', fontWeight: isCurrent ? 600 : 400, whiteSpace: 'nowrap' }}>
-                  {STAGE_LABELS[stage] || stage}
+                  {label(stage)}
                 </span>
               </button>
             </div>
           );
         })}
 
-        <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: isClosed ? '#a3392f' : '#e5e5e5', marginTop: -14 }} />
-        <button
-          type="button"
-          onClick={handleCloseClick}
-          disabled={disabled}
-          title={STAGE_LABELS.closed}
-          style={{
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-            background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: '0 2px',
-          }}
-        >
-          <span style={{
-            width: isClosed ? 14 : 10, height: isClosed ? 14 : 10, borderRadius: '50%',
-            background: isClosed ? '#a3392f' : '#fff',
-            border: isClosed ? 'none' : '2px solid #f0c0ba',
-          }} />
-          <span style={{ fontSize: 9.5, color: isClosed ? '#a3392f' : '#c98a80', fontWeight: isClosed ? 600 : 400 }}>
-            {STAGE_LABELS.closed}
-          </span>
-        </button>
-
-        {hasCreditIssueStage && (
-          <>
-            <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: isCreditIssue ? '#a3392f' : '#e5e5e5', marginTop: -14 }} />
-            <button
-              type="button"
-              onClick={() => handleDotClick('credit_issue')}
-              disabled={disabled}
-              title={STAGE_LABELS.credit_issue}
-              style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: '0 2px',
-              }}
-            >
-              <span style={{
-                width: isCreditIssue ? 14 : 10, height: isCreditIssue ? 14 : 10, borderRadius: '50%',
-                background: isCreditIssue ? '#a3392f' : '#fff',
-                border: isCreditIssue ? 'none' : '2px solid #f0c0ba',
-              }} />
-              <span style={{ fontSize: 9.5, color: isCreditIssue ? '#a3392f' : '#c98a80', fontWeight: isCreditIssue ? 600 : 400, whiteSpace: 'nowrap' }}>
-                ⚠ {STAGE_LABELS.credit_issue}
-              </span>
-            </button>
-          </>
-        )}
+        {sideStages.map((stage) => {
+          const isCurrent = currentStage === stage;
+          const c = color(stage);
+          return (
+            <div key={stage} style={{ display: 'flex', alignItems: 'center', flex: '1 1 0', minWidth: 0 }}>
+              <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: isCurrent ? c.color : '#e5e5e5', marginTop: -14 }} />
+              <button
+                type="button"
+                onClick={() => handleSideClick(stage)}
+                disabled={disabled}
+                title={label(stage)}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                  background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: '0 2px',
+                }}
+              >
+                <span style={{
+                  width: isCurrent ? 14 : 10, height: isCurrent ? 14 : 10, borderRadius: '50%',
+                  background: isCurrent ? c.color : '#fff',
+                  border: isCurrent ? 'none' : '2px solid #f0c0ba',
+                }} />
+                <span style={{ fontSize: 9.5, color: isCurrent ? c.color : '#c98a80', fontWeight: isCurrent ? 600 : 400, whiteSpace: 'nowrap' }}>
+                  {stage !== 'closed' ? '⚠ ' : ''}{label(stage)}
+                </span>
+              </button>
+            </div>
+          );
+        })}
       </div>
 
-      {isClosed && currentClosedReason && (
+      {currentStage === 'closed' && currentClosedReason && (
         <div style={{ fontSize: 11, color: '#9b9b9b', marginTop: 6 }}>סיבת סגירה: {currentClosedReason}</div>
       )}
 

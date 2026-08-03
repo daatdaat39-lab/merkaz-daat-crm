@@ -126,6 +126,22 @@ export default async function SettingsPage() {
         </Link>
       </div>
 
+      <div style={{
+        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
+      }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>🔀 שלבי pipeline</div>
+          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>הוספה/מחיקה/עריכת שלבי התהליך לכל מחלקה (owner/admin בלבד)</div>
+        </div>
+        <Link href="/dashboard/settings/pipelines" style={{
+          background: '#fff', color: '#0a0a0a', border: '1px solid #e5e5e5', textDecoration: 'none', fontSize: 13,
+          padding: '7px 16px', borderRadius: 6,
+        }}>
+          לניהול →
+        </Link>
+      </div>
+
       <WhatsAppTemplatesPanel templates={whatsappTemplates || []} />
       <EmailTemplatesPanel templates={emailTemplates || []} />
 

@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { getPipeline, getExtraFields } from '../../components/pipelines';
-import { STAGE_LABELS } from '../../components/ui';
+import { getExtraFields } from '../../components/pipelines';
+import { getPipeline } from '../../lib/pipelines';
 import AddContactForm from '../../contacts/AddContactForm';
 import LeadsBoard from './LeadsBoard';
 import { groupTagsByDepartment } from '../../lib/tagGroups';
@@ -23,7 +23,7 @@ export default async function SalesLeadsPage() {
 
   const workspaceId = profile?.current_workspace_id;
   const workspaceName = profile?.workspaces?.name;
-  const pipeline = getPipeline(workspaceName);
+  const pipeline = await getPipeline(supabase, workspaceName);
   const extraFields = getExtraFields(workspaceName);
 
   let leads = [];
@@ -166,7 +166,7 @@ export default async function SalesLeadsPage() {
             🔔 פניות חדשות מאנשי קשר שכבר מתקדמים ({advancedInquiries.length})
           </div>
           <p style={{ fontSize: 12, color: '#92400e', margin: '0 0 10px' }}>
-            אלה לא "לידים" במובן הרגיל — הם כבר בשלב מתקדם ({advancedInquiries.map((a) => STAGE_LABELS[a.stage] || a.stage).filter((v, i, arr) => arr.indexOf(v) === i).join(', ')}) — אבל פנו שוב לאחרונה, ולכן לא מוצגים ברשימה הרגילה למטה.
+            אלה לא "לידים" במובן הרגיל — הם כבר בשלב מתקדם ({advancedInquiries.map((a) => pipeline.labels[a.stage] || a.stage).filter((v, i, arr) => arr.indexOf(v) === i).join(', ')}) — אבל פנו שוב לאחרונה, ולכן לא מוצגים ברשימה הרגילה למטה.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {advancedInquiries.map((a) => (
@@ -175,7 +175,7 @@ export default async function SalesLeadsPage() {
                 href={`/dashboard/contacts/${a.contactId}`}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', fontSize: 12.5, textDecoration: 'none', color: 'inherit' }}
               >
-                <span><b>{a.name}</b> · {STAGE_LABELS[a.stage] || a.stage}{a.reason ? ` · ${a.reason}` : ''}</span>
+                <span><b>{a.name}</b> · {pipeline.labels[a.stage] || a.stage}{a.reason ? ` · ${a.reason}` : ''}</span>
                 <span style={{ color: '#9b9b9b', fontSize: 11 }}>{new Date(a.createdAt).toLocaleDateString('he-IL')}</span>
               </Link>
             ))}
@@ -188,7 +188,8 @@ export default async function SalesLeadsPage() {
       ) : (
         <LeadsBoard
           leads={leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName}
-          stages={pipeline.order} sendConnections={sendConnections || []} whatsappTemplates={whatsappTemplates || []}
+          stages={pipeline.order} stageLabels={pipeline.labels} stageColors={pipeline.colors}
+          sendConnections={sendConnections || []} whatsappTemplates={whatsappTemplates || []}
           emailTemplates={emailTemplates || []} extraFields={extraFields}
         />
       )}

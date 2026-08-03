@@ -1,10 +1,4 @@
-import { STAGE_LABELS, STAGE_COLORS, PIPELINES } from './pipelines';
-
 export const WS_COLORS = ['#2563eb', '#7c3aed', '#16a34a', '#d97706', '#dc2626'];
-
-export { STAGE_LABELS, STAGE_COLORS };
-// ברירת מחדל למקומות ישנים שעדיין לא עודכנו לשלב-פר-מחלקה (ר' pipelines.js)
-export const STAGE_ORDER = PIPELINES['דעת למדני'].order;
 
 // מיפוי בין שם מחלקה למילות מפתח שמזהות שייכות דרך תגיות/dept
 export const DEPT_KEYWORDS = {
@@ -21,8 +15,11 @@ export function contactMatchesDept(contact, dept) {
   return (contact.tags || []).some((tag) => keywords.some((kw) => tag.includes(kw)));
 }
 
-export function StageBadge({ stage }) {
-  const c = STAGE_COLORS[stage] || STAGE_COLORS.open;
+// labels/colors (מפות שטוחות stage_key -> label/{bg,color}) מגיעות
+// מ-getAllPipelines (ר' app/dashboard/lib/pipelines.js) - נטענות
+// server-side ומועברות כ-props, כי אין עוד אובייקט קבוע גלובלי בקוד.
+export function StageBadge({ stage, labels = {}, colors = {} }) {
+  const c = colors[stage] || { bg: '#f4f4f5', color: '#52525b' };
   return (
     <span
       style={{
@@ -38,7 +35,7 @@ export function StageBadge({ stage }) {
       }}
     >
       <span style={{ width: 5, height: 5, borderRadius: '50%', background: c.color }} />
-      {STAGE_LABELS[stage] || stage}
+      {labels[stage] || stage}
     </span>
   );
 }

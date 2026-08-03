@@ -3,7 +3,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import { createAdminClient } from '../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
-import { getPipeline, STAGE_LABELS } from '../components/pipelines';
+import { getAllPipelines } from '../lib/pipelines';
 import { findExistingMatch, upsertDepartmentMembership, bulkImportContactRows } from './leadIntakeCore';
 import { isManagerOfAnyDepartment, isManagerOfWorkspace, isManagerOfAnyWorkspace, requireNotFrozen } from '../lib/contactGuards';
 import { getAccessToken } from '../../../lib/gmail/client';
@@ -111,13 +111,14 @@ export async function checkPossibleDuplicates({ first, last, phone, email, idnum
     }
   }
   const data = Array.from(byId.values()).slice(0, 5);
+  const { labels: stageLabels } = await getAllPipelines(supabase);
 
   return data.map((c) => ({
     id: c.id, first: c.first, last: c.last, idnum: c.idnum, phone: c.phone, phone2: c.phone2,
     email: c.email, source: c.source, dept: c.dept, tags: c.tags || [],
     departments: (c.contact_departments || [])
       .filter((d) => d.workspaces?.name)
-      .map((d) => ({ name: d.workspaces.name, stage: d.stage, stageLabel: STAGE_LABELS[d.stage] || d.stage })),
+      .map((d) => ({ name: d.workspaces.name, stage: d.stage, stageLabel: stageLabels[d.stage] || d.stage })),
   }));
 }
 
@@ -702,71 +703,6 @@ export async function setReferrer(departmentRowId, referrerContactId) {
 
 // ---------- לוח שנה והקדשות ----------
 // "זכאי ליום בלוח שנה" - איש קשר יכול לקבל כמה תאריכים, לכל אחד נוסח
-// הקדשה משלו. נשמר בטבלה נפרדת (calendar_dedications, מיגרציה 0032) ולא
-// בשדה בכרטיס, כי זו רשימה שגדלה ומוצגת גם בווידג'ט הדשבורד לפי תאריך.
-export async function addDedication(contactId, dedicationDate, dedicationText, note, names) {
-  const { supabase, user } = await requireUser();
-  if (!contactId || !dedicationDate || !(dedicationText || '').trim()) {
-    return { error: 'יש למלא תאריך ונוסח הקדשה' };
-  }
-  const frozenError = await requireNotFrozen(supabase, contactId);
-  if (frozenError) return frozenError;
-
-  const { error } = await supabase.from('calendar_dedications').insert({
-    contact_id: contactId,
-    dedication_date: dedicationDate,
-    dedication_text: dedicationText.trim(),
-    note: (note || '').trim() || null,
-    names: Array.isArray(names) ? names.map((n) => (n || '').trim()).filter(Boolean) : [],
-    created_by: user.id,
-  });
-  if (error) return { error: error.message };
-  return { success: true };
-}
-
-export async function removeDedication(dedicationId) {
-  const { supabase, user } = await requireUser();
-  if (!dedicationId) return { error: 'לא נבחרה הקדשה' };
-
-  const { data: row } = await supabase
-    .from('calendar_dedications').select('contact_id, locked_at').eq('id', dedicationId).single();
-  if (!row) return { error: 'ההקדשה לא נמצאה' };
-
-  if (row.locked_at) {
-    const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
-    if (!allowed) return { error: 'ההקדשה נעולה להדפסה — רק owner/admin יכול להסיר אותה' };
-  }
-
-  const frozenError = await requireNotFrozen(supabase, row.contact_id);
-  if (frozenError) return frozenError;
-
-  const { error } = await supabase.from('calendar_dedications').delete().eq('id', dedicationId);
-  if (error) return { error: error.message };
-  return { success: true };
-}
-
-// ננעל אוטומטית כשמופקת גרסת הדפסה (DedicationsWidget) - מונע שינוי בטעות
-// אחרי שהנוסח כבר נדפס. רק ערכים שעדיין לא נעולים ננעלים (idempotent).
-export async function lockDedicationsForPrint(ids) {
-  const { supabase, user } = await requireUser();
-  if (!Array.isArray(ids) || ids.length === 0) return { success: true };
-  await supabase
-    .from('calendar_dedications')
-    .update({ locked_at: new Date().toISOString(), locked_by: user.id })
-    .in('id', ids)
-    .is('locked_at', null);
-  return { success: true };
-}
-
-export async function unlockDedication(dedicationId) {
-  const { supabase, user } = await requireUser();
-  const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
-  if (!allowed) return { error: 'רק owner/admin יכול לשחרר נעילה' };
-  const { error } = await supabase.from('calendar_dedications').update({ locked_at: null, locked_by: null }).eq('id', dedicationId);
-  if (error) return { error: error.message };
-  return { success: true };
-}
-
 // יומן השינויים של איש קשר (הקפאה/הפשרה/מיזוג/הסרה ממחלקה/מחיקה) -
 // לתפריט ⚙ ההגדרות בכרטיס. אין כאן בדיקת canManageContact נוספת כי
 // מי שקורא לזה כבר עבר את אותה בדיקה בתפריט עצמו

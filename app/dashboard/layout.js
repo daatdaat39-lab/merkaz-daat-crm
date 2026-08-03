@@ -8,6 +8,7 @@ import IdleLock from './components/IdleLock';
 import { FloatingWindowsProvider } from './components/FloatingWindows';
 import FloatingWindowsHost from './components/FloatingWindowsHost';
 import { groupTagsByDepartment } from './lib/tagGroups';
+import { getAllPipelines } from './lib/pipelines';
 
 export default async function DashboardLayout({ children, modal }) {
   const supabase = createClient();
@@ -97,6 +98,8 @@ export default async function DashboardLayout({ children, modal }) {
     .eq('to_user', user.id)
     .is('read_at', null);
 
+  const { labels: stageLabels } = await getAllPipelines(supabase);
+
   async function switchWorkspace(formData) {
     'use server';
     const workspaceId = formData.get('workspace_id');
@@ -155,6 +158,7 @@ export default async function DashboardLayout({ children, modal }) {
           tagGroups={tagGroups}
           pendingWhatsappReplies={pendingWhatsappReplies}
           unreadShareCount={unreadShareCount || 0}
+          stageLabels={stageLabels}
         />
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {hasAccessToCurrent ? children : (

@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import NotConnectedButton from './NotConnectedButton';
 import AddContactForm from '../contacts/AddContactForm';
-import { WS_COLORS, STAGE_LABELS } from './ui';
+import { WS_COLORS } from './ui';
 import { globalSearch } from './globalSearchActions';
 
 const TITLES = {
@@ -25,7 +25,7 @@ const TITLES = {
   '/dashboard/inbox': 'הודעות',
 };
 
-export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defaultWorkspaceId = '', existingTags = [], tagGroups = null, pendingWhatsappReplies = 0, unreadShareCount = 0 }) {
+export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defaultWorkspaceId = '', existingTags = [], tagGroups = null, pendingWhatsappReplies = 0, unreadShareCount = 0, stageLabels = {} }) {
   const pathname = usePathname();
   const router = useRouter();
   const title = pathname.startsWith('/dashboard/contacts/') ? 'איש קשר' : (TITLES[pathname] || 'מרכז דעת');
@@ -110,7 +110,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
                     <div style={{ fontWeight: 500 }}>{c.name}</div>
                     <div style={{ color: 'var(--text-muted)', fontSize: 11, display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
                       {c.phone && <span>{c.phone}</span>}
-                      {c.departments.map((d, i) => <span key={i}>{d.name} · {STAGE_LABELS[d.stage] || d.stage}</span>)}
+                      {c.departments.map((d, i) => <span key={i}>{d.name} · {stageLabels[d.stage] || d.stage}</span>)}
                     </div>
                   </button>
                 ))}

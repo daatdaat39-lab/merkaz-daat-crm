@@ -4,7 +4,6 @@
 // **תצוגה בלבד (read-only)** - הנתונים מגיעים מהיסטוריית התרומות המיובאת
 // (donation_transactions) ומשדות המחלקה, ובעתיד יתעדכנו אוטומטית ממערכת
 // "קשר" החיה. עריכה ידנית כאן הוסרה בכוונה כדי שלא תתנגש עם מקור האמת.
-import { getPipeline } from '../../components/pipelines';
 import NotConnectedButton from '../../components/NotConnectedButton';
 
 // "כמה זמן עבר" מתאריך נתון - ימים/חודשים/שנים, בעברית
@@ -28,7 +27,7 @@ function daysUntil(dateStr) {
   return Math.round((new Date(dateStr).getTime() - Date.now()) / 86400000);
 }
 
-export default function DonorStatsTile({ department, transactions = [] }) {
+export default function DonorStatsTile({ department, transactions = [], stageOrder = [] }) {
   const extra = department.extraFields || {};
 
   const deptTransactions = transactions.filter((t) => t.workspace_id === department.workspaceId);
@@ -42,9 +41,8 @@ export default function DonorStatsTile({ department, transactions = [] }) {
   const ltvTotal = transactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
   const ltvCount = transactions.length;
 
-  const order = getPipeline('תרומות').order;
   // "תרם בעבר" - גם מהשלב בתהליך וגם מהיסטוריית תנועות אמיתית; כל אחד מספיק
-  const hasDonatedBefore = order.indexOf(department.stage) >= order.indexOf('donated') || deptTransactions.length > 0;
+  const hasDonatedBefore = stageOrder.indexOf(department.stage) >= stageOrder.indexOf('donated') || deptTransactions.length > 0;
 
   const donationType = extra.donation_type || '';
   const isStandingOrder = donationType === 'הוראת קבע';

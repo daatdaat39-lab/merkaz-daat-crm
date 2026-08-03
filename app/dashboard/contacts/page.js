@@ -4,12 +4,15 @@ import Link from 'next/link';
 import AddContactForm from './AddContactForm';
 import ContactsBoard from './ContactsBoard';
 import { groupTagsByDepartment } from '../lib/tagGroups';
+import { getAllPipelines } from '../lib/pipelines';
 
 export default async function ContactsPage() {
   const supabase = createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  const { labels: stageLabels, colors: stageColors } = await getAllPipelines(supabase);
 
   // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים)
   const [{ data }, { data: workspaces }, { data: profile }, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
@@ -61,6 +64,8 @@ export default async function ContactsPage() {
         sendConnections={sendConnections || []}
         whatsappTemplates={whatsappTemplates || []}
         emailTemplates={emailTemplates || []}
+        stageLabels={stageLabels}
+        stageColors={stageColors}
       />
     </div>
   );

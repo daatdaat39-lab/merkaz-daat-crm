@@ -3,9 +3,8 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign } from '../actions';
-import { addContactTag } from '../../../contacts/actions';
-import { CALENDAR_ELIGIBLE_TAG } from '../../../components/pipelines';
+import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, markContactsEligibleForCalendar, addDedication, removeDedication, unlockDedication } from '../actions';
+import { DEDICATION_TEMPLATES } from '../../../components/pipelines';
 
 // קטגוריות ברירת מחדל - משמשות רק אם רשימת הבחירה הדינמית (הגדרות ← רשימות
 // בחירה) ריקה, כדי שהמסך לעולם לא יישאר בלי אף קטגוריה לבחור
@@ -13,7 +12,7 @@ const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'ת�
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
 
-export default function CampaignDetailClient({ campaignId, initialRows, availableContacts = [], agents = [], categories = [] }) {
+export default function CampaignDetailClient({ campaignId, campaignKind, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [] }) {
   const CATEGORIES = categories.length ? categories : DEFAULT_CATEGORIES;
   const [rows, setRows] = useState(initialRows);
   const [adding, setAdding] = useState(false);
@@ -163,62 +162,208 @@ export default function CampaignDetailClient({ campaignId, initialRows, availabl
 
       {error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>שגיאה: {error}</div>}
 
-      <BulkAssignBar selected={selectedRows} setSelected={setSelectedRows} agents={agents} onApply={handleChange} rows={rows} />
+      {campaignKind !== 'dedication' && (
+        <BulkAssignBar selected={selectedRows} setSelected={setSelectedRows} agents={agents} onApply={handleChange} rows={rows} workspaceId={workspaceId} isDonationsWorkspace={isDonationsWorkspace} />
+      )}
 
-      <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
-              <th style={{ padding: '10px 8px', textAlign: 'center' }}>
-                <input type="checkbox" checked={allRowsSelected} onChange={toggleSelectAllRows} disabled={rows.length === 0} />
-              </th>
-              {['שם', 'טלפון', 'קטגוריה', 'נציג מטפל', 'סטטוס', ''].map((h) => (
-                <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted, #9b9b9b)', padding: '10px 14px', textTransform: 'uppercase' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: '14px', fontSize: 13, color: '#9b9b9b' }}>עדיין לא נוספו אנשי קשר לקמפיין</td></tr>
-            )}
-            {rows.map((r) => (
-              <tr key={r.rowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
-                <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-                  <input type="checkbox" checked={selectedRows.has(r.rowId)} onChange={() => toggleRowSelect(r.rowId)} />
-                </td>
-                <td style={{ padding: '10px 14px' }}>
-                  <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
-                    {r.name || '—'}
-                  </Link>
-                </td>
-                <td style={{ padding: '10px 14px' }}>{r.phone || '—'}</td>
-                <td style={{ padding: '10px 14px' }}>
-                  <select value={r.category} onChange={(e) => handleChange(r.rowId, { category: e.target.value })} disabled={isPending} style={cellSelect()}>
-                    <option value="">—</option>
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </td>
-                <td style={{ padding: '10px 14px' }}>
-                  <select value={r.assignedTo} onChange={(e) => handleChange(r.rowId, { assignedTo: e.target.value })} disabled={isPending} style={cellSelect()}>
-                    <option value="">— ללא —</option>
-                    {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                </td>
-                <td style={{ padding: '10px 14px' }}>
-                  <select value={r.status} onChange={(e) => handleChange(r.rowId, { status: e.target.value })} disabled={isPending} style={cellSelect()}>
-                    <option value="pending">ממתין</option>
-                    <option value="done">טופל</option>
-                  </select>
-                </td>
-                <td style={{ padding: '10px 14px' }}>
-                  <button type="button" onClick={() => handleRemove(r.rowId)} disabled={isPending} title="הסרה מהקמפיין"
-                    style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 13 }}>✕</button>
-                </td>
+      {campaignKind === 'dedication' ? (
+        <DedicationCampaignTable rows={rows} workspaceId={workspaceId} onRemoveFromCampaign={handleRemove} isPending={isPending} />
+      ) : (
+        <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
+                <th style={{ padding: '10px 8px', textAlign: 'center' }}>
+                  <input type="checkbox" checked={allRowsSelected} onChange={toggleSelectAllRows} disabled={rows.length === 0} />
+                </th>
+                {['שם', 'טלפון', 'קטגוריה', 'נציג מטפל', 'סטטוס', ''].map((h) => (
+                  <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted, #9b9b9b)', padding: '10px 14px', textTransform: 'uppercase' }}>{h}</th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr><td colSpan={7} style={{ padding: '14px', fontSize: 13, color: '#9b9b9b' }}>עדיין לא נוספו אנשי קשר לקמפיין</td></tr>
+              )}
+              {rows.map((r) => (
+                <tr key={r.rowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
+                  <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+                    <input type="checkbox" checked={selectedRows.has(r.rowId)} onChange={() => toggleRowSelect(r.rowId)} />
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
+                      {r.name || '—'}
+                    </Link>
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>{r.phone || '—'}</td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <select value={r.category} onChange={(e) => handleChange(r.rowId, { category: e.target.value })} disabled={isPending} style={cellSelect()}>
+                      <option value="">—</option>
+                      {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <select value={r.assignedTo} onChange={(e) => handleChange(r.rowId, { assignedTo: e.target.value })} disabled={isPending} style={cellSelect()}>
+                      <option value="">— ללא —</option>
+                      {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <select value={r.status} onChange={(e) => handleChange(r.rowId, { status: e.target.value })} disabled={isPending} style={cellSelect()}>
+                      <option value="pending">ממתין</option>
+                      <option value="done">טופל</option>
+                    </select>
+                  </td>
+                  <td style={{ padding: '10px 14px' }}>
+                    <button type="button" onClick={() => handleRemove(r.rowId)} disabled={isPending} title="הסרה מהקמפיין"
+                      style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 13 }}>✕</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// טבלה ייעודית לקמפיין ההקדשות (kind='dedication') - לכל איש קשר, רשימת
+// תאריכי ההקדשה שלו (כמה שירצה, למשל שני יארצייטים) עם הוספה/הסרה/נעילה,
+// במקום עמודות קטגוריה/נציג/סטטוס שלא רלוונטיות כאן.
+function DedicationCampaignTable({ rows, workspaceId, onRemoveFromCampaign, isPending: parentPending }) {
+  const router = useRouter();
+  const [rowsState, setRowsState] = useState(rows);
+  const [openRowId, setOpenRowId] = useState(null);
+
+  function refreshRow(rowId, dedications) {
+    setRowsState((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, dedications } : r)));
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {rowsState.length === 0 && (
+        <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: 14, fontSize: 13, color: '#9b9b9b' }}>
+          עדיין לא נוספו אנשי קשר לקמפיין
+        </div>
+      )}
+      {rowsState.map((r) => (
+        <div key={r.rowId} style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '12px 14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: r.dedications.length || openRowId === r.rowId ? 10 : 0 }}>
+            <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none', flex: 1 }}>
+              {r.name || '—'}
+            </Link>
+            <span style={{ fontSize: 12, color: '#9b9b9b' }}>{r.phone || ''}</span>
+            <button type="button" onClick={() => setOpenRowId(openRowId === r.rowId ? null : r.rowId)} style={ghostBtn()}>
+              {openRowId === r.rowId ? 'סגירה' : '+ הוספת תאריך'}
+            </button>
+            <button type="button" onClick={() => onRemoveFromCampaign(r.rowId)} disabled={parentPending} title="הסרה מהקמפיין"
+              style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 13 }}>✕</button>
+          </div>
+
+          {r.dedications.map((d) => (
+            <DedicationEntryRow key={d.id} entry={d} onRemoved={() => refreshRow(r.rowId, r.dedications.filter((e) => e.id !== d.id))} onUnlocked={() => { refreshRow(r.rowId, r.dedications.map((e) => (e.id === d.id ? { ...e, locked_at: null } : e))); router.refresh(); }} />
+          ))}
+
+          {openRowId === r.rowId && (
+            <DedicationAddForm
+              contactId={r.contactId}
+              workspaceId={workspaceId}
+              onAdded={(entry) => { refreshRow(r.rowId, [...r.dedications, entry].sort((a, b) => new Date(a.dedication_date) - new Date(b.dedication_date))); setOpenRowId(null); router.refresh(); }}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DedicationEntryRow({ entry, onRemoved, onUnlocked }) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState(null);
+
+  function handleRemove() {
+    setError(null);
+    startTransition(async () => {
+      const res = await removeDedication(entry.id);
+      if (res?.error) { setError(res.error); return; }
+      onRemoved();
+    });
+  }
+
+  function handleUnlock() {
+    startTransition(async () => {
+      const res = await unlockDedication(entry.id);
+      if (res?.error) { setError(res.error); return; }
+      onUnlocked();
+    });
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, borderTop: '1px solid #f5f5f5', padding: '6px 0', fontSize: 12.5 }}>
+      <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{new Date(entry.dedication_date).toLocaleDateString('he-IL')}</span>
+      <span style={{ flex: 1 }}>
+        {entry.dedication_text}
+        {(entry.names || []).length > 0 && <span> — {entry.names.join(', ')}</span>}
+        {entry.note && <span style={{ color: '#9b9b9b' }}> · {entry.note}</span>}
+        {entry.locked_at && (
+          <span style={{ marginInlineStart: 6, fontSize: 10.5, color: '#a4691f', background: '#f6ead9', borderRadius: 4, padding: '1px 6px' }}>🔒 נעול להדפסה</span>
+        )}
+        {error && <div style={{ color: '#b23b2f', fontSize: 11 }}>{error}</div>}
+      </span>
+      {!entry.locked_at && (
+        <button type="button" onClick={handleRemove} disabled={isPending} title="הסרה" style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 12 }}>✕</button>
+      )}
+      {entry.locked_at && (
+        <button type="button" onClick={handleUnlock} disabled={isPending} title="שחרור נעילה" style={{ background: 'none', border: 'none', color: '#a4691f', cursor: 'pointer', fontSize: 11 }}>🔓 שחרור</button>
+      )}
+    </div>
+  );
+}
+
+function DedicationAddForm({ contactId, workspaceId, onAdded }) {
+  const [date, setDate] = useState('');
+  const [template, setTemplate] = useState(DEDICATION_TEMPLATES[0]);
+  const [customText, setCustomText] = useState('');
+  const [note, setNote] = useState('');
+  const [names, setNames] = useState(['']);
+  const [error, setError] = useState(null);
+  const [isPending, startTransition] = useTransition();
+  const isCustom = template === 'נוסח חופשי';
+
+  function handleAdd() {
+    setError(null);
+    const text = isCustom ? customText.trim() : `${template} ${customText}`.trim();
+    if (!date || !text) { setError('יש למלא תאריך ונוסח'); return; }
+    startTransition(async () => {
+      const res = await addDedication(contactId, workspaceId, date, text, note, names);
+      if (res?.error) { setError(res.error); return; }
+      onAdded({ id: `tmp-${Date.now()}`, dedication_date: date, dedication_text: text, note: note.trim() || null, names: names.map((n) => n.trim()).filter(Boolean), locked_at: null });
+    });
+  }
+
+  return (
+    <div style={{ marginTop: 8, borderTop: '1px solid #f5f5f5', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
+      <select value={template} onChange={(e) => setTemplate(e.target.value)} style={inputStyle}>
+        {DEDICATION_TEMPLATES.map((t) => <option key={t} value={t}>{t}</option>)}
+      </select>
+      <input type="text" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder={isCustom ? 'נוסח ההקדשה המלא...' : 'שם / המשך הנוסח...'} style={inputStyle} />
+      <div style={{ fontSize: 11, color: '#9b9b9b' }}>שמות נוספים תחת אותה הקדשה (הקדשה משפחתית, אופציונלי):</div>
+      {names.map((n, i) => (
+        <div key={i} style={{ display: 'flex', gap: 6 }}>
+          <input type="text" value={n} onChange={(e) => setNames((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))} placeholder="שם נוסף..." style={{ ...inputStyle, flex: 1 }} />
+          {names.length > 1 && (
+            <button type="button" onClick={() => setNames((prev) => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer' }}>✕</button>
+          )}
+        </div>
+      ))}
+      <button type="button" onClick={() => setNames((prev) => [...prev, ''])} style={{ alignSelf: 'flex-start', background: 'none', border: '1px dashed #d0d0d0', borderRadius: 4, padding: '2px 8px', fontSize: 11.5, color: '#666', cursor: 'pointer' }}>
+        + הוספת שם
+      </button>
+      <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="הערה (אופציונלי)" style={inputStyle} />
+      {error && <div style={{ color: '#b23b2f', fontSize: 11.5 }}>{error}</div>}
+      <button type="button" onClick={handleAdd} disabled={isPending} style={primaryBtn()}>הוספה</button>
     </div>
   );
 }
@@ -227,10 +372,11 @@ export default function CampaignDetailClient({ campaignId, initialRows, availabl
 // דרך תיבת "בחירת הכל" בכותרת הטבלה), ומשייך את כולם לנציג הנבחר בבת
 // אחת דרך אותה updateCampaignContact הקיימת (לולאת Promise.all, בדיוק
 // כמו BulkActionBar בלוח הלידים).
-function BulkAssignBar({ selected, setSelected, agents, onApply, rows }) {
+function BulkAssignBar({ selected, setSelected, agents, onApply, rows, workspaceId, isDonationsWorkspace }) {
   const [isPending, startTransition] = useTransition();
   const [agentId, setAgentId] = useState('');
   const [tagDone, setTagDone] = useState(false);
+  const [tagError, setTagError] = useState(null);
 
   if (selected.size === 0) return null;
 
@@ -243,13 +389,16 @@ function BulkAssignBar({ selected, setSelected, agents, onApply, rows }) {
     });
   }
 
-  // סימון כזכאים ליום בלוח שנה - מוסיף את התגית לכל אנשי הקשר הנבחרים
-  // (בכמות דרך הקמפיין) בבת אחת, במקום אחד-אחד בכרטיס האישי
+  // סימון כזכאים ליום בלוח שנה - משייך את כל אנשי הקשר הנבחרים (בכמות,
+  // מכל קמפיין תרומות - לא רק מקמפיין ההקדשות עצמו) לקמפיין ההקדשות של
+  // המחלקה, במקום תגית (מוחלף לגמרי - ר' campaigns/actions.js)
   function applyCalendarEligible() {
     const contactIds = rows.filter((r) => selected.has(r.rowId)).map((r) => r.contactId);
     setTagDone(false);
+    setTagError(null);
     startTransition(async () => {
-      await Promise.all(contactIds.map((id) => addContactTag(id, CALENDAR_ELIGIBLE_TAG)));
+      const res = await markContactsEligibleForCalendar(workspaceId, contactIds);
+      if (res?.error) { setTagError(res.error); return; }
       setTagDone(true);
     });
   }
@@ -271,10 +420,13 @@ function BulkAssignBar({ selected, setSelected, agents, onApply, rows }) {
         </button>
       </div>
 
-      <button type="button" onClick={applyCalendarEligible} disabled={isPending} style={{ background: '#fff', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}>
-        📅 סימון כזכאים ליום בלוח שנה
-      </button>
+      {isDonationsWorkspace && (
+        <button type="button" onClick={applyCalendarEligible} disabled={isPending} style={{ background: '#fff', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}>
+          📅 סימון כזכאים ליום בלוח שנה
+        </button>
+      )}
       {tagDone && <span style={{ fontSize: 11.5, color: '#1f7a3d' }}>✓ סומנו</span>}
+      {tagError && <span style={{ fontSize: 11.5, color: '#b23b2f' }}>{tagError}</span>}
 
       <button
         type="button"

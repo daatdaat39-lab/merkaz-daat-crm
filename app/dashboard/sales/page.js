@@ -1,7 +1,6 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { STAGE_LABELS } from '../components/ui';
-import { getPipeline } from '../components/pipelines';
+import { getPipeline } from '../lib/pipelines';
 
 export default async function SalesDashboardPage() {
   const supabase = createClient();
@@ -16,7 +15,7 @@ export default async function SalesDashboardPage() {
 
   const workspaceId = profile?.current_workspace_id;
   const workspaceName = profile?.workspaces?.name;
-  const pipeline = getPipeline(workspaceName);
+  const pipeline = await getPipeline(supabase, workspaceName);
 
   let contacts = [];
   if (workspaceId) {
@@ -72,7 +71,7 @@ export default async function SalesDashboardPage() {
             const pct = Math.round((stageCounts[s] / max) * 100);
             return (
               <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <div style={{ width: 90, fontSize: 12, color: '#6b6b6b' }}>{STAGE_LABELS[s]}</div>
+                <div style={{ width: 90, fontSize: 12, color: '#6b6b6b' }}>{pipeline.labels[s]}</div>
                 <div style={{ flex: 1, background: '#f2f2f2', borderRadius: 4, height: 8 }}>
                   <div style={{ width: `${pct}%`, background: '#2563eb', height: '100%', borderRadius: 4 }} />
                 </div>

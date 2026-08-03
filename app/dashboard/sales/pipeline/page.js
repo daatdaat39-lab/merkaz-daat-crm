@@ -1,6 +1,6 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { getPipeline } from '../../components/pipelines';
+import { getPipeline } from '../../lib/pipelines';
 import PipelineBoard from './PipelineBoard';
 
 export default async function SalesPipelinePage() {
@@ -16,7 +16,7 @@ export default async function SalesPipelinePage() {
 
   const workspaceId = profile?.current_workspace_id;
   const workspaceName = profile?.workspaces?.name;
-  const pipeline = getPipeline(workspaceName);
+  const pipeline = await getPipeline(supabase, workspaceName);
 
   let contacts = [];
   if (workspaceId) {
@@ -45,7 +45,7 @@ export default async function SalesPipelinePage() {
   return (
     <div style={{ padding: '28px 24px' }}>
       <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>תהליכים</h1>
-      <PipelineBoard contacts={contacts} moveStageAction={moveStage} stages={pipeline.order} />
+      <PipelineBoard contacts={contacts} moveStageAction={moveStage} stages={pipeline.order} sideStages={pipeline.sideStages} labels={pipeline.labels} colors={pipeline.colors} />
     </div>
   );
 }

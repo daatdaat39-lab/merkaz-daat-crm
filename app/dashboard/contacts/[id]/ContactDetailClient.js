@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { getPipeline, getInquiryReasons } from '../../components/pipelines';
-import { STAGE_LABELS } from '../../components/ui';
+import { getInquiryReasons } from '../../components/pipelines';
 import { shouldOpenPipeline } from '../../lib/pipelineVisibility';
 import { updateDepartmentStage, addDepartmentMembership } from '../actions';
 import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
@@ -34,8 +33,10 @@ export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups,
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
-  dedications, callHistory, externalIds, closeReasons, isManager, phoneCalls,
+  dedications, dedicationCampaignId, callHistory, externalIds, closeReasons, isManager, phoneCalls, pipelinesByWorkspace,
 }) {
+  const FALLBACK_PIPELINE = { order: [], leadStages: [], wonStage: null, sideStages: [], labels: {}, colors: {} };
+  const byWorkspace = pipelinesByWorkspace || {};
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const { openWindow } = useFloatingWindows();
@@ -69,7 +70,7 @@ export default function ContactDetailClient({
   const [pipelineOpen, setPipelineOpen] = useState(false);
   useEffect(() => {
     if (!active) return;
-    setPipelineOpen(shouldOpenPipeline(active, getPipeline(active.workspaceName)));
+    setPipelineOpen(shouldOpenPipeline(active, byWorkspace[active.workspaceName] || FALLBACK_PIPELINE));
   }, [activeId, active]);
 
   const availableToAdd = allWorkspaces.filter((w) => !departments.some((d) => d.workspaceId === w.id));
@@ -89,7 +90,7 @@ export default function ContactDetailClient({
 
   function handleStageChange(formData) {
     if (!active) return;
-    const stages = getPipeline(active.workspaceName).order;
+    const stages = (byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order;
     const movingForward = stages.indexOf(formData.get('stage')) > stages.indexOf(active.stage);
     startTransition(async () => {
       await updateDepartmentStage(active.id, formData.get('stage'), formData.get('closed_reason'));
@@ -191,20 +192,21 @@ export default function ContactDetailClient({
 
       {active?.workspaceName === 'תרומות' && (
         <>
-          <DonorStatsTile department={active} transactions={donationTransactions || []} />
+          <DonorStatsTile department={active} transactions={donationTransactions || []} stageOrder={(byWorkspace['תרומות'] || FALLBACK_PIPELINE).order} />
           <ReferrerPicker contactId={contact.id} department={active} frozen={contact.frozen} />
         </>
       )}
 
       {active?.workspaceName === 'דעת ותבונה' && (
-        <StudentStatsTile department={active} />
+        <StudentStatsTile department={active} stageOrder={(byWorkspace['דעת ותבונה'] || FALLBACK_PIPELINE).order} />
       )}
 
       {active && (
         <QuickActivityLogForm
           contactId={contact.id}
           department={active}
-          stages={[...getPipeline(active.workspaceName).order, 'closed', ...(active.workspaceName === 'תרומות' ? ['credit_issue'] : [])]}
+          stages={[...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order, ...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).sideStages]}
+          labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
           frozen={contact.frozen}
         />
       )}
@@ -225,11 +227,13 @@ export default function ContactDetailClient({
               <StageStepper
                 currentStage={active.stage}
                 currentClosedReason={active.closedReason}
-                stages={getPipeline(active.workspaceName).order}
+                stages={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order}
+                sideStages={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).sideStages}
+                labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
+                colors={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).colors}
                 disabled={contact.frozen}
                 action={handleStageChange}
                 closeReasons={closeReasons}
-                hasCreditIssueStage={active.workspaceName === 'תרומות'}
               />
             </>
           ) : (
@@ -238,7 +242,7 @@ export default function ContactDetailClient({
               onClick={() => setPipelineOpen(true)}
               style={{ background: 'none', border: 'none', padding: 0, fontSize: 12.5, color: '#6b6b6b', cursor: 'pointer' }}
             >
-              ▸ שלבי התהליך — שלב נוכחי: <b style={{ color: '#0a0a0a' }}>{STAGE_LABELS[active.stage] || active.stage}</b>
+              ▸ שלבי התהליך — שלב נוכחי: <b style={{ color: '#0a0a0a' }}>{(byWorkspace[active?.workspaceName] || FALLBACK_PIPELINE).labels[active.stage] || active.stage}</b>
             </button>
           )}
         </div>
@@ -333,11 +337,8 @@ export default function ContactDetailClient({
             externalIds={externalIds}
           />
           <CalendarDedicationsCard
-            contactId={contact.id}
             dedications={dedications || []}
-            frozen={contact.frozen}
-            tags={contact.tags || []}
-            isManager={isManager}
+            dedicationCampaignId={dedicationCampaignId}
           />
         </div>
 

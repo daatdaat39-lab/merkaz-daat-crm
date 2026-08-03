@@ -1,7 +1,6 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { STAGE_LABELS } from '../components/ui';
-import { getPipeline } from '../components/pipelines';
+import { getPipeline } from '../lib/pipelines';
 
 export default async function ReportsPage() {
   const supabase = createClient();
@@ -15,7 +14,7 @@ export default async function ReportsPage() {
     .single();
 
   const workspaceId = profile?.current_workspace_id;
-  const pipeline = getPipeline(profile?.workspaces?.name);
+  const pipeline = await getPipeline(supabase, profile?.workspaces?.name);
 
   let contacts = [];
   let workspaceContacts = [];
@@ -96,7 +95,7 @@ export default async function ReportsPage() {
             const pct = Math.round((stageCounts[s] / max) * 100);
             return (
               <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <div style={{ width: 90, fontSize: 12, color: '#6b6b6b' }}>{STAGE_LABELS[s]}</div>
+                <div style={{ width: 90, fontSize: 12, color: '#6b6b6b' }}>{pipeline.labels[s]}</div>
                 <div style={{ flex: 1, background: '#f2f2f2', borderRadius: 4, height: 8 }}>
                   <div style={{ width: `${pct}%`, background: '#0a0a0a', height: '100%', borderRadius: 4 }} />
                 </div>

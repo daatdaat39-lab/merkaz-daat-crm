@@ -4,11 +4,9 @@
 // מקבילה ל-DonorStatsTile של התרומות. **תצוגה בלבד (read-only)**:
 // "תלמיד פעיל"/"בוגר" מחושבים מהשלב בתהליך, ושאר הפרטים מגיעים משדות
 // המחלקה (extra_fields) שנערכים בטבלת הלידים או בייבוא.
-import { getPipeline } from '../../components/pipelines';
-
-export default function StudentStatsTile({ department }) {
+export default function StudentStatsTile({ department, stageOrder = [] }) {
   const extra = department.extraFields || {};
-  const order = getPipeline(department.workspaceName).order;
+  const order = stageOrder;
   const stageIndex = order.indexOf(department.stage);
 
   const isActiveStudent = department.stage === 'active_student' || department.stage === 'started';

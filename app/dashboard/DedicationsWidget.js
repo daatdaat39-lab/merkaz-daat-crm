@@ -5,7 +5,7 @@
 // "גרסת הדפסה" שפותח חלון נקי להדפסה.
 import Link from 'next/link';
 import { useTransition } from 'react';
-import { lockDedicationsForPrint } from './contacts/actions';
+import { lockDedicationsForPrint } from './sales/campaigns/actions';
 
 const GROUP_STYLES = {
   אתמול: { bg: '#f3f4f6', color: '#4b5563' },

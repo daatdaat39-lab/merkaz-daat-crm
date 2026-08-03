@@ -14,7 +14,7 @@ export default async function CampaignDetailPage({ params }) {
 
   const { data: campaign } = await supabase
     .from('campaigns')
-    .select('id, name, channel, status, workspace_id, workspaces:workspace_id (name)')
+    .select('id, name, channel, status, kind, workspace_id, workspaces:workspace_id (name)')
     .eq('id', params.id)
     .single();
   if (!campaign) notFound();
@@ -34,7 +34,7 @@ export default async function CampaignDetailPage({ params }) {
   const [{ data: memberRows }, { data: allContacts }, { data: members }] = await Promise.all([
     supabase
       .from('campaign_contacts')
-      .select('id, category, assigned_to, status, contacts:contact_id (id, first, last, phone, email)')
+      .select('id, category, assigned_to, status, contacts:contact_id (id, first, last, phone, email), campaign_dedication_entries (id, dedication_date, dedication_text, note, names, locked_at)')
       .eq('campaign_id', campaign.id)
       .order('created_at', { ascending: true }),
     supabase
@@ -64,6 +64,7 @@ export default async function CampaignDetailPage({ params }) {
     category: r.category || '',
     assignedTo: r.assigned_to || '',
     status: r.status,
+    dedications: [...(r.campaign_dedication_entries || [])].sort((a, b) => new Date(a.dedication_date) - new Date(b.dedication_date)),
   }));
 
   const memberContactIds = new Set(rows.map((r) => r.contactId));
@@ -89,6 +90,9 @@ export default async function CampaignDetailPage({ params }) {
       </p>
       <CampaignDetailClient
         campaignId={campaign.id}
+        campaignKind={campaign.kind}
+        workspaceId={campaign.workspace_id}
+        isDonationsWorkspace={campaign.workspaces?.name === 'תרומות'}
         initialRows={rows}
         availableContacts={availableContacts}
         agents={agents}

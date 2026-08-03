@@ -4,6 +4,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { groupTagsByDepartment } from '../../lib/tagGroups';
 import { getPicklistValues } from '../../lib/picklists';
+import { getAllPipelines } from '../../lib/pipelines';
 import { isManagerOfAnyWorkspace } from '../../lib/contactGuards';
 
 // טוען את כל הנתונים של כרטיס איש קשר - מופרד מ-ContactDetailContent.js
@@ -23,7 +24,7 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -60,10 +61,10 @@ export async function loadContactCardData(contactId) {
       .eq('contact_id', contact.id)
       .order('transaction_date', { ascending: false }),
     supabase
-      .from('calendar_dedications')
-      .select('id, dedication_date, dedication_text, note, names, locked_at')
+      .from('campaign_contacts')
+      .select('id, campaign_id, campaigns:campaign_id!inner (kind), campaign_dedication_entries (id, dedication_date, dedication_text, note, names, locked_at)')
       .eq('contact_id', contact.id)
-      .order('dedication_date', { ascending: true }),
+      .eq('campaigns.kind', 'dedication'),
     supabase
       .from('contact_call_history')
       .select('id, call_date, response_text, source_system')
@@ -84,6 +85,16 @@ export async function loadContactCardData(contactId) {
   const closeReasonRows = await getPicklistValues(supabase, 'close_reason', null);
   const closeReasons = closeReasonRows.length ? closeReasonRows.map((r) => r.value) : undefined;
   const isManager = await isManagerOfAnyWorkspace(supabase, user.id);
+  const { byWorkspace: pipelinesByWorkspace } = await getAllPipelines(supabase);
+
+  // חברות בקמפיין ההקדשות (אם יש) - נקודת האמת היחידה ל"זכאי ליום בלוח
+  // שנה" מאז שהתגית "לוח שנה" הוחלפה לגמרי בחברות-קמפיין (ר' PR4 בתוכנית
+  // הארכיטקטורה). ר' campaign_contacts:campaign_id!inner (kind) בשאילתה
+  // למעלה - מסנן כבר בשרת רק חברות בקמפיין מסוג 'dedication'.
+  const dedicationMembership = (dedicationMembershipRows || [])[0] || null;
+  const dedications = [...(dedicationMembership?.campaign_dedication_entries || [])]
+    .sort((a, b) => new Date(a.dedication_date) - new Date(b.dedication_date));
+  const dedicationCampaignId = dedicationMembership?.campaign_id || null;
 
   const admin = createAdminClient();
   const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
@@ -180,12 +191,14 @@ export async function loadContactCardData(contactId) {
       allInquiries,
       workspaceNameById,
       donationTransactions: donationTransactionRows || [],
-      dedications: dedicationRows || [],
+      dedications,
+      dedicationCampaignId,
       callHistory: callHistoryRows || [],
       externalIds: externalIdRows || [],
       closeReasons,
       isManager,
       phoneCalls: phoneCallRows || [],
+      pipelinesByWorkspace,
     },
   };
 }

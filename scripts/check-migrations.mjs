@@ -22,3 +22,9 @@ await check('campaigns', () => admin.from('campaigns').select('id').limit(1));
 await check('campaign_contacts', () => admin.from('campaign_contacts').select('id').limit(1));
 await check('contact_call_history', () => admin.from('contact_call_history').select('id').limit(1));
 await check('calendar_dedications', () => admin.from('calendar_dedications').select('id').limit(1));
+
+console.log('--- 0036 ---');
+await check('pipeline_stages', () => admin.from('pipeline_stages').select('id').limit(1));
+await check('campaigns.kind', () => admin.from('campaigns').select('kind').limit(1));
+await check('campaign_contacts.metadata', () => admin.from('campaign_contacts').select('metadata').limit(1));
+await check('campaign_dedication_entries', () => admin.from('campaign_dedication_entries').select('id').limit(1));

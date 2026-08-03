@@ -12,7 +12,7 @@ const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding
 // רשימת אנשי קשר עם סינון/חיפוש/מיון בצד הלקוח - אותו דפוס בדיוק כמו
 // בעמוד הלידים (LeadsBoard.js), כדי שיהיה נוח לאתר איש קשר ספציפי גם
 // כשיש מאות רשומות, לא רק סינון לפי תגית כמו שהיה.
-export default function ContactsBoard({ contacts, allTags, tagGroups = null, allDepartments, sendConnections, whatsappTemplates, emailTemplates }) {
+export default function ContactsBoard({ contacts, allTags, tagGroups = null, allDepartments, sendConnections, whatsappTemplates, emailTemplates, stageLabels = {}, stageColors = {} }) {
   const [search, setSearch] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
@@ -147,7 +147,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
                   {c.departments.map((d) => (
                     <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{d.name}</span>
-                      <StageBadge stage={d.stage} />
+                      <StageBadge stage={d.stage} labels={stageLabels} colors={stageColors} />
                     </div>
                   ))}
                   {c.departments.length === 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>}

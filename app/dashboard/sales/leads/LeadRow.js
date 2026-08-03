@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { STAGE_LABELS, STAGE_COLORS, initials } from '../../components/ui';
+import { initials } from '../../components/ui';
 import { CLOSE_REASONS } from '../../components/pipelines';
 import { assignAgent, updateLeadStage, updateDepartmentExtraField } from '../../contacts/actions';
 import ContactQuickActions from '../../components/ContactQuickActions';
@@ -19,7 +19,7 @@ function elapsedLabel(iso) {
   return `${days} ${days === 1 ? 'יום' : 'ימים'} מאז הטיפול האחרון`;
 }
 
-export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [], selected = false, onToggleSelect, extraFields = [] }) {
+export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], stageLabels = {}, stageColors = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], selected = false, onToggleSelect, extraFields = [] }) {
   const [isPending, startTransition] = useTransition();
   const [closing, setClosing] = useState(false);
   const [extraValues, setExtraValues] = useState(c.extra_fields || {});
@@ -87,12 +87,12 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
           disabled={isPending}
           style={{
             border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 500, cursor: 'pointer',
-            background: (STAGE_COLORS[c.stage] || STAGE_COLORS.open).bg,
-            color: (STAGE_COLORS[c.stage] || STAGE_COLORS.open).color,
+            background: (stageColors[c.stage] || stageColors.open || { bg: '#eff6ff' }).bg,
+            color: (stageColors[c.stage] || stageColors.open || { color: '#2563eb' }).color,
           }}
         >
-          {stages.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
-          <option value="closed">{STAGE_LABELS.closed}</option>
+          {stages.map((s) => <option key={s} value={s}>{stageLabels[s]}</option>)}
+          <option value="closed">{stageLabels.closed || 'סגור / לא רלוונטי'}</option>
         </select>
         {closing && <CloseReasonPicker onConfirm={handleCloseConfirm} onCancel={() => setClosing(false)} />}
       </td>

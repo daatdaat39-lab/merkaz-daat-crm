@@ -3,7 +3,7 @@
 // (api/leads/intake) - כדי ששני הנתיבים יתנהגו זהה לגמרי (זיהוי כפילויות,
 // פתיחה מחדש של ליד סגור, רישום היסטוריית פניות). קובץ רגיל בלי 'use
 // server' כדי שיהיה ניתן לייבוא גם מ-Route Handler.
-import { getPipeline } from '../components/pipelines';
+import { getPipeline } from '../lib/pipelines';
 
 // מחפש איש קשר קיים לפי ת"ז/טלפון/מייל (זיהוי כפילויות לפי האפיון) -
 // שאילתות נפרדות ומפורמטות במקום .or() בנוי ממחרוזת, כי הערכים האלה
@@ -84,7 +84,7 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
     rowId = existingRow.id;
     const update = { last_activity_at: new Date().toISOString() };
     if (existingRow.stage === 'closed') {
-      const pipeline = getPipeline(workspace.name);
+      const pipeline = await getPipeline(supabase, workspace.name);
       update.stage = pipeline.order[0];
       update.closed_reason = null;
     }
@@ -93,7 +93,7 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
     }
     await supabase.from('contact_departments').update(update).eq('id', rowId);
   } else {
-    const pipeline = getPipeline(workspace.name);
+    const pipeline = await getPipeline(supabase, workspace.name);
     // שיוך חדש בלבד יכול להיווצר כ"ממתין לאישור מנהל" - שיוך קיים לעולם
     // לא חוזר להמתנה (הוא כבר אושר פעם אחת ומטופל)
     const { data: created } = await supabase.from('contact_departments').insert({

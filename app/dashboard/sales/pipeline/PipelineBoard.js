@@ -2,10 +2,11 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import Link from 'next/link';
-import { STAGE_LABELS, STAGE_COLORS } from '../../components/ui';
 import { CLOSE_REASONS } from '../../components/pipelines';
 
-export default function PipelineBoard({ contacts, moveStageAction, stages }) {
+export default function PipelineBoard({ contacts, moveStageAction, stages, sideStages = ['closed'], labels = {}, colors = {} }) {
+  const label = (key) => labels[key] || key;
+  const color = (key) => colors[key] || { bg: '#fef2f2', color: '#a3392f' };
   const [view, setView] = useState('kanban'); // 'kanban' | 'table'
   const [search, setSearch] = useState('');
   const [dragOverStage, setDragOverStage] = useState(null);
@@ -90,7 +91,7 @@ export default function PipelineBoard({ contacts, moveStageAction, stages }) {
                 }}
               >
                 <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e5e5', background: '#f9f9f9' }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#6b6b6b' }}>{STAGE_LABELS[stage]}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#6b6b6b' }}>{label(stage)}</div>
                   <div style={{ fontSize: 11, color: '#9b9b9b' }}>{stageContacts.length} לידים</div>
                 </div>
                 <div style={{ padding: 8, minHeight: 120 }}>
@@ -134,30 +135,37 @@ export default function PipelineBoard({ contacts, moveStageAction, stages }) {
               </div>
             );
           })}
-          <div
-            onDragOver={(e) => { e.preventDefault(); setDragOverStage('closed'); }}
-            onDragLeave={() => setDragOverStage(null)}
-            onDrop={(e) => handleDrop(e, 'closed')}
-            style={{
-              minWidth: 200, flexShrink: 0, borderLeft: '1px solid #e5e5e5',
-              background: dragOverStage === 'closed' ? '#fef2f2' : 'transparent', transition: 'background 0.1s',
-            }}
-          >
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e5e5', background: '#f9f9f9' }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#a3392f' }}>{STAGE_LABELS.closed}</div>
-              <div style={{ fontSize: 11, color: '#9b9b9b' }}>{filtered.filter((c) => c.stage === 'closed').length} לידים</div>
-            </div>
-            <div style={{ padding: 8, minHeight: 120 }}>
-              {filtered.filter((c) => c.stage === 'closed').map((c) => (
-                <div key={c.departmentRowId} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px', marginBottom: 8, opacity: 0.8 }}>
-                  <Link href={`/dashboard/contacts/${c.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{c.first} {c.last}</div>
-                  </Link>
-                  {c.closed_reason && <div style={{ fontSize: 10.5, color: '#9b9b9b', marginTop: 3 }}>{c.closed_reason}</div>}
+          {sideStages.map((stage) => {
+            const c = color(stage);
+            const stageContacts = filtered.filter((contact) => contact.stage === stage);
+            return (
+              <div
+                key={stage}
+                onDragOver={(e) => { e.preventDefault(); setDragOverStage(stage); }}
+                onDragLeave={() => setDragOverStage(null)}
+                onDrop={(e) => handleDrop(e, stage)}
+                style={{
+                  minWidth: 200, flexShrink: 0, borderLeft: '1px solid #e5e5e5',
+                  background: dragOverStage === stage ? c.bg : 'transparent', transition: 'background 0.1s',
+                }}
+              >
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e5e5', background: '#f9f9f9' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: c.color }}>{label(stage)}</div>
+                  <div style={{ fontSize: 11, color: '#9b9b9b' }}>{stageContacts.length} לידים</div>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div style={{ padding: 8, minHeight: 120 }}>
+                  {stageContacts.map((contact) => (
+                    <div key={contact.departmentRowId} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px', marginBottom: 8, opacity: 0.8 }}>
+                      <Link href={`/dashboard/contacts/${contact.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{contact.first} {contact.last}</div>
+                      </Link>
+                      {contact.closed_reason && <div style={{ fontSize: 10.5, color: '#9b9b9b', marginTop: 3 }}>{contact.closed_reason}</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
@@ -185,12 +193,12 @@ export default function PipelineBoard({ contacts, moveStageAction, stages }) {
                     }}
                     style={{
                       border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 500, cursor: 'pointer',
-                      background: (STAGE_COLORS[c.stage] || STAGE_COLORS.open).bg,
-                      color: (STAGE_COLORS[c.stage] || STAGE_COLORS.open).color,
+                      background: color(c.stage).bg,
+                      color: color(c.stage).color,
                     }}
                   >
-                    {stages.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
-                    <option value="closed">{STAGE_LABELS.closed}</option>
+                    {stages.map((s) => <option key={s} value={s}>{label(s)}</option>)}
+                    {sideStages.map((s) => <option key={s} value={s}>{label(s)}</option>)}
                   </select>
                   {closingId === c.departmentRowId && (
                     <CloseReasonPicker onConfirm={(reason) => handleCloseConfirm(c.departmentRowId, reason)} onCancel={() => setClosingId(null)} />

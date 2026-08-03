@@ -2,13 +2,12 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { STAGE_LABELS } from '../../components/ui';
 import { logQuickActivity } from '../actions';
 
 // "סיכום שיחה מהיר" - תיעוד שיחה/וואטסאפ/פגישה ישירות מהכרטיס: כותבים
 // סיכום קצר, בוחרים (אופציונלי) שלב חדש, ושמירה אחת גם רושמת פנייה
 // חדשה בהיסטוריה וגם מאפסת את שעון "טיפול אחרון".
-export default function QuickActivityLogForm({ contactId, department, stages, frozen }) {
+export default function QuickActivityLogForm({ contactId, department, stages, labels = {}, frozen }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
   const [stage, setStage] = useState(department.stage);
@@ -54,7 +53,7 @@ export default function QuickActivityLogForm({ contactId, department, stages, fr
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 12, color: '#6b6b6b' }}>שינוי שלב (אופציונלי):</span>
         <select value={stage} onChange={(e) => setStage(e.target.value)} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 8px', fontSize: 12.5 }}>
-          {stages.map((s) => <option key={s} value={s}>{STAGE_LABELS[s] || s}</option>)}
+          {stages.map((s) => <option key={s} value={s}>{labels[s] || s}</option>)}
         </select>
       </div>
       {error && <div style={{ color: '#b23b2f', fontSize: 12, marginBottom: 8 }}>{error}</div>}

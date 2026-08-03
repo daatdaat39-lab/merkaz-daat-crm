@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { DEPT_KEYWORDS, contactMatchesDept, STAGE_LABELS } from '../../components/ui';
+import { DEPT_KEYWORDS, contactMatchesDept } from '../../components/ui';
 import { addContactTag, assignAgent } from '../../contacts/actions';
 import LeadRow from './LeadRow';
 
@@ -11,7 +11,7 @@ const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding
 // לוח לידים עם סינון ומיון בצד הלקוח - הנתונים כבר נטענו מהשרת, אז
 // כל הסינון/מיון כאן מיידי בלי בקשות נוספות. הקיבוץ לפי תגית (תרומות/
 // לימודי/מנהלה) נשאר, אבל מחושב אחרי הסינון כדי שכל קבוצה תשקף אותו.
-export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sendConnections = [], whatsappTemplates = [], emailTemplates = [], extraFields = [] }) {
+export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, stageLabels = {}, stageColors = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], extraFields = [] }) {
   const [search, setSearch] = useState('');
   const [agentFilter, setAgentFilter] = useState('');
   const [stageFilter, setStageFilter] = useState('');
@@ -96,7 +96,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         </select>
         <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} style={inputStyle}>
           <option value="">כל השלבים</option>
-          {stages.map((s) => <option key={s} value={s}>{STAGE_LABELS[s] || s}</option>)}
+          {stages.map((s) => <option key={s} value={s}>{stageLabels[s] || s}</option>)}
         </select>
         <select value={reasonFilter} onChange={(e) => setReasonFilter(e.target.value)} style={inputStyle}>
           <option value="">כל הנושאים</option>
@@ -141,10 +141,10 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       <BulkActionBar selected={selected} setSelected={setSelected} agents={agents} workspaceId={workspaceId} router={router} />
 
       {categorized.map((group) => (
-        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} extraFields={extraFields} />
+        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} extraFields={extraFields} />
       ))}
 
-      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} extraFields={extraFields} />}
+      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} extraFields={extraFields} />}
 
       {filtered.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים התואמים את הסינון</div>
@@ -225,7 +225,7 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
   );
 }
 
-function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, sendConnections, whatsappTemplates, emailTemplates, selected, onToggleSelect, setSelected, extraFields = [] }) {
+function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, stageLabels = {}, stageColors = {}, sendConnections, whatsappTemplates, emailTemplates, selected, onToggleSelect, setSelected, extraFields = [] }) {
   const allSelected = leads.length > 0 && leads.every((l) => selected.has(l.id));
 
   function toggleSelectAll() {
@@ -259,7 +259,7 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
         </thead>
         <tbody>
           {leads.map((c) => (
-            <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} extraFields={extraFields} />
+            <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} extraFields={extraFields} />
           ))}
         </tbody>
       </table>
