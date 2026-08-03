@@ -94,6 +94,38 @@ export default async function SettingsPage() {
         </Link>
       </div>
 
+      <div style={{
+        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
+      }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>📥 ייבוא נתונים</div>
+          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>ייבוא/ייצוא אנשי קשר, ייבוא ממערכת חיצונית, ייבוא היסטוריית שיחות</div>
+        </div>
+        <Link href="/dashboard/settings/import" style={{
+          background: '#fff', color: '#0a0a0a', border: '1px solid #e5e5e5', textDecoration: 'none', fontSize: 13,
+          padding: '7px 16px', borderRadius: 6,
+        }}>
+          לייבוא →
+        </Link>
+      </div>
+
+      <div style={{
+        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
+      }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>🏷 רשימות בחירה</div>
+          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>עריכת קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)</div>
+        </div>
+        <Link href="/dashboard/settings/picklists" style={{
+          background: '#fff', color: '#0a0a0a', border: '1px solid #e5e5e5', textDecoration: 'none', fontSize: 13,
+          padding: '7px 16px', borderRadius: 6,
+        }}>
+          לניהול →
+        </Link>
+      </div>
+
       <WhatsAppTemplatesPanel templates={whatsappTemplates || []} />
       <EmailTemplatesPanel templates={emailTemplates || []} />
 

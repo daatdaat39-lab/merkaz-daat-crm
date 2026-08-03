@@ -1,0 +1,15 @@
+name: Check paused donations (wake up + follow-up task)
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for donations whose pause period ended
+        run: |
+          curl -sf -X GET "https://merkaz-daat-crm-8ubv.vercel.app/api/cron/check-paused-donations" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

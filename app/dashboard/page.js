@@ -5,6 +5,7 @@ import { STAGE_LABELS } from './components/ui';
 import { getPipeline } from './components/pipelines';
 import { randomPraise } from './components/celebrate';
 import DedicationsWidget from './DedicationsWidget';
+import QuickAssignSelect from './QuickAssignSelect';
 import { isManagerOfWorkspace } from './lib/contactGuards';
 
 function timeGreeting() {
@@ -51,7 +52,12 @@ export default async function DashboardHome() {
   let openTasks = [];
   let upcomingCharges = [];
   let endingSoon = [];
+  let creditIssues = [];
+  let silentDonors = [];
+  let openPledgesTotal = 0;
+  let openPledgesCount = 0;
   let pendingLeadsCount = 0;
+  let attentionAgents = [];
   let isDonationsManager = false;
   const isDonationsWorkspace = profile?.workspaces?.name === 'תרומות';
 
@@ -61,7 +67,7 @@ export default async function DashboardHome() {
   const isoDay = (offset) => new Date(Date.now() + offset * dayMs).toISOString().slice(0, 10);
   const { data: dedicationRows } = await supabase
     .from('calendar_dedications')
-    .select('id, contact_id, dedication_date, dedication_text, note, contacts:contact_id (first, last)')
+    .select('id, contact_id, dedication_date, dedication_text, note, names, locked_at, contacts:contact_id (first, last)')
     .gte('dedication_date', isoDay(-1))
     .lte('dedication_date', isoDay(7))
     .order('dedication_date', { ascending: true });
@@ -140,6 +146,45 @@ export default async function DashboardHome() {
           .eq('workspace_id', workspaceId)
           .eq('approval_status', 'pending');
         pendingLeadsCount = pc || 0;
+
+        // צפי הכנסות פתוחות - הבטחות תרומה (שלב "התחייבות לתרומה") שטרם מומשו
+        const { data: pledgeRows } = await supabase
+          .from('contact_departments')
+          .select('extra_fields')
+          .eq('workspace_id', workspaceId)
+          .eq('stage', 'committed');
+        for (const row of pledgeRows || []) {
+          const amount = Number(row.extra_fields?.expected_donation_amount) || 0;
+          if (amount > 0) { openPledgesTotal += amount; openPledgesCount++; }
+        }
+
+        // תקלות חיוב - שלב ייעודי (מוגדר ידנית ע"י נציג, אין עדיין זיהוי
+        // אוטומטי של אשראי שנכשל בלי חיבור חי לקשר)
+        const { data: creditIssueRows } = await supabase
+          .from('contact_departments')
+          .select('id, contact_id, agent_id, contacts(first,last)')
+          .eq('workspace_id', workspaceId)
+          .eq('stage', 'credit_issue');
+        creditIssues = creditIssueRows || [];
+
+        // תורמים פעילים ש-90+ יום בלי אינטראקציה כלשהי
+        const cutoff90 = new Date(Date.now() - 90 * 86400000).toISOString();
+        const { data: silentRows } = await supabase
+          .from('contact_departments')
+          .select('id, contact_id, agent_id, last_activity_at, contacts(first,last)')
+          .eq('workspace_id', workspaceId)
+          .eq('stage', 'active_donor')
+          .lt('last_activity_at', cutoff90)
+          .order('last_activity_at', { ascending: true })
+          .limit(20);
+        silentDonors = silentRows || [];
+
+        const { data: attMembers } = await supabase.from('workspace_members').select('user_id').eq('workspace_id', workspaceId);
+        const attMemberIds = (attMembers || []).map((m) => m.user_id);
+        const { data: attProfiles } = attMemberIds.length
+          ? await supabase.from('profiles').select('id, name').in('id', attMemberIds)
+          : { data: [] };
+        attentionAgents = (attProfiles || []).map((p) => ({ id: p.id, name: p.name || 'משתמש' }));
       }
     }
   }
@@ -278,28 +323,58 @@ export default async function DashboardHome() {
                 <b>{pendingLeadsCount} לידים ממתינים לאישור ושיוך נציג</b>
               </Link>
             )}
+            {creditIssues.map((row) => (
+              <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid #f2f2f2', fontSize: 13, background: '#fef2f2' }}>
+                <span style={{ fontSize: 14 }}>⚠</span>
+                <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
+                <span style={{ color: '#b23b2f', fontWeight: 600 }}>תקלה בחיוב / אשראי נכשל</span>
+                <span style={{ marginInlineStart: 'auto' }}>
+                  <QuickAssignSelect contactId={row.contact_id} workspaceId={workspaceId} agents={attentionAgents} currentAgentId={row.agent_id} />
+                </span>
+              </div>
+            ))}
             {endingSoon.map((row) => (
-              <Link key={row.id} href={`/dashboard/contacts/${row.contact_id}`} style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px',
-                borderBottom: '1px solid #f2f2f2', fontSize: 13, textDecoration: 'none', color: 'inherit',
-                background: row.remaining <= 0 ? '#fef2f2' : 'transparent',
-              }}>
+              <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid #f2f2f2', fontSize: 13, background: row.remaining <= 0 ? '#fef2f2' : 'transparent' }}>
                 <span style={{ fontSize: 14 }}>{row.remaining <= 0 ? '🔴' : '⏳'}</span>
-                <b>{row.contacts?.first} {row.contacts?.last}</b>
+                <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
                 <span style={{ color: row.remaining <= 0 ? '#b23b2f' : '#c2760f', fontWeight: 600 }}>
                   {row.remaining <= 0
                     ? `הוראת הקבע הסתיימה (${row.paid}/${row.total})`
                     : `נותרו ${row.remaining} תשלומים (${row.paid}/${row.total})`}
                 </span>
-              </Link>
+                <span style={{ marginInlineStart: 'auto' }}>
+                  <QuickAssignSelect contactId={row.contact_id} workspaceId={workspaceId} agents={attentionAgents} currentAgentId={row.agent_id} />
+                </span>
+              </div>
             ))}
-            {pendingLeadsCount === 0 && endingSoon.length === 0 && (
+            {silentDonors.map((row) => {
+              const days = Math.floor((Date.now() - new Date(row.last_activity_at).getTime()) / 86400000);
+              return (
+                <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid #f2f2f2', fontSize: 13 }}>
+                  <span style={{ fontSize: 14 }}>💤</span>
+                  <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
+                  <span style={{ color: '#9b9b9b' }}>{days} ימים בלי אינטראקציה</span>
+                  <span style={{ marginInlineStart: 'auto' }}>
+                    <QuickAssignSelect contactId={row.contact_id} workspaceId={workspaceId} agents={attentionAgents} currentAgentId={row.agent_id} />
+                  </span>
+                </div>
+              );
+            })}
+            {pendingLeadsCount === 0 && creditIssues.length === 0 && endingSoon.length === 0 && silentDonors.length === 0 && (
               <div style={{ padding: '14px 18px', fontSize: 13, color: '#9b9b9b' }}>אין פריטים שדורשים טיפול</div>
             )}
             <div style={{ padding: '10px 18px', fontSize: 11.5, color: '#9b9b9b', background: '#fafafa' }}>
-              ℹ️ התראות על אשראי שנכשל יתווספו כאן אוטומטית לאחר חיבור מערכת "קשר" בחיות.
+              ℹ️ תקלות אשראי מסומנות כרגע ידנית (שלב "תקלה בחיוב" בכרטיס) — זיהוי אוטומטי יתווסף לאחר חיבור מערכת "קשר" בחיות.
             </div>
           </div>
+        </div>
+      )}
+
+      {isDonationsManager && openPledgesCount > 0 && (
+        <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12, padding: '14px 18px' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>💰 צפי הכנסות פתוחות (הבטחות תרומה)</div>
+          <div style={{ fontSize: 22, fontWeight: 700 }}>₪{openPledgesTotal.toLocaleString('he-IL')}</div>
+          <div style={{ fontSize: 12, color: '#9b9b9b' }}>{openPledgesCount} הבטחות תרומה שטרם מומשו</div>
         </div>
       )}
 

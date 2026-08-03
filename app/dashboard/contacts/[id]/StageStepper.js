@@ -7,12 +7,18 @@ import { CLOSE_REASONS } from '../../components/pipelines';
 // שורת נקודות אופקית לשלבי ה-pipeline של מחלקה - נקודה מלאה = הושלם,
 // לחיצה על נקודה משנה שלב (קדימה או אחורה, שניהם מותרים). "סגור" הוא
 // שבב נפרד בסוף (לא חלק מהרצף המספרי, בדיוק כמו שהיה עם ה-select הישן).
-export default function StageStepper({ currentStage, currentClosedReason, stages, action, disabled }) {
+// closeReasons (אופציונלי) - מגיע מרשימת בחירה דינמית (הגדרות ← רשימות
+// בחירה); אם לא סופק, נופל חזרה לרשימה הקבועה בקוד.
+// hasCreditIssueStage - מוסיף שבב אדום שני "תקלה בחיוב/אשראי נכשל", לשימוש
+// ידני בלבד (אין עדיין חיבור חי שמזהה תקלות אשראי אמיתיות).
+export default function StageStepper({ currentStage, currentClosedReason, stages, action, disabled, closeReasons, hasCreditIssueStage }) {
+  const reasons = closeReasons?.length ? closeReasons : CLOSE_REASONS;
   const [pendingClose, setPendingClose] = useState(false);
-  const [reason, setReason] = useState(currentClosedReason || CLOSE_REASONS[0]);
+  const [reason, setReason] = useState(currentClosedReason || reasons[0]);
 
   const currentIndex = stages.indexOf(currentStage);
   const isClosed = currentStage === 'closed';
+  const isCreditIssue = currentStage === 'credit_issue';
 
   function handleDotClick(stage) {
     if (disabled) return;
@@ -38,8 +44,8 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
         {stages.map((stage, i) => {
-          const done = !isClosed && i <= currentIndex;
-          const isCurrent = !isClosed && i === currentIndex;
+          const done = !isClosed && !isCreditIssue && i <= currentIndex;
+          const isCurrent = !isClosed && !isCreditIssue && i === currentIndex;
           return (
             <div key={stage} style={{ display: 'flex', alignItems: 'center', flex: i > 0 ? '1 1 0' : '0 0 auto', minWidth: 0 }}>
               {i > 0 && (
@@ -89,6 +95,31 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
             {STAGE_LABELS.closed}
           </span>
         </button>
+
+        {hasCreditIssueStage && (
+          <>
+            <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: isCreditIssue ? '#a3392f' : '#e5e5e5', marginTop: -14 }} />
+            <button
+              type="button"
+              onClick={() => handleDotClick('credit_issue')}
+              disabled={disabled}
+              title={STAGE_LABELS.credit_issue}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: '0 2px',
+              }}
+            >
+              <span style={{
+                width: isCreditIssue ? 14 : 10, height: isCreditIssue ? 14 : 10, borderRadius: '50%',
+                background: isCreditIssue ? '#a3392f' : '#fff',
+                border: isCreditIssue ? 'none' : '2px solid #f0c0ba',
+              }} />
+              <span style={{ fontSize: 9.5, color: isCreditIssue ? '#a3392f' : '#c98a80', fontWeight: isCreditIssue ? 600 : 400, whiteSpace: 'nowrap' }}>
+                ⚠ {STAGE_LABELS.credit_issue}
+              </span>
+            </button>
+          </>
+        )}
       </div>
 
       {isClosed && currentClosedReason && (
@@ -99,7 +130,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
         <div style={{ marginTop: 8, padding: 10, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6, width: 220 }}>
           <div style={{ fontSize: 11.5, marginBottom: 6 }}>סיבת סגירה:</div>
           <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 12, border: '1px solid var(--border)', borderRadius: 4, padding: '5px 6px', marginBottom: 8 }}>
-            {CLOSE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+            {reasons.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={handleCloseConfirm} style={{ flex: 1, fontSize: 12, background: '#a3392f', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 0', cursor: 'pointer' }}>סגירה</button>

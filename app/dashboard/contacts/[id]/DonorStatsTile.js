@@ -37,6 +37,11 @@ export default function DonorStatsTile({ department, transactions = [] }) {
     ? deptTransactions.reduce((min, t) => (t.transaction_date < min ? t.transaction_date : min), deptTransactions[0].transaction_date)
     : null;
 
+  // ערך חיים (LTV) - כל התרומות של האדם הזה אי-פעם, לא רק מהמחלקה/שיוך
+  // הנוכחיים (למקרה שהיה משויך בעבר תחת שיוך אחר שנוצר מחדש)
+  const ltvTotal = transactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  const ltvCount = transactions.length;
+
   const order = getPipeline('תרומות').order;
   // "תרם בעבר" - גם מהשלב בתהליך וגם מהיסטוריית תנועות אמיתית; כל אחד מספיק
   const hasDonatedBefore = order.indexOf(department.stage) >= order.indexOf('donated') || deptTransactions.length > 0;
@@ -75,6 +80,13 @@ export default function DonorStatsTile({ department, transactions = [] }) {
           {earliestTransactionDate && (
             <div style={sub()}>מאז {new Date(earliestTransactionDate).toLocaleDateString('he-IL')}</div>
           )}
+        </Block>
+      )}
+
+      {ltvCount > 0 && (
+        <Block label="ערך חיים (LTV)">
+          <span style={value()}>₪{ltvTotal.toLocaleString('he-IL')}</span>
+          <div style={sub()}>סה"כ כל התרומות אי-פעם</div>
         </Block>
       )}
 
@@ -130,11 +142,31 @@ export default function DonorStatsTile({ department, transactions = [] }) {
         </Block>
       )}
 
-      <div style={{ marginInlineStart: 'auto', alignSelf: 'center' }}>
+      {extra.pledge_fulfillment_date && (
+        <Block label="הבטחת תרומה">
+          <span style={value()}>מימוש עד {new Date(extra.pledge_fulfillment_date).toLocaleDateString('he-IL')}</span>
+        </Block>
+      )}
+
+      {extra.donation_paused === 'כן' && (
+        <Block label="סטטוס">
+          <span style={{ ...value(), color: '#a4691f' }}>⏸ מוקפא זמנית</span>
+          {extra.paused_until && <div style={sub()}>עד {new Date(extra.paused_until).toLocaleDateString('he-IL')}</div>}
+        </Block>
+      )}
+
+      <div style={{ marginInlineStart: 'auto', alignSelf: 'center', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{
+          fontSize: 10.5, fontWeight: 600, color: '#9b9b9b', background: '#f0f0f0',
+          border: '1px solid #e0e0e0', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
+        }}>
+          בקרוב · ממתין לחיבור קשר
+        </span>
         <NotConnectedButton
           label="חידוש / הקמת תרומה"
           icon="💳"
           message="הקמת תרומה או חידוש הוראת קבע מתבצעים דרך מערכת קשר — החיבור החי עדיין לא מוגדר"
+          style={{ opacity: 0.55, borderStyle: 'dashed', color: '#9b9b9b' }}
         />
       </div>
     </div>

@@ -1,20 +1,23 @@
 'use client';
 
 // "זכאי ליום בלוח שנה" - רשימת תאריכים+נוסחי הקדשה של איש הקשר, עם
-// כפתור + להוספת שורה נוספת. הנוסחים מוגדרים ב-pipelines.js
-// (DEDICATION_TEMPLATES) כדי שקל יהיה לשנות אותם בלי לגעת כאן.
+// כפתור + להוספת שורה נוספת. תומך בהקדשה משפחתית (כמה שמות תחת אותה
+// הקדשה, למשל "לזכות משפחת כהן"). הנוסחים מוגדרים ב-pipelines.js
+// (DEDICATION_TEMPLATES). ברגע שהופקה גרסת הדפסה (DedicationsWidget)
+// ההקדשה ננעלת - הסרה דורשת owner/admin (ר' actions.js).
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEDICATION_TEMPLATES, CALENDAR_ELIGIBLE_TAG } from '../../components/pipelines';
-import { addDedication, removeDedication } from '../actions';
+import { addDedication, removeDedication, unlockDedication } from '../actions';
 
-export default function CalendarDedicationsCard({ contactId, dedications = [], frozen, tags = [] }) {
+export default function CalendarDedicationsCard({ contactId, dedications = [], frozen, tags = [], isManager }) {
   const eligible = tags.includes(CALENDAR_ELIGIBLE_TAG);
   const [adding, setAdding] = useState(false);
   const [date, setDate] = useState('');
   const [template, setTemplate] = useState(DEDICATION_TEMPLATES[0]);
   const [customText, setCustomText] = useState('');
   const [note, setNote] = useState('');
+  const [names, setNames] = useState(['']);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -22,7 +25,7 @@ export default function CalendarDedicationsCard({ contactId, dedications = [], f
   const isCustom = template === 'נוסח חופשי';
 
   function resetForm() {
-    setAdding(false); setDate(''); setTemplate(DEDICATION_TEMPLATES[0]); setCustomText(''); setNote(''); setError(null);
+    setAdding(false); setDate(''); setTemplate(DEDICATION_TEMPLATES[0]); setCustomText(''); setNote(''); setNames(['']); setError(null);
   }
 
   function handleAdd() {
@@ -30,7 +33,7 @@ export default function CalendarDedicationsCard({ contactId, dedications = [], f
     const text = isCustom ? customText.trim() : `${template} ${customText}`.trim();
     if (!date || !text) { setError('יש למלא תאריך ונוסח'); return; }
     startTransition(async () => {
-      const res = await addDedication(contactId, date, text, note);
+      const res = await addDedication(contactId, date, text, note, names);
       if (res?.error) { setError(res.error); return; }
       resetForm();
       router.refresh();
@@ -40,6 +43,14 @@ export default function CalendarDedicationsCard({ contactId, dedications = [], f
   function handleRemove(id) {
     startTransition(async () => {
       const res = await removeDedication(id);
+      if (res?.error) { setError(res.error); return; }
+      router.refresh();
+    });
+  }
+
+  function handleUnlock(id) {
+    startTransition(async () => {
+      const res = await unlockDedication(id);
       if (res?.error) { setError(res.error); return; }
       router.refresh();
     });
@@ -67,6 +78,8 @@ export default function CalendarDedicationsCard({ contactId, dedications = [], f
         </div>
       )}
 
+      {error && <div style={{ color: '#b23b2f', fontSize: 11.5, marginBottom: 8 }}>{error}</div>}
+
       {dedications.length === 0 && !adding && eligible && (
         <div style={{ fontSize: 12, color: '#9b9b9b' }}>לא הוגדרו תאריכים</div>
       )}
@@ -78,16 +91,23 @@ export default function CalendarDedicationsCard({ contactId, dedications = [], f
           </span>
           <span style={{ flex: 1 }}>
             {d.dedication_text}
-            {d.note && <span style={{ color: '#9b9b9b' }}> — {d.note}</span>}
+            {(d.names || []).length > 0 && <span> — {d.names.join(', ')}</span>}
+            {d.note && <span style={{ color: '#9b9b9b' }}> · {d.note}</span>}
+            {d.locked_at && (
+              <span style={{ marginInlineStart: 6, fontSize: 10.5, color: '#a4691f', background: '#f6ead9', borderRadius: 4, padding: '1px 6px' }}>
+                🔒 נעול להדפסה
+              </span>
+            )}
           </span>
-          {!frozen && (
-            <button
-              type="button"
-              onClick={() => handleRemove(d.id)}
-              disabled={isPending}
-              title="הסרה"
+          {!frozen && !d.locked_at && (
+            <button type="button" onClick={() => handleRemove(d.id)} disabled={isPending} title="הסרה"
               style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 12 }}
             >✕</button>
+          )}
+          {!frozen && d.locked_at && isManager && (
+            <button type="button" onClick={() => handleUnlock(d.id)} disabled={isPending} title="שחרור נעילה"
+              style={{ background: 'none', border: 'none', color: '#a4691f', cursor: 'pointer', fontSize: 11 }}
+            >🔓 שחרור</button>
           )}
         </div>
       ))}
@@ -105,6 +125,24 @@ export default function CalendarDedicationsCard({ contactId, dedications = [], f
             placeholder={isCustom ? 'נוסח ההקדשה המלא...' : 'שם / המשך הנוסח...'}
             style={fieldStyle()}
           />
+          <div style={{ fontSize: 11, color: '#9b9b9b' }}>שמות נוספים תחת אותה הקדשה (הקדשה משפחתית, אופציונלי):</div>
+          {names.map((n, i) => (
+            <div key={i} style={{ display: 'flex', gap: 6 }}>
+              <input
+                type="text"
+                value={n}
+                onChange={(e) => setNames((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))}
+                placeholder="שם נוסף..."
+                style={{ ...fieldStyle(), flex: 1 }}
+              />
+              {names.length > 1 && (
+                <button type="button" onClick={() => setNames((prev) => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer' }}>✕</button>
+              )}
+            </div>
+          ))}
+          <button type="button" onClick={() => setNames((prev) => [...prev, ''])} style={{ alignSelf: 'flex-start', background: 'none', border: '1px dashed #d0d0d0', borderRadius: 4, padding: '2px 8px', fontSize: 11.5, color: '#666', cursor: 'pointer' }}>
+            + הוספת שם
+          </button>
           <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="הערה (אופציונלי)" style={fieldStyle()} />
           {error && <div style={{ color: '#b23b2f', fontSize: 11.5 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 6 }}>

@@ -660,11 +660,51 @@ export async function importCallHistory(rows) {
   return { success: true, added, skipped: payload.length - added };
 }
 
+// סיכום שיחה מהיר - תיעוד שיחה/וואטסאפ/פגישה בלי לצאת מהכרטיס: רושם
+// פנייה חדשה בהיסטוריה (לאותו מנגנון lead_inquiries שכל שאר הפניות
+// משתמשות בו), מאפס את שעון "טיפול אחרון", ואופציונלית מזיז שלב.
+export async function logQuickActivity(contactId, departmentRowId, note, newStage) {
+  const { supabase } = await requireUser();
+  const text = (note || '').trim();
+  if (!departmentRowId || !text) return { error: 'יש למלא סיכום שיחה' };
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const { data: dept } = await supabase.from('contact_departments').select('stage').eq('id', departmentRowId).single();
+  if (!dept) return { error: 'שיוך מחלקה לא נמצא' };
+
+  const update = { last_activity_at: new Date().toISOString() };
+  if (newStage && newStage !== dept.stage) update.stage = newStage;
+  const { error: updateError } = await supabase.from('contact_departments').update(update).eq('id', departmentRowId);
+  if (updateError) return { error: updateError.message };
+
+  const { error } = await supabase.from('lead_inquiries').insert({
+    contact_department_id: departmentRowId, reason: text, source: 'סיכום שיחה מהיר',
+  });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// שיוך "מתווך/גורם מקשר" - מי הביא את התורם, נשמר כ-uuid בתוך extra_fields
+// (בדיוק כמו כל שדה ייעודי אחר) כדי לא לדרוש עמודה/מיגרציה נפרדת.
+export async function setReferrer(departmentRowId, referrerContactId) {
+  const { supabase } = await requireUser();
+  const { data: dept } = await supabase.from('contact_departments').select('contact_id, extra_fields').eq('id', departmentRowId).single();
+  if (!dept) return { error: 'שיוך מחלקה לא נמצא' };
+  const frozenError = await requireNotFrozen(supabase, dept.contact_id);
+  if (frozenError) return frozenError;
+
+  const extra_fields = { ...(dept.extra_fields || {}), referred_by_contact_id: referrerContactId || null };
+  const { error } = await supabase.from('contact_departments').update({ extra_fields }).eq('id', departmentRowId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 // ---------- לוח שנה והקדשות ----------
 // "זכאי ליום בלוח שנה" - איש קשר יכול לקבל כמה תאריכים, לכל אחד נוסח
 // הקדשה משלו. נשמר בטבלה נפרדת (calendar_dedications, מיגרציה 0032) ולא
 // בשדה בכרטיס, כי זו רשימה שגדלה ומוצגת גם בווידג'ט הדשבורד לפי תאריך.
-export async function addDedication(contactId, dedicationDate, dedicationText, note) {
+export async function addDedication(contactId, dedicationDate, dedicationText, note, names) {
   const { supabase, user } = await requireUser();
   if (!contactId || !dedicationDate || !(dedicationText || '').trim()) {
     return { error: 'יש למלא תאריך ונוסח הקדשה' };
@@ -677,6 +717,7 @@ export async function addDedication(contactId, dedicationDate, dedicationText, n
     dedication_date: dedicationDate,
     dedication_text: dedicationText.trim(),
     note: (note || '').trim() || null,
+    names: Array.isArray(names) ? names.map((n) => (n || '').trim()).filter(Boolean) : [],
     created_by: user.id,
   });
   if (error) return { error: error.message };
@@ -684,16 +725,44 @@ export async function addDedication(contactId, dedicationDate, dedicationText, n
 }
 
 export async function removeDedication(dedicationId) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   if (!dedicationId) return { error: 'לא נבחרה הקדשה' };
 
   const { data: row } = await supabase
-    .from('calendar_dedications').select('contact_id').eq('id', dedicationId).single();
+    .from('calendar_dedications').select('contact_id, locked_at').eq('id', dedicationId).single();
   if (!row) return { error: 'ההקדשה לא נמצאה' };
+
+  if (row.locked_at) {
+    const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
+    if (!allowed) return { error: 'ההקדשה נעולה להדפסה — רק owner/admin יכול להסיר אותה' };
+  }
+
   const frozenError = await requireNotFrozen(supabase, row.contact_id);
   if (frozenError) return frozenError;
 
   const { error } = await supabase.from('calendar_dedications').delete().eq('id', dedicationId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// ננעל אוטומטית כשמופקת גרסת הדפסה (DedicationsWidget) - מונע שינוי בטעות
+// אחרי שהנוסח כבר נדפס. רק ערכים שעדיין לא נעולים ננעלים (idempotent).
+export async function lockDedicationsForPrint(ids) {
+  const { supabase, user } = await requireUser();
+  if (!Array.isArray(ids) || ids.length === 0) return { success: true };
+  await supabase
+    .from('calendar_dedications')
+    .update({ locked_at: new Date().toISOString(), locked_by: user.id })
+    .in('id', ids)
+    .is('locked_at', null);
+  return { success: true };
+}
+
+export async function unlockDedication(dedicationId) {
+  const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
+  if (!allowed) return { error: 'רק owner/admin יכול לשחרר נעילה' };
+  const { error } = await supabase.from('calendar_dedications').update({ locked_at: null, locked_by: null }).eq('id', dedicationId);
   if (error) return { error: error.message };
   return { success: true };
 }

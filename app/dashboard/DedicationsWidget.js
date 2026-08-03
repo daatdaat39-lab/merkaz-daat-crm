@@ -4,6 +4,8 @@
 // (אתמול / היום / מחר / השבוע הקרוב) עם שם איש הקשר לכל תאריך, וכפתור
 // "גרסת הדפסה" שפותח חלון נקי להדפסה.
 import Link from 'next/link';
+import { useTransition } from 'react';
+import { lockDedicationsForPrint } from './contacts/actions';
 
 const GROUP_STYLES = {
   אתמול: { bg: '#f3f4f6', color: '#4b5563' },
@@ -13,9 +15,13 @@ const GROUP_STYLES = {
 };
 
 export default function DedicationsWidget({ groups }) {
+  const [, startTransition] = useTransition();
   const hasAny = Object.values(groups).some((list) => list.length > 0);
 
   function handlePrint() {
+    const allIds = Object.values(groups).flat().map((d) => d.id);
+    startTransition(() => { lockDedicationsForPrint(allIds); });
+
     const rows = Object.entries(groups)
       .filter(([, list]) => list.length > 0)
       .map(([label, list]) => {
@@ -23,7 +29,7 @@ export default function DedicationsWidget({ groups }) {
           <tr>
             <td>${escapeHtml(new Date(d.dedication_date).toLocaleDateString('he-IL'))}</td>
             <td>${escapeHtml(d.contactName || '')}</td>
-            <td>${escapeHtml(d.dedication_text || '')}</td>
+            <td>${escapeHtml([d.dedication_text, ...(d.names || [])].filter(Boolean).join(' — '))}</td>
             <td>${escapeHtml(d.note || '')}</td>
           </tr>`).join('');
         return `<tr class="group"><td colspan="4">${escapeHtml(label)}</td></tr>${items}`;

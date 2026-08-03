@@ -1,10 +1,8 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import AddContactForm from './AddContactForm';
 import ContactsBoard from './ContactsBoard';
-import { DownloadTemplateButton, ExportContactsButton, ImportContactsButton } from './ImportExportButtons';
-import DepartmentImportWizard from './DepartmentImportWizard';
-import CallHistoryImportWizard from './CallHistoryImportWizard';
 import { groupTagsByDepartment } from '../lib/tagGroups';
 
 export default async function ContactsPage() {
@@ -44,11 +42,13 @@ export default async function ContactsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <DownloadTemplateButton />
-          <ImportContactsButton workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} />
-          <DepartmentImportWizard workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} />
-          <CallHistoryImportWizard />
-          <ExportContactsButton contacts={allContacts} />
+          <Link href="/dashboard/settings/import" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6,
+            fontSize: 13, fontWeight: 500, background: 'var(--bg)', color: 'var(--text-secondary)',
+            border: '1px solid var(--border)', textDecoration: 'none',
+          }}>
+            📥 ייבוא נתונים
+          </Link>
           <AddContactForm workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} existingTags={allTags} tagGroups={tagGroups} />
         </div>
       </div>

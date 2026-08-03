@@ -8,6 +8,8 @@ import { shouldOpenPipeline } from '../../lib/pipelineVisibility';
 import { updateDepartmentStage, addDepartmentMembership } from '../actions';
 import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
 import StageStepper from './StageStepper';
+import QuickActivityLogForm from './QuickActivityLogForm';
+import ReferrerPicker from './ReferrerPicker';
 import DonorStatsTile from './DonorStatsTile';
 import StudentStatsTile from './StudentStatsTile';
 import CalendarDedicationsCard from './CalendarDedicationsCard';
@@ -32,7 +34,7 @@ export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups,
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
-  dedications, callHistory, externalIds,
+  dedications, callHistory, externalIds, closeReasons, isManager,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -54,6 +56,7 @@ export default function ContactDetailClient({
   const [newReason, setNewReason] = useState('');
   const [composeOpen, setComposeOpen] = useState(false);
   const [whatsappOpen, setWhatsappOpen] = useState(false);
+  const [whatsappInitialMessage, setWhatsappInitialMessage] = useState('');
 
   const visibleDepartments = departments.filter((d) => viewerWorkspaceIds.includes(d.workspaceId));
   const [activeId, setActiveId] = useState(visibleDepartments[0]?.id || null);
@@ -187,11 +190,23 @@ export default function ContactDetailClient({
       )}
 
       {active?.workspaceName === 'תרומות' && (
-        <DonorStatsTile department={active} transactions={donationTransactions || []} />
+        <>
+          <DonorStatsTile department={active} transactions={donationTransactions || []} />
+          <ReferrerPicker contactId={contact.id} department={active} frozen={contact.frozen} />
+        </>
       )}
 
       {active?.workspaceName === 'דעת ותבונה' && (
         <StudentStatsTile department={active} />
+      )}
+
+      {active && (
+        <QuickActivityLogForm
+          contactId={contact.id}
+          department={active}
+          stages={[...getPipeline(active.workspaceName).order, 'closed', ...(active.workspaceName === 'תרומות' ? ['credit_issue'] : [])]}
+          frozen={contact.frozen}
+        />
       )}
 
       {/* שורת שלבי המחלקה הפעילה - מקופלת כברירת מחדל, נפתחת אוטומטית
@@ -213,6 +228,8 @@ export default function ContactDetailClient({
                 stages={getPipeline(active.workspaceName).order}
                 disabled={contact.frozen}
                 action={handleStageChange}
+                closeReasons={closeReasons}
+                hasCreditIssueStage={active.workspaceName === 'תרומות'}
               />
             </>
           ) : (
@@ -231,7 +248,7 @@ export default function ContactDetailClient({
         <NotConnectedButton label="חיוג" icon="📞" message="חיוג מתוך המערכת (ימות המשיח) — עדיין לא מחובר" />
         {contact.phone && active && !contact.frozen ? (
           <button
-            onClick={() => setWhatsappOpen(true)}
+            onClick={() => { setWhatsappInitialMessage(''); setWhatsappOpen(true); }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: '#fff', color: '#333', border: '1px solid #e5e5e5' }}
           >
             <span>💬</span><span>וואטסאפ</span>
@@ -255,6 +272,17 @@ export default function ContactDetailClient({
         )}
         <NotConnectedButton label="קביעת פגישה ביומן" icon="📅" message="חיבור ל-Google Calendar — עדיין לא מחובר" />
         <AiSummaryButton contactId={contact.id} />
+        {active?.stage === 'credit_issue' && contact.phone && !contact.frozen && (
+          <button
+            onClick={() => {
+              setWhatsappInitialMessage(`שלום ${contact.first}, זיהינו שהחיוב האחרון בהוראת הקבע שלך לא עבר בהצלחה. נשמח אם תוכל/י לעדכן את פרטי אמצעי התשלום כדי שנוכל להמשיך בלי הפרעה. תודה!`);
+              setWhatsappOpen(true);
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: '#fef2f2', color: '#a3392f', border: '1px solid #f0c0ba' }}
+          >
+            <span>⚠</span><span>עדכון אמצעי תשלום</span>
+          </button>
+        )}
       </div>
 
       {(openTasksCount > 0 || nextMeeting) && (
@@ -309,6 +337,7 @@ export default function ContactDetailClient({
             dedications={dedications || []}
             frozen={contact.frozen}
             tags={contact.tags || []}
+            isManager={isManager}
           />
         </div>
 
@@ -354,6 +383,7 @@ export default function ContactDetailClient({
           thread={active ? (sentWhatsapp || []).filter((w) => w.workspace_id === active.workspaceId) : (sentWhatsapp || [])}
           templates={whatsappTemplates || []}
           onClose={() => setWhatsappOpen(false)}
+          initialMessage={whatsappInitialMessage}
         />
       )}
     </div>

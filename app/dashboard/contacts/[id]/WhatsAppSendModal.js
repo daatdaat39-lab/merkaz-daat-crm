@@ -8,8 +8,8 @@ import { sendContactWhatsApp, sendContactWhatsAppChatMessage } from '../actions'
 // שנשלחו והודעות שהתקבלו מהלקוח, לפי כיוון) כבועות שיחה, עם תיבת
 // כתיבה בתחתית. הודעה ראשונה/כשאין עדיין שיחה פתוחה חייבת להיות
 // תבנית מאושרת (חוק WhatsApp) - לכן יש גם כפתור לשליחת התבנית הרשמית.
-export default function WhatsAppSendModal({ contactId, workspaceId, phone, reason, thread = [], templates = [], onClose }) {
-  const [message, setMessage] = useState('');
+export default function WhatsAppSendModal({ contactId, workspaceId, phone, reason, thread = [], templates = [], onClose, initialMessage = '' }) {
+  const [message, setMessage] = useState(initialMessage);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const [templateId, setTemplateId] = useState(templates[0]?.id || '');

@@ -43,6 +43,7 @@ export const STAGE_LABELS = {
   donated: 'תרם',
   active_donor: 'תורם פעיל',
   closed: 'סגור / לא רלוונטי',
+  credit_issue: 'תקלה בחיוב / אשראי נכשל',
 };
 
 export const STAGE_COLORS = {
@@ -63,6 +64,7 @@ export const STAGE_COLORS = {
   donated: { bg: '#f0fdf4', color: '#16a34a' },
   active_donor: { bg: '#ecfdf5', color: '#0d9488' },
   closed: { bg: '#fef2f2', color: '#dc2626' },
+  credit_issue: { bg: '#fef2f2', color: '#dc2626' },
 };
 
 // תגית תפקיד/מעמד של איש קשר במחלקה נתונה, לפי השלב שלו - לשימוש כשהוא עובר
@@ -130,6 +132,9 @@ export const EXTRA_FIELDS = {
     // משמש לתצוגת "שילם X מתוך Y" בקוביית נתוני התרומה.
     { key: 'standing_order_total_payments', label: 'סה"כ תשלומים בהוראה', type: 'number' },
     { key: 'donor_type', label: 'תורם חוזר או חדש', type: 'select', options: ['חדש', 'חוזר'] },
+    { key: 'pledge_fulfillment_date', label: 'תאריך מימוש הבטחת תרומה', type: 'date' },
+    { key: 'donation_paused', label: 'תרומה מוקפאת זמנית', type: 'select', options: ['כן', 'לא'] },
+    { key: 'paused_until', label: 'הקפאה עד תאריך', type: 'date' },
   ],
 };
 

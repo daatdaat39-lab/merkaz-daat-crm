@@ -2,6 +2,7 @@ import { createClient } from '../../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../../lib/supabase/admin';
 import { redirect, notFound } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../../lib/contactGuards';
+import { getPicklistValues } from '../../../lib/picklists';
 import CampaignDetailClient from './CampaignDetailClient';
 
 // ניהול קמפיין בודד: הוספת אנשי קשר, סיווג לקטגוריה (חם/קר/תורם גדול),
@@ -44,9 +45,11 @@ export default async function CampaignDetailPage({ params }) {
   ]);
 
   const memberIds = (members || []).map((m) => m.user_id);
-  const { data: profiles } = memberIds.length
-    ? await supabase.from('profiles').select('id, name').in('id', memberIds)
-    : { data: [] };
+  const [{ data: profiles }, categoryRows] = await Promise.all([
+    memberIds.length ? supabase.from('profiles').select('id, name').in('id', memberIds) : { data: [] },
+    getPicklistValues(supabase, 'campaign_category', campaign.workspace_id),
+  ]);
+  const categories = categoryRows.map((r) => r.value);
   const admin = createAdminClient();
   const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
   const emailById = Object.fromEntries((usersList?.users || []).map((u) => [u.id, u.email]));
@@ -89,6 +92,7 @@ export default async function CampaignDetailPage({ params }) {
         initialRows={rows}
         availableContacts={availableContacts}
         agents={agents}
+        categories={categories}
       />
     </div>
   );

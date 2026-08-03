@@ -3,6 +3,8 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { groupTagsByDepartment } from '../../lib/tagGroups';
+import { getPicklistValues } from '../../lib/picklists';
+import { isManagerOfAnyWorkspace } from '../../lib/contactGuards';
 
 // טוען את כל הנתונים של כרטיס איש קשר - מופרד מ-ContactDetailContent.js
 // כדי שאותה לוגיקה תהיה קריאה גם משם (עמוד/מודל רגיל, ניתוב של Next)
@@ -59,7 +61,7 @@ export async function loadContactCardData(contactId) {
       .order('transaction_date', { ascending: false }),
     supabase
       .from('calendar_dedications')
-      .select('id, dedication_date, dedication_text, note')
+      .select('id, dedication_date, dedication_text, note, names, locked_at')
       .eq('contact_id', contact.id)
       .order('dedication_date', { ascending: true }),
     supabase
@@ -73,6 +75,10 @@ export async function loadContactCardData(contactId) {
       .eq('contact_id', contact.id)
       .order('source_system'),
   ]);
+
+  const closeReasonRows = await getPicklistValues(supabase, 'close_reason', null);
+  const closeReasons = closeReasonRows.length ? closeReasonRows.map((r) => r.value) : undefined;
+  const isManager = await isManagerOfAnyWorkspace(supabase, user.id);
 
   const admin = createAdminClient();
   const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
@@ -112,6 +118,16 @@ export async function loadContactCardData(contactId) {
     createdByManager: !!row.created_by_manager,
     inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
   }));
+
+  const referrerIds = Array.from(new Set(departments.map((d) => d.extraFields?.referred_by_contact_id).filter(Boolean)));
+  const { data: referrerRows } = referrerIds.length
+    ? await supabase.from('contacts').select('id, first, last').in('id', referrerIds)
+    : { data: [] };
+  const referrerNameById = Object.fromEntries((referrerRows || []).map((r) => [r.id, `${r.first || ''} ${r.last || ''}`.trim()]));
+  for (const d of departments) {
+    const refId = d.extraFields?.referred_by_contact_id;
+    d.referrer = refId ? { id: refId, name: referrerNameById[refId] || 'איש קשר' } : null;
+  }
 
   const workspaceNameById = Object.fromEntries((allWorkspaces || []).map((w) => [w.id, w.name]));
   const allInquiries = departments
@@ -162,6 +178,8 @@ export async function loadContactCardData(contactId) {
       dedications: dedicationRows || [],
       callHistory: callHistoryRows || [],
       externalIds: externalIdRows || [],
+      closeReasons,
+      isManager,
     },
   };
 }

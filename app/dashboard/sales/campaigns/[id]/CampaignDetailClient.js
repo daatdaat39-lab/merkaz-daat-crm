@@ -7,12 +7,14 @@ import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign
 import { addContactTag } from '../../../contacts/actions';
 import { CALENDAR_ELIGIBLE_TAG } from '../../../components/pipelines';
 
-// קטגוריות סיווג בתוך קמפיין - קבועות כאן כדי שיהיה קל לשנות/להוסיף
-const CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'תורם חוזר', 'לא רלוונטי'];
+// קטגוריות ברירת מחדל - משמשות רק אם רשימת הבחירה הדינמית (הגדרות ← רשימות
+// בחירה) ריקה, כדי שהמסך לעולם לא יישאר בלי אף קטגוריה לבחור
+const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'תורם חוזר', 'לא רלוונטי'];
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
 
-export default function CampaignDetailClient({ campaignId, initialRows, availableContacts = [], agents = [] }) {
+export default function CampaignDetailClient({ campaignId, initialRows, availableContacts = [], agents = [], categories = [] }) {
+  const CATEGORIES = categories.length ? categories : DEFAULT_CATEGORIES;
   const [rows, setRows] = useState(initialRows);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState('');
