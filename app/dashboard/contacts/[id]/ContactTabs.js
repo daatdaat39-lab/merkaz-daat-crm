@@ -6,7 +6,7 @@ import NotConnectedButton from '../../components/NotConnectedButton';
 import { celebrate } from '../../components/celebrate';
 import { addTask } from '../../tasks/actions';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], agents = [], workspaceNameById = {} }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [] }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -152,6 +152,25 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           />
 
           <ActivityGroup
+            title="שיחות טלפון (015)"
+            items={phoneCalls}
+            emptyText="אין שיחות רשומות"
+            renderItem={(c) => (
+              <div key={c.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                <span style={{ fontWeight: 600 }}>{c.direction === 'out' ? '📤 יוצאת' : '📥 נכנסת'}</span>
+                <span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>
+                {c.duration_seconds ? <span style={{ color: '#9b9b9b' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}
+                {c.started_at && <span style={{ color: '#c0c0c0' }}> · {new Date(c.started_at).toLocaleDateString('he-IL')} {new Date(c.started_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>}
+                {c.recording_url && (
+                  <div style={{ marginTop: 6 }}>
+                    <audio controls src={c.recording_url} style={{ height: 32, maxWidth: '100%' }} />
+                  </div>
+                )}
+              </div>
+            )}
+          />
+
+          <ActivityGroup
             title="פגישות — כל המחלקות"
             items={meetings}
             emptyText="אין פעילות עדיין"
@@ -277,7 +296,20 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
       )}
 
       {tab === 'recordings' && (
-        <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין הקלטות (טלפוניה לא מחוברת)</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {phoneCalls.filter((c) => c.recording_url).length === 0 && (
+            <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין הקלטות שיחה</div>
+          )}
+          {phoneCalls.filter((c) => c.recording_url).map((c) => (
+            <div key={c.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
+              <div style={{ fontSize: 12.5, marginBottom: 6 }}>
+                <span style={{ fontWeight: 600 }}>{c.direction === 'out' ? '📤 יוצאת' : '📥 נכנסת'}</span>
+                {c.started_at && <span style={{ color: '#9b9b9b' }}> · {new Date(c.started_at).toLocaleDateString('he-IL')} {new Date(c.started_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>}
+              </div>
+              <audio controls src={c.recording_url} style={{ width: '100%' }} />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

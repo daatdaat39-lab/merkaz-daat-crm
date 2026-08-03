@@ -34,7 +34,7 @@ export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups,
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
-  dedications, callHistory, externalIds, closeReasons, isManager,
+  dedications, callHistory, externalIds, closeReasons, isManager, phoneCalls,
 }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -356,6 +356,7 @@ export default function ContactDetailClient({
             sentWhatsapp={sentWhatsapp || []}
             donationTransactions={donationTransactions || []}
             callHistory={callHistory || []}
+            phoneCalls={phoneCalls || []}
             workspaceNameById={workspaceNameById || {}}
             agents={active ? (agentsByWorkspace?.[active.workspaceId] || []) : []}
           />
