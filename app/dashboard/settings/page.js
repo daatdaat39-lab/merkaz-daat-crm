@@ -34,28 +34,28 @@ export default async function SettingsPage() {
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 24px' }}>
-      <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>הגדרות</h1>
+      <h1 style={{ fontFamily: 'var(--font-heading)', margin: '0 0 20px', fontSize: 20 }}>הגדרות</h1>
 
-      <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '18px 20px', marginBottom: 20 }}>
-        <div style={{ fontSize: 12, color: '#9b9b9b', marginBottom: 6 }}>Workspace פעיל</div>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '18px 20px', marginBottom: 20 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Workspace פעיל</div>
         <div style={{ fontSize: 16, fontWeight: 600 }}>{workspace?.name || '—'}</div>
         {workspace?.created_at && (
-          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 4 }}>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
             נוצר בתאריך {new Date(workspace.created_at).toLocaleDateString('he-IL')}
           </div>
         )}
       </div>
 
       <div style={{
-        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
+        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
       }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>חברי הצוות</div>
-          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>{memberCount} משתמשים ב-workspace</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{memberCount} משתמשים ב-workspace</div>
         </div>
         <Link href="/dashboard/settings/users" style={{
-          background: '#0a0a0a', color: '#fff', textDecoration: 'none', fontSize: 13,
+          background: 'var(--text)', color: 'var(--bg)', textDecoration: 'none', fontSize: 13,
           padding: '7px 16px', borderRadius: 6,
         }}>
           ניהול משתמשים →
@@ -63,15 +63,15 @@ export default async function SettingsPage() {
       </div>
 
       <div style={{
-        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
+        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
       }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>דוח פעילות נציגים</div>
-          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>זמן פעילות ותפוקה לכל נציג (owner/admin בלבד)</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>זמן פעילות ותפוקה לכל נציג (owner/admin בלבד)</div>
         </div>
         <Link href="/dashboard/settings/activity" style={{
-          background: '#fff', color: '#0a0a0a', border: '1px solid #e5e5e5', textDecoration: 'none', fontSize: 13,
+          background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', fontSize: 13,
           padding: '7px 16px', borderRadius: 6,
         }}>
           לדוח →
@@ -79,15 +79,15 @@ export default async function SettingsPage() {
       </div>
 
       <div style={{
-        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
+        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
       }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>🔎 בדיקת כפליות</div>
-          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>סריקת כל אנשי הקשר, זוג-זוג, למיזוג כפילויות (owner/admin בלבד)</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>סריקת כל אנשי הקשר, זוג-זוג, למיזוג כפילויות (owner/admin בלבד)</div>
         </div>
         <Link href="/dashboard/settings/duplicates" style={{
-          background: '#fff', color: '#0a0a0a', border: '1px solid #e5e5e5', textDecoration: 'none', fontSize: 13,
+          background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', fontSize: 13,
           padding: '7px 16px', borderRadius: 6,
         }}>
           לתור →
@@ -95,15 +95,15 @@ export default async function SettingsPage() {
       </div>
 
       <div style={{
-        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
+        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
       }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>📥 ייבוא נתונים</div>
-          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>ייבוא/ייצוא אנשי קשר, ייבוא ממערכת חיצונית, ייבוא היסטוריית שיחות</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>ייבוא/ייצוא אנשי קשר, ייבוא ממערכת חיצונית, ייבוא היסטוריית שיחות</div>
         </div>
         <Link href="/dashboard/settings/import" style={{
-          background: '#fff', color: '#0a0a0a', border: '1px solid #e5e5e5', textDecoration: 'none', fontSize: 13,
+          background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', fontSize: 13,
           padding: '7px 16px', borderRadius: 6,
         }}>
           לייבוא →
@@ -111,15 +111,15 @@ export default async function SettingsPage() {
       </div>
 
       <div style={{
-        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
+        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
       }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>🏷 רשימות בחירה</div>
-          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>עריכת קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>עריכת קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)</div>
         </div>
         <Link href="/dashboard/settings/picklists" style={{
-          background: '#fff', color: '#0a0a0a', border: '1px solid #e5e5e5', textDecoration: 'none', fontSize: 13,
+          background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', fontSize: 13,
           padding: '7px 16px', borderRadius: 6,
         }}>
           לניהול →
@@ -127,15 +127,15 @@ export default async function SettingsPage() {
       </div>
 
       <div style={{
-        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
+        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
       }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 600 }}>🔀 שלבי pipeline</div>
-          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>הוספה/מחיקה/עריכת שלבי התהליך לכל מחלקה (owner/admin בלבד)</div>
+          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>הוספה/מחיקה/עריכת שלבי התהליך לכל מחלקה (owner/admin בלבד)</div>
         </div>
         <Link href="/dashboard/settings/pipelines" style={{
-          background: '#fff', color: '#0a0a0a', border: '1px solid #e5e5e5', textDecoration: 'none', fontSize: 13,
+          background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', fontSize: 13,
           padding: '7px 16px', borderRadius: 6,
         }}>
           לניהול →
@@ -145,8 +145,8 @@ export default async function SettingsPage() {
       <WhatsAppTemplatesPanel templates={whatsappTemplates || []} />
       <EmailTemplatesPanel templates={emailTemplates || []} />
 
-      <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20 }}>
-        <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20 }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 14, fontWeight: 600 }}>
           אינטגרציות
         </div>
         {[
@@ -158,11 +158,11 @@ export default async function SettingsPage() {
         ].map((item) => (
           <div key={item.label} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '12px 18px', borderBottom: '1px solid #f2f2f2',
+            padding: '12px 18px', borderBottom: '1px solid var(--bg-tertiary)',
           }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</div>
-              <div style={{ fontSize: 11.5, color: '#9b9b9b' }}>{item.desc}</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{item.desc}</div>
             </div>
             <NotConnectedButton label="חיבור" message={`חיבור ${item.label} — עדיין לא מחובר`} />
           </div>

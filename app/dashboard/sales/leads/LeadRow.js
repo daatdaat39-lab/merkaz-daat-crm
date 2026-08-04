@@ -19,7 +19,7 @@ function elapsedLabel(iso) {
   return `${days} ${days === 1 ? 'יום' : 'ימים'} מאז הטיפול האחרון`;
 }
 
-export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], stageLabels = {}, stageColors = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], selected = false, onToggleSelect, extraFields = [] }) {
+export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], stageLabels = {}, stageColors = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], selected = false, onToggleSelect, extraFields = [], closeReasons }) {
   const [isPending, startTransition] = useTransition();
   const [closing, setClosing] = useState(false);
   const [extraValues, setExtraValues] = useState(c.extra_fields || {});
@@ -94,7 +94,7 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
           {stages.map((s) => <option key={s} value={s}>{stageLabels[s]}</option>)}
           <option value="closed">{stageLabels.closed || 'סגור / לא רלוונטי'}</option>
         </select>
-        {closing && <CloseReasonPicker onConfirm={handleCloseConfirm} onCancel={() => setClosing(false)} />}
+        {closing && <CloseReasonPicker reasons={closeReasons?.length ? closeReasons : CLOSE_REASONS} onConfirm={handleCloseConfirm} onCancel={() => setClosing(false)} />}
       </td>
       <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.phone || '—'}</td>
       <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.email || '—'}</td>
@@ -168,12 +168,12 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
   );
 }
 
-function CloseReasonPicker({ onConfirm, onCancel }) {
-  const [reason, setReason] = useState(CLOSE_REASONS[0]);
+function CloseReasonPicker({ reasons = CLOSE_REASONS, onConfirm, onCancel }) {
+  const [reason, setReason] = useState(reasons[0]);
   return (
     <div style={{ marginTop: 6, padding: 8, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6, width: 200 }}>
       <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 11.5, border: '1px solid var(--border)', borderRadius: 4, marginBottom: 6 }}>
-        {CLOSE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+        {reasons.map((r) => <option key={r} value={r}>{r}</option>)}
       </select>
       <div style={{ display: 'flex', gap: 6 }}>
         <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, background: '#a3392f', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>אישור</button>

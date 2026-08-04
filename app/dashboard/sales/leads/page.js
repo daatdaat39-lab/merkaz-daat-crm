@@ -3,6 +3,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getExtraFields } from '../../components/pipelines';
 import { getPipeline } from '../../lib/pipelines';
+import { getPicklistValues } from '../../lib/picklists';
 import AddContactForm from '../../contacts/AddContactForm';
 import LeadsBoard from './LeadsBoard';
 import { groupTagsByDepartment } from '../../lib/tagGroups';
@@ -25,6 +26,8 @@ export default async function SalesLeadsPage() {
   const workspaceName = profile?.workspaces?.name;
   const pipeline = await getPipeline(supabase, workspaceName);
   const extraFields = getExtraFields(workspaceName);
+  const closeReasonRows = await getPicklistValues(supabase, 'close_reason', null);
+  const closeReasons = closeReasonRows.length ? closeReasonRows.map((r) => r.value) : undefined;
 
   let leads = [];
   let agents = [];
@@ -190,7 +193,7 @@ export default async function SalesLeadsPage() {
           leads={leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName}
           stages={pipeline.order} stageLabels={pipeline.labels} stageColors={pipeline.colors}
           sendConnections={sendConnections || []} whatsappTemplates={whatsappTemplates || []}
-          emailTemplates={emailTemplates || []} extraFields={extraFields}
+          emailTemplates={emailTemplates || []} extraFields={extraFields} closeReasons={closeReasons}
         />
       )}
     </div>

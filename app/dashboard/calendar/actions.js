@@ -3,6 +3,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { createZoomMeeting, isZoomConfigured } from '../../../lib/zoom/client';
+import { requireNotFrozen } from '../lib/contactGuards';
 
 // יוצר קישור Zoom לפגישה מסוג "זום" אם החיבור מוגדר - בכשל לא מפיל את
 // שמירת הפגישה עצמה, רק משאיר את הקישור ריק (כמו כל אינטגרציה אחרת
@@ -31,6 +32,9 @@ export async function addMeeting(formData) {
   const time = formData.get('meeting_time');
   const type = formData.get('type') || 'פרונטלי';
   if (!workspaceId || !contactId || !date || !time) return;
+
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
 
   const { data: contact } = await supabase.from('contacts').select('first, last').eq('id', contactId).single();
   const zoomJoinUrl = await maybeCreateZoomLink(type, contact ? `${contact.first} ${contact.last}` : null, date, time);
@@ -61,7 +65,11 @@ export async function updateMeeting(meetingId, formData) {
   if (!update.meeting_date || !update.meeting_time) return { error: 'יש להזין תאריך ושעה' };
 
   // אם הפגישה עברה לסוג "זום" ועדיין אין לה קישור - יוצרים אחד עכשיו
-  const { data: existing } = await supabase.from('meetings').select('type, zoom_join_url, contacts(first, last)').eq('id', meetingId).single();
+  const { data: existing } = await supabase.from('meetings').select('contact_id, type, zoom_join_url, contacts(first, last)').eq('id', meetingId).single();
+  if (existing?.contact_id) {
+    const frozenError = await requireNotFrozen(supabase, existing.contact_id);
+    if (frozenError) return frozenError;
+  }
   if (update.type === 'זום' && !existing?.zoom_join_url) {
     const name = existing?.contacts ? `${existing.contacts.first} ${existing.contacts.last}` : null;
     update.zoom_join_url = await maybeCreateZoomLink(update.type, name, update.meeting_date, update.meeting_time);
@@ -75,6 +83,11 @@ export async function updateMeeting(meetingId, formData) {
 
 export async function deleteMeeting(meetingId) {
   const { supabase } = await requireWorkspace();
+  const { data: existing } = await supabase.from('meetings').select('contact_id').eq('id', meetingId).single();
+  if (existing?.contact_id) {
+    const frozenError = await requireNotFrozen(supabase, existing.contact_id);
+    if (frozenError) return frozenError;
+  }
   const { error } = await supabase.from('meetings').delete().eq('id', meetingId);
   if (error) return { error: error.message };
   redirect('/dashboard/calendar');

@@ -4,7 +4,7 @@ import { useState, useTransition, useMemo } from 'react';
 import Link from 'next/link';
 import { CLOSE_REASONS } from '../../components/pipelines';
 
-export default function PipelineBoard({ contacts, moveStageAction, stages, sideStages = ['closed'], labels = {}, colors = {} }) {
+export default function PipelineBoard({ contacts, moveStageAction, stages, sideStages = ['closed'], labels = {}, colors = {}, closeReasons }) {
   const label = (key) => labels[key] || key;
   const color = (key) => colors[key] || { bg: '#fef2f2', color: '#a3392f' };
   const [view, setView] = useState('kanban'); // 'kanban' | 'table'
@@ -124,7 +124,7 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
                         </button>
                       </div>
                       {closingId === c.departmentRowId && (
-                        <CloseReasonPicker onConfirm={(reason) => handleCloseConfirm(c.departmentRowId, reason)} onCancel={() => setClosingId(null)} />
+                        <CloseReasonPicker reasons={closeReasons?.length ? closeReasons : CLOSE_REASONS} onConfirm={(reason) => handleCloseConfirm(c.departmentRowId, reason)} onCancel={() => setClosingId(null)} />
                       )}
                     </div>
                   ))}
@@ -219,12 +219,12 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
   );
 }
 
-function CloseReasonPicker({ onConfirm, onCancel }) {
-  const [reason, setReason] = useState(CLOSE_REASONS[0]);
+function CloseReasonPicker({ reasons = CLOSE_REASONS, onConfirm, onCancel }) {
+  const [reason, setReason] = useState(reasons[0]);
   return (
     <div style={{ marginTop: 8, padding: 8, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6 }} onClick={(e) => e.stopPropagation()}>
       <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 11.5, border: '1px solid var(--border)', borderRadius: 4, marginBottom: 6 }}>
-        {CLOSE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+        {reasons.map((r) => <option key={r} value={r}>{r}</option>)}
       </select>
       <div style={{ display: 'flex', gap: 6 }}>
         <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, background: '#a3392f', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>אישור</button>

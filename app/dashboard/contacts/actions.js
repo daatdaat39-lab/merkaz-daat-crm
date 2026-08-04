@@ -321,6 +321,8 @@ export async function deleteContact(contactId) {
 // השיוך למחלקה הזו - שאר המחלקות שהוא פעיל בהן נשארות)
 export async function removeDepartmentMembership(contactId, workspaceId) {
   const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfWorkspace(supabase, user.id, workspaceId);
+  if (!allowed) return { error: 'רק מנהל של המחלקה יכול להסיר שיוך' };
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
 
@@ -337,7 +339,9 @@ export async function removeDepartmentMembership(contactId, workspaceId) {
 
 // הוספת שיוך למחלקה נוספת מתוך כרטיס איש הקשר עצמו
 export async function addDepartmentMembership(contactId, workspaceId, reason, reasonNote) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfWorkspace(supabase, user.id, workspaceId);
+  if (!allowed) return { error: 'רק מנהל של המחלקה יכול לשייך איש קשר אליה' };
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
 
