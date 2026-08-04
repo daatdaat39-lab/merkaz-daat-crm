@@ -63,7 +63,7 @@ export default function DonorStatsTile({ department, transactions = [], stageOrd
       padding: '14px 16px', marginBottom: 16,
     }}>
       <div style={{ position: 'absolute', top: 8, insetInlineEnd: 10, color: '#15803d' }}>
-        <ExtraFieldVisibilityToggle workspaceId={department.workspaceId} workspaceName={department.workspaceName} hiddenKeys={department.hiddenExtraFieldKeys} />
+        <ExtraFieldVisibilityToggle workspaceId={department.workspaceId} fields={department.fieldDefs} hiddenKeys={department.hiddenExtraFieldKeys} />
       </div>
       <Block label="נתוני תרומה">
         {hasDonatedBefore ? (

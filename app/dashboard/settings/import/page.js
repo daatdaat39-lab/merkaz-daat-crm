@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { DownloadTemplateButton, ExportContactsButton, ImportContactsButton } from '../../contacts/ImportExportButtons';
 import DepartmentImportWizard from '../../contacts/DepartmentImportWizard';
 import CallHistoryImportWizard from '../../contacts/CallHistoryImportWizard';
+import { getAllExtraFields } from '../../lib/extraFields';
 
 // מסך ייעודי לכל כלי הייבוא/ייצוא - הועבר לכאן מעמוד "אנשי קשר" כדי לשמור
 // שם עיצוב נקי ומרווח (רק "+ איש קשר חדש"). כל הפעולות עצמן זהות לחלוטין.
@@ -16,6 +17,7 @@ export default async function ImportDataPage() {
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
   ]);
+  const extraFieldsByWorkspaceName = await getAllExtraFields(supabase);
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '28px 24px' }}>
@@ -27,7 +29,7 @@ export default async function ImportDataPage() {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <DownloadTemplateButton />
         <ImportContactsButton workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} />
-        <DepartmentImportWizard workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} />
+        <DepartmentImportWizard workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} extraFieldsByWorkspaceName={extraFieldsByWorkspaceName} />
         <CallHistoryImportWizard />
         <ExportContactsButton contacts={contacts || []} />
       </div>

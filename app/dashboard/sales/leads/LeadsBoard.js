@@ -38,6 +38,11 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
   const [overdueHours, setOverdueHours] = useState(24);
   const [sortBy, setSortBy] = useState('activity_desc');
   const [selected, setSelected] = useState(() => new Set());
+  const [fieldFilters, setFieldFilters] = useState({});
+
+  function setFieldFilter(key, value) {
+    setFieldFilters((prev) => ({ ...prev, [key]: value }));
+  }
   const router = useRouter();
 
   const leadsWithTab = useMemo(() => leads.map((l) => ({ ...l, _tab: tabOf(l, leadStages, wonStage) })), [leads, leadStages, wonStage]);
@@ -82,6 +87,15 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       const threshold = Number(overdueHours) > 0 ? Number(overdueHours) : 24;
       result = result.filter((c) => c.last_activity_at && (Date.now() - new Date(c.last_activity_at).getTime()) / 3600000 >= threshold);
     }
+    const activeFieldFilterEntries = Object.entries(fieldFilters).filter(([, v]) => v);
+    if (activeFieldFilterEntries.length > 0) {
+      result = result.filter((c) => activeFieldFilterEntries.every(([key, value]) => {
+        const fieldDef = extraFields.find((f) => f.key === key);
+        const actual = c.extra_fields?.[key];
+        if (fieldDef?.type === 'select') return actual === value;
+        return (actual || '').toString().toLowerCase().includes(value.toLowerCase());
+      }));
+    }
 
     const agentName = (id) => agents.find((a) => a.id === id)?.name || '';
     const sorted = [...result].sort((a, b) => {
@@ -95,7 +109,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       }
     });
     return sorted;
-  }, [tabLeads, search, agentFilter, stageFilter, reasonFilter, overdueOnly, overdueHours, sortBy, agents]);
+  }, [tabLeads, search, agentFilter, stageFilter, reasonFilter, overdueOnly, overdueHours, sortBy, agents, fieldFilters, extraFields]);
 
   const departments = Object.keys(DEPT_KEYWORDS);
   const categorized = departments
@@ -175,13 +189,35 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         </select>
         {activeFilterCount > 0 && (
           <button
-            onClick={() => { setAgentFilter(''); setStageFilter(''); setReasonFilter(''); setOverdueOnly(false); setOverdueHours(24); setSearch(''); }}
+            onClick={() => { setAgentFilter(''); setStageFilter(''); setReasonFilter(''); setOverdueOnly(false); setOverdueHours(24); setSearch(''); setFieldFilters({}); }}
             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}
           >
             ניקוי סינון
           </button>
         )}
       </div>
+
+      {extraFields.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
+          <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>סינון לפי שדות {workspaceName}:</span>
+          {extraFields.map((f) => (
+            f.type === 'select' ? (
+              <select key={f.key} value={fieldFilters[f.key] || ''} onChange={(e) => setFieldFilter(f.key, e.target.value)} style={inputStyle}>
+                <option value="">{f.label}</option>
+                {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ) : (
+              <input
+                key={f.key}
+                value={fieldFilters[f.key] || ''}
+                onChange={(e) => setFieldFilter(f.key, e.target.value)}
+                placeholder={f.label}
+                style={inputStyle}
+              />
+            )
+          ))}
+        </div>
+      )}
 
       {filtered.length !== tabLeads.length && (
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>

@@ -391,6 +391,7 @@ export default function ContactDetailClient({
             phoneCalls={phoneCalls || []}
             workspaceNameById={workspaceNameById || {}}
             agents={active ? (agentsByWorkspace?.[active.workspaceId] || []) : []}
+            activeDepartment={active}
           />
         </div>
       </div>

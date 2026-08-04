@@ -10,7 +10,6 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { importDepartmentBatch } from './actions';
-import { getExtraFields } from '../components/pipelines';
 
 const BASE_FIELDS = [
   { key: 'first', label: 'שם פרטי' },
@@ -39,7 +38,7 @@ function mappingStorageKey(systemName) {
   return `crm-import-mapping::${systemName.trim().toLowerCase()}`;
 }
 
-export default function DepartmentImportWizard({ workspaces = [], defaultWorkspaceId = '' }) {
+export default function DepartmentImportWizard({ workspaces = [], defaultWorkspaceId = '', extraFieldsByWorkspaceName = {} }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState('upload'); // upload | classify | map | done
   const [headers, setHeaders] = useState([]);
@@ -53,7 +52,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
   const router = useRouter();
 
   const workspace = workspaces.find((w) => w.id === workspaceId);
-  const extraFields = useMemo(() => (workspace ? getExtraFields(workspace.name) : []), [workspace]);
+  const extraFields = useMemo(() => (workspace ? (extraFieldsByWorkspaceName[workspace.name] || []) : []), [workspace, extraFieldsByWorkspaceName]);
 
   function resetAll() {
     setOpen(false); setStep('upload'); setHeaders([]); setDataRows([]);

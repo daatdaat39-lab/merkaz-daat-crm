@@ -22,7 +22,7 @@ export default function StudentStatsTile({ department, stageOrder = [] }) {
       padding: '14px 16px', marginBottom: 16,
     }}>
       <div style={{ position: 'absolute', top: 8, insetInlineEnd: 10, color: '#1d4ed8' }}>
-        <ExtraFieldVisibilityToggle workspaceId={department.workspaceId} workspaceName={department.workspaceName} hiddenKeys={department.hiddenExtraFieldKeys} />
+        <ExtraFieldVisibilityToggle workspaceId={department.workspaceId} fields={department.fieldDefs} hiddenKeys={department.hiddenExtraFieldKeys} />
       </div>
       <Block label="מצב לימודים">
         {isGraduate ? (

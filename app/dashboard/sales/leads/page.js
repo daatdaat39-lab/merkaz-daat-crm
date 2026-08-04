@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { getExtraFields } from '../../components/pipelines';
+import { getExtraFields } from '../../lib/extraFields';
 import { getPipeline } from '../../lib/pipelines';
 import { getPicklistValues } from '../../lib/picklists';
 import AddContactForm from '../../contacts/AddContactForm';
@@ -26,7 +26,7 @@ export default async function SalesLeadsPage() {
   const workspaceId = profile?.current_workspace_id;
   const workspaceName = profile?.workspaces?.name;
   const pipeline = await getPipeline(supabase, workspaceName);
-  const extraFields = getExtraFields(workspaceName);
+  const extraFields = await getExtraFields(supabase, workspaceName);
   const closeReasonRows = await getPicklistValues(supabase, 'close_reason', null);
   const closeReasons = closeReasonRows.length ? closeReasonRows.map((r) => r.value) : undefined;
 

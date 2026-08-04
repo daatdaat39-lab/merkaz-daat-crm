@@ -7,7 +7,7 @@ import { getPicklistValues } from '../../lib/picklists';
 import { getAllPipelines } from '../../lib/pipelines';
 import { getCampaignStages } from '../../lib/campaignStages';
 import { isManagerOfAnyWorkspace } from '../../lib/contactGuards';
-import { filterHiddenExtraFields } from '../../components/pipelines';
+import { getAllExtraFields } from '../../lib/extraFields';
 
 // טוען את כל הנתונים של כרטיס איש קשר - מופרד מ-ContactDetailContent.js
 // כדי שאותה לוגיקה תהיה קריאה גם משם (עמוד/מודל רגיל, ניתוב של Next)
@@ -101,6 +101,7 @@ export async function loadContactCardData(contactId) {
     .from('profiles').select('hidden_extra_fields, hidden_widgets').eq('id', user.id).single();
   const hiddenExtraFieldsByWorkspace = viewerProfile?.hidden_extra_fields || {};
   const hiddenWidgetsByWorkspace = viewerProfile?.hidden_widgets || {};
+  const extraFieldDefsByWorkspaceName = await getAllExtraFields(supabase);
 
   // חברות בקמפיין ההקדשות (אם יש) - נקודת האמת היחידה ל"זכאי ליום בלוח
   // שנה" מאז שהתגית "לוח שנה" הוחלפה לגמרי בחברות-קמפיין (ר' PR4 בתוכנית
@@ -163,6 +164,12 @@ export async function loadContactCardData(contactId) {
   const departments = (departmentRows || []).map((row) => {
     const workspaceName = row.workspaces?.name || 'מחלקה';
     const hiddenExtraFieldKeys = hiddenExtraFieldsByWorkspace[row.workspace_id] || [];
+    const fieldDefs = extraFieldDefsByWorkspaceName[workspaceName] || [];
+    const validExtraFieldKeys = new Set(fieldDefs.map((f) => f.key));
+    const filteredExtraFields = { ...(row.extra_fields || {}) };
+    for (const key of Object.keys(filteredExtraFields)) {
+      if (validExtraFieldKeys.has(key) && hiddenExtraFieldKeys.includes(key)) delete filteredExtraFields[key];
+    }
     return {
       id: row.id,
       workspaceId: row.workspace_id,
@@ -172,7 +179,8 @@ export async function loadContactCardData(contactId) {
       agentId: row.agent_id,
       agentName: agentNameById[row.agent_id] || null,
       lastActivityAt: row.last_activity_at,
-      extraFields: filterHiddenExtraFields(row.extra_fields || {}, workspaceName, hiddenExtraFieldKeys),
+      extraFields: filteredExtraFields,
+      fieldDefs,
       hiddenExtraFieldKeys,
       createdByManager: !!row.created_by_manager,
       inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),

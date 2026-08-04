@@ -1,6 +1,6 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { getExtraFields } from '../../components/pipelines';
+import { getAllExtraFields } from '../../lib/extraFields';
 import MyPreferencesClient from './MyPreferencesClient';
 
 // עמוד "ההעדפות שלי" - אישי לגמרי, בלי הרשאת owner/admin (בניגוד לכל
@@ -17,10 +17,11 @@ export default async function MyPreferencesPage() {
     supabase.from('profiles').select('hidden_extra_fields').eq('id', user.id).single(),
   ]);
 
+  const extraFieldsByWorkspaceName = await getAllExtraFields(supabase);
   const workspaces = (memberships || [])
     .filter((m) => m.workspaces)
-    .map((m) => ({ id: m.workspaces.id, name: m.workspaces.name }))
-    .filter((w) => getExtraFields(w.name).length > 0);
+    .map((m) => ({ id: m.workspaces.id, name: m.workspaces.name, fields: extraFieldsByWorkspaceName[m.workspaces.name] || [] }))
+    .filter((w) => w.fields.length > 0);
 
   const hiddenByWorkspace = profile?.hidden_extra_fields || {};
 

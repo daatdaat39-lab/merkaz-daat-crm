@@ -1,18 +1,33 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import NotConnectedButton from '../../components/NotConnectedButton';
 import { celebrate } from '../../components/celebrate';
 import { addTask } from '../../tasks/actions';
+import { updateDepartmentExtraField } from '../actions';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [] }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
   const [addingTask, setAddingTask] = useState(false);
+  const [extraValues, setExtraValues] = useState(activeDepartment?.extraFields || {});
   const router = useRouter();
+
+  useEffect(() => {
+    setExtraValues(activeDepartment?.extraFields || {});
+  }, [activeDepartment?.id]);
+
+  function handleExtraFieldChange(key, value) {
+    if (!activeDepartment) return;
+    setExtraValues((prev) => ({ ...prev, [key]: value }));
+    startTransition(async () => {
+      await updateDepartmentExtraField(activeDepartment.id, key, value);
+      router.refresh();
+    });
+  }
 
   function handleAddTask(formData) {
     setError(null);
@@ -48,12 +63,14 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
     });
   }
 
+  const fieldDefs = activeDepartment?.fieldDefs || [];
   const tabs = [
     { id: 'activity', label: 'פעילות' },
     { id: 'tasks', label: `משימות${tasks.length ? ` (${tasks.length})` : ''}` },
     { id: 'notes', label: 'הערות' },
     { id: 'documents', label: 'מסמכים' },
     { id: 'recordings', label: 'הקלטות שיחה' },
+    ...(fieldDefs.length > 0 ? [{ id: 'fields', label: `שדות נוספים — ${activeDepartment.workspaceName}` }] : []),
   ];
 
   return (
@@ -282,6 +299,36 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             שמירת הערות
           </button>
         </form>
+      )}
+
+      {tab === 'fields' && activeDepartment && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 420 }}>
+          {fieldDefs.map((f) => (
+            <div key={f.key}>
+              <label style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', marginBottom: 4 }}>{f.label}</label>
+              {f.type === 'select' ? (
+                <select
+                  value={extraValues[f.key] || ''}
+                  onChange={(e) => handleExtraFieldChange(f.key, e.target.value)}
+                  disabled={frozen}
+                  style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
+                >
+                  <option value="">—</option>
+                  {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input
+                  type={f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text'}
+                  value={extraValues[f.key] || ''}
+                  onChange={(e) => setExtraValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                  onBlur={(e) => handleExtraFieldChange(f.key, e.target.value)}
+                  disabled={frozen}
+                  style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
       {tab === 'documents' && (

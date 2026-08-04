@@ -5,7 +5,7 @@ import AddContactForm from './AddContactForm';
 import ContactsBoard from './ContactsBoard';
 import { groupTagsByDepartment } from '../lib/tagGroups';
 import { getAllPipelines } from '../lib/pipelines';
-import { getExtraFields } from '../components/pipelines';
+import { getAllExtraFields } from '../lib/extraFields';
 
 export default async function ContactsPage() {
   const supabase = createClient();
@@ -35,7 +35,7 @@ export default async function ContactsPage() {
   const allTags = Array.from(new Set(allContacts.flatMap((c) => c.tags || []))).sort();
   const allDepartments = Array.from(new Set(allContacts.flatMap((c) => c.departments.map((d) => d.name)))).sort();
   const tagGroups = groupTagsByDepartment(allContacts);
-  const extraFieldsByDept = Object.fromEntries(allDepartments.map((name) => [name, getExtraFields(name)]));
+  const extraFieldsByDept = await getAllExtraFields(supabase);
 
   return (
     <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>

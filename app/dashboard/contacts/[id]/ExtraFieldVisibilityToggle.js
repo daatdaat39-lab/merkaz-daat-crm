@@ -3,7 +3,6 @@
 import { useState, useTransition, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { getExtraFields } from '../../components/pipelines';
 import { toggleExtraFieldVisibility } from '../../lib/fieldPreferences';
 
 // אייקון ⚙ קטן ליד כותרת קובייה (DonorStatsTile/StudentStatsTile) -
@@ -16,13 +15,12 @@ import { toggleExtraFieldVisibility } from '../../lib/fieldPreferences';
 // המקומי של הקובייה) כי הוא לרוב פתוח בתוך חלון צף (FloatingWindowsHost)
 // עם overflow:hidden/auto - position:absolute רגיל היה נחתך שם. המיקום
 // מחושב מ-getBoundingClientRect של הכפתור בכל פתיחה.
-export default function ExtraFieldVisibilityToggle({ workspaceId, workspaceName, hiddenKeys = [] }) {
+export default function ExtraFieldVisibilityToggle({ workspaceId, fields = [], hiddenKeys = [] }) {
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState(null);
   const [isPending, startTransition] = useTransition();
   const buttonRef = useRef(null);
   const router = useRouter();
-  const fields = getExtraFields(workspaceName);
 
   useLayoutEffect(() => {
     if (!open || !buttonRef.current) return;

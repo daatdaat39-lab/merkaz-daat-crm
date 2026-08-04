@@ -4,7 +4,7 @@ import { redirect, notFound } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../../lib/contactGuards';
 import { getPicklistValues } from '../../../lib/picklists';
 import { getCampaignStages } from '../../../lib/campaignStages';
-import { getExtraFields } from '../../../components/pipelines';
+import { getExtraFields } from '../../../lib/extraFields';
 import CampaignDetailClient from './CampaignDetailClient';
 
 // ניהול קמפיין בודד: הוספת אנשי קשר, סיווג לקטגוריה (חם/קר/תורם גדול),
@@ -53,6 +53,7 @@ export default async function CampaignDetailPage({ params }) {
     campaign.kind === 'dedication' ? { order: [], wonStage: null, labels: {}, colors: {} } : getCampaignStages(supabase, campaign.id),
   ]);
   const categories = categoryRows.map((r) => r.value);
+  const extraFields = await getExtraFields(supabase, campaign.workspaces?.name);
   const admin = createAdminClient();
   const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
   const emailById = Object.fromEntries((usersList?.users || []).map((u) => [u.id, u.email]));
@@ -110,7 +111,7 @@ export default async function CampaignDetailPage({ params }) {
         campaignKind={campaign.kind}
         workspaceId={campaign.workspace_id}
         isDonationsWorkspace={campaign.workspaces?.name === 'תרומות'}
-        extraFields={getExtraFields(campaign.workspaces?.name)}
+        extraFields={extraFields}
         initialRows={rows}
         availableContacts={availableContacts}
         agents={agents}

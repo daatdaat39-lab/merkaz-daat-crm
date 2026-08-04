@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { getExtraFields } from '../../components/pipelines';
 import { toggleExtraFieldVisibility } from '../../lib/fieldPreferences';
 
 export default function MyPreferencesClient({ workspaces, hiddenByWorkspace }) {
@@ -19,7 +18,7 @@ function WorkspaceFieldsSection({ workspace, hiddenKeys }) {
   const [hidden, setHidden] = useState(hiddenKeys);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-  const fields = getExtraFields(workspace.name);
+  const fields = workspace.fields || [];
 
   function handleToggle(fieldKey) {
     setHidden((prev) => (prev.includes(fieldKey) ? prev.filter((k) => k !== fieldKey) : [...prev, fieldKey]));
