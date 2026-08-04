@@ -20,7 +20,7 @@ export default function AddContactForm({
   const [duplicates, setDuplicates] = useState(null); // null = not checked yet
   const [pendingData, setPendingData] = useState(null); // FormData from the create form
   const [mergeCandidate, setMergeCandidate] = useState(null); // duplicate chosen to compare fields with
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(defaultWorkspaceId);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(defaultWorkspaceId || '__none__');
   const [reason, setReason] = useState('');
 
   const selectedWorkspace = workspaces.find((w) => w.id === selectedWorkspaceId);
@@ -167,6 +167,7 @@ export default function AddContactForm({
                         onChange={(e) => { setSelectedWorkspaceId(e.target.value); setReason(''); }}
                         style={inputStyle}
                       >
+                        <option value="__none__">ללא שיוך מחלקתי</option>
                         {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                       </select>
                     </div>
@@ -178,13 +179,15 @@ export default function AddContactForm({
                   <div><span style={labelStyle}>טלפון נוסף</span><input name="phone2" style={inputStyle} /></div>
                   <div><span style={labelStyle}>מייל</span><input name="email" type="email" style={inputStyle} /></div>
                   <div><span style={labelStyle}>מקור</span><input name="source" style={inputStyle} /></div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <span style={labelStyle}>מהות הפנייה *</span>
-                    <select name="reason" required value={reason} onChange={(e) => setReason(e.target.value)} style={inputStyle}>
-                      <option value="" disabled>בחר...</option>
-                      {reasonOptions.map((r) => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </div>
+                  {selectedWorkspaceId !== '__none__' && (
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <span style={labelStyle}>מהות הפנייה</span>
+                      <select name="reason" value={reason} onChange={(e) => setReason(e.target.value)} style={inputStyle}>
+                        <option value="">בחר...</option>
+                        {reasonOptions.map((r) => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                  )}
                   {reason === 'אחר' && (
                     <div style={{ gridColumn: '1 / -1' }}>
                       <span style={labelStyle}>פירוט מהות הפנייה</span>

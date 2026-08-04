@@ -255,8 +255,12 @@ export async function setContactFrozen(contactId, frozen) {
 // שכבר יש לו - אדם יכול להיות פעיל בכמה מחלקות בו-זמנית).
 export async function createContact(formData) {
   const { supabase, user } = await requireUser();
-  const workspace = await resolveTargetWorkspace(supabase, user, formData.get('workspace_id'));
-  if (!workspace.id) return { error: 'לא נמצא workspace פעיל' };
+  // "ללא שיוך מחלקתי" נבחר במפורש בטופס - איש קשר "צף", בלי שום שורת
+  // contact_departments. שונה מהמקרה הרגיל של workspace_id ריק (שם כן
+  // נופלים חזרה ל-workspace הפעיל של המשתמש, ר' resolveTargetWorkspace).
+  const skipDepartment = formData.get('workspace_id') === '__none__';
+  const workspace = skipDepartment ? { id: null, name: null } : await resolveTargetWorkspace(supabase, user, formData.get('workspace_id'));
+  if (!skipDepartment && !workspace.id) return { error: 'לא נמצא workspace פעיל' };
 
   const first = (formData.get('first') || '').toString().trim();
   if (!first) return { error: 'יש להזין שם פרטי' };
@@ -283,8 +287,10 @@ export async function createContact(formData) {
     const { error } = await supabase.from('contacts').update(update).eq('id', existing.id);
     if (error) return { error: error.message };
 
-    await upsertDepartmentMembership(supabase, existing.id, workspace, reason, reasonNote);
-    await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
+    if (workspace.id) {
+      await upsertDepartmentMembership(supabase, existing.id, workspace, reason, reasonNote);
+      await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
+    }
     redirect(`/dashboard/contacts/${existing.id}`);
   }
 
@@ -299,8 +305,10 @@ export async function createContact(formData) {
   const { data, error } = await supabase.from('contacts').insert(insert).select('id').single();
   if (error) return { error: error.message };
 
-  await upsertDepartmentMembership(supabase, data.id, workspace, reason, reasonNote);
-  await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
+  if (workspace.id) {
+    await upsertDepartmentMembership(supabase, data.id, workspace, reason, reasonNote);
+    await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
+  }
   redirect(`/dashboard/contacts/${data.id}`);
 }
 

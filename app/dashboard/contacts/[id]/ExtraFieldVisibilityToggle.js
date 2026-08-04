@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { getExtraFields } from '../../components/pipelines';
 import { toggleExtraFieldVisibility } from '../../lib/fieldPreferences';
@@ -10,11 +11,35 @@ import { toggleExtraFieldVisibility } from '../../lib/fieldPreferences';
 // לצופה הנוכחי בלבד (לא משפיע על אף אחד אחר). ר' גם עמוד "ההעדפות
 // שלי" (settings/my-preferences) - אותה פעולה בדיוק, ריכוז של כל
 // המחלקות במקום אחד.
+//
+// הפופ-אובר מרונדר ב-portal ישירות ל-document.body (לא בתוך ה-DOM
+// המקומי של הקובייה) כי הוא לרוב פתוח בתוך חלון צף (FloatingWindowsHost)
+// עם overflow:hidden/auto - position:absolute רגיל היה נחתך שם. המיקום
+// מחושב מ-getBoundingClientRect של הכפתור בכל פתיחה.
 export default function ExtraFieldVisibilityToggle({ workspaceId, workspaceName, hiddenKeys = [] }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState(null);
   const [isPending, startTransition] = useTransition();
+  const buttonRef = useRef(null);
   const router = useRouter();
   const fields = getExtraFields(workspaceName);
+
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const width = 230;
+    let left = rect.left;
+    if (left + width > window.innerWidth - 8) left = window.innerWidth - width - 8;
+    setCoords({ top: rect.bottom + 4, left });
+
+    function close() { setOpen(false); }
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [open]);
 
   if (fields.length === 0) return null;
 
@@ -26,8 +51,9 @@ export default function ExtraFieldVisibilityToggle({ workspaceId, workspaceName,
   }
 
   return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
+    <div style={{ display: 'inline-block' }}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="התאמת שדות מוצגים (אישי, רק אצלך)"
@@ -36,12 +62,13 @@ export default function ExtraFieldVisibilityToggle({ workspaceId, workspaceName,
         ⚙
       </button>
 
-      {open && (
+      {open && coords && createPortal(
         <>
-          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
           <div style={{
-            position: 'absolute', top: 20, insetInlineStart: 0, background: '#fff', border: '1px solid #e5e5e5',
-            borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', width: 230, zIndex: 50, padding: 10,
+            position: 'fixed', top: coords.top, left: coords.left, background: '#fff', border: '1px solid #e5e5e5',
+            borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', width: 230, maxHeight: '60vh', overflowY: 'auto',
+            zIndex: 9999, padding: 10,
           }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 6 }}>
               שדות מוצגים (אישי)
@@ -56,7 +83,8 @@ export default function ExtraFieldVisibilityToggle({ workspaceId, workspaceName,
               );
             })}
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   );
