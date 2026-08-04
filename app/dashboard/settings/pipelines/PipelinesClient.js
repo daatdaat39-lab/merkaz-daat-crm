@@ -2,11 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { createStage, updateStage, setWonStage, reorderStages, deleteStage } from './actions';
+import { createStage, updateStage, setWonStage, reorderStages, deleteStage, upsertStageAutomation, deleteStageAutomation } from './actions';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
 
-export default function PipelinesClient({ workspaces, stagesByWorkspaceId }) {
+export default function PipelinesClient({ workspaces, stagesByWorkspaceId, automationsByStageId = {}, whatsappTemplates = [], emailTemplates = [] }) {
   const [activeId, setActiveId] = useState(workspaces[0]?.id || null);
 
   return (
@@ -30,14 +30,21 @@ export default function PipelinesClient({ workspaces, stagesByWorkspaceId }) {
 
       {workspaces.map((w) => (
         activeId === w.id && (
-          <WorkspacePipelineEditor key={w.id} workspaceId={w.id} initialStages={stagesByWorkspaceId[w.id] || []} />
+          <WorkspacePipelineEditor
+            key={w.id}
+            workspaceId={w.id}
+            initialStages={stagesByWorkspaceId[w.id] || []}
+            automationsByStageId={automationsByStageId}
+            whatsappTemplates={whatsappTemplates}
+            emailTemplates={emailTemplates}
+          />
         )
       ))}
     </div>
   );
 }
 
-function WorkspacePipelineEditor({ workspaceId, initialStages }) {
+function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStageId, whatsappTemplates, emailTemplates }) {
   const [stages, setStages] = useState(initialStages);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
@@ -154,6 +161,11 @@ function WorkspacePipelineEditor({ workspaceId, initialStages }) {
             onSetWon={() => handleSetWon(s.id)}
             onDelete={() => handleDelete(s)}
             disabled={isPending}
+            workspaceId={workspaceId}
+            automations={automationsByStageId[s.id] || []}
+            whatsappTemplates={whatsappTemplates}
+            emailTemplates={emailTemplates}
+            refresh={refresh}
           />
         ))}
         {mainStages.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b' }}>אין שלבים ברצף הראשי</div>}
@@ -170,6 +182,11 @@ function WorkspacePipelineEditor({ workspaceId, initialStages }) {
             onUpdate={(patch) => handleUpdate(s, patch)}
             onDelete={() => handleDelete(s)}
             disabled={isPending}
+            workspaceId={workspaceId}
+            automations={automationsByStageId[s.id] || []}
+            whatsappTemplates={whatsappTemplates}
+            emailTemplates={emailTemplates}
+            refresh={refresh}
           />
         ))}
         {sideStages.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b' }}>אין שלבי-צד</div>}
@@ -202,10 +219,12 @@ function WorkspacePipelineEditor({ workspaceId, initialStages }) {
   );
 }
 
-function StageRow({ stage, reorderable, canMoveUp, canMoveDown, onMoveUp, onMoveDown, isDragging, onDragStart, onDragEnd, onDropOn, onUpdate, onSetWon, onDelete, disabled }) {
+function StageRow({ stage, reorderable, canMoveUp, canMoveDown, onMoveUp, onMoveDown, isDragging, onDragStart, onDragEnd, onDropOn, onUpdate, onSetWon, onDelete, disabled, workspaceId, automations = [], whatsappTemplates = [], emailTemplates = [], refresh }) {
   const [label, setLabel] = useState(stage.label);
+  const [automationOpen, setAutomationOpen] = useState(false);
 
   return (
+    <div style={{ borderBottom: '1px solid #f2f2f2' }}>
     <div
       draggable={reorderable && !disabled}
       onDragStart={reorderable ? onDragStart : undefined}
@@ -213,7 +232,7 @@ function StageRow({ stage, reorderable, canMoveUp, canMoveDown, onMoveUp, onMove
       onDragOver={reorderable ? (e) => e.preventDefault() : undefined}
       onDrop={reorderable ? (e) => { e.preventDefault(); onDropOn(); } : undefined}
       style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid #f2f2f2', flexWrap: 'wrap',
+        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', flexWrap: 'wrap',
         opacity: isDragging ? 0.4 : 1, background: isDragging ? 'var(--surface-hover)' : 'transparent',
       }}
     >
@@ -254,9 +273,108 @@ function StageRow({ stage, reorderable, canMoveUp, canMoveDown, onMoveUp, onMove
           שלב ליד
         </label>
       )}
+      <button type="button" onClick={() => setAutomationOpen((v) => !v)} disabled={disabled} style={{ background: 'none', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '3px 9px', fontSize: 11.5, color: automations.length > 0 ? '#0d9488' : '#6b6b6b', cursor: 'pointer' }}>
+        ⚡ אוטומציה{automations.length > 0 ? ` (${automations.length})` : ''}
+      </button>
       <button type="button" onClick={onDelete} disabled={disabled} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: '#b23b2f', fontSize: 12, cursor: 'pointer' }}>
         🗑 מחיקה
       </button>
+    </div>
+    {automationOpen && (
+      <StageAutomationPanel
+        workspaceId={workspaceId}
+        stageKey={stage.stage_key}
+        automations={automations}
+        whatsappTemplates={whatsappTemplates}
+        emailTemplates={emailTemplates}
+        disabled={disabled}
+        refresh={refresh}
+      />
+    )}
+    </div>
+  );
+}
+
+const AUTOMATION_ACTION_TYPES = [
+  { value: 'send_whatsapp_template', label: 'שליחת תבנית WhatsApp' },
+  { value: 'send_email_template', label: 'שליחת תבנית מייל' },
+  { value: 'create_task', label: 'יצירת משימת פולו-אפ' },
+];
+
+// פאנל אוטומציה לשלב - עד שורה אחת מכל סוג פעולה (whatsapp/email/task),
+// נשמר מיד עם upsertStageAutomation (לפי workspace+stage+action_type)
+function StageAutomationPanel({ workspaceId, stageKey, automations, whatsappTemplates, emailTemplates, disabled, refresh }) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState(null);
+  const [draft, setDraft] = useState({ actionType: '', whatsappTemplateId: '', emailTemplateId: '', taskTitle: '', taskDueOffsetDays: 1 });
+
+  function handleSave() {
+    if (!draft.actionType) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await upsertStageAutomation(workspaceId, stageKey, draft);
+      if (res?.error) { setError(res.error); return; }
+      setDraft({ actionType: '', whatsappTemplateId: '', emailTemplateId: '', taskTitle: '', taskDueOffsetDays: 1 });
+      refresh();
+    });
+  }
+
+  function handleDelete(id) {
+    setError(null);
+    startTransition(async () => {
+      const res = await deleteStageAutomation(id, workspaceId);
+      if (res?.error) { setError(res.error); return; }
+      refresh();
+    });
+  }
+
+  const actionLabel = (type) => AUTOMATION_ACTION_TYPES.find((t) => t.value === type)?.label || type;
+  const templateName = (a) => {
+    if (a.action_type === 'send_whatsapp_template') return whatsappTemplates.find((t) => t.id === a.whatsapp_template_id)?.name || '—';
+    if (a.action_type === 'send_email_template') return emailTemplates.find((t) => t.id === a.email_template_id)?.name || '—';
+    return a.task_title || 'פולו-אפ אוטומטי';
+  };
+
+  return (
+    <div style={{ padding: '10px 14px 14px', background: 'var(--surface-hover, #f4f5f7)' }}>
+      {error && <div style={{ color: '#b23b2f', fontSize: 11.5, marginBottom: 8 }}>{error}</div>}
+      {automations.map((a) => (
+        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 6 }}>
+          <span style={{ fontWeight: 500 }}>{actionLabel(a.action_type)}</span>
+          <span style={{ color: '#6b6b6b' }}>{templateName(a)}</span>
+          <button type="button" onClick={() => handleDelete(a.id)} disabled={disabled || isPending} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: '#b23b2f', fontSize: 11, cursor: 'pointer' }}>הסרה</button>
+        </div>
+      ))}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 8 }}>
+        <select value={draft.actionType} onChange={(e) => setDraft((p) => ({ ...p, actionType: e.target.value }))} style={inputStyle}>
+          <option value="">+ הוספת אוטומציה...</option>
+          {AUTOMATION_ACTION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+        {draft.actionType === 'send_whatsapp_template' && (
+          <select value={draft.whatsappTemplateId} onChange={(e) => setDraft((p) => ({ ...p, whatsappTemplateId: e.target.value }))} style={inputStyle}>
+            <option value="">בחר תבנית...</option>
+            {whatsappTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
+        {draft.actionType === 'send_email_template' && (
+          <select value={draft.emailTemplateId} onChange={(e) => setDraft((p) => ({ ...p, emailTemplateId: e.target.value }))} style={inputStyle}>
+            <option value="">בחר תבנית...</option>
+            {emailTemplates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
+        {draft.actionType === 'create_task' && (
+          <>
+            <input placeholder="כותרת המשימה" value={draft.taskTitle} onChange={(e) => setDraft((p) => ({ ...p, taskTitle: e.target.value }))} style={{ ...inputStyle, width: 160 }} />
+            <input type="number" min={0} value={draft.taskDueOffsetDays} onChange={(e) => setDraft((p) => ({ ...p, taskDueOffsetDays: Number(e.target.value) }))} title="יעד בעוד כמה ימים" style={{ ...inputStyle, width: 60 }} />
+            <span style={{ fontSize: 11, color: '#6b6b6b' }}>ימים</span>
+          </>
+        )}
+        {draft.actionType && (
+          <button type="button" onClick={handleSave} disabled={disabled || isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>
+            שמירה
+          </button>
+        )}
+      </div>
     </div>
   );
 }

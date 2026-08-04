@@ -86,6 +86,39 @@ export async function reorderStages(workspaceId, orderedIds) {
   return { success: true };
 }
 
+// אוטומציה לשלב (migration 0044) - שלב יכול להחזיק לכל היותר אוטומציה
+// אחת מכל סוג פעולה (upsert לפי workspace_id+stage_key+action_type)
+export async function upsertStageAutomation(workspaceId, stageKey, { actionType, whatsappTemplateId, emailTemplateId, taskTitle, taskDueOffsetDays }) {
+  const ctx = await requireManager(workspaceId);
+  if (ctx.error) return ctx;
+  const { supabase } = ctx;
+
+  const { data: existing } = await supabase
+    .from('stage_automations').select('id').eq('workspace_id', workspaceId).eq('stage_key', stageKey).eq('action_type', actionType).maybeSingle();
+
+  const payload = {
+    workspace_id: workspaceId, stage_key: stageKey, action_type: actionType,
+    whatsapp_template_id: actionType === 'send_whatsapp_template' ? (whatsappTemplateId || null) : null,
+    email_template_id: actionType === 'send_email_template' ? (emailTemplateId || null) : null,
+    task_title: actionType === 'create_task' ? (taskTitle || 'פולו-אפ אוטומטי') : null,
+    task_due_offset_days: actionType === 'create_task' ? (taskDueOffsetDays ?? 1) : null,
+  };
+
+  const { error } = existing
+    ? await supabase.from('stage_automations').update(payload).eq('id', existing.id)
+    : await supabase.from('stage_automations').insert(payload);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function deleteStageAutomation(id, workspaceId) {
+  const ctx = await requireManager(workspaceId);
+  if (ctx.error) return ctx;
+  const { error } = await ctx.supabase.from('stage_automations').delete().eq('id', id);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 // חוסם מחיקה אם יש אנשי קשר בפועל בשלב הזה (contact_departments.stage הוא
 // טקסט חופשי, אז זו הבדיקה האפליקטיבית היחידה מפני יתמות)
 export async function deleteStage(id, workspaceId, stageKey) {

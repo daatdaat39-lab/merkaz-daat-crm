@@ -11,6 +11,7 @@ import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/whatsapp';
 import { summarizeContact } from '../../../lib/ai/summarizeContact';
 import { generateAndSendOtp, verifyOtp } from '../lib/otp';
+import { applyStageAutomations } from '../lib/stageAutomations';
 
 const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'email2', 'dept', 'source', 'idnum', 'birth_date', 'gender', 'related_contact_id', 'relation_label'];
 
@@ -383,8 +384,8 @@ export async function addDepartmentMembership(contactId, workspaceId, reason, re
 
 // עדכון שלב/סיבת סגירה של איש קשר במחלקה ספציפית
 export async function updateDepartmentStage(departmentRowId, stage, closedReason) {
-  const { supabase } = await requireUser();
-  const { data: row } = await supabase.from('contact_departments').select('contact_id').eq('id', departmentRowId).single();
+  const { supabase, user } = await requireUser();
+  const { data: row } = await supabase.from('contact_departments').select('contact_id, workspace_id').eq('id', departmentRowId).single();
   if (!row) return { error: 'שיוך לא נמצא' };
 
   const frozenError = await requireNotFrozen(supabase, row.contact_id);
@@ -395,6 +396,7 @@ export async function updateDepartmentStage(departmentRowId, stage, closedReason
     .eq('id', departmentRowId);
   if (error) return { error: error.message };
 
+  await applyStageAutomations(supabase, { workspaceId: row.workspace_id, stageKey: stage, contactId: row.contact_id, userId: user.id });
   return { success: true };
 }
 
@@ -402,8 +404,8 @@ export async function updateDepartmentStage(departmentRowId, stage, closedReason
 // סטטוס מבלי לעזוב את המסך (אותה טבלה, אז השינוי מסונכרן אוטומטית בין
 // לידים לתהליכים - שניהם קוראים מאותה שורת contact_departments)
 export async function updateLeadStage(departmentRowId, stage, closedReason) {
-  const { supabase } = await requireUser();
-  const { data: row } = await supabase.from('contact_departments').select('contact_id').eq('id', departmentRowId).single();
+  const { supabase, user } = await requireUser();
+  const { data: row } = await supabase.from('contact_departments').select('contact_id, workspace_id').eq('id', departmentRowId).single();
   if (!row) return { error: 'שיוך לא נמצא' };
 
   const frozenError = await requireNotFrozen(supabase, row.contact_id);
@@ -413,6 +415,8 @@ export async function updateLeadStage(departmentRowId, stage, closedReason) {
     .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
     .eq('id', departmentRowId);
   if (error) return { error: error.message };
+
+  await applyStageAutomations(supabase, { workspaceId: row.workspace_id, stageKey: stage, contactId: row.contact_id, userId: user.id });
   return { success: true };
 }
 
@@ -699,19 +703,24 @@ export async function importCallHistory(rows) {
 // פנייה חדשה בהיסטוריה (לאותו מנגנון lead_inquiries שכל שאר הפניות
 // משתמשות בו), מאפס את שעון "טיפול אחרון", ואופציונלית מזיז שלב.
 export async function logQuickActivity(contactId, departmentRowId, note, newStage) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const text = (note || '').trim();
   if (!departmentRowId || !text) return { error: 'יש למלא סיכום שיחה' };
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
 
-  const { data: dept } = await supabase.from('contact_departments').select('stage').eq('id', departmentRowId).single();
+  const { data: dept } = await supabase.from('contact_departments').select('stage, workspace_id').eq('id', departmentRowId).single();
   if (!dept) return { error: 'שיוך מחלקה לא נמצא' };
 
   const update = { last_activity_at: new Date().toISOString() };
-  if (newStage && newStage !== dept.stage) update.stage = newStage;
+  const stageChanged = newStage && newStage !== dept.stage;
+  if (stageChanged) update.stage = newStage;
   const { error: updateError } = await supabase.from('contact_departments').update(update).eq('id', departmentRowId);
   if (updateError) return { error: updateError.message };
+
+  if (stageChanged) {
+    await applyStageAutomations(supabase, { workspaceId: dept.workspace_id, stageKey: newStage, contactId, userId: user.id });
+  }
 
   const { error } = await supabase.from('lead_inquiries').insert({
     contact_department_id: departmentRowId, reason: text, source: 'סיכום שיחה מהיר',
