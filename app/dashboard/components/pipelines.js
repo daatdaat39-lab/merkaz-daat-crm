@@ -63,6 +63,22 @@ export function getExtraFields(workspaceName) {
   return EXTRA_FIELDS[workspaceName] || [];
 }
 
+// מסנן מתוך extraFields (jsonb גולמי מ-contact_departments) רק את
+// המפתחות שהצופה הנוכחי בחר להסתיר לעצמו (profiles.hidden_extra_fields).
+// הסינון מוגבל במכוון לרשימת EXTRA_FIELDS הרשמית של המחלקה - כך מפתח
+// פנימי שלא חלק ממנה (כמו referred_by_contact_id, שמוחזק באותו jsonb
+// אבל לא מוצע כ-checkbox להסתרה) לעולם לא יימחק בטעות.
+export function filterHiddenExtraFields(extraFields, workspaceName, hiddenKeys) {
+  if (!extraFields || !hiddenKeys || hiddenKeys.length === 0) return extraFields || {};
+  const validKeys = new Set(getExtraFields(workspaceName).map((f) => f.key));
+  const hidden = new Set(hiddenKeys);
+  const result = { ...extraFields };
+  for (const key of Object.keys(result)) {
+    if (validKeys.has(key) && hidden.has(key)) delete result[key];
+  }
+  return result;
+}
+
 // נוסחי הקדשה ללוח השנה - איש קשר "זכאי ליום בלוח שנה" (חבר בקמפיין
 // ההקדשות, ר' sales/campaigns/actions.js) בוחר תאריך ואחד מהנוסחים האלה
 // (או נוסח חופשי). מוגדרים כאן כדי שקל יהיה להוסיף/לשנות בלי לגעת

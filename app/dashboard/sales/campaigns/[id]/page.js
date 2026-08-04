@@ -3,6 +3,7 @@ import { createAdminClient } from '../../../../../lib/supabase/admin';
 import { redirect, notFound } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../../lib/contactGuards';
 import { getPicklistValues } from '../../../lib/picklists';
+import { getCampaignStages } from '../../../lib/campaignStages';
 import CampaignDetailClient from './CampaignDetailClient';
 
 // ניהול קמפיין בודד: הוספת אנשי קשר, סיווג לקטגוריה (חם/קר/תורם גדול),
@@ -45,9 +46,10 @@ export default async function CampaignDetailPage({ params }) {
   ]);
 
   const memberIds = (members || []).map((m) => m.user_id);
-  const [{ data: profiles }, categoryRows] = await Promise.all([
+  const [{ data: profiles }, categoryRows, campaignStages] = await Promise.all([
     memberIds.length ? supabase.from('profiles').select('id, name').in('id', memberIds) : { data: [] },
     getPicklistValues(supabase, 'campaign_category', campaign.workspace_id),
+    campaign.kind === 'dedication' ? { order: [], wonStage: null, labels: {}, colors: {} } : getCampaignStages(supabase, campaign.id),
   ]);
   const categories = categoryRows.map((r) => r.value);
   const admin = createAdminClient();
@@ -81,13 +83,26 @@ export default async function CampaignDetailPage({ params }) {
 
   return (
     <div style={{ maxWidth: 1050, margin: '0 auto', padding: '28px 24px' }}>
-      <a href="/dashboard/sales/campaigns" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה לקמפיינים</a>
-      <h1 style={{ fontFamily: 'var(--font-heading)', margin: '14px 0 4px', fontSize: 20 }}>{campaign.name}</h1>
-      <p style={{ margin: '0 0 20px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
-        {campaign.workspaces?.name}
-        {campaign.channel && ` · ערוץ פעולה: ${campaign.channel}`}
-        {` · ${rows.length} אנשי קשר`}
-      </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <a href="/dashboard/sales/campaigns" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה לקמפיינים</a>
+          <h1 style={{ fontFamily: 'var(--font-heading)', margin: '14px 0 4px', fontSize: 20 }}>{campaign.name}</h1>
+          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-secondary)' }}>
+            {campaign.workspaces?.name}
+            {campaign.channel && ` · ערוץ פעולה: ${campaign.channel}`}
+            {` · ${rows.length} אנשי קשר`}
+          </p>
+        </div>
+        {campaign.kind !== 'dedication' && (
+          <a href={`/dashboard/sales/campaigns/${campaign.id}/stages`} style={{
+            fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none', border: '1px solid var(--border, #e5e5e5)',
+            borderRadius: 6, padding: '6px 12px', whiteSpace: 'nowrap',
+          }}>
+            ⚙ ניהול שלבים
+          </a>
+        )}
+      </div>
+      <div style={{ marginBottom: 20 }} />
       <CampaignDetailClient
         campaignId={campaign.id}
         campaignKind={campaign.kind}
@@ -97,6 +112,7 @@ export default async function CampaignDetailPage({ params }) {
         availableContacts={availableContacts}
         agents={agents}
         categories={categories}
+        campaignStages={campaignStages}
       />
     </div>
   );

@@ -4,6 +4,8 @@
 // מקבילה ל-DonorStatsTile של התרומות. **תצוגה בלבד (read-only)**:
 // "תלמיד פעיל"/"בוגר" מחושבים מהשלב בתהליך, ושאר הפרטים מגיעים משדות
 // המחלקה (extra_fields) שנערכים בטבלת הלידים או בייבוא.
+import ExtraFieldVisibilityToggle from './ExtraFieldVisibilityToggle';
+
 export default function StudentStatsTile({ department, stageOrder = [] }) {
   const extra = department.extraFields || {};
   const order = stageOrder;
@@ -15,10 +17,13 @@ export default function StudentStatsTile({ department, stageOrder = [] }) {
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap',
+      position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap',
       background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10,
       padding: '14px 16px', marginBottom: 16,
     }}>
+      <div style={{ position: 'absolute', top: 8, insetInlineEnd: 10, color: '#1d4ed8' }}>
+        <ExtraFieldVisibilityToggle workspaceId={department.workspaceId} workspaceName={department.workspaceName} hiddenKeys={department.hiddenExtraFieldKeys} />
+      </div>
       <Block label="מצב לימודים">
         {isGraduate ? (
           <span style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>🎓 בוגר</span>

@@ -6,6 +6,7 @@ import { groupTagsByDepartment } from '../../lib/tagGroups';
 import { getPicklistValues } from '../../lib/picklists';
 import { getAllPipelines } from '../../lib/pipelines';
 import { isManagerOfAnyWorkspace } from '../../lib/contactGuards';
+import { filterHiddenExtraFields } from '../../components/pipelines';
 
 // טוען את כל הנתונים של כרטיס איש קשר - מופרד מ-ContactDetailContent.js
 // כדי שאותה לוגיקה תהיה קריאה גם משם (עמוד/מודל רגיל, ניתוב של Next)
@@ -87,6 +88,13 @@ export async function loadContactCardData(contactId) {
   const isManager = await isManagerOfAnyWorkspace(supabase, user.id);
   const { byWorkspace: pipelinesByWorkspace } = await getAllPipelines(supabase);
 
+  // שדות מותאמים אישית: מה הצופה הנוכחי (לא איש הקשר!) בחר להסתיר לעצמו
+  // בכל מחלקה - העדפה פרטית, לא משפיעה על מה שנציגים אחרים רואים באותו
+  // כרטיס. ר' app/dashboard/lib/fieldPreferences.js.
+  const { data: viewerProfile } = await supabase
+    .from('profiles').select('hidden_extra_fields').eq('id', user.id).single();
+  const hiddenExtraFieldsByWorkspace = viewerProfile?.hidden_extra_fields || {};
+
   // חברות בקמפיין ההקדשות (אם יש) - נקודת האמת היחידה ל"זכאי ליום בלוח
   // שנה" מאז שהתגית "לוח שנה" הוחלפה לגמרי בחברות-קמפיין (ר' PR4 בתוכנית
   // הארכיטקטורה). ר' campaign_contacts:campaign_id!inner (kind) בשאילתה
@@ -121,19 +129,24 @@ export async function loadContactCardData(contactId) {
     agentsByWorkspace[m.workspace_id].push({ id: m.user_id, name: memberNameById[m.user_id] || 'משתמש' });
   }
 
-  const departments = (departmentRows || []).map((row) => ({
-    id: row.id,
-    workspaceId: row.workspace_id,
-    workspaceName: row.workspaces?.name || 'מחלקה',
-    stage: row.stage,
-    closedReason: row.closed_reason,
-    agentId: row.agent_id,
-    agentName: agentNameById[row.agent_id] || null,
-    lastActivityAt: row.last_activity_at,
-    extraFields: row.extra_fields || {},
-    createdByManager: !!row.created_by_manager,
-    inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
-  }));
+  const departments = (departmentRows || []).map((row) => {
+    const workspaceName = row.workspaces?.name || 'מחלקה';
+    const hiddenExtraFieldKeys = hiddenExtraFieldsByWorkspace[row.workspace_id] || [];
+    return {
+      id: row.id,
+      workspaceId: row.workspace_id,
+      workspaceName,
+      stage: row.stage,
+      closedReason: row.closed_reason,
+      agentId: row.agent_id,
+      agentName: agentNameById[row.agent_id] || null,
+      lastActivityAt: row.last_activity_at,
+      extraFields: filterHiddenExtraFields(row.extra_fields || {}, workspaceName, hiddenExtraFieldKeys),
+      hiddenExtraFieldKeys,
+      createdByManager: !!row.created_by_manager,
+      inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+    };
+  });
 
   const referrerIds = Array.from(new Set(departments.map((d) => d.extraFields?.referred_by_contact_id).filter(Boolean)));
   const { data: referrerRows } = referrerIds.length

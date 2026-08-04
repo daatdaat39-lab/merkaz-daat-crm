@@ -239,6 +239,12 @@ export default function Sidebar({
 
       {/* כרטיס משתמש */}
       <div style={{ marginTop: 'auto', padding: '12px 8px', borderTop: '1px solid #e5e5e5' }}>
+        <Link
+          href="/dashboard/settings/my-preferences"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', fontSize: 12, color: '#6b6b6b', textDecoration: 'none' }}
+        >
+          <span>⚙</span> ההעדפות שלי
+        </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 6 }}>
           <div
             style={{

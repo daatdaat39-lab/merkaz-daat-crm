@@ -12,7 +12,7 @@ const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'ת�
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
 
-export default function CampaignDetailClient({ campaignId, campaignKind, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [] }) {
+export default function CampaignDetailClient({ campaignId, campaignKind, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} } }) {
   const CATEGORIES = categories.length ? categories : DEFAULT_CATEGORIES;
   const [rows, setRows] = useState(initialRows);
   const [adding, setAdding] = useState(false);
@@ -209,9 +209,18 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
                     </select>
                   </td>
                   <td style={{ padding: '10px 14px' }}>
-                    <select value={r.status} onChange={(e) => handleChange(r.rowId, { status: e.target.value })} disabled={isPending} style={cellSelect()}>
-                      <option value="pending">ממתין</option>
-                      <option value="done">טופל</option>
+                    <select
+                      value={r.status}
+                      onChange={(e) => handleChange(r.rowId, { status: e.target.value })}
+                      disabled={isPending}
+                      style={{
+                        ...cellSelect(),
+                        background: (campaignStages.colors[r.status] || {}).bg || '#f4f4f5',
+                        color: (campaignStages.colors[r.status] || {}).color || '#52525b',
+                        border: 'none', fontWeight: 500,
+                      }}
+                    >
+                      {campaignStages.order.map((s) => <option key={s} value={s}>{campaignStages.labels[s] || s}</option>)}
                     </select>
                   </td>
                   <td style={{ padding: '10px 14px' }}>

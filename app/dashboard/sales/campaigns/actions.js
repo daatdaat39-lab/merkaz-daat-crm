@@ -34,6 +34,16 @@ export async function createCampaign(workspaceId, name, channel) {
     created_by: user.id,
   }).select('id').single();
   if (error) return { error: error.message };
+
+  // זריעת שני שלבי ברירת המחדל (ר' migration 0039) - אותה התנהגות
+  // בדיוק כמו הסטטוס הקבוע הישן, עד שמנהל בוחר להתאים אישית דרך
+  // עמוד "שלבי הקמפיין". רק לקמפיינים רגילים (ברירת המחדל 'outreach') -
+  // קמפיין הקדשות לא נוצר דרך הפונקציה הזו בכלל (ר' getOrCreateDedicationCampaign).
+  await supabase.from('campaign_stages').insert([
+    { campaign_id: data.id, stage_key: 'pending', label: 'ממתין', color_bg: '#fffbeb', color_fg: '#d97706', sort_order: 0 },
+    { campaign_id: data.id, stage_key: 'done', label: 'טופל', color_bg: '#f0fdf4', color_fg: '#16a34a', sort_order: 1, is_won_stage: true },
+  ]);
+
   return { success: true, id: data.id };
 }
 
@@ -63,7 +73,7 @@ export async function updateCampaignContact(rowId, changes) {
   if (!rowId) return { error: 'לא נבחרה שורה' };
 
   const { data: row } = await supabase
-    .from('campaign_contacts').select('id, campaigns:campaign_id (workspace_id)').eq('id', rowId).single();
+    .from('campaign_contacts').select('id, campaign_id, campaigns:campaign_id (workspace_id)').eq('id', rowId).single();
   if (!row) return { error: 'השורה לא נמצאה' };
   const denied = await requireManager(supabase, user.id, row.campaigns?.workspace_id);
   if (denied) return denied;
@@ -71,7 +81,16 @@ export async function updateCampaignContact(rowId, changes) {
   const update = {};
   if (changes.category !== undefined) update.category = changes.category || null;
   if (changes.assignedTo !== undefined) update.assigned_to = changes.assignedTo || null;
-  if (changes.status !== undefined) update.status = changes.status;
+  if (changes.status !== undefined) {
+    // מוודאים שהערך קיים בפועל כשלב של הקמפיין הזה - מונע "תקיעת" סטטוס
+    // יתום אם שלב נמחק/שונה בכרטיסיה אחרת שנשארה פתוחה (campaign_stages
+    // הוא free text, לא FK - ר' migration 0039)
+    const { count } = await supabase.from('campaign_stages')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', row.campaign_id).eq('stage_key', changes.status);
+    if (!count) return { error: 'השלב הזה כבר לא קיים בקמפיין - רענן את העמוד' };
+    update.status = changes.status;
+  }
   if (Object.keys(update).length === 0) return { success: true };
 
   const { error } = await supabase.from('campaign_contacts').update(update).eq('id', rowId);
