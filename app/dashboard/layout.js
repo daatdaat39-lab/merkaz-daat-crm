@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import NewLeadToast from './components/NewLeadToast';
+import ConcurrentInquiryToast from './components/ConcurrentInquiryToast';
 import CelebrationHost from './components/CelebrationHost';
 import IdleLock from './components/IdleLock';
 import { FloatingWindowsProvider } from './components/FloatingWindows';
@@ -178,6 +179,7 @@ export default async function DashboardLayout({ children, modal }) {
       </div>
       {modal}
       <NewLeadToast workspaceId={currentWorkspaceId} />
+      <ConcurrentInquiryToast workspaceId={currentWorkspaceId} userId={user.id} />
       <CelebrationHost />
       <IdleLock userEmail={user.email} />
       <FloatingWindowsHost />
