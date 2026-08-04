@@ -12,6 +12,7 @@ import QuickActivityLogForm from './QuickActivityLogForm';
 import ReferrerPicker from './ReferrerPicker';
 import DonorStatsTile from './DonorStatsTile';
 import StudentStatsTile from './StudentStatsTile';
+import WidgetVisibilityToggle from './WidgetVisibilityToggle';
 import CalendarDedicationsCard from './CalendarDedicationsCard';
 import PersonalInfoCard from './PersonalInfoCard';
 import ContactSettingsMenu from './ContactSettingsMenu';
@@ -198,14 +199,20 @@ export default function ContactDetailClient({
         </div>
       )}
 
-      {active?.workspaceName === 'תרומות' && (
+      {active && (active.workspaceName === 'תרומות' || active.workspaceName === 'דעת ותבונה') && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+          <WidgetVisibilityToggle workspaceId={active.workspaceId} hiddenKeys={active.hiddenWidgetKeys} />
+        </div>
+      )}
+
+      {active?.workspaceName === 'תרומות' && !active.hiddenWidgetKeys?.includes('donor_stats') && (
         <>
           <DonorStatsTile department={active} transactions={donationTransactions || []} stageOrder={(byWorkspace['תרומות'] || FALLBACK_PIPELINE).order} />
           <ReferrerPicker contactId={contact.id} department={active} frozen={contact.frozen} />
         </>
       )}
 
-      {active?.workspaceName === 'דעת ותבונה' && (
+      {active?.workspaceName === 'דעת ותבונה' && !active.hiddenWidgetKeys?.includes('student_stats') && (
         <StudentStatsTile department={active} stageOrder={(byWorkspace['דעת ותבונה'] || FALLBACK_PIPELINE).order} />
       )}
 

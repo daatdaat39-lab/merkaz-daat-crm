@@ -45,8 +45,17 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
     setPendingClose(false);
   }
 
+  const progressPct = !isSideActive && stages.length > 1 && currentIndex >= 0
+    ? Math.round((currentIndex / (stages.length - 1)) * 100)
+    : null;
+
   return (
     <div>
+      {progressPct !== null && (
+        <div style={{ height: 4, background: '#f2f2f2', borderRadius: 999, marginBottom: 10, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${progressPct}%`, background: '#0a0a0a', borderRadius: 999, transition: 'width 0.3s' }} />
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
         {stages.map((stage, i) => {
           const done = !isSideActive && i <= currentIndex;

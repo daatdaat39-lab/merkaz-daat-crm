@@ -98,8 +98,9 @@ export async function loadContactCardData(contactId) {
   // בכל מחלקה - העדפה פרטית, לא משפיעה על מה שנציגים אחרים רואים באותו
   // כרטיס. ר' app/dashboard/lib/fieldPreferences.js.
   const { data: viewerProfile } = await supabase
-    .from('profiles').select('hidden_extra_fields').eq('id', user.id).single();
+    .from('profiles').select('hidden_extra_fields, hidden_widgets').eq('id', user.id).single();
   const hiddenExtraFieldsByWorkspace = viewerProfile?.hidden_extra_fields || {};
+  const hiddenWidgetsByWorkspace = viewerProfile?.hidden_widgets || {};
 
   // חברות בקמפיין ההקדשות (אם יש) - נקודת האמת היחידה ל"זכאי ליום בלוח
   // שנה" מאז שהתגית "לוח שנה" הוחלפה לגמרי בחברות-קמפיין (ר' PR4 בתוכנית
@@ -176,6 +177,7 @@ export async function loadContactCardData(contactId) {
       createdByManager: !!row.created_by_manager,
       inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
       campaignProcesses: campaignProcessesByWorkspace[row.workspace_id] || [],
+      hiddenWidgetKeys: hiddenWidgetsByWorkspace[row.workspace_id] || [],
     };
   });
 

@@ -12,13 +12,18 @@ const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'ת�
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
 
-export default function CampaignDetailClient({ campaignId, campaignKind, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} } }) {
+export default function CampaignDetailClient({ campaignId, campaignKind, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} }, extraFields = [] }) {
   const CATEGORIES = categories.length ? categories : DEFAULT_CATEGORIES;
   const [rows, setRows] = useState(initialRows);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
+  const [fieldFilters, setFieldFilters] = useState({});
+
+  function setFieldFilter(key, value) {
+    setFieldFilters((prev) => ({ ...prev, [key]: value }));
+  }
   const [pickIds, setPickIds] = useState(new Set());
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [error, setError] = useState(null);
@@ -34,7 +39,7 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
     [availableContacts]
   );
 
-  const showPickerList = search.trim().length >= 2 || !!deptFilter || !!tagFilter;
+  const showPickerList = search.trim().length >= 2 || !!deptFilter || !!tagFilter || Object.values(fieldFilters).some(Boolean);
   const filtered = useMemo(() => {
     if (!showPickerList) return [];
     let result = availableContacts;
@@ -44,8 +49,17 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
     }
     if (deptFilter) result = result.filter((c) => (c.departments || []).includes(deptFilter));
     if (tagFilter) result = result.filter((c) => (c.tags || []).includes(tagFilter));
+    const activeFieldFilterEntries = Object.entries(fieldFilters).filter(([, v]) => v);
+    if (activeFieldFilterEntries.length > 0) {
+      result = result.filter((c) => activeFieldFilterEntries.every(([key, value]) => {
+        const fieldDef = extraFields.find((f) => f.key === key);
+        const actual = c.extraFields?.[key];
+        if (fieldDef?.type === 'select') return actual === value;
+        return (actual || '').toString().toLowerCase().includes(value.toLowerCase());
+      }));
+    }
     return result.slice(0, 100);
-  }, [availableContacts, search, deptFilter, tagFilter, showPickerList]);
+  }, [availableContacts, search, deptFilter, tagFilter, fieldFilters, extraFields, showPickerList]);
 
   function togglePick(id) {
     setPickIds((prev) => {
@@ -103,6 +117,10 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
 
   return (
     <div>
+      {campaignKind !== 'dedication' && rows.length > 0 && (
+        <CampaignOverviewDashboard rows={rows} agents={agents} campaignStages={campaignStages} />
+      )}
+
       <div style={{ marginBottom: 14 }}>
         {adding ? (
           <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: 14 }}>
@@ -123,11 +141,31 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
                 {tagOptions.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
               {(deptFilter || tagFilter || search) && (
-                <button type="button" onClick={() => { setSearch(''); setDeptFilter(''); setTagFilter(''); }} style={ghostBtn()}>
+                <button type="button" onClick={() => { setSearch(''); setDeptFilter(''); setTagFilter(''); setFieldFilters({}); }} style={ghostBtn()}>
                   ניקוי סינון
                 </button>
               )}
             </div>
+            {extraFields.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                {extraFields.map((f) => (
+                  f.type === 'select' ? (
+                    <select key={f.key} value={fieldFilters[f.key] || ''} onChange={(e) => setFieldFilter(f.key, e.target.value)} style={inputStyle}>
+                      <option value="">{f.label}</option>
+                      {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      key={f.key}
+                      value={fieldFilters[f.key] || ''}
+                      onChange={(e) => setFieldFilter(f.key, e.target.value)}
+                      placeholder={f.label}
+                      style={inputStyle}
+                    />
+                  )
+                ))}
+              </div>
+            )}
             {!showPickerList && (
               <div style={{ fontSize: 12.5, color: '#9b9b9b' }}>הקלידו לפחות 2 תווים לחיפוש, או בחרו מחלקה/תגית לסינון</div>
             )}
@@ -231,6 +269,64 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// דאשבורד ניהולי לקמפיין - מחושב כליינט-קומפוננטה טהורה מתוך rows/agents
+// שכבר נטענו לעמוד, בלי שאילתת DB נוספת. העמוד עצמו כבר manager-only
+// בגישה (isManagerOfWorkspace guard ב-page.js) אז אין צורך בבדיקת הרשאה
+// נוספת כאן.
+function CampaignOverviewDashboard({ rows, agents, campaignStages }) {
+  const total = rows.length;
+  const wonCount = campaignStages.wonStage ? rows.filter((r) => r.status === campaignStages.wonStage).length : 0;
+  const byStatus = campaignStages.order.map((s) => ({
+    key: s, label: campaignStages.labels[s] || s, count: rows.filter((r) => r.status === s).length,
+  }));
+  const byAgent = agents
+    .map((a) => ({ id: a.id, name: a.name, count: rows.filter((r) => r.assignedTo === a.id).length }))
+    .filter((a) => a.count > 0)
+    .sort((a, b) => b.count - a.count);
+  const unassignedCount = rows.filter((r) => !r.assignedTo).length;
+
+  return (
+    <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
+        <div style={{ flex: '1 1 120px', background: 'var(--bg-secondary, #fafafa)', borderRadius: 8, padding: '10px 14px' }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{total}</div>
+          <div style={{ fontSize: 11, color: '#9b9b9b' }}>סה"כ אנשי קשר</div>
+        </div>
+        {byStatus.map((s) => (
+          <div key={s.key} style={{ flex: '1 1 120px', background: 'var(--bg-secondary, #fafafa)', borderRadius: 8, padding: '10px 14px' }}>
+            <div style={{ fontSize: 20, fontWeight: 700 }}>{s.count}</div>
+            <div style={{ fontSize: 11, color: '#9b9b9b' }}>{s.label}</div>
+          </div>
+        ))}
+        <div style={{ flex: '1 1 120px', background: '#f0fdf4', borderRadius: 8, padding: '10px 14px' }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: '#16a34a' }}>{total ? Math.round((wonCount / total) * 100) : 0}%</div>
+          <div style={{ fontSize: 11, color: '#16a34a' }}>אחוז הצלחה</div>
+        </div>
+      </div>
+
+      {byAgent.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 6 }}>פילוח לפי נציג</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {byAgent.map((a) => (
+              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+                <span style={{ width: 120, flexShrink: 0 }}>{a.name}</span>
+                <div style={{ flex: 1, height: 8, background: '#f2f2f2', borderRadius: 999, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${(a.count / total) * 100}%`, background: '#0a0a0a', borderRadius: 999 }} />
+                </div>
+                <span style={{ width: 60, textAlign: 'left', color: '#6b6b6b' }}>{a.count} ({Math.round((a.count / total) * 100)}%)</span>
+              </div>
+            ))}
+            {unassignedCount > 0 && (
+              <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 4 }}>{unassignedCount} ללא נציג משויך</div>
+            )}
+          </div>
         </div>
       )}
     </div>

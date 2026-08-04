@@ -12,13 +12,20 @@ const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding
 // רשימת אנשי קשר עם סינון/חיפוש/מיון בצד הלקוח - אותו דפוס בדיוק כמו
 // בעמוד הלידים (LeadsBoard.js), כדי שיהיה נוח לאתר איש קשר ספציפי גם
 // כשיש מאות רשומות, לא רק סינון לפי תגית כמו שהיה.
-export default function ContactsBoard({ contacts, allTags, tagGroups = null, allDepartments, sendConnections, whatsappTemplates, emailTemplates, stageLabels = {}, stageColors = {} }) {
+export default function ContactsBoard({ contacts, allTags, tagGroups = null, allDepartments, sendConnections, whatsappTemplates, emailTemplates, stageLabels = {}, stageColors = {}, extraFieldsByDept = {} }) {
   const [search, setSearch] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [sortBy, setSortBy] = useState('created_desc');
   const [selected, setSelected] = useState(() => new Set());
+  const [fieldFilters, setFieldFilters] = useState({});
   const router = useRouter();
+
+  const activeExtraFields = deptFilter ? (extraFieldsByDept[deptFilter] || []) : [];
+
+  function setFieldFilter(key, value) {
+    setFieldFilters((prev) => ({ ...prev, [key]: value }));
+  }
 
   function toggleSelect(id) {
     setSelected((prev) => {
@@ -43,6 +50,20 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
     if (tagFilter) result = result.filter((c) => (c.tags || []).includes(tagFilter));
     if (deptFilter) result = result.filter((c) => c.departments.some((d) => d.name === deptFilter));
 
+    const activeFieldFilterEntries = Object.entries(fieldFilters).filter(([, v]) => v);
+    if (deptFilter && activeFieldFilterEntries.length > 0) {
+      result = result.filter((c) => {
+        const dept = c.departments.find((d) => d.name === deptFilter);
+        if (!dept) return false;
+        return activeFieldFilterEntries.every(([key, value]) => {
+          const fieldDef = activeExtraFields.find((f) => f.key === key);
+          const actual = dept.extraFields?.[key];
+          if (fieldDef?.type === 'select') return actual === value;
+          return (actual || '').toString().toLowerCase().includes(value.toLowerCase());
+        });
+      });
+    }
+
     const sorted = [...result].sort((a, b) => {
       switch (sortBy) {
         case 'name': return `${a.first} ${a.last}`.localeCompare(`${b.first} ${b.last}`, 'he');
@@ -52,7 +73,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
       }
     });
     return sorted;
-  }, [contacts, search, tagFilter, deptFilter, sortBy]);
+  }, [contacts, search, tagFilter, deptFilter, sortBy, fieldFilters, activeExtraFields]);
 
   const activeFilterCount = [tagFilter, deptFilter].filter(Boolean).length;
 
@@ -65,7 +86,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
           placeholder="חיפוש לפי שם, טלפון, מייל, מקור..."
           style={{ ...inputStyle, flex: '1 1 240px', minWidth: 180 }}
         />
-        <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} style={inputStyle}>
+        <select value={deptFilter} onChange={(e) => { setDeptFilter(e.target.value); setFieldFilters({}); }} style={inputStyle}>
           <option value="">כל המחלקות</option>
           {allDepartments.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
@@ -91,6 +112,28 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
           </button>
         )}
       </div>
+
+      {activeExtraFields.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
+          <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>סינון לפי שדות {deptFilter}:</span>
+          {activeExtraFields.map((f) => (
+            f.type === 'select' ? (
+              <select key={f.key} value={fieldFilters[f.key] || ''} onChange={(e) => setFieldFilter(f.key, e.target.value)} style={inputStyle}>
+                <option value="">{f.label}</option>
+                {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ) : (
+              <input
+                key={f.key}
+                value={fieldFilters[f.key] || ''}
+                onChange={(e) => setFieldFilter(f.key, e.target.value)}
+                placeholder={f.label}
+                style={inputStyle}
+              />
+            )
+          ))}
+        </div>
+      )}
 
       {filtered.length !== contacts.length && (
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>

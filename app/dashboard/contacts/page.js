@@ -5,6 +5,7 @@ import AddContactForm from './AddContactForm';
 import ContactsBoard from './ContactsBoard';
 import { groupTagsByDepartment } from '../lib/tagGroups';
 import { getAllPipelines } from '../lib/pipelines';
+import { getExtraFields } from '../components/pipelines';
 
 export default async function ContactsPage() {
   const supabase = createClient();
@@ -18,7 +19,7 @@ export default async function ContactsPage() {
   const [{ data }, { data: workspaces }, { data: profile }, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
     supabase
       .from('contacts')
-      .select('id, first, last, idnum, phone, phone2, email, dept, tags, source, frozen, created_at, contact_departments (workspace_id, stage, workspaces:workspace_id (name))')
+      .select('id, first, last, idnum, phone, phone2, email, dept, tags, source, frozen, created_at, contact_departments (workspace_id, stage, extra_fields, workspaces:workspace_id (name))')
       .order('created_at', { ascending: false }),
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
@@ -28,12 +29,13 @@ export default async function ContactsPage() {
   ]);
   const allContacts = (data || []).map((c) => ({
     ...c,
-    departments: (c.contact_departments || []).map((d) => ({ workspaceId: d.workspace_id, name: d.workspaces?.name || 'מחלקה', stage: d.stage })),
+    departments: (c.contact_departments || []).map((d) => ({ workspaceId: d.workspace_id, name: d.workspaces?.name || 'מחלקה', stage: d.stage, extraFields: d.extra_fields || {} })),
   }));
 
   const allTags = Array.from(new Set(allContacts.flatMap((c) => c.tags || []))).sort();
   const allDepartments = Array.from(new Set(allContacts.flatMap((c) => c.departments.map((d) => d.name)))).sort();
   const tagGroups = groupTagsByDepartment(allContacts);
+  const extraFieldsByDept = Object.fromEntries(allDepartments.map((name) => [name, getExtraFields(name)]));
 
   return (
     <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>
@@ -66,6 +68,7 @@ export default async function ContactsPage() {
         emailTemplates={emailTemplates || []}
         stageLabels={stageLabels}
         stageColors={stageColors}
+        extraFieldsByDept={extraFieldsByDept}
       />
     </div>
   );

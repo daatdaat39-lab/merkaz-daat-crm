@@ -4,6 +4,7 @@ import { redirect, notFound } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../../lib/contactGuards';
 import { getPicklistValues } from '../../../lib/picklists';
 import { getCampaignStages } from '../../../lib/campaignStages';
+import { getExtraFields } from '../../../components/pipelines';
 import CampaignDetailClient from './CampaignDetailClient';
 
 // ניהול קמפיין בודד: הוספת אנשי קשר, סיווג לקטגוריה (חם/קר/תורם גדול),
@@ -40,7 +41,7 @@ export default async function CampaignDetailPage({ params }) {
       .order('created_at', { ascending: true }),
     supabase
       .from('contacts')
-      .select('id, first, last, phone, email, tags, contact_departments (stage, workspaces:workspace_id (name))')
+      .select('id, first, last, phone, email, tags, contact_departments (stage, workspace_id, extra_fields, workspaces:workspace_id (name))')
       .order('first'),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', campaign.workspace_id),
   ]);
@@ -79,6 +80,7 @@ export default async function CampaignDetailPage({ params }) {
       email: c.email,
       tags: c.tags || [],
       departments: (c.contact_departments || []).map((d) => d.workspaces?.name).filter(Boolean),
+      extraFields: (c.contact_departments || []).find((d) => d.workspace_id === campaign.workspace_id)?.extra_fields || {},
     }));
 
   return (
@@ -108,6 +110,7 @@ export default async function CampaignDetailPage({ params }) {
         campaignKind={campaign.kind}
         workspaceId={campaign.workspace_id}
         isDonationsWorkspace={campaign.workspaces?.name === 'תרומות'}
+        extraFields={getExtraFields(campaign.workspaces?.name)}
         initialRows={rows}
         availableContacts={availableContacts}
         agents={agents}

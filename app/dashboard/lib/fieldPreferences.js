@@ -32,3 +32,24 @@ export async function toggleExtraFieldVisibility(workspaceId, fieldKey) {
   if (error) return { error: error.message };
   return { success: true, hidden: hidden[workspaceId] };
 }
+
+// אותו דפוס בדיוק, הפעם לא לשדה בודד בתוך קובייה אלא לקובייה שלמה
+// (donor_stats/student_stats/tasks_meetings_card/activity_tab) - איזה
+// widgets מוצגים בכלל בכרטיס איש הקשר, לכל מחלקה בנפרד
+export async function toggleWidgetVisibility(workspaceId, widgetKey) {
+  const { supabase, user } = await requireUser();
+  if (!workspaceId || !widgetKey) return { error: 'חסרים פרטים' };
+
+  const { data: profile } = await supabase
+    .from('profiles').select('hidden_widgets').eq('id', user.id).single();
+  const hidden = { ...(profile?.hidden_widgets || {}) };
+  const forWorkspace = new Set(hidden[workspaceId] || []);
+
+  if (forWorkspace.has(widgetKey)) forWorkspace.delete(widgetKey);
+  else forWorkspace.add(widgetKey);
+  hidden[workspaceId] = Array.from(forWorkspace);
+
+  const { error } = await supabase.from('profiles').update({ hidden_widgets: hidden }).eq('id', user.id);
+  if (error) return { error: error.message };
+  return { success: true, hidden: hidden[workspaceId] };
+}
