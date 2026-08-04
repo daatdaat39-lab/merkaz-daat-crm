@@ -6,6 +6,7 @@ import { randomPraise } from './components/celebrate';
 import DedicationsWidget from './DedicationsWidget';
 import QuickAssignSelect from './QuickAssignSelect';
 import { isManagerOfWorkspace } from './lib/contactGuards';
+import { kpiTile, sectionLabel } from './components/designTokens';
 
 function timeGreeting() {
   const hour = new Date().getHours();
@@ -228,18 +229,9 @@ export default async function DashboardHome() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
         {statCards.map((s) => (
-          <div
-            key={s.label}
-            style={{
-              background: '#fff',
-              border: '1px solid #e5e5e5',
-              borderRadius: 8,
-              padding: '18px 20px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-            }}
-          >
-            <div style={{ fontSize: 12, color: '#6b6b6b', marginBottom: 6 }}>{s.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1 }}>{s.value}</div>
+          <div key={s.label} style={kpiTile()}>
+            <div style={sectionLabel}>{s.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1, marginTop: 8 }}>{s.value}</div>
           </div>
         ))}
       </div>

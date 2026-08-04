@@ -52,17 +52,38 @@ function WorkspacePipelineEditor({ workspaceId, initialStages }) {
     router.refresh();
   }
 
+  function persistOrder(reordered) {
+    setStages([...reordered, ...sideStages]);
+    startTransition(async () => {
+      await reorderStages(workspaceId, reordered.map((s) => s.id));
+      refresh();
+    });
+  }
+
   function handleMove(id, direction) {
     const idx = mainStages.findIndex((s) => s.id === id);
     const swapIdx = idx + direction;
     if (swapIdx < 0 || swapIdx >= mainStages.length) return;
     const reordered = [...mainStages];
     [reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]];
-    setStages([...reordered, ...sideStages]);
-    startTransition(async () => {
-      await reorderStages(workspaceId, reordered.map((s) => s.id));
-      refresh();
-    });
+    persistOrder(reordered);
+  }
+
+  // גרירה ושחרור לסידור שלבים - מחשבים את המערך המלא החדש בצד לקוח
+  // ומעבירים אותו כמו שהוא ל-reorderStages הקיים (השרת כבר מקבל מערך
+  // סדר מלא ורק כותב אותו, ר' actions.js - לא נדרש שינוי שרת בכלל)
+  const [dragId, setDragId] = useState(null);
+
+  function handleDrop(targetId) {
+    if (!dragId || dragId === targetId) { setDragId(null); return; }
+    const fromIdx = mainStages.findIndex((s) => s.id === dragId);
+    const toIdx = mainStages.findIndex((s) => s.id === targetId);
+    if (fromIdx === -1 || toIdx === -1) { setDragId(null); return; }
+    const reordered = [...mainStages];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    setDragId(null);
+    persistOrder(reordered);
   }
 
   function handleUpdate(stage, patch) {
@@ -120,10 +141,15 @@ function WorkspacePipelineEditor({ workspaceId, initialStages }) {
           <StageRow
             key={s.id}
             stage={s}
+            reorderable
             canMoveUp={i > 0}
             canMoveDown={i < mainStages.length - 1}
             onMoveUp={() => handleMove(s.id, -1)}
             onMoveDown={() => handleMove(s.id, 1)}
+            isDragging={dragId === s.id}
+            onDragStart={() => setDragId(s.id)}
+            onDragEnd={() => setDragId(null)}
+            onDropOn={() => handleDrop(s.id)}
             onUpdate={(patch) => handleUpdate(s, patch)}
             onSetWon={() => handleSetWon(s.id)}
             onDelete={() => handleDelete(s)}
@@ -176,11 +202,24 @@ function WorkspacePipelineEditor({ workspaceId, initialStages }) {
   );
 }
 
-function StageRow({ stage, canMoveUp, canMoveDown, onMoveUp, onMoveDown, onUpdate, onSetWon, onDelete, disabled }) {
+function StageRow({ stage, reorderable, canMoveUp, canMoveDown, onMoveUp, onMoveDown, isDragging, onDragStart, onDragEnd, onDropOn, onUpdate, onSetWon, onDelete, disabled }) {
   const [label, setLabel] = useState(stage.label);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid #f2f2f2', flexWrap: 'wrap' }}>
+    <div
+      draggable={reorderable && !disabled}
+      onDragStart={reorderable ? onDragStart : undefined}
+      onDragEnd={reorderable ? onDragEnd : undefined}
+      onDragOver={reorderable ? (e) => e.preventDefault() : undefined}
+      onDrop={reorderable ? (e) => { e.preventDefault(); onDropOn(); } : undefined}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid #f2f2f2', flexWrap: 'wrap',
+        opacity: isDragging ? 0.4 : 1, background: isDragging ? 'var(--surface-hover)' : 'transparent',
+      }}
+    >
+      {reorderable && (
+        <span title="גרירה לסידור" style={{ cursor: 'grab', color: 'var(--text-muted)', fontSize: 14, userSelect: 'none' }}>⠿</span>
+      )}
       {onMoveUp && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <button type="button" onClick={onMoveUp} disabled={disabled || !canMoveUp} style={{ background: 'none', border: 'none', cursor: canMoveUp ? 'pointer' : 'default', opacity: canMoveUp ? 1 : 0.3, fontSize: 11, padding: 0 }}>▲</button>

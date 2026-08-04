@@ -1,6 +1,7 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
+import { card, kpiTile, sectionLabel } from '../../components/designTokens';
 
 function formatDuration(ms) {
   if (!ms || ms < 60000) return 'פחות מדקה';
@@ -103,6 +104,13 @@ export default async function ActivityReportPage() {
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'he'));
 
+  const kpis = [
+    { label: 'פעילים היום', value: rows.filter((r) => r.activeToday !== 'פחות מדקה' || todayById[r.id]).length },
+    { label: 'משימות שהושלמו', value: rows.reduce((sum, r) => sum + r.tasksDone, 0) },
+    { label: 'מיילים שנשלחו', value: rows.reduce((sum, r) => sum + r.emailsSent, 0) },
+    { label: 'הודעות WhatsApp', value: rows.reduce((sum, r) => sum + r.whatsappSent, 0) },
+  ];
+
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '28px 24px' }}>
       <a href="/dashboard/settings" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה להגדרות</a>
@@ -111,7 +119,16 @@ export default async function ActivityReportPage() {
         זמן פעילות מבוסס על מרווח בין הכניסה הראשונה לאחרונה למערכת בכל יום — קירוב, לא מדידה מדויקת של זמן עבודה בפועל.
       </p>
 
-      <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        {kpis.map((k) => (
+          <div key={k.label} style={kpiTile()}>
+            <div style={sectionLabel}>{k.label}</div>
+            <div style={{ fontSize: 24, fontWeight: 700, marginTop: 8 }}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ ...card(), overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: 'var(--bg-secondary)' }}>

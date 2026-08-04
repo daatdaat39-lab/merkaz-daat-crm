@@ -23,8 +23,13 @@
   --purple-bg: #f5f3ff;
   --radius: 8px;
   --radius-sm: 6px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
   --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);
+  --shadow-soft: 0 2px 8px rgba(15,15,15,0.05), 0 1px 2px rgba(15,15,15,0.03);
+  --shadow-hover: 0 8px 24px rgba(15,15,15,0.08), 0 2px 6px rgba(15,15,15,0.04);
+  --surface-hover: #f4f5f7;
   --font-heading: "Frank Ruhl Libre", serif;
   --font-body: -apple-system, "Segoe UI", Arial, sans-serif;
 }
@@ -57,6 +62,9 @@ body {
 .btn:hover { background: var(--bg-tertiary); color: var(--text); }
 .btn-primary { background: var(--text); color: #fff; border-color: var(--text); }
 .btn-primary:hover { background: var(--accent-hover); }
+
+.card-hover { transition: box-shadow 0.15s, transform 0.15s; }
+.card-hover:hover { box-shadow: var(--shadow-hover); transform: translateY(-1px); }
 
 .toast-not-connected {
   position: fixed;

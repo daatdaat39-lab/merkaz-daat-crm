@@ -4,6 +4,16 @@ import Link from 'next/link';
 import NotConnectedButton from '../components/NotConnectedButton';
 import WhatsAppTemplatesPanel from './WhatsAppTemplatesPanel';
 import EmailTemplatesPanel from './EmailTemplatesPanel';
+import { card, iconBlock, sectionLabel } from '../components/designTokens';
+
+const SETTINGS_LINKS = [
+  { href: '/dashboard/settings/users', icon: '👥', title: 'חברי הצוות', desc: 'ניהול משתמשים והרשאות' },
+  { href: '/dashboard/settings/activity', icon: '📊', title: 'דוח פעילות נציגים', desc: 'זמן פעילות ותפוקה לכל נציג (owner/admin בלבד)' },
+  { href: '/dashboard/settings/duplicates', icon: '🔎', title: 'בדיקת כפליות', desc: 'סריקת אנשי קשר למיזוג כפילויות (owner/admin בלבד)' },
+  { href: '/dashboard/settings/import', icon: '📥', title: 'ייבוא נתונים', desc: 'ייבוא/ייצוא אנשי קשר, מערכת חיצונית, היסטוריית שיחות' },
+  { href: '/dashboard/settings/picklists', icon: '🏷', title: 'רשימות בחירה', desc: 'קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)' },
+  { href: '/dashboard/settings/pipelines', icon: '🔀', title: 'שלבי pipeline', desc: 'הוספה/עריכה/סידור שלבי התהליך לכל מחלקה (owner/admin בלבד)' },
+];
 
 export default async function SettingsPage() {
   const supabase = createClient();
@@ -33,119 +43,33 @@ export default async function SettingsPage() {
   const { data: emailTemplates } = await supabase.from('email_templates').select('id, name, subject, body').order('created_at');
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 24px' }}>
+    <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 24px' }}>
       <h1 style={{ fontFamily: 'var(--font-heading)', margin: '0 0 20px', fontSize: 20 }}>הגדרות</h1>
 
-      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '18px 20px', marginBottom: 20 }}>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Workspace פעיל</div>
-        <div style={{ fontSize: 16, fontWeight: 600 }}>{workspace?.name || '—'}</div>
+      <div style={card({ padding: '18px 20px', marginBottom: 24 })}>
+        <div style={sectionLabel}>Workspace פעיל</div>
+        <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>{workspace?.name || '—'}</div>
         {workspace?.created_at && (
           <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>
-            נוצר בתאריך {new Date(workspace.created_at).toLocaleDateString('he-IL')}
+            נוצר בתאריך {new Date(workspace.created_at).toLocaleDateString('he-IL')} · {memberCount} משתמשים
           </div>
         )}
       </div>
 
-      <div style={{
-        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
-      }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>חברי הצוות</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{memberCount} משתמשים ב-workspace</div>
-        </div>
-        <Link href="/dashboard/settings/users" style={{
-          background: 'var(--text)', color: 'var(--bg)', textDecoration: 'none', fontSize: 13,
-          padding: '7px 16px', borderRadius: 6,
-        }}>
-          ניהול משתמשים →
-        </Link>
-      </div>
-
-      <div style={{
-        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
-      }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>דוח פעילות נציגים</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>זמן פעילות ותפוקה לכל נציג (owner/admin בלבד)</div>
-        </div>
-        <Link href="/dashboard/settings/activity" style={{
-          background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', fontSize: 13,
-          padding: '7px 16px', borderRadius: 6,
-        }}>
-          לדוח →
-        </Link>
-      </div>
-
-      <div style={{
-        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
-      }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>🔎 בדיקת כפליות</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>סריקת כל אנשי הקשר, זוג-זוג, למיזוג כפילויות (owner/admin בלבד)</div>
-        </div>
-        <Link href="/dashboard/settings/duplicates" style={{
-          background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', fontSize: 13,
-          padding: '7px 16px', borderRadius: 6,
-        }}>
-          לתור →
-        </Link>
-      </div>
-
-      <div style={{
-        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
-      }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>📥 ייבוא נתונים</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>ייבוא/ייצוא אנשי קשר, ייבוא ממערכת חיצונית, ייבוא היסטוריית שיחות</div>
-        </div>
-        <Link href="/dashboard/settings/import" style={{
-          background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', fontSize: 13,
-          padding: '7px 16px', borderRadius: 6,
-        }}>
-          לייבוא →
-        </Link>
-      </div>
-
-      <div style={{
-        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
-      }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>🏷 רשימות בחירה</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>עריכת קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)</div>
-        </div>
-        <Link href="/dashboard/settings/picklists" style={{
-          background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', fontSize: 13,
-          padding: '7px 16px', borderRadius: 6,
-        }}>
-          לניהול →
-        </Link>
-      </div>
-
-      <div style={{
-        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px',
-      }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>🔀 שלבי pipeline</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>הוספה/מחיקה/עריכת שלבי התהליך לכל מחלקה (owner/admin בלבד)</div>
-        </div>
-        <Link href="/dashboard/settings/pipelines" style={{
-          background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', textDecoration: 'none', fontSize: 13,
-          padding: '7px 16px', borderRadius: 6,
-        }}>
-          לניהול →
-        </Link>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 28 }}>
+        {SETTINGS_LINKS.map((item) => (
+          <Link key={item.href} href={item.href} className="card-hover" style={{ ...iconBlock(), textDecoration: 'none', color: 'inherit' }}>
+            <div style={{ fontSize: 28 }}>{item.icon}</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>{item.title}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>{item.desc}</div>
+          </Link>
+        ))}
       </div>
 
       <WhatsAppTemplatesPanel templates={whatsappTemplates || []} />
       <EmailTemplatesPanel templates={emailTemplates || []} />
 
-      <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20 }}>
+      <div style={{ ...card(), overflow: 'hidden', marginBottom: 20 }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 14, fontWeight: 600 }}>
           אינטגרציות
         </div>
@@ -154,7 +78,6 @@ export default async function SettingsPage() {
           { label: 'SMS', desc: 'שליחה ידנית ואוטומטית' },
           { label: 'קשר (סליקה וקבלות)', desc: 'תרומות, הוראות קבע, קבלות' },
           { label: 'Google Calendar', desc: 'סנכרון פגישות' },
-          { label: 'מנוע אוטומציות', desc: 'טריגר → תנאי → פעולה' },
         ].map((item) => (
           <div key={item.label} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -170,7 +93,7 @@ export default async function SettingsPage() {
       </div>
 
       <div style={{
-        background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px',
+        background: 'var(--amber-bg)', border: '1px solid #fde68a', borderRadius: 'var(--radius)', padding: '12px 16px',
         fontSize: 12.5, color: '#92400e',
       }}>
         אינטגרציות (מייל/וואטסאפ/טלפוניה) יתווספו בשלב הבא — ניהול משתמשים כבר פעיל.
