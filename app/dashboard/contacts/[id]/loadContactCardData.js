@@ -5,6 +5,7 @@ import { createAdminClient } from '../../../../lib/supabase/admin';
 import { groupTagsByDepartment } from '../../lib/tagGroups';
 import { getPicklistValues } from '../../lib/picklists';
 import { getAllPipelines } from '../../lib/pipelines';
+import { getCampaignStages } from '../../lib/campaignStages';
 import { isManagerOfAnyWorkspace } from '../../lib/contactGuards';
 import { filterHiddenExtraFields } from '../../components/pipelines';
 
@@ -25,7 +26,7 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -81,6 +82,11 @@ export async function loadContactCardData(contactId) {
       .select('id, direction, snumber, dnumber, extension, status, answered, duration_seconds, recording_url, started_at')
       .eq('contact_id', contact.id)
       .order('started_at', { ascending: false }),
+    supabase
+      .from('campaign_contacts')
+      .select('id, campaign_id, status, assigned_to, campaigns:campaign_id!inner (id, name, workspace_id, kind)')
+      .eq('contact_id', contact.id)
+      .neq('campaigns.kind', 'dedication'),
   ]);
 
   const closeReasonRows = await getPicklistValues(supabase, 'close_reason', null);
@@ -129,6 +135,30 @@ export async function loadContactCardData(contactId) {
     agentsByWorkspace[m.workspace_id].push({ id: m.user_id, name: memberNameById[m.user_id] || 'משתמש' });
   }
 
+  // תהליכים נוספים מקמפיינים פעילים (לא הקדשה) - "ריבוי תהליכים באותה
+  // מחלקה" ממומש דרך התשתית הקיימת של campaign_contacts (שכבר תומכת
+  // בכמה קמפיינים פעילים במקביל לאותו איש קשר), לא דרך שינוי סכמה של
+  // contact_departments. כל תהליך-קמפיין מוצג כשורת StageStepper נוספת
+  // ליד שורת השלב הרגילה של אותה מחלקה, ר' ContactDetailClient.js.
+  const campaignIds = Array.from(new Set((campaignProcessRows || []).map((r) => r.campaign_id)));
+  const campaignStagesById = Object.fromEntries(
+    await Promise.all(campaignIds.map(async (id) => [id, await getCampaignStages(supabase, id)]))
+  );
+  const campaignProcessesByWorkspace = {};
+  for (const row of campaignProcessRows || []) {
+    const wsId = row.campaigns?.workspace_id;
+    if (!wsId) continue;
+    campaignProcessesByWorkspace[wsId] = campaignProcessesByWorkspace[wsId] || [];
+    campaignProcessesByWorkspace[wsId].push({
+      rowId: row.id,
+      campaignId: row.campaign_id,
+      campaignName: row.campaigns?.name || 'קמפיין',
+      status: row.status,
+      assignedTo: row.assigned_to,
+      stages: campaignStagesById[row.campaign_id] || { order: [], wonStage: null, labels: {}, colors: {} },
+    });
+  }
+
   const departments = (departmentRows || []).map((row) => {
     const workspaceName = row.workspaces?.name || 'מחלקה';
     const hiddenExtraFieldKeys = hiddenExtraFieldsByWorkspace[row.workspace_id] || [];
@@ -145,6 +175,7 @@ export async function loadContactCardData(contactId) {
       hiddenExtraFieldKeys,
       createdByManager: !!row.created_by_manager,
       inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+      campaignProcesses: campaignProcessesByWorkspace[row.workspace_id] || [],
     };
   });
 

@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEPT_KEYWORDS, contactMatchesDept } from '../../components/ui';
 import { addContactTag, assignAgent } from '../../contacts/actions';
+import { updateCampaignContact } from '../campaigns/actions';
 import LeadRow from './LeadRow';
 
 const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
@@ -11,7 +12,24 @@ const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding
 // לוח לידים עם סינון ומיון בצד הלקוח - הנתונים כבר נטענו מהשרת, אז
 // כל הסינון/מיון כאן מיידי בלי בקשות נוספות. הקיבוץ לפי תגית (תרומות/
 // לימודי/מנהלה) נשאר, אבל מחושב אחרי הסינון כדי שכל קבוצה תשקף אותו.
-export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, stageLabels = {}, stageColors = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], extraFields = [], closeReasons }) {
+// לשוניות מחזור חיים - מחושבות מתוך מטא-דאטת ה-pipeline הדינמית שכבר
+// קיימת (leadStages/wonStage/sideStages), בלי טבלה/עמודה חדשה. "בתהליך"
+// היא ההבחנה היחידה שדורשת היוריסטיקה (יש נציג מוקצה = כבר בטיפול).
+const TABS = [
+  { key: 'new', label: 'פתוחים / חדשים' },
+  { key: 'in_progress', label: 'בתהליך' },
+  { key: 'won', label: 'הצליחו' },
+  { key: 'closed', label: 'נפלו / סגורים' },
+];
+
+function tabOf(lead, leadStages, wonStage) {
+  if (wonStage && lead.stage === wonStage) return 'won';
+  if (leadStages.includes(lead.stage)) return lead.agent_id ? 'in_progress' : 'new';
+  return 'closed';
+}
+
+export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sideStages = [], stageLabels = {}, stageColors = {}, leadStages = [], wonStage = null, sendConnections = [], whatsappTemplates = [], emailTemplates = [], extraFields = [], closeReasons, campaignLeadGroups = [] }) {
+  const [activeTab, setActiveTab] = useState('new');
   const [search, setSearch] = useState('');
   const [agentFilter, setAgentFilter] = useState('');
   const [stageFilter, setStageFilter] = useState('');
@@ -22,6 +40,14 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
   const [selected, setSelected] = useState(() => new Set());
   const router = useRouter();
 
+  const leadsWithTab = useMemo(() => leads.map((l) => ({ ...l, _tab: tabOf(l, leadStages, wonStage) })), [leads, leadStages, wonStage]);
+  const tabCounts = useMemo(() => {
+    const counts = { new: 0, in_progress: 0, won: 0, closed: 0 };
+    for (const l of leadsWithTab) counts[l._tab] += 1;
+    return counts;
+  }, [leadsWithTab]);
+  const tabLeads = useMemo(() => leadsWithTab.filter((l) => l._tab === activeTab), [leadsWithTab, activeTab]);
+
   function toggleSelect(id) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -31,12 +57,12 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
   }
 
   const reasonOptions = useMemo(
-    () => Array.from(new Set(leads.map((l) => l.latestReason).filter(Boolean))).sort(),
-    [leads]
+    () => Array.from(new Set(tabLeads.map((l) => l.latestReason).filter(Boolean))).sort(),
+    [tabLeads]
   );
 
   const filtered = useMemo(() => {
-    let result = leads;
+    let result = tabLeads;
 
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -69,7 +95,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       }
     });
     return sorted;
-  }, [leads, search, agentFilter, stageFilter, reasonFilter, overdueOnly, overdueHours, sortBy, agents]);
+  }, [tabLeads, search, agentFilter, stageFilter, reasonFilter, overdueOnly, overdueHours, sortBy, agents]);
 
   const departments = Object.keys(DEPT_KEYWORDS);
   const categorized = departments
@@ -82,6 +108,31 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
 
   return (
     <div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            style={{
+              background: 'none', border: 'none', borderBottom: '2px solid ' + (activeTab === t.key ? '#0a0a0a' : 'transparent'),
+              padding: '8px 4px', marginBottom: -1, fontSize: 13, fontWeight: activeTab === t.key ? 600 : 500,
+              color: activeTab === t.key ? '#0a0a0a' : 'var(--text-secondary)', cursor: 'pointer',
+            }}
+          >
+            {t.label} ({tabCounts[t.key]})
+          </button>
+        ))}
+      </div>
+
+      {campaignLeadGroups.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--text-secondary)' }}>🎯 לידים מקמפיינים</div>
+          {campaignLeadGroups.map((g) => (
+            <CampaignLeadGroup key={g.campaignId} group={g} />
+          ))}
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
         <input
           value={search}
@@ -132,19 +183,19 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         )}
       </div>
 
-      {filtered.length !== leads.length && (
+      {filtered.length !== tabLeads.length && (
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-          מציג {filtered.length} מתוך {leads.length} לידים
+          מציג {filtered.length} מתוך {tabLeads.length} לידים בלשונית זו
         </div>
       )}
 
       <BulkActionBar selected={selected} setSelected={setSelected} agents={agents} workspaceId={workspaceId} router={router} />
 
       {categorized.map((group) => (
-        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} extraFields={extraFields} closeReasons={closeReasons} />
+        <LeadGroup key={group.dept} title={group.dept} leads={group.leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sideStages={sideStages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} extraFields={extraFields} closeReasons={closeReasons} />
       ))}
 
-      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} extraFields={extraFields} closeReasons={closeReasons} />}
+      {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sideStages={sideStages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} extraFields={extraFields} closeReasons={closeReasons} />}
 
       {filtered.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים התואמים את הסינון</div>
@@ -225,7 +276,7 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
   );
 }
 
-function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, stageLabels = {}, stageColors = {}, sendConnections, whatsappTemplates, emailTemplates, selected, onToggleSelect, setSelected, extraFields = [], closeReasons }) {
+function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, sideStages = [], stageLabels = {}, stageColors = {}, sendConnections, whatsappTemplates, emailTemplates, selected, onToggleSelect, setSelected, extraFields = [], closeReasons }) {
   const allSelected = leads.length > 0 && leads.every((l) => selected.has(l.id));
 
   function toggleSelectAll() {
@@ -259,7 +310,63 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
         </thead>
         <tbody>
           {leads.map((c) => (
-            <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} extraFields={extraFields} closeReasons={closeReasons} />
+            <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sideStages={sideStages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} extraFields={extraFields} closeReasons={closeReasons} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// טבלה נפרדת לכל קמפיין פעיל - נציג רגיל רואה רק את מה שהוקצה לו
+// (מסונן כבר בשרת), מנהל רואה את כל חברי הקמפיין
+function CampaignLeadGroup({ group }) {
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function handleStatusChange(rowId, value) {
+    startTransition(async () => {
+      await updateCampaignContact(rowId, { status: value });
+      router.refresh();
+    });
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}>
+        {group.campaignName} ({group.rows.length})
+      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+        <thead>
+          <tr style={{ background: 'var(--bg-secondary)' }}>
+            {['שם', 'סטטוס', 'טלפון', 'מייל'].map((h) => (
+              <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {group.rows.map((r) => (
+            <tr key={r.rowId} style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
+              <td style={{ padding: '10px 16px', fontSize: 13 }}>
+                <a href={`/dashboard/contacts/${r.contactId}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>{r.name}</a>
+              </td>
+              <td style={{ padding: '10px 16px', fontSize: 13 }}>
+                <select
+                  value={r.status}
+                  onChange={(e) => handleStatusChange(r.rowId, e.target.value)}
+                  disabled={isPending}
+                  style={{
+                    border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                    background: (group.stages.colors[r.status] || {}).bg || '#f4f4f5',
+                    color: (group.stages.colors[r.status] || {}).color || '#52525b',
+                  }}
+                >
+                  {group.stages.order.map((s) => <option key={s} value={s}>{group.stages.labels[s] || s}</option>)}
+                </select>
+              </td>
+              <td style={{ padding: '10px 16px', fontSize: 13 }}>{r.phone || '—'}</td>
+              <td style={{ padding: '10px 16px', fontSize: 13 }}>{r.email || '—'}</td>
+            </tr>
           ))}
         </tbody>
       </table>

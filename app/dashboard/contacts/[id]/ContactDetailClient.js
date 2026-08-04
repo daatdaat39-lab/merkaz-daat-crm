@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getInquiryReasons } from '../../components/pipelines';
 import { shouldOpenPipeline } from '../../lib/pipelineVisibility';
 import { updateDepartmentStage, addDepartmentMembership } from '../actions';
+import { updateCampaignContact } from '../../sales/campaigns/actions';
 import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
 import StageStepper from './StageStepper';
 import QuickActivityLogForm from './QuickActivityLogForm';
@@ -95,6 +96,13 @@ export default function ContactDetailClient({
     startTransition(async () => {
       await updateDepartmentStage(active.id, formData.get('stage'), formData.get('closed_reason'));
       if (movingForward) celebrate();
+      router.refresh();
+    });
+  }
+
+  function handleCampaignStageChange(rowId, formData) {
+    startTransition(async () => {
+      await updateCampaignContact(rowId, { status: formData.get('stage') });
       router.refresh();
     });
   }
@@ -247,6 +255,22 @@ export default function ContactDetailClient({
           )}
         </div>
       )}
+
+      {/* תהליכים נוספים מקמפיינים פעילים (לא הקדשה) שאיש הקשר חבר בהם
+          באותה מחלקה - ריבוי תהליכים במקביל, כל אחד עם השלבים שלו */}
+      {active?.campaignProcesses?.map((cp) => (
+        <div key={cp.rowId} style={{ marginBottom: 16, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px' }}>
+          <div style={{ fontSize: 12, color: '#6b6b6b', marginBottom: 10 }}>🎯 קמפיין: <b style={{ color: '#0a0a0a' }}>{cp.campaignName}</b></div>
+          <StageStepper
+            currentStage={cp.status}
+            stages={cp.stages.order}
+            labels={cp.stages.labels}
+            colors={cp.stages.colors}
+            disabled={contact.frozen}
+            action={(fd) => handleCampaignStageChange(cp.rowId, fd)}
+          />
+        </div>
+      ))}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         <NotConnectedButton label="חיוג" icon="📞" message="חיוג מתוך המערכת (ימות המשיח) — עדיין לא מחובר" />

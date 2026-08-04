@@ -19,7 +19,7 @@ function elapsedLabel(iso) {
   return `${days} ${days === 1 ? 'יום' : 'ימים'} מאז הטיפול האחרון`;
 }
 
-export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], stageLabels = {}, stageColors = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], selected = false, onToggleSelect, extraFields = [], closeReasons }) {
+export default function LeadRow({ contact: c, agents, workspaceId, workspaceName, stages = [], sideStages = [], stageLabels = {}, stageColors = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], selected = false, onToggleSelect, extraFields = [], closeReasons }) {
   const [isPending, startTransition] = useTransition();
   const [closing, setClosing] = useState(false);
   const [extraValues, setExtraValues] = useState(c.extra_fields || {});
@@ -92,7 +92,7 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
           }}
         >
           {stages.map((s) => <option key={s} value={s}>{stageLabels[s]}</option>)}
-          <option value="closed">{stageLabels.closed || 'סגור / לא רלוונטי'}</option>
+          {sideStages.map((s) => <option key={s} value={s}>{stageLabels[s] || s}</option>)}
         </select>
         {closing && <CloseReasonPicker reasons={closeReasons?.length ? closeReasons : CLOSE_REASONS} onConfirm={handleCloseConfirm} onCancel={() => setClosing(false)} />}
       </td>

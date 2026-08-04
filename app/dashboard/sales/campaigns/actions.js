@@ -73,10 +73,16 @@ export async function updateCampaignContact(rowId, changes) {
   if (!rowId) return { error: 'לא נבחרה שורה' };
 
   const { data: row } = await supabase
-    .from('campaign_contacts').select('id, campaign_id, campaigns:campaign_id (workspace_id)').eq('id', rowId).single();
+    .from('campaign_contacts').select('id, campaign_id, assigned_to, campaigns:campaign_id (workspace_id)').eq('id', rowId).single();
   if (!row) return { error: 'השורה לא נמצאה' };
-  const denied = await requireManager(supabase, user.id, row.campaigns?.workspace_id);
-  if (denied) return denied;
+  // נציג שהקמפיין הוקצה לו מותר לו לקדם שלב מכרטיס איש הקשר, לא רק מנהל -
+  // בדיוק כמו updateDepartmentStage/updateLeadStage שאין להן guard מנהל
+  // בכלל. עדכון category/assignedTo עדיין דורש מנהל (נשלטים דרך עמוד
+  // הקמפיין המנוהל-מנהל בלבד).
+  if (row.assigned_to !== user.id || changes.category !== undefined || changes.assignedTo !== undefined) {
+    const denied = await requireManager(supabase, user.id, row.campaigns?.workspace_id);
+    if (denied) return denied;
+  }
 
   const update = {};
   if (changes.category !== undefined) update.category = changes.category || null;

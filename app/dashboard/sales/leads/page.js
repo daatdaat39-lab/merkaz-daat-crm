@@ -8,6 +8,7 @@ import AddContactForm from '../../contacts/AddContactForm';
 import LeadsBoard from './LeadsBoard';
 import { groupTagsByDepartment } from '../../lib/tagGroups';
 import { isManagerOfWorkspace } from '../../lib/contactGuards';
+import { getCampaignStages } from '../../lib/campaignStages';
 
 const RECENT_INQUIRY_DAYS = 3;
 
@@ -34,11 +35,12 @@ export default async function SalesLeadsPage() {
   let existingElsewhereIds = new Set();
   let advancedInquiries = [];
   if (workspaceId) {
+    // טוענים את כל השלבים (לא רק leadStages) - הלשוניות ב-LeadsBoard
+    // (פתוחים/בתהליך/הצליחו/נפלו) מסננות בצד לקוח, כמו contacts/page.js
     const { data } = await supabase
       .from('contact_departments')
       .select('id, stage, agent_id, last_activity_at, extra_fields, created_by_manager, contacts:contact_id (id, first, last, phone, email, source, dept, tags, frozen), lead_inquiries (reason, created_at)')
       .eq('workspace_id', workspaceId)
-      .in('stage', pipeline.leadStages)
       // לידים שממתינים לאישור המנהל לא מוצגים לנציגים - ר' sales/pending
       .eq('approval_status', 'approved')
       .order('last_activity_at', { ascending: false });
@@ -113,7 +115,7 @@ export default async function SalesLeadsPage() {
     (tagRows || []).map((c) => ({ tags: c.tags, departments: (c.contact_departments || []).map((d) => ({ name: d.workspaces?.name })) }))
   );
 
-  const overdueCount = leads.filter((l) => l.last_activity_at && (Date.now() - new Date(l.last_activity_at).getTime()) / 3600000 >= 24).length;
+  const overdueCount = leads.filter((l) => pipeline.leadStages.includes(l.stage) && l.last_activity_at && (Date.now() - new Date(l.last_activity_at).getTime()) / 3600000 >= 24).length;
 
   // מונה לידים ממתינים לאישור - הקישור לתיבה מוצג רק לבעלים/מנהל המחלקה
   const isManager = workspaceId ? await isManagerOfWorkspace(supabase, user.id, workspaceId) : false;
@@ -127,13 +129,50 @@ export default async function SalesLeadsPage() {
     pendingCount = count || 0;
   }
 
+  // לידים מקמפיינים פעילים (לא הקדשה) - טבלה נפרדת לכל קמפיין. נציג
+  // רגיל רואה רק מה שהוקצה לו; מנהל רואה את כל חברי הקמפיין
+  let campaignLeadGroups = [];
+  if (workspaceId) {
+    const { data: activeCampaigns } = await supabase
+      .from('campaigns')
+      .select('id, name')
+      .eq('workspace_id', workspaceId)
+      .neq('kind', 'dedication')
+      .eq('status', 'active');
+    if (activeCampaigns?.length) {
+      const campaignIds = activeCampaigns.map((c) => c.id);
+      let query = supabase
+        .from('campaign_contacts')
+        .select('id, campaign_id, status, assigned_to, contacts:contact_id (id, first, last, phone, email)')
+        .in('campaign_id', campaignIds);
+      if (!isManager) query = query.eq('assigned_to', user.id);
+      const { data: memberRows } = await query;
+      const stagesByCampaign = Object.fromEntries(
+        await Promise.all(campaignIds.map(async (id) => [id, await getCampaignStages(supabase, id)]))
+      );
+      campaignLeadGroups = activeCampaigns
+        .map((c) => ({
+          campaignId: c.id,
+          campaignName: c.name,
+          stages: stagesByCampaign[c.id],
+          rows: (memberRows || [])
+            .filter((r) => r.campaign_id === c.id && r.contacts)
+            .map((r) => ({
+              rowId: r.id, contactId: r.contacts.id, name: `${r.contacts.first || ''} ${r.contacts.last || ''}`.trim(),
+              phone: r.contacts.phone, email: r.contacts.email, status: r.status, assignedTo: r.assigned_to,
+            })),
+        }))
+        .filter((g) => g.rows.length > 0);
+    }
+  }
+
   return (
     <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: 0, fontSize: 20 }}>לידים</h1>
           <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 12.5 }}>
-            {leads.length} לידים פתוחים, מחולקים לתת-קטגוריות
+            {leads.filter((l) => pipeline.leadStages.includes(l.stage)).length} לידים פתוחים, מחולקים לתת-קטגוריות
             {overdueCount > 0 && (
               <span style={{ color: 'var(--danger, #a3392f)', fontWeight: 600 }}> · ⚠ {overdueCount} לידים ללא טיפול מעל 24 שעות</span>
             )}
@@ -186,14 +225,16 @@ export default async function SalesLeadsPage() {
         </div>
       )}
 
-      {leads.length === 0 ? (
+      {leads.length === 0 && campaignLeadGroups.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים פתוחים כרגע</div>
       ) : (
         <LeadsBoard
           leads={leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName}
-          stages={pipeline.order} stageLabels={pipeline.labels} stageColors={pipeline.colors}
+          stages={pipeline.order} sideStages={pipeline.sideStages} stageLabels={pipeline.labels} stageColors={pipeline.colors}
+          leadStages={pipeline.leadStages} wonStage={pipeline.wonStage}
           sendConnections={sendConnections || []} whatsappTemplates={whatsappTemplates || []}
           emailTemplates={emailTemplates || []} extraFields={extraFields} closeReasons={closeReasons}
+          campaignLeadGroups={campaignLeadGroups}
         />
       )}
     </div>
