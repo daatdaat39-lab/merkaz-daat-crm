@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { canManageContact, setContactFrozen, deleteContact, mergeContacts, searchContacts, removeDepartmentMembership, getContactAuditLog } from '../actions';
+import { canManageContact, setContactFrozen, deleteContact, startDeleteContactOtp, mergeContacts, searchContacts, removeDepartmentMembership, getContactAuditLog } from '../actions';
 import MergeFieldsPicker from '../MergeFieldsPicker';
 
 const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 };
@@ -35,8 +35,25 @@ export default function ContactSettingsMenu({ contact, activeDepartment }) {
   function handleDelete() {
     if (!confirm(`למחוק את ${contact.first} ${contact.last}? הפעולה בלתי הפיכה.`)) return;
     setError(null);
+    if (process.env.NEXT_PUBLIC_OTP_SENSITIVE_ACTIONS_REQUIRED === 'true') {
+      startTransition(async () => {
+        const res = await startDeleteContactOtp();
+        if (res?.error) setError(res.error);
+        else setSubPanel('deleteOtp');
+      });
+      return;
+    }
     startTransition(async () => {
       const res = await deleteContact(contact.id);
+      if (res?.error) setError(res.error);
+      else router.push('/dashboard/contacts');
+    });
+  }
+
+  function handleConfirmDeleteOtp(code) {
+    setError(null);
+    startTransition(async () => {
+      const res = await deleteContact(contact.id, code);
       if (res?.error) setError(res.error);
       else router.push('/dashboard/contacts');
     });
@@ -110,6 +127,10 @@ export default function ContactSettingsMenu({ contact, activeDepartment }) {
 
           {subPanel === 'history' && (
             <HistoryPanel contactId={contact.id} onBack={() => setSubPanel(null)} />
+          )}
+
+          {subPanel === 'deleteOtp' && (
+            <DeleteOtpPanel isPending={isPending} onConfirm={handleConfirmDeleteOtp} onBack={() => setSubPanel(null)} />
           )}
         </div>
       )}
@@ -241,6 +262,33 @@ function HistoryPanel({ contactId, onBack }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// שדה קוד אימות למחיקה - הקוד כבר נשלח (startDeleteContactOtp) לפני
+// שהפאנל הזה נפתח, ר' handleDelete ב-ContactSettingsMenu
+function DeleteOtpPanel({ isPending, onConfirm, onBack }) {
+  const [code, setCode] = useState('');
+  return (
+    <div>
+      <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#6b6b6b', fontSize: 12, cursor: 'pointer', marginBottom: 8 }}>
+        → חזרה
+      </button>
+      <p style={{ fontSize: 11.5, color: '#6b6b6b', margin: '0 0 8px' }}>
+        נשלח קוד אימות למייל שלך - יש להזין אותו כדי לאשר את המחיקה.
+      </p>
+      <input
+        value={code} onChange={(e) => setCode(e.target.value)} inputMode="numeric" maxLength={6} autoFocus
+        style={{ ...inputStyle, textAlign: 'center', letterSpacing: 3, marginBottom: 8 }}
+      />
+      <button
+        onClick={() => onConfirm(code)}
+        disabled={isPending || code.length !== 6}
+        style={{ width: '100%', background: '#b23b2f', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 0', fontSize: 12.5, cursor: 'pointer' }}
+      >
+        אישור מחיקה
+      </button>
     </div>
   );
 }

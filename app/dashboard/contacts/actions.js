@@ -10,6 +10,7 @@ import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/whatsapp';
 import { summarizeContact } from '../../../lib/ai/summarizeContact';
+import { generateAndSendOtp, verifyOtp } from '../lib/otp';
 
 const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'email2', 'dept', 'source', 'idnum', 'birth_date', 'gender', 'related_contact_id', 'relation_label'];
 
@@ -312,11 +313,32 @@ export async function createContact(formData) {
   redirect(`/dashboard/contacts/${data.id}`);
 }
 
-// מחיקת איש קשר - רק owner/admin של אחת ממחלקות איש הקשר
-export async function deleteContact(contactId) {
+// שולח קוד אימות למחיקת איש קשר - נקרא מה-UI לפני הצגת שדה הקוד,
+// רק כש-NEXT_PUBLIC_OTP_SENSITIVE_ACTIONS_REQUIRED דלוק (ר' deleteContact)
+export async function startDeleteContactOtp() {
+  const { supabase, user } = await requireUser();
+  if (!user.email) return { error: 'למשתמש אין כתובת מייל' };
+  try {
+    await generateAndSendOtp(user.id, user.email, 'sensitive_action');
+  } catch (err) {
+    return { error: err.message };
+  }
+  return { success: true };
+}
+
+// מחיקת איש קשר - רק owner/admin של אחת ממחלקות איש הקשר. פעולה
+// הרסנית לדוגמה שנבחרה לדרישת אימות OTP נוספת (סעיף 1.1 בדרישות),
+// מאחורי דגל תכונה נפרד מ-OTP בהתחברות כדי לא לשבור את הזרימה הקיימת
+// כברירת מחדל.
+export async function deleteContact(contactId, otpCode) {
   const { supabase, user } = await requireUser();
   const allowed = await isManagerOfAnyDepartment(supabase, user.id, contactId);
   if (!allowed) return { error: 'רק מנהל של אחת ממחלקות איש הקשר יכול למחוק' };
+
+  if (process.env.NEXT_PUBLIC_OTP_SENSITIVE_ACTIONS_REQUIRED === 'true') {
+    const otpResult = await verifyOtp(user.id, otpCode || '', 'sensitive_action');
+    if (otpResult.error) return otpResult;
+  }
 
   const { data: contact } = await supabase.from('contacts').select('first, last').eq('id', contactId).single();
   const { error } = await supabase.from('contacts').delete().eq('id', contactId);

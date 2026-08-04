@@ -29,6 +29,20 @@ export async function middleware(request) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // אימות דו-שלבי (OTP) - כבוי כברירת מחדל (דגל תכונה), כדי שהתכונה
+  // תהיה מוכנה בקוד בלי לנעול אף משתמש קיים עד שמישהו מפעיל אותה
+  // במפורש ב-Vercel (NEXT_PUBLIC_OTP_LOGIN_REQUIRED=true - חייב
+  // NEXT_PUBLIC_ כי login/page.js צריך לבדוק אותו גם בצד לקוח), אותו
+  // דפוס בדיוק כמו isZoomConfigured()/NotConnectedButton לאינטגרציות
+  // אופציונליות.
+  if (user && process.env.NEXT_PUBLIC_OTP_LOGIN_REQUIRED === 'true') {
+    const otpVerified = request.cookies.get('otp_verified')?.value === 'true';
+    if (!otpVerified) {
+      const redirectUrl = new URL('/verify-otp', request.url);
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
+
   return response;
 }
 

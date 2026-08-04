@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../lib/supabase/client';
+import { startLoginOtp } from './actions';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -16,11 +17,21 @@ export default function LoginPage() {
     setLoading(true);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       setError('התחברות נכשלה: ' + error.message);
       return;
     }
+    // אימות דו-שלבי - כבוי כברירת מחדל (ר' middleware.js). כשדלוק,
+    // שולחים קוד מיד ומפנים לעמוד האימות במקום ישר לדשבורד.
+    if (process.env.NEXT_PUBLIC_OTP_LOGIN_REQUIRED === 'true') {
+      const res = await startLoginOtp();
+      setLoading(false);
+      if (res?.error) { setError(res.error); return; }
+      router.push('/verify-otp');
+      return;
+    }
+    setLoading(false);
     router.push('/dashboard');
     router.refresh();
   }
