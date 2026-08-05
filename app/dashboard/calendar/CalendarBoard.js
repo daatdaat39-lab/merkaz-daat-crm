@@ -17,10 +17,10 @@ function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); retu
 // עם ניווט קדימה/אחורה/היום, ולחיצה על תא ריק או "+ אירוע חדש" פותחת
 // יצירה ישירה של פגישה או משימה (EventModal). בתצוגות שבוע/יום נעשה
 // שימוש חוזר ב-MeetingRow/TaskRow הקיימים כדי לאפשר עריכה מלאה במקום.
-export default function CalendarBoard({ meetings, tasks, contacts, members, currentUserId, addMeetingAction, addTaskAction }) {
+export default function CalendarBoard({ meetings, tasks, contacts, members, currentUserId, addMeetingAction, addTaskAction, initialContactId = null, autoOpenToday = false }) {
   const [view, setView] = useState('week');
   const [anchor, setAnchor] = useState(() => new Date());
-  const [modalDate, setModalDate] = useState(null);
+  const [modalDate, setModalDate] = useState(() => (autoOpenToday ? toDateStr(new Date()) : null));
 
   const todayStr = toDateStr(new Date());
 
@@ -126,6 +126,7 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
       {modalDate && (
         <EventModal
           date={modalDate}
+          contactId={initialContactId}
           contacts={contacts}
           members={members}
           currentUserId={currentUserId}

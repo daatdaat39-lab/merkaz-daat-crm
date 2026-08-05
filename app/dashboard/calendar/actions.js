@@ -25,13 +25,13 @@ async function requireWorkspace() {
   return { supabase, user, workspaceId: profile?.current_workspace_id || null };
 }
 
-export async function addMeeting(formData) {
+async function createMeetingFromForm(formData) {
   const { supabase, user, workspaceId } = await requireWorkspace();
   const contactId = formData.get('contact_id');
   const date = formData.get('meeting_date');
   const time = formData.get('meeting_time');
   const type = formData.get('type') || 'פרונטלי';
-  if (!workspaceId || !contactId || !date || !time) return;
+  if (!workspaceId || !contactId || !date || !time) return { error: 'חסרים פרטים' };
 
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
@@ -39,7 +39,7 @@ export async function addMeeting(formData) {
   const { data: contact } = await supabase.from('contacts').select('first, last').eq('id', contactId).single();
   const zoomJoinUrl = await maybeCreateZoomLink(type, contact ? `${contact.first} ${contact.last}` : null, date, time);
 
-  await supabase.from('meetings').insert({
+  const { error } = await supabase.from('meetings').insert({
     workspace_id: workspaceId,
     contact_id: contactId,
     meeting_date: date,
@@ -49,7 +49,22 @@ export async function addMeeting(formData) {
     agent_id: user.id,
     zoom_join_url: zoomJoinUrl,
   });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function addMeeting(formData) {
+  const res = await createMeetingFromForm(formData);
+  if (res?.error) return res;
   redirect('/dashboard/calendar');
+}
+
+// זהה ל-addMeeting אבל בלי redirect - לשימוש מ-EventModal כשהוא נפתח
+// מחוץ לדף היומן המלא (חלון צף מעל כרטיס איש קשר, ר' FloatingCalendar.js).
+// redirect מתוך server action ינווט את כל הדף שמתחת לחלון הצף, לא רק
+// יסגור את המודל - חוויה שבורה שם.
+export async function addMeetingNoRedirect(formData) {
+  return createMeetingFromForm(formData);
 }
 
 export async function updateMeeting(meetingId, formData) {

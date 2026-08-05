@@ -4,10 +4,12 @@ import { useRef } from 'react';
 import { useFloatingWindows } from './FloatingWindows';
 import FloatingContactCard from '../contacts/[id]/FloatingContactCard';
 import FloatingChat from '../chat/FloatingChat';
+import FloatingCalendar from '../calendar/FloatingCalendar';
 
 const KIND_COMPONENTS = {
   contact: FloatingContactCard,
   chat: FloatingChat,
+  calendar: FloatingCalendar,
 };
 
 // מרנדר בפועל את כל החלונות הצפים הפתוחים + "מגש" קטן למטה עם החלונות

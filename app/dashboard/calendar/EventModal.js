@@ -7,7 +7,7 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px
 
 // יצירת אירוע חדש ביומן - פגישה או משימה, נפתח בלחיצה על תא ריק ביומן
 // (עם תאריך ברירת מחדל של התא שנלחץ) או מכפתור "+ אירוע חדש" הכללי
-export default function EventModal({ date, contacts, members, currentUserId, addMeetingAction, addTaskAction, onClose }) {
+export default function EventModal({ date, contactId, contacts, members, currentUserId, addMeetingAction, addTaskAction, onClose }) {
   const [type, setType] = useState('meeting');
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
@@ -66,7 +66,7 @@ export default function EventModal({ date, contacts, members, currentUserId, add
 
         {type === 'meeting' ? (
           <form action={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <select name="contact_id" required style={inputStyle}>
+            <select name="contact_id" required defaultValue={contactId || ''} style={inputStyle}>
               <option value="">בחר איש קשר...</option>
               {contacts.map((c) => <option key={c.id} value={c.id}>{c.first} {c.last}</option>)}
             </select>
@@ -88,7 +88,7 @@ export default function EventModal({ date, contacts, members, currentUserId, add
         ) : (
           <form action={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <input name="title" placeholder="משימה חדשה..." required style={inputStyle} />
-            <select name="contact_id" style={inputStyle}>
+            <select name="contact_id" defaultValue={contactId || ''} style={inputStyle}>
               <option value="">ללא איש קשר</option>
               {contacts.map((c) => <option key={c.id} value={c.id}>{c.first} {c.last}</option>)}
             </select>

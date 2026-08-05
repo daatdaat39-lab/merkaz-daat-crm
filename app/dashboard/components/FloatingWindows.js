@@ -25,7 +25,7 @@ export function FloatingWindowsProvider({ children }) {
       const existing = prev.find((w) => w.id === win.id);
       zCounter.current += 1;
       if (existing) {
-        return prev.map((w) => (w.id === win.id ? { ...w, minimized: false, z: zCounter.current } : w));
+        return prev.map((w) => (w.id === win.id ? { ...w, props: { ...w.props, ...win.props }, minimized: false, z: zCounter.current } : w));
       }
       const offset = (prev.length % 6) * 30;
       return [

@@ -318,7 +318,12 @@ export default function ContactDetailClient({
             message={!active ? 'יש לבחור מחלקה קודם' : !activeConnection ? `תיבת המייל של מחלקת "${active.workspaceName}" עדיין לא מחוברת` : !contact.email ? 'לאיש הקשר אין כתובת מייל שמורה' : 'איש הקשר מוקפא'}
           />
         )}
-        <NotConnectedButton label="קביעת פגישה ביומן" icon="📅" message="חיבור ל-Google Calendar — עדיין לא מחובר" />
+        <button
+          onClick={() => openWindow({ id: 'calendar', kind: 'calendar', title: 'יומן', props: { initialContactId: contact.id, autoOpenToday: true } })}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: 'var(--bg)', color: '#333', border: '1px solid #e5e5e5' }}
+        >
+          <span>📅</span><span>קביעת פגישה ביומן</span>
+        </button>
         <AiSummaryButton contactId={contact.id} />
         {active?.stage === 'credit_issue' && contact.phone && !contact.frozen && (
           <button
