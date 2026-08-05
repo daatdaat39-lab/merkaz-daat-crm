@@ -56,38 +56,33 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
           <div style={{ height: '100%', width: `${progressPct}%`, background: '#0a0a0a', borderRadius: 999, transition: 'width 0.3s' }} />
         </div>
       )}
-      <div dir="rtl" style={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
+      {/* שתי שורות נפרדות (נקודות+קווים למעלה, תוויות למטה) - כך שאורך
+          התווית (עד 2 שורות, ללא קיצוץ) לעולם לא משפיע על גובה/יישור
+          שורת הנקודות ולא גורם לחפיפה בין שלבים שכנים. שני ה-map-ים
+          משתמשים באותם יחסי flex בדיוק כדי שהעמודות יתיישרו זו מתחת לזו. */}
+      <div dir="rtl" style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%' }}>
         {stages.map((stage, i) => {
           const done = !isSideActive && i <= currentIndex;
           const isCurrent = !isSideActive && i === currentIndex;
           return (
             <div key={stage} style={{ display: 'flex', alignItems: 'center', flex: i > 0 ? '1 1 0' : '0 0 auto', minWidth: 0 }}>
               {i > 0 && (
-                <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: done ? '#0a0a0a' : '#e5e5e5', marginTop: -14 }} />
+                <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: done ? 'var(--text)' : 'var(--border)' }} />
               )}
               <button
                 type="button"
                 onClick={() => handleDotClick(stage)}
                 disabled={disabled}
                 title={label(stage)}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 0, maxWidth: 68,
-                  background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: '0 2px',
-                }}
+                style={{ background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: 4, flexShrink: 0, display: 'flex' }}
               >
                 <span style={{
                   width: isCurrent ? 14 : 10, height: isCurrent ? 14 : 10, borderRadius: '50%',
-                  background: done ? '#0a0a0a' : '#fff',
-                  border: done ? 'none' : '2px solid #d0d0d0',
+                  background: done ? 'var(--text)' : 'var(--bg)',
+                  border: done ? 'none' : '2px solid var(--border-strong)',
                   boxShadow: isCurrent ? '0 0 0 3px rgba(10,10,10,0.15)' : 'none',
                   flexShrink: 0,
                 }} />
-                <span style={{
-                  fontSize: 9.5, color: isCurrent ? '#0a0a0a' : '#9b9b9b', fontWeight: isCurrent ? 600 : 400,
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', textAlign: 'center',
-                }}>
-                  {label(stage)}
-                </span>
               </button>
             </div>
           );
@@ -98,30 +93,60 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
           const c = color(stage);
           return (
             <div key={stage} style={{ display: 'flex', alignItems: 'center', flex: '1 1 0', minWidth: 0 }}>
-              <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: isCurrent ? c.color : '#e5e5e5', marginTop: -14 }} />
+              <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: isCurrent ? c.color : 'var(--border)' }} />
               <button
                 type="button"
                 onClick={() => handleSideClick(stage)}
                 disabled={disabled}
                 title={label(stage)}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 0, maxWidth: 84,
-                  background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: '0 2px',
-                }}
+                style={{ background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: 4, flexShrink: 0, display: 'flex' }}
               >
                 <span style={{
                   width: isCurrent ? 14 : 10, height: isCurrent ? 14 : 10, borderRadius: '50%',
-                  background: isCurrent ? c.color : '#fff',
+                  background: isCurrent ? c.color : 'var(--bg)',
                   border: isCurrent ? 'none' : '2px solid #f0c0ba',
                   flexShrink: 0,
                 }} />
-                <span style={{
-                  fontSize: 9.5, color: isCurrent ? c.color : '#c98a80', fontWeight: isCurrent ? 600 : 400,
-                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', textAlign: 'center',
-                }}>
-                  {stage !== 'closed' ? '⚠ ' : ''}{label(stage)}
-                </span>
               </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <div dir="rtl" style={{ display: 'flex', alignItems: 'flex-start', gap: 4, width: '100%', marginTop: 6 }}>
+        {stages.map((stage, i) => {
+          const isCurrent = !isSideActive && i === currentIndex;
+          return (
+            <div key={stage} style={{ flex: i > 0 ? '1 1 0' : '0 0 auto', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+              <span
+                title={label(stage)}
+                style={{
+                  fontSize: 10, lineHeight: 1.25, color: isCurrent ? 'var(--text)' : 'var(--text-muted)', fontWeight: isCurrent ? 600 : 400,
+                  whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'center', maxWidth: i > 0 ? '100%' : 76,
+                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}
+              >
+                {label(stage)}
+              </span>
+            </div>
+          );
+        })}
+
+        {sideStages.map((stage) => {
+          const isCurrent = currentStage === stage;
+          const c = color(stage);
+          return (
+            <div key={stage} style={{ flex: '1 1 0', minWidth: 0, display: 'flex', justifyContent: 'center' }}>
+              <span
+                title={label(stage)}
+                style={{
+                  fontSize: 10, lineHeight: 1.25, color: isCurrent ? c.color : '#c98a80', fontWeight: isCurrent ? 600 : 400,
+                  whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'center', maxWidth: '100%',
+                  display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}
+              >
+                {stage !== 'closed' ? '⚠ ' : ''}{label(stage)}
+              </span>
             </div>
           );
         })}
