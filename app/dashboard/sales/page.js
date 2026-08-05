@@ -56,7 +56,7 @@ export default async function SalesDashboardPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
         {cards.map((s) => (
-          <div key={s.label} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
+          <div key={s.label} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
             <div style={{ fontSize: 12, color: '#6b6b6b', marginBottom: 6 }}>{s.label}</div>
             <div style={{ fontSize: 28, fontWeight: 700 }}>{s.value}</div>
           </div>
@@ -64,7 +64,7 @@ export default async function SalesDashboardPage() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>תהליך לפי שלב</div>
           {pipeline.order.map((s) => {
             const max = Math.max(1, ...Object.values(stageCounts));
@@ -81,7 +81,7 @@ export default async function SalesDashboardPage() {
           })}
         </div>
 
-        <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, padding: '18px 20px' }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 14 }}>לידים לפי מקור</div>
           {Object.entries(sourceCounts).length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין נתונים</div>}
           {Object.entries(sourceCounts).map(([src, count]) => {

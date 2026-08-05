@@ -98,7 +98,7 @@ export default function AddContactForm({
         }} onClick={closeModal}>
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{ background: '#fff', borderRadius: 10, padding: 22, width: 480, maxWidth: '100%' }}
+            style={{ background: 'var(--bg)', borderRadius: 10, padding: 22, width: 480, maxWidth: '100%' }}
           >
             {mergeCandidate ? (
               <>
@@ -145,11 +145,11 @@ export default function AddContactForm({
                   <button
                     onClick={handleNotDuplicate}
                     disabled={isPending}
-                    style={{ flex: 1, background: '#fff', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}
+                    style={{ flex: 1, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}
                   >
                     לא, זה איש קשר אחר — יצירת חדש
                   </button>
-                  <button onClick={closeModal} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}>
+                  <button onClick={closeModal} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}>
                     ביטול
                   </button>
                 </div>
@@ -210,7 +210,7 @@ export default function AddContactForm({
                       {isPending ? 'בודק...' : 'המשך'}
                     </button>
                     <button type="button" onClick={closeModal} style={{
-                      background: '#fff', border: '1px solid var(--border)', borderRadius: 6,
+                      background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6,
                       padding: '8px 18px', fontSize: 13, cursor: 'pointer',
                     }}>
                       ביטול

@@ -63,7 +63,7 @@ export default function DedicationsWidget({ groups }) {
   }
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
+    <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
       <div style={{
         padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -72,7 +72,7 @@ export default function DedicationsWidget({ groups }) {
         <button
           type="button"
           onClick={handlePrint}
-          style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}
+          style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}
         >
           🖨 גרסת הדפסה
         </button>

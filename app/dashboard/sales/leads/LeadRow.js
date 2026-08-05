@@ -177,7 +177,7 @@ function CloseReasonPicker({ reasons = CLOSE_REASONS, onConfirm, onCancel }) {
       </select>
       <div style={{ display: 'flex', gap: 6 }}>
         <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, background: '#a3392f', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>אישור</button>
-        <button onClick={onCancel} style={{ flex: 1, fontSize: 11, background: '#fff', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>ביטול</button>
+        <button onClick={onCancel} style={{ flex: 1, fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>ביטול</button>
       </div>
     </div>
   );

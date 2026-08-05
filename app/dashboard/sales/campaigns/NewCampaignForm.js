@@ -58,7 +58,7 @@ export default function NewCampaignForm({ workspaceId }) {
         יצירה
       </button>
       <button type="button" onClick={() => { setOpen(false); setError(null); }} style={{
-        background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 14px', fontSize: 13, cursor: 'pointer',
+        background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 14px', fontSize: 13, cursor: 'pointer',
       }}>
         ביטול
       </button>

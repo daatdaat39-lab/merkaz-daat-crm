@@ -62,7 +62,7 @@ export default function ChatPanel({ workspaceId, currentUserId, currentUserName,
   }
 
   return (
-    <div style={{ border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ border: '1px solid #e5e5e5', borderRadius: 8, background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
       <div ref={listRef} style={{ height: 440, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {messages.length === 0 && (
           <div style={{ fontSize: 13, color: '#9b9b9b', margin: 'auto' }}>אין עדיין הודעות בערוץ - תהיו הראשונים לכתוב!</div>

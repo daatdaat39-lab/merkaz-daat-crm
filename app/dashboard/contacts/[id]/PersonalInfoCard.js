@@ -60,7 +60,7 @@ export default function PersonalInfoCard({
           disabled={contact.frozen}
           title="עריכת פרטים"
           style={{
-            background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, width: 26, height: 26,
+            background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, width: 26, height: 26,
             cursor: contact.frozen ? 'default' : 'pointer', fontSize: 12.5, opacity: contact.frozen ? 0.5 : 1,
           }}
         >
@@ -96,7 +96,7 @@ export default function PersonalInfoCard({
             <button type="submit" disabled={isPending} style={{ flex: 1, background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 0', fontSize: 12.5, cursor: 'pointer' }}>
               שמירה
             </button>
-            <button type="button" onClick={() => setEditing(false)} style={{ flex: 1, background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 0', fontSize: 12.5, cursor: 'pointer' }}>
+            <button type="button" onClick={() => setEditing(false)} style={{ flex: 1, background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 0', fontSize: 12.5, cursor: 'pointer' }}>
               ביטול
             </button>
           </div>
@@ -236,7 +236,7 @@ function QuickTagAdd({ contactId, existingTags, groups = null, currentTags, onAd
       <button
         type="button"
         onClick={() => setOpen(true)}
-        style={{ background: '#fff', border: '1px dashed #d0d0d0', borderRadius: 4, padding: '2px 8px', fontSize: 12, color: '#666', cursor: 'pointer' }}
+        style={{ background: 'var(--bg)', border: '1px dashed #d0d0d0', borderRadius: 4, padding: '2px 8px', fontSize: 12, color: '#666', cursor: 'pointer' }}
       >
         + תגית
       </button>
@@ -257,7 +257,7 @@ function QuickTagAdd({ contactId, existingTags, groups = null, currentTags, onAd
       />
       <div style={{
         position: 'absolute', top: '100%', insetInlineStart: 0, marginTop: 4, minWidth: 160,
-        border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', maxHeight: 200, overflowY: 'auto',
+        border: '1px solid #e5e5e5', borderRadius: 8, background: 'var(--bg)', maxHeight: 200, overflowY: 'auto',
         boxShadow: '0 6px 20px rgba(0,0,0,0.12)', zIndex: 60,
       }}>
         {groupedSuggestions ? groupedSuggestions.map((g) => (
@@ -345,7 +345,7 @@ function RelatedContactPicker({ contactId, related, setRelated }) {
       {dropdownOpen && query.trim().length >= 2 && (
         <div style={{
           position: 'absolute', top: '100%', insetInlineStart: 0, insetInlineEnd: 0, marginTop: 4,
-          border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', maxHeight: 160, overflowY: 'auto',
+          border: '1px solid #e5e5e5', borderRadius: 8, background: 'var(--bg)', maxHeight: 160, overflowY: 'auto',
           boxShadow: '0 6px 20px rgba(0,0,0,0.12)', zIndex: 60,
         }}>
           {results.length === 0 && (

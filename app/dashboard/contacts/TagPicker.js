@@ -87,7 +87,7 @@ export default function TagPicker({ name = 'tags', existingTags = [], defaultTag
 
       {open && (query.trim() || suggestions.length > 0) && (
         <div style={{
-          marginTop: 4, background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6,
+          marginTop: 4, background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6,
           boxShadow: '0 2px 8px rgba(0,0,0,0.08)', maxHeight: 200, overflowY: 'auto', position: 'relative', zIndex: 20,
         }}>
           {groupedSuggestions ? groupedSuggestions.map((g) => (

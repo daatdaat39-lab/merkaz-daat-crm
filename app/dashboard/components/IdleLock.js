@@ -97,7 +97,7 @@ export default function IdleLock({ userEmail }) {
       }}>
         <form
           onSubmit={handleUnlock}
-          style={{ background: '#fff', borderRadius: 14, padding: '32px 30px', width: 320, maxWidth: '90vw', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}
+          style={{ background: 'var(--bg)', borderRadius: 14, padding: '32px 30px', width: 320, maxWidth: '90vw', textAlign: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}
         >
           <div style={{ fontSize: 34, marginBottom: 8 }}>🔒</div>
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>המערכת ננעלה</div>

@@ -203,7 +203,7 @@ export default function CallHistoryImportWizard() {
                 type="button"
                 onClick={() => resolveCurrent(contact.id)}
                 style={{
-                  display: 'block', width: '100%', textAlign: 'right', background: '#fff',
+                  display: 'block', width: '100%', textAlign: 'right', background: 'var(--bg)',
                   border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '10px 12px',
                   marginBottom: 6, cursor: 'pointer', fontSize: 13,
                 }}

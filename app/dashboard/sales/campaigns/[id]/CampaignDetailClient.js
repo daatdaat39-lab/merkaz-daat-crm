@@ -123,7 +123,7 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
 
       <div style={{ marginBottom: 14 }}>
         {adding ? (
-          <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: 14 }}>
+          <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: 14 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
               <input
                 value={search}
@@ -173,6 +173,18 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
               <div style={{ fontSize: 12.5, color: '#9b9b9b' }}>אין תוצאות (או שכולם כבר בקמפיין)</div>
             )}
             {filtered.length > 0 && (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6 }}>
+                <button type="button" onClick={() => setPickIds((prev) => new Set([...prev, ...filtered.map((c) => c.id)]))} style={{ ...ghostBtn(), padding: '4px 10px', fontSize: 12 }}>
+                  בחר את כל התוצאות המסוננות ({filtered.length})
+                </button>
+                {pickIds.size > 0 && (
+                  <button type="button" onClick={() => setPickIds(new Set())} style={{ ...ghostBtn(), padding: '4px 10px', fontSize: 12 }}>
+                    נקה בחירה
+                  </button>
+                )}
+              </div>
+            )}
+            {filtered.length > 0 && (
               <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #f0f0f0', borderRadius: 6 }}>
                 {filtered.map((c) => (
                   <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', fontSize: 12.5, cursor: 'pointer', borderBottom: '1px solid #f5f5f5' }}>
@@ -207,7 +219,7 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
       {campaignKind === 'dedication' ? (
         <DedicationCampaignTable rows={rows} workspaceId={workspaceId} onRemoveFromCampaign={handleRemove} isPending={isPending} />
       ) : (
-        <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflowX: 'auto' }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
@@ -292,7 +304,7 @@ function CampaignOverviewDashboard({ rows, agents, campaignStages }) {
   const unassignedCount = rows.filter((r) => !r.assignedTo).length;
 
   return (
-    <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+    <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: 16, marginBottom: 16 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
         <div style={{ flex: '1 1 120px', background: 'var(--bg-secondary, #fafafa)', borderRadius: 8, padding: '10px 14px' }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{total}</div>
@@ -348,12 +360,12 @@ function DedicationCampaignTable({ rows, workspaceId, onRemoveFromCampaign, isPe
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {rowsState.length === 0 && (
-        <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: 14, fontSize: 13, color: '#9b9b9b' }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: 14, fontSize: 13, color: '#9b9b9b' }}>
           עדיין לא נוספו אנשי קשר לקמפיין
         </div>
       )}
       {rowsState.map((r) => (
-        <div key={r.rowId} style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '12px 14px' }}>
+        <div key={r.rowId} style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '12px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: r.dedications.length || openRowId === r.rowId ? 10 : 0 }}>
             <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none', flex: 1 }}>
               {r.name || '—'}
@@ -526,7 +538,7 @@ function BulkAssignBar({ selected, setSelected, agents, onApply, rows, workspace
       </div>
 
       {isDonationsWorkspace && (
-        <button type="button" onClick={applyCalendarEligible} disabled={isPending} style={{ background: '#fff', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}>
+        <button type="button" onClick={applyCalendarEligible} disabled={isPending} style={{ background: 'var(--bg)', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}>
           📅 סימון כזכאים ליום בלוח שנה
         </button>
       )}
@@ -548,7 +560,7 @@ function primaryBtn() {
   return { background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' };
 }
 function ghostBtn() {
-  return { background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' };
+  return { background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' };
 }
 function cellSelect() {
   return { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '4px 8px', fontSize: 12.5 };

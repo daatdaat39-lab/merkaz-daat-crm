@@ -29,7 +29,7 @@ export default function AiSummaryButton({ contactId }) {
         onClick={handleClick}
         style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8,
-          border: '1px solid var(--border, #e5e5e5)', background: '#fff', fontSize: 12.5, cursor: 'pointer',
+          border: '1px solid var(--border, #e5e5e5)', background: 'var(--bg)', fontSize: 12.5, cursor: 'pointer',
         }}
       >
         <span>✨</span> סיכום AI
@@ -38,7 +38,7 @@ export default function AiSummaryButton({ contactId }) {
       {open && (
         <div style={{
           position: 'absolute', top: '100%', insetInlineStart: 0, marginTop: 6, width: 320, maxWidth: '80vw',
-          background: '#fff', border: '1px solid #e5e5e5', borderRadius: 10, padding: 14, fontSize: 13,
+          background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 10, padding: 14, fontSize: 13,
           boxShadow: '0 10px 30px rgba(0,0,0,0.14)', zIndex: 80, lineHeight: 1.6,
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>

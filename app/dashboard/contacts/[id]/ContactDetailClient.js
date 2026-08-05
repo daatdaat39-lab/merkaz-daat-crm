@@ -168,7 +168,7 @@ export default function ContactDetailClient({
             title="פתיחה כחלון צף (אפשר להמשיך לעבוד במקום אחר ולפתוח אנשי קשר נוספים)"
             style={{
               width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, cursor: 'pointer', fontSize: 14, flexShrink: 0,
+              background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, cursor: 'pointer', fontSize: 14, flexShrink: 0,
             }}
           >
             🗗
@@ -193,7 +193,7 @@ export default function ContactDetailClient({
           <button onClick={handleAdd} disabled={isPending || !newWorkspaceId || !newReason} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
             הוספה
           </button>
-          <button onClick={() => { setAdding(false); setNewWorkspaceId(''); setNewReason(''); }} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={() => { setAdding(false); setNewWorkspaceId(''); setNewReason(''); }} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
             ביטול
           </button>
         </div>
@@ -284,7 +284,7 @@ export default function ContactDetailClient({
         {contact.phone && active && !contact.frozen ? (
           <button
             onClick={() => { setWhatsappInitialMessage(''); setWhatsappOpen(true); }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: '#fff', color: '#333', border: '1px solid #e5e5e5' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: 'var(--bg)', color: '#333', border: '1px solid #e5e5e5' }}
           >
             <span>💬</span><span>וואטסאפ</span>
           </button>
@@ -294,7 +294,7 @@ export default function ContactDetailClient({
         {activeConnection && contact.email && !contact.frozen ? (
           <button
             onClick={() => setComposeOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: '#fff', color: '#333', border: '1px solid #e5e5e5' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: 'var(--bg)', color: '#333', border: '1px solid #e5e5e5' }}
           >
             <span>✉️</span><span>מייל</span>
           </button>

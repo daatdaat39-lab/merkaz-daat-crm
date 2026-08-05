@@ -238,7 +238,7 @@ export default async function DashboardHome() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {/* פילוח לפי שלב */}
-        <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
             פילוח לפי שלב בתהליך
           </div>
@@ -260,7 +260,7 @@ export default async function DashboardHome() {
         </div>
 
         {/* פגישות קרובות */}
-        <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
           <div
             style={{
               padding: '14px 18px',
@@ -304,7 +304,7 @@ export default async function DashboardHome() {
       </div>
 
       {isDonationsManager && (
-        <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
             ⚠ דורש טיפול — מנהל מחלקה
           </div>
@@ -366,7 +366,7 @@ export default async function DashboardHome() {
       )}
 
       {isDonationsManager && openPledgesCount > 0 && (
-        <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12, padding: '14px 18px' }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12, padding: '14px 18px' }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>💰 צפי הכנסות פתוחות (הבטחות תרומה)</div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>₪{openPledgesTotal.toLocaleString('he-IL')}</div>
           <div style={{ fontSize: 12, color: '#9b9b9b' }}>{openPledgesCount} הבטחות תרומה שטרם מומשו</div>
@@ -376,7 +376,7 @@ export default async function DashboardHome() {
       <DedicationsWidget groups={dedicationGroups} />
 
       {isDonationsWorkspace && (
-        <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
             🔔 חיובי הוראת קבע קרובים (7 ימים)
           </div>

@@ -111,7 +111,7 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {error && <div style={{ color: '#b23b2f', fontSize: 12.5, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6, padding: '8px 12px' }}>{error}</div>}
 
-      <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
         {fields.map((f) => (
           <FieldRow
             key={f.id}
@@ -128,7 +128,7 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
         {fields.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b' }}>אין שדות למחלקה זו</div>}
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px 16px' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px 16px' }}>
         <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>הוספת שדה חדש</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           <input placeholder="מפתח טכני (אנגלית, לא ניתן לשינוי אחר כך)" value={newField.fieldKey}

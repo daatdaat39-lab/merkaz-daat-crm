@@ -129,7 +129,26 @@ export async function deleteStage(id, workspaceId, stageKey) {
   const { count } = await supabase.from('contact_departments')
     .select('id', { count: 'exact', head: true })
     .eq('workspace_id', workspaceId).eq('stage', stageKey);
-  if ((count || 0) > 0) return { error: `לא ניתן למחוק - ${count} אנשי קשר נמצאים כרגע בשלב הזה` };
+  if ((count || 0) > 0) return { error: `לא ניתן למחוק - ${count} אנשי קשר נמצאים כרגע בשלב הזה`, contactCount: count };
+
+  const { error } = await supabase.from('pipeline_stages').delete().eq('id', id);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// מחיקת שלב "חכמה" - מעבירה קודם את כל אנשי הקשר שבשלב הנמחק לשלב יעד
+// חלופי, ורק אז מוחקת. אם ה-update נכשל, לא ממשיכים למחיקה (למנוע יתמות).
+export async function reassignStageAndDelete(id, workspaceId, fromStageKey, toStageKey) {
+  const ctx = await requireManager(workspaceId);
+  if (ctx.error) return ctx;
+  const { supabase } = ctx;
+
+  if (!toStageKey || toStageKey === fromStageKey) return { error: 'יש לבחור שלב יעד שונה' };
+
+  const { error: updateError } = await supabase.from('contact_departments')
+    .update({ stage: toStageKey })
+    .eq('workspace_id', workspaceId).eq('stage', fromStageKey);
+  if (updateError) return { error: updateError.message };
 
   const { error } = await supabase.from('pipeline_stages').delete().eq('id', id);
   if (error) return { error: error.message };

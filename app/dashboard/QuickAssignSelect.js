@@ -25,7 +25,7 @@ export default function QuickAssignSelect({ contactId, workspaceId, agents = [],
       onChange={handleChange}
       onClick={(e) => e.stopPropagation()}
       disabled={isPending}
-      style={{ fontSize: 11, border: '1px solid #e5e5e5', borderRadius: 4, padding: '2px 6px', background: '#fff' }}
+      style={{ fontSize: 11, border: '1px solid #e5e5e5', borderRadius: 4, padding: '2px 6px', background: 'var(--bg)' }}
     >
       <option value="">הקצה נציג...</option>
       {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}

@@ -90,7 +90,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
         {open && query.trim().length >= 2 && (
           <div style={{
             position: 'absolute', top: '100%', insetInlineStart: 0, insetInlineEnd: 0, marginTop: 4, minWidth: 320,
-            background: '#fff', border: '1px solid var(--border)', borderRadius: 8, maxHeight: 360, overflowY: 'auto',
+            background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, maxHeight: 360, overflowY: 'auto',
             boxShadow: '0 10px 30px rgba(0,0,0,0.14)', zIndex: 300,
           }}>
             {!results && <div style={{ padding: '10px 14px', fontSize: 12.5, color: 'var(--text-muted)' }}>מחפש...</div>}

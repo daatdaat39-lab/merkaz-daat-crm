@@ -240,7 +240,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           ) : (
             <button
               onClick={() => setAddingTask(true)}
-              style={{ alignSelf: 'flex-start', background: '#fff', border: '1px dashed #d0d0d0', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, color: '#666', cursor: 'pointer' }}
+              style={{ alignSelf: 'flex-start', background: 'var(--bg)', border: '1px dashed #d0d0d0', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, color: '#666', cursor: 'pointer' }}
             >
               + משימה חדשה
             </button>

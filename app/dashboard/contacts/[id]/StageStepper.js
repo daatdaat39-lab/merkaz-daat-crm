@@ -56,7 +56,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
           <div style={{ height: '100%', width: `${progressPct}%`, background: '#0a0a0a', borderRadius: 999, transition: 'width 0.3s' }} />
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
+      <div dir="rtl" style={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%' }}>
         {stages.map((stage, i) => {
           const done = !isSideActive && i <= currentIndex;
           const isCurrent = !isSideActive && i === currentIndex;
@@ -71,7 +71,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
                 disabled={disabled}
                 title={label(stage)}
                 style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 0, maxWidth: 68,
                   background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: '0 2px',
                 }}
               >
@@ -80,8 +80,12 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
                   background: done ? '#0a0a0a' : '#fff',
                   border: done ? 'none' : '2px solid #d0d0d0',
                   boxShadow: isCurrent ? '0 0 0 3px rgba(10,10,10,0.15)' : 'none',
+                  flexShrink: 0,
                 }} />
-                <span style={{ fontSize: 9.5, color: isCurrent ? '#0a0a0a' : '#9b9b9b', fontWeight: isCurrent ? 600 : 400, whiteSpace: 'nowrap' }}>
+                <span style={{
+                  fontSize: 9.5, color: isCurrent ? '#0a0a0a' : '#9b9b9b', fontWeight: isCurrent ? 600 : 400,
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', textAlign: 'center',
+                }}>
                   {label(stage)}
                 </span>
               </button>
@@ -101,7 +105,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
                 disabled={disabled}
                 title={label(stage)}
                 style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 0, maxWidth: 84,
                   background: 'none', border: 'none', cursor: disabled ? 'default' : 'pointer', padding: '0 2px',
                 }}
               >
@@ -109,8 +113,12 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
                   width: isCurrent ? 14 : 10, height: isCurrent ? 14 : 10, borderRadius: '50%',
                   background: isCurrent ? c.color : '#fff',
                   border: isCurrent ? 'none' : '2px solid #f0c0ba',
+                  flexShrink: 0,
                 }} />
-                <span style={{ fontSize: 9.5, color: isCurrent ? c.color : '#c98a80', fontWeight: isCurrent ? 600 : 400, whiteSpace: 'nowrap' }}>
+                <span style={{
+                  fontSize: 9.5, color: isCurrent ? c.color : '#c98a80', fontWeight: isCurrent ? 600 : 400,
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', textAlign: 'center',
+                }}>
                   {stage !== 'closed' ? '⚠ ' : ''}{label(stage)}
                 </span>
               </button>
@@ -131,7 +139,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
           </select>
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={handleCloseConfirm} style={{ flex: 1, fontSize: 12, background: '#a3392f', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 0', cursor: 'pointer' }}>סגירה</button>
-            <button onClick={() => setPendingClose(false)} style={{ flex: 1, fontSize: 12, background: '#fff', border: '1px solid var(--border)', borderRadius: 4, padding: '5px 0', cursor: 'pointer' }}>ביטול</button>
+            <button onClick={() => setPendingClose(false)} style={{ flex: 1, fontSize: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '5px 0', cursor: 'pointer' }}>ביטול</button>
           </div>
         </div>
       )}

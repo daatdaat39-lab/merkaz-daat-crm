@@ -36,7 +36,7 @@ export default function ContactModalShell({ children }) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: '#fff', borderRadius: 10, width: 1000, maxWidth: '100%',
+          background: 'var(--bg)', borderRadius: 10, width: 1000, maxWidth: '100%',
           maxHeight: '90vh', overflowY: 'auto', position: 'relative',
         }}
       >
@@ -44,7 +44,7 @@ export default function ContactModalShell({ children }) {
           onClick={handleClose}
           style={{
             position: 'sticky', top: 12, insetInlineEnd: 12, float: 'inline-end',
-            background: '#fff', border: '1px solid #e5e5e5', borderRadius: '50%',
+            background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: '50%',
             width: 32, height: 32, cursor: 'pointer', fontSize: 16, lineHeight: 1, zIndex: 1,
           }}
           title="סגירה"

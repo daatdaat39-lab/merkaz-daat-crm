@@ -61,7 +61,7 @@ export default function TaskRow({ t, contacts, members = [], currentUserId }) {
 
   return (
     <div style={{
-      background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px',
+      background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px',
       borderColor: overdue ? 'var(--danger, #a3392f)' : '#e5e5e5',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

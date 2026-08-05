@@ -48,7 +48,7 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ background: '#fff', borderRadius: 10, width: 440, maxWidth: '92vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        style={{ background: 'var(--bg)', borderRadius: 10, width: 440, maxWidth: '92vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
       >
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -59,7 +59,7 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
             onClick={handleSendTemplate}
             disabled={isPending || templates.length === 0}
             title={templates.length === 0 ? 'אין עדיין תבנית מאושרת מוגדרת' : 'שולח הודעת תבנית רשמית (למקרה של פתיחת שיחה חדשה, או שחלון 24 השעות נסגר)'}
-            style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 10px', fontSize: 11.5, cursor: templates.length === 0 ? 'default' : 'pointer', color: '#333', opacity: templates.length === 0 ? 0.5 : 1 }}
+            style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 10px', fontSize: 11.5, cursor: templates.length === 0 ? 'default' : 'pointer', color: '#333', opacity: templates.length === 0 ? 0.5 : 1 }}
           >
             📨 שליחת תבנית רשמית
           </button>
@@ -73,7 +73,7 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
             <button onClick={handleSendTemplate} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
               שליחה
             </button>
-            <button onClick={() => setPickingTemplate(false)} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>
+            <button onClick={() => setPickingTemplate(false)} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}>
               ביטול
             </button>
           </div>

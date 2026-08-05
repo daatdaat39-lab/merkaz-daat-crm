@@ -139,7 +139,7 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
 }
 
 function navBtnStyle() {
-  return { width: 32, height: 32, borderRadius: 6, border: '1px solid #e5e5e5', background: '#fff', cursor: 'pointer', fontSize: 14 };
+  return { width: 32, height: 32, borderRadius: 6, border: '1px solid #e5e5e5', background: 'var(--bg)', cursor: 'pointer', fontSize: 14 };
 }
 
 function EventChip({ ev }) {
@@ -166,7 +166,7 @@ function MonthGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventClick })
   const currentMonth = anchor.getMonth();
 
   return (
-    <div style={{ border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
+    <div style={{ border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', background: 'var(--bg)' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg-secondary, #f5f5f5)' }}>
         {WEEKDAY_LABELS.map((d) => (
           <div key={d} style={{ padding: '8px 10px', fontSize: 11, fontWeight: 600, color: '#9b9b9b', textAlign: 'center' }}>{d}</div>
@@ -224,7 +224,7 @@ function WeekGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventClick }) 
         const events = eventsByDate.get(dateStr) || [];
         const isToday = dateStr === todayStr;
         return (
-          <div key={dateStr} style={{ border: '1px solid #e5e5e5', borderRadius: 8, background: '#fff', minHeight: 220, display: 'flex', flexDirection: 'column' }}>
+          <div key={dateStr} style={{ border: '1px solid #e5e5e5', borderRadius: 8, background: 'var(--bg)', minHeight: 220, display: 'flex', flexDirection: 'column' }}>
             <div
               onClick={() => onDayClick(dateStr)}
               style={{
@@ -260,7 +260,7 @@ function DayList({ anchor, eventsByDate, contacts, members, currentUserId, onAdd
     <div>
       <button
         onClick={onAdd}
-        style={{ marginBottom: 14, background: '#fff', border: '1px dashed #d0d0d0', borderRadius: 6, padding: '7px 14px', fontSize: 12.5, color: '#666', cursor: 'pointer' }}
+        style={{ marginBottom: 14, background: 'var(--bg)', border: '1px dashed #d0d0d0', borderRadius: 6, padding: '7px 14px', fontSize: 12.5, color: '#666', cursor: 'pointer' }}
       >
         + הוספת אירוע ליום זה
       </button>

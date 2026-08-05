@@ -74,7 +74,7 @@ export default function ContactSettingsMenu({ contact, activeDepartment }) {
     <div style={{ position: 'relative', display: 'inline-block' }}>
       <button
         onClick={() => setOpen((v) => !v)}
-        style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, width: 32, height: 32, cursor: 'pointer', fontSize: 14 }}
+        style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, width: 32, height: 32, cursor: 'pointer', fontSize: 14 }}
         title="הגדרות"
       >
         ⚙
@@ -83,7 +83,7 @@ export default function ContactSettingsMenu({ contact, activeDepartment }) {
       {open && (
         <div
           style={{
-            position: 'absolute', top: 38, insetInlineEnd: 0, background: '#fff', border: '1px solid #e5e5e5',
+            position: 'absolute', top: 38, insetInlineEnd: 0, background: 'var(--bg)', border: '1px solid #e5e5e5',
             borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', width: 260, zIndex: 50, padding: 10,
           }}
         >
@@ -170,7 +170,7 @@ function MergePanel({ contact, onBack, onDone }) {
         onClick={() => setPicking(null)}
         style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
-        <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 10, padding: 22, width: 480, maxWidth: '92vw' }}>
+        <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg)', borderRadius: 10, padding: 22, width: 480, maxWidth: '92vw' }}>
           <MergeFieldsPicker
             existing={contact}
             newValues={picking}
@@ -204,7 +204,7 @@ function MergePanel({ contact, onBack, onDone }) {
         {dropdownOpen && query.trim().length >= 2 && (
           <div style={{
             position: 'absolute', top: '100%', insetInlineStart: 0, insetInlineEnd: 0, marginTop: 4,
-            background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8,
+            background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8,
             boxShadow: '0 6px 20px rgba(0,0,0,0.12)', maxHeight: 200, overflowY: 'auto', zIndex: 60,
           }}>
             {results.length === 0 && (

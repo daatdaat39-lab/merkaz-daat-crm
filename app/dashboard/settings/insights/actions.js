@@ -28,10 +28,11 @@ export async function analyzeManagerInsights(workspaceId, workspaceName) {
   const pipeline = await getPipeline(supabase, workspaceName);
   const staleCutoff = new Date(Date.now() - STALE_DAYS * 86400000).toISOString();
 
-  const [{ data: staleRows }, { data: closeReasonRows }, { data: existingAutomations }] = await Promise.all([
+  const [{ data: staleRows }, { data: closeReasonRows }, { data: existingAutomations }, { data: unassignedRows }] = await Promise.all([
     supabase.from('contact_departments').select('stage').eq('workspace_id', workspaceId).lt('last_activity_at', staleCutoff),
     supabase.from('contact_departments').select('closed_reason').eq('workspace_id', workspaceId).eq('stage', 'closed').not('closed_reason', 'is', null),
     supabase.from('stage_automations').select('stage_key').eq('workspace_id', workspaceId),
+    supabase.from('contact_departments').select('stage').eq('workspace_id', workspaceId).is('agent_id', null),
   ]);
 
   const staleCountByStage = {};
@@ -55,7 +56,15 @@ export async function analyzeManagerInsights(workspaceId, workspaceName) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  const metrics = { workspaceName, staleByStage, topCloseReasons, stagesWithoutAutomation };
+  const unassignedCountByStage = {};
+  for (const r of unassignedRows || []) unassignedCountByStage[r.stage] = (unassignedCountByStage[r.stage] || 0) + 1;
+  const unassignedByStage = Object.entries(unassignedCountByStage)
+    .map(([stageKey, count]) => ({ stageKey, label: pipeline.labels[stageKey] || stageKey, count }))
+    .filter((s) => s.count >= 2)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  const metrics = { workspaceName, staleByStage, topCloseReasons, stagesWithoutAutomation, unassignedByStage };
 
   try {
     const suggestions = await suggestManagerInsights(metrics);
@@ -75,4 +84,21 @@ export async function applySuggestedAutomation(workspaceId, stageKey, title) {
     taskTitle: title || 'פולו-אפ מומלץ',
     taskDueOffsetDays: 1,
   });
+}
+
+// "החלה" להצעת "אנשי קשר ללא נציג" - ממופה תמיד לפעולה צרה ומוכרת
+// (הקצאת כל אנשי הקשר הלא-מוקצים בשלב הזה למנהל שביצע את הפעולה עצמו),
+// לא לטקסט חופשי או ליעד שה-AI בוחר
+export async function applyAssignUnassignedToSelf(workspaceId, stageKey) {
+  const ctx = await requireManager(workspaceId);
+  if (ctx.error) return ctx;
+  const { supabase } = ctx;
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { count, error } = await supabase.from('contact_departments')
+    .update({ agent_id: user.id })
+    .eq('workspace_id', workspaceId).eq('stage', stageKey).is('agent_id', null)
+    .select('id', { count: 'exact' });
+  if (error) return { error: error.message };
+  return { success: true, count: count || 0 };
 }

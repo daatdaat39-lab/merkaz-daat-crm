@@ -29,7 +29,7 @@ function WorkspaceFieldsSection({ workspace, hiddenKeys }) {
   }
 
   return (
-    <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '16px 18px' }}>
+    <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '16px 18px' }}>
       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>{workspace.name}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, opacity: isPending ? 0.7 : 1 }}>
         {fields.map((f) => (

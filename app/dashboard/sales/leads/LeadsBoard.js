@@ -147,7 +147,8 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         </div>
       )}
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--bg)', paddingTop: 8, paddingBottom: 4, marginBottom: 10, boxShadow: '0 4px 10px -6px rgba(0,0,0,0.12)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }}>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -198,8 +199,21 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       </div>
 
       {extraFields.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
-          <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>סינון לפי שדות {workspaceName}:</span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 14px' }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>סינון לפי שדות {workspaceName}</span>
+          {Object.entries(fieldFilters).some(([, v]) => v) && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {Object.entries(fieldFilters).filter(([, v]) => v).map(([key, v]) => {
+                const f = extraFields.find((ef) => ef.key === key);
+                return (
+                  <span key={key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 8px' }}>
+                    {f?.label || key}: {v}
+                    <button type="button" onClick={() => setFieldFilter(key, '')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, padding: 0 }}>✕</button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
           {extraFields.map((f) => (
             f.type === 'select' ? (
               <select key={f.key} value={fieldFilters[f.key] || ''} onChange={(e) => setFieldFilter(f.key, e.target.value)} style={inputStyle}>
@@ -218,6 +232,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
           ))}
         </div>
       )}
+      </div>
 
       {filtered.length !== tabLeads.length && (
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
@@ -329,7 +344,7 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
         {title} ({leads.length})
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
         <thead>
           <tr style={{ background: 'var(--bg-secondary)' }}>
             <th style={{ padding: '10px 8px', textAlign: 'center' }}>
@@ -372,7 +387,7 @@ function CampaignLeadGroup({ group }) {
       <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}>
         {group.campaignName} ({group.rows.length})
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
         <thead>
           <tr style={{ background: 'var(--bg-secondary)' }}>
             {['שם', 'סטטוס', 'טלפון', 'מייל'].map((h) => (

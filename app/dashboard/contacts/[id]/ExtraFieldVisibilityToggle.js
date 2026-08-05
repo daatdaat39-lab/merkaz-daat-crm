@@ -64,7 +64,7 @@ export default function ExtraFieldVisibilityToggle({ workspaceId, fields = [], h
         <>
           <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
           <div style={{
-            position: 'fixed', top: coords.top, left: coords.left, background: '#fff', border: '1px solid #e5e5e5',
+            position: 'fixed', top: coords.top, left: coords.left, background: 'var(--bg)', border: '1px solid #e5e5e5',
             borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', width: 230, maxHeight: '60vh', overflowY: 'auto',
             zIndex: 9999, padding: 10,
           }}>

@@ -59,17 +59,22 @@ export default function DonorStatsTile({ department, transactions = [], stageOrd
   return (
     <div style={{
       position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap',
-      background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10,
+      background: 'var(--green-bg)', border: '1px solid var(--green)', borderRadius: 10,
       padding: '14px 16px', marginBottom: 16,
     }}>
-      <div style={{ position: 'absolute', top: 8, insetInlineEnd: 10, color: '#15803d' }}>
+      <div style={{
+        position: 'absolute', top: 8, insetInlineEnd: 8, color: 'var(--green)',
+        background: 'var(--bg)', border: '1px solid var(--green)', borderRadius: '50%',
+        width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)', zIndex: 1,
+      }}>
         <ExtraFieldVisibilityToggle workspaceId={department.workspaceId} fields={department.fieldDefs} hiddenKeys={department.hiddenExtraFieldKeys} />
       </div>
       <Block label="נתוני תרומה">
         {hasDonatedBefore ? (
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#15803d' }}>✓ תרם בעבר</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>✓ תרם בעבר</span>
         ) : (
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#6b7280' }}>טרם תרם</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>טרם תרם</span>
         )}
         {elapsed && <div style={sub()}>{elapsed}</div>}
       </Block>
@@ -126,7 +131,7 @@ export default function DonorStatsTile({ department, transactions = [], stageOrd
                 <div style={{
                   ...sub(),
                   fontWeight: 600,
-                  color: nextChargeDays < 0 ? '#b23b2f' : nextChargeDays <= 3 ? '#c2760f' : '#166534',
+                  color: nextChargeDays < 0 ? 'var(--red)' : nextChargeDays <= 3 ? 'var(--amber)' : 'var(--green)',
                 }}>
                   {nextChargeDays < 0 ? `⚠ עבר לפני ${Math.abs(nextChargeDays)} ימים`
                     : nextChargeDays === 0 ? '🔔 היום'
@@ -152,15 +157,15 @@ export default function DonorStatsTile({ department, transactions = [], stageOrd
 
       {extra.donation_paused === 'כן' && (
         <Block label="סטטוס">
-          <span style={{ ...value(), color: '#a4691f' }}>⏸ מוקפא זמנית</span>
+          <span style={{ ...value(), color: 'var(--amber)' }}>⏸ מוקפא זמנית</span>
           {extra.paused_until && <div style={sub()}>עד {new Date(extra.paused_until).toLocaleDateString('he-IL')}</div>}
         </Block>
       )}
 
       <div style={{ marginInlineStart: 'auto', alignSelf: 'center', display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{
-          fontSize: 10.5, fontWeight: 600, color: '#9b9b9b', background: '#f0f0f0',
-          border: '1px solid #e0e0e0', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
+          fontSize: 10.5, fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-tertiary)',
+          border: '1px solid var(--border)', borderRadius: 999, padding: '2px 9px', whiteSpace: 'nowrap',
         }}>
           בקרוב · ממתין לחיבור קשר
         </span>
@@ -168,7 +173,7 @@ export default function DonorStatsTile({ department, transactions = [], stageOrd
           label="חידוש / הקמת תרומה"
           icon="💳"
           message="הקמת תרומה או חידוש הוראת קבע מתבצעים דרך מערכת קשר — החיבור החי עדיין לא מוגדר"
-          style={{ opacity: 0.55, borderStyle: 'dashed', color: '#9b9b9b' }}
+          style={{ opacity: 0.55, borderStyle: 'dashed', color: 'var(--text-muted)' }}
         />
       </div>
     </div>
@@ -178,16 +183,16 @@ export default function DonorStatsTile({ department, transactions = [], stageOrd
 function Block({ label, children }) {
   return (
     <div style={{ flexShrink: 0 }}>
-      <div style={{ fontSize: 10.5, fontWeight: 600, color: '#15803d', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--green)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
       {children}
     </div>
   );
 }
 
 function value() {
-  return { fontSize: 13, fontWeight: 700, color: '#15803d' };
+  return { fontSize: 13, fontWeight: 700, color: 'var(--green)' };
 }
 
 function sub() {
-  return { fontSize: 11, color: '#166534', marginTop: 2 };
+  return { fontSize: 11, color: 'var(--green)', marginTop: 2, opacity: 0.85 };
 }

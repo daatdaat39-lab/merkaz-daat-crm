@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { createStage, updateStage, setWonStage, reorderStages, deleteStage, upsertStageAutomation, deleteStageAutomation } from './actions';
+import { createStage, updateStage, setWonStage, reorderStages, deleteStage, reassignStageAndDelete, upsertStageAutomation, deleteStageAutomation } from './actions';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
 
@@ -48,6 +48,7 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
   const [stages, setStages] = useState(initialStages);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
+  const [reassignFor, setReassignFor] = useState(null); // { stage, contactCount }
   const router = useRouter();
 
   const [newStage, setNewStage] = useState({ stageKey: '', label: '', colorBg: '#f4f4f5', colorFg: '#52525b', isLeadStage: false, isSideStage: false });
@@ -120,8 +121,24 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
     if (!confirm(`למחוק את השלב "${stage.label}"?`)) return;
     startTransition(async () => {
       const res = await deleteStage(stage.id, workspaceId, stage.stage_key);
-      if (res?.error) { setError(res.error); return; }
+      if (res?.error) {
+        if (res.contactCount) { setReassignFor({ stage, contactCount: res.contactCount }); return; }
+        setError(res.error);
+        return;
+      }
       setStages((prev) => prev.filter((s) => s.id !== stage.id));
+      refresh();
+    });
+  }
+
+  function handleReassignAndDelete(toStageKey) {
+    const { stage } = reassignFor;
+    setError(null);
+    startTransition(async () => {
+      const res = await reassignStageAndDelete(stage.id, workspaceId, stage.stage_key, toStageKey);
+      if (res?.error) { setError(res.error); setReassignFor(null); return; }
+      setStages((prev) => prev.filter((s) => s.id !== stage.id));
+      setReassignFor(null);
       refresh();
     });
   }
@@ -140,7 +157,7 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {error && <div style={{ color: '#b23b2f', fontSize: 12.5, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6, padding: '8px 12px' }}>{error}</div>}
 
-      <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border, #e5e5e5)', background: '#f9f9f9', fontSize: 12.5, fontWeight: 600 }}>
           רצף השלבים הראשי
         </div>
@@ -171,7 +188,7 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
         {mainStages.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b' }}>אין שלבים ברצף הראשי</div>}
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
         <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border, #e5e5e5)', background: '#f9f9f9', fontSize: 12.5, fontWeight: 600 }}>
           שלבי-צד (מחוץ לרצף, כמו "סגור" / "תקלה בחיוב")
         </div>
@@ -192,7 +209,7 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
         {sideStages.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b' }}>אין שלבי-צד</div>}
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px 16px' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px 16px' }}>
         <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>הוספת שלב חדש</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           <input placeholder="מפתח טכני (אנגלית, לא ניתן לשינוי אחר כך)" value={newStage.stageKey}
@@ -212,6 +229,47 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
           <button type="button" onClick={handleCreate} disabled={isPending || !newStage.stageKey.trim() || !newStage.label.trim()}
             style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
             הוספה
+          </button>
+        </div>
+      </div>
+
+      {reassignFor && (
+        <ReassignStageDialog
+          stage={reassignFor.stage}
+          contactCount={reassignFor.contactCount}
+          otherStages={stages.filter((s) => s.id !== reassignFor.stage.id)}
+          isPending={isPending}
+          onConfirm={handleReassignAndDelete}
+          onCancel={() => setReassignFor(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// דיאלוג מחיקת שלב "חכמה" - מוצג כשיש אנשי קשר בשלב הנמחק; מאפשר לבחור
+// שלב יעד ומעביר את כולם אליו לפני המחיקה (ר' reassignStageAndDelete)
+function ReassignStageDialog({ stage, contactCount, otherStages, isPending, onConfirm, onCancel }) {
+  const [target, setTarget] = useState('');
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={onCancel}>
+      <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 20, width: 340, boxShadow: 'var(--shadow-md, 0 8px 24px rgba(0,0,0,0.2))' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>מחיקת שלב "{stage.label}"</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginBottom: 14 }}>
+          {contactCount} אנשי קשר נמצאים כרגע בשלב הזה. בחרו שלב יעד להעברתם לפני המחיקה:
+        </div>
+        <select value={target} onChange={(e) => setTarget(e.target.value)} style={{ ...inputStyle, width: '100%', marginBottom: 14 }}>
+          <option value="">בחר שלב יעד...</option>
+          {otherStages.map((s) => <option key={s.id} value={s.stage_key}>{s.label}{s.is_side_stage ? ' (שלב-צד)' : ''}</option>)}
+        </select>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" onClick={() => onConfirm(target)} disabled={isPending || !target}
+            style={{ flex: 1, background: '#b23b2f', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 0', fontSize: 12.5, cursor: target ? 'pointer' : 'default', opacity: target ? 1 : 0.5 }}>
+            העברה ומחיקה
+          </button>
+          <button type="button" onClick={onCancel} disabled={isPending}
+            style={{ flex: 1, background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '8px 0', fontSize: 12.5, cursor: 'pointer' }}>
+            ביטול
           </button>
         </div>
       </div>

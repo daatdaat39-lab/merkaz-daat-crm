@@ -47,7 +47,7 @@ export default async function CampaignsPage() {
         <NewCampaignForm workspaceId={workspaceId} />
       </div>
 
-      <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
         {(campaigns || []).length === 0 && (
           <div style={{ padding: '16px 18px', fontSize: 13, color: '#9b9b9b' }}>עדיין לא נוצרו קמפיינים</div>
         )}

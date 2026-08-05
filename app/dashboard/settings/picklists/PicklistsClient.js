@@ -56,7 +56,7 @@ function PicklistSection({ title, subtitle, listKey, workspaceId, initialValues 
   }
 
   return (
-    <div style={{ background: '#fff', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '16px 18px' }}>
+    <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '16px 18px' }}>
       <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
       <div style={{ fontSize: 11.5, color: 'var(--text-secondary, #9b9b9b)', marginBottom: 12 }}>{subtitle}</div>
 

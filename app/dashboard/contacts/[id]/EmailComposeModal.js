@@ -43,7 +43,7 @@ export default function EmailComposeModal({ contactId, workspaceId, fromAddress,
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ background: '#fff', borderRadius: 10, padding: 20, width: 440, maxWidth: '92vw', display: 'flex', flexDirection: 'column', gap: 10 }}
+        style={{ background: 'var(--bg)', borderRadius: 10, padding: 20, width: 440, maxWidth: '92vw', display: 'flex', flexDirection: 'column', gap: 10 }}
       >
         <div style={{ fontSize: 15, fontWeight: 600 }}>שליחת מייל</div>
         <div style={{ fontSize: 12, color: '#9b9b9b' }}>מאת {fromAddress} · אל {toAddress}</div>
@@ -76,7 +76,7 @@ export default function EmailComposeModal({ contactId, workspaceId, fromAddress,
         />
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 6 }}>
-          <button onClick={onClose} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' }}>
             ביטול
           </button>
           <button

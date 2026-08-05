@@ -31,7 +31,7 @@ export default function WhatsAppTemplatesPanel({ templates }) {
   }
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20 }}>
+    <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginBottom: 20 }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: 14, fontWeight: 600 }}>תבניות WhatsApp מאושרות</div>
         <button onClick={() => setAdding((v) => !v)} style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 12px', fontSize: 12.5, cursor: 'pointer' }}>

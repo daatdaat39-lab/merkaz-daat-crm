@@ -55,7 +55,7 @@ export default function ShareContactButton({ contactId, departments = [], agents
         title="שיתוף איש הקשר עם נציג אחר"
         style={{
           width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, cursor: 'pointer', fontSize: 14, flexShrink: 0,
+          background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, cursor: 'pointer', fontSize: 14, flexShrink: 0,
         }}
       >
         🔗
@@ -64,7 +64,7 @@ export default function ShareContactButton({ contactId, departments = [], agents
       {open && (
         <div
           style={{
-            position: 'absolute', top: 38, insetInlineEnd: 0, background: '#fff', border: '1px solid #e5e5e5',
+            position: 'absolute', top: 38, insetInlineEnd: 0, background: 'var(--bg)', border: '1px solid #e5e5e5',
             borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', width: 280, zIndex: 50, padding: 12,
           }}
         >
@@ -106,7 +106,7 @@ export default function ShareContactButton({ contactId, departments = [], agents
                     <button
                       type="button"
                       onClick={() => { setOpen(false); reset(); }}
-                      style={{ flex: 1, background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 0', fontSize: 12, cursor: 'pointer' }}
+                      style={{ flex: 1, background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 0', fontSize: 12, cursor: 'pointer' }}
                     >
                       ביטול
                     </button>

@@ -32,7 +32,7 @@ export default function ReferrerPicker({ contactId, department, frozen }) {
   }
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12.5 }}>
+    <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px', marginBottom: 12, fontSize: 12.5 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase' }}>🔗 מתווך / גורם מקשר</span>
         {!frozen && (

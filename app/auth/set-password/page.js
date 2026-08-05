@@ -37,7 +37,7 @@ export default function SetPasswordPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
       <form onSubmit={handleSubmit} style={{
-        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 12,
+        background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 12,
         padding: 32, width: 340, boxShadow: '0 6px 18px rgba(0,0,0,.08)',
       }}>
         <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', textAlign: 'center', marginTop: 0, fontSize: 20 }}>

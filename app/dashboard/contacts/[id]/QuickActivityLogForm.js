@@ -31,7 +31,7 @@ export default function QuickActivityLogForm({ contactId, department, stages, la
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} style={{
-        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 14px',
+        background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 14px',
         fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 16,
       }}>
         📝 סיכום שיחה מהיר
@@ -61,7 +61,7 @@ export default function QuickActivityLogForm({ contactId, department, stages, la
         <button type="button" onClick={handleSave} disabled={isPending || !note.trim()} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
           {isPending ? 'שומר...' : 'שמירה'}
         </button>
-        <button type="button" onClick={() => { setOpen(false); setNote(''); setError(null); }} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
+        <button type="button" onClick={() => { setOpen(false); setNote(''); setError(null); }} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
           ביטול
         </button>
       </div>

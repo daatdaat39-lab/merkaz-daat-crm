@@ -36,16 +36,18 @@ export default function ConcurrentInquiryToast({ workspaceId, userId }) {
         async (payload) => {
           const dept = departmentAgentById[payload.new.contact_department_id];
           if (!dept) return; // לא מהמחלקה הנוכחית, או שיוך חדש שעדיין לא נטען
-          if (!dept.agent_id || dept.agent_id === userId) return; // לא מטופל, או מטופל ע"י המשתמש הנוכחי עצמו
+          if (!dept.agent_id) return; // עדיין לא מטופל ע"י אף אחד
 
+          const isSelf = dept.agent_id === userId;
           const { data: contact } = await supabase.from('contacts').select('first, last').eq('id', dept.contact_id).single();
-          const { data: agentProfile } = await supabase.from('profiles').select('name').eq('id', dept.agent_id).single();
+          const agentName = isSelf ? null : (await supabase.from('profiles').select('name').eq('id', dept.agent_id).single()).data?.name;
           setToast({
             contactId: dept.contact_id,
             name: contact ? `${contact.first} ${contact.last || ''}`.trim() : 'איש קשר',
-            agentName: agentProfile?.name || 'נציג אחר',
+            agentName: agentName || 'נציג אחר',
+            isSelf,
           });
-          setTimeout(() => setToast(null), 12000);
+          setTimeout(() => setToast(null), isSelf ? 8000 : 12000);
         }
       )
       .subscribe();
@@ -62,15 +64,17 @@ export default function ConcurrentInquiryToast({ workspaceId, userId }) {
       onClick={() => { router.push(`/dashboard/contacts/${toast.contactId}`); setToast(null); }}
       style={{
         position: 'fixed', bottom: 110, insetInlineStart: 28, zIndex: 500,
-        background: '#7c2d12', color: '#fff', border: '2px solid #c2410c', borderRadius: 14,
+        background: toast.isSelf ? '#78350f' : '#7c2d12', color: '#fff', border: `2px solid ${toast.isSelf ? '#d97706' : '#c2410c'}`, borderRadius: 14,
         padding: '16px 22px', fontSize: 13, cursor: 'pointer', textAlign: 'right',
-        boxShadow: '0 12px 40px rgba(124,45,18,0.4)', display: 'flex', alignItems: 'center', gap: 12, minWidth: 280,
+        boxShadow: `0 12px 40px rgba(${toast.isSelf ? '120,53,15' : '124,45,18'},0.4)`, display: 'flex', alignItems: 'center', gap: 12, minWidth: 280,
       }}
     >
-      <span style={{ fontSize: 26 }}>⚠</span>
+      <span style={{ fontSize: 26 }}>{toast.isSelf ? '↺' : '⚠'}</span>
       <span>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>פנייה חדשה מאיש קשר בטיפול</div>
-        <div style={{ fontSize: 12.5, color: '#fed7aa', marginTop: 3 }}>{toast.name} · כבר מטופל ע"י {toast.agentName}</div>
+        <div style={{ fontWeight: 700, fontSize: 14 }}>{toast.isSelf ? 'פנייה חוזרת מאיש קשר שלך' : 'פנייה חדשה מאיש קשר בטיפול'}</div>
+        <div style={{ fontSize: 12.5, color: '#fed7aa', marginTop: 3 }}>
+          {toast.isSelf ? `${toast.name} · כבר בטיפולך` : `${toast.name} · כבר מטופל ע"י ${toast.agentName}`}
+        </div>
       </span>
     </button>
   );

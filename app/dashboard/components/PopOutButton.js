@@ -17,7 +17,7 @@ export default function PopOutButton({ windowId, kind, title, windowProps = {}, 
       type="button"
       onClick={handleClick}
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6, background: '#fff', border: '1px solid #e5e5e5',
+        display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--bg)', border: '1px solid #e5e5e5',
         borderRadius: 6, padding: '6px 12px', fontSize: 12, color: '#666', cursor: 'pointer', whiteSpace: 'nowrap',
       }}
     >

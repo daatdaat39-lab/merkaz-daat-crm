@@ -135,7 +135,7 @@ export default async function UsersManagementPage() {
       {isOwnerAnywhere ? (
         <AllUsersTable workspaces={allWorkspaces} users={allUsers} currentUserId={user.id} />
       ) : canManage ? (
-        <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 14, fontWeight: 600 }}>
             חברי הצוות ({members?.length || 0})
           </div>

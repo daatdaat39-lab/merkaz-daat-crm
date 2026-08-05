@@ -129,6 +129,6 @@ function FloatingWindowFrame({ win, onClose, onMinimize, onToggleMaximize, onFoc
 function frameBtnStyle() {
   return {
     width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    background: '#fff', border: '1px solid #e5e5e5', borderRadius: 5, cursor: 'pointer', fontSize: 12, lineHeight: 1,
+    background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 5, cursor: 'pointer', fontSize: 12, lineHeight: 1,
   };
 }

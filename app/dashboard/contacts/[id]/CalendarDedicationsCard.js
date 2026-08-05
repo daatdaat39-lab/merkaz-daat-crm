@@ -9,7 +9,7 @@ export default function CalendarDedicationsCard({ dedications = [], dedicationCa
   if (!dedicationCampaignId) return null;
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
+    <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px', marginTop: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase' }}>
           📅 לוח שנה והקדשות

@@ -30,7 +30,7 @@ export default function InviteForm() {
   return (
     <div style={{ marginBottom: 24 }}>
       <form onSubmit={handleSubmit} style={{
-        display: 'flex', gap: 8, background: '#fff', border: '1px solid var(--border)',
+        display: 'flex', gap: 8, background: 'var(--bg)', border: '1px solid var(--border)',
         borderRadius: 8, padding: 14, flexWrap: 'wrap',
       }}>
         <input
@@ -76,7 +76,7 @@ export default function InviteForm() {
           <div style={{ fontWeight: 600, marginBottom: 8 }}>
             ✅ המשתמש נוצר! שלח לו את הפרטים האלה (וואטסאפ/מייל/בעל פה):
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontFamily: 'monospace', fontSize: 13, background: '#fff', padding: 10, borderRadius: 6, marginBottom: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontFamily: 'monospace', fontSize: 13, background: 'var(--bg)', padding: 10, borderRadius: 6, marginBottom: 8 }}>
             <div>אימייל: {result.email}</div>
             <div>סיסמה זמנית: <b>{result.password}</b></div>
           </div>

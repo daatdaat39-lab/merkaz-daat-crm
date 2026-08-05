@@ -60,7 +60,7 @@ export default function ApprovalRow({ r, nameById, mode, respondAction, resendAc
   }
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
+    <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 500 }}>{subjectLabel(r)}</div>
@@ -92,13 +92,13 @@ export default function ApprovalRow({ r, nameById, mode, respondAction, resendAc
               />
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={handleNeedsInfo} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>שליחה</button>
-                <button onClick={() => setResponding(false)} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>ביטול</button>
+                <button onClick={() => setResponding(false)} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>ביטול</button>
               </div>
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 6 }}>
               <button onClick={handleApprove} disabled={isPending} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>✓ אישור</button>
-              <button onClick={() => setResponding(true)} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>צריך פרטים נוספים</button>
+              <button onClick={() => setResponding(true)} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>צריך פרטים נוספים</button>
             </div>
           )}
         </div>
@@ -116,11 +116,11 @@ export default function ApprovalRow({ r, nameById, mode, respondAction, resendAc
               />
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={handleResend} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>שליחה מחדש</button>
-                <button onClick={() => setResending(false)} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>ביטול</button>
+                <button onClick={() => setResending(false)} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>ביטול</button>
               </div>
             </div>
           ) : (
-            <button onClick={() => setResending(true)} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
+            <button onClick={() => setResending(true)} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
               עדכון ושליחה מחדש
             </button>
           )}

@@ -52,7 +52,7 @@ export default function AvatarUpload({ contact }) {
         title="העלאת תמונה"
         style={{
           position: 'absolute', bottom: -2, insetInlineEnd: -2, width: 18, height: 18, borderRadius: '50%',
-          background: '#fff', border: '1px solid #e5e5e5', fontSize: 9, cursor: contact.frozen ? 'default' : 'pointer',
+          background: 'var(--bg)', border: '1px solid #e5e5e5', fontSize: 9, cursor: contact.frozen ? 'default' : 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isPending ? 0.6 : 1,
         }}
       >
@@ -60,7 +60,7 @@ export default function AvatarUpload({ contact }) {
       </button>
       <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
       {error && (
-        <div style={{ position: 'absolute', top: 48, right: 0, background: '#fff', border: '1px solid #f0d0cc', color: '#b23b2f', borderRadius: 6, padding: '4px 8px', fontSize: 11, whiteSpace: 'nowrap', zIndex: 10 }}>
+        <div style={{ position: 'absolute', top: 48, right: 0, background: 'var(--bg)', border: '1px solid #f0d0cc', color: '#b23b2f', borderRadius: 6, padding: '4px 8px', fontSize: 11, whiteSpace: 'nowrap', zIndex: 10 }}>
           {error}
         </div>
       )}

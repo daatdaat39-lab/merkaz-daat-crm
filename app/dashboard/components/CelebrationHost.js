@@ -24,7 +24,7 @@ export default function CelebrationHost() {
     <div
       style={{
         position: 'fixed', top: 28, left: '50%', transform: 'translateX(-50%)', zIndex: 2000,
-        background: '#fff', color: '#0a0a0a', borderRadius: 16, padding: '18px 34px',
+        background: 'var(--bg)', color: '#0a0a0a', borderRadius: 16, padding: '18px 34px',
         fontSize: 18, fontWeight: 700, boxShadow: '0 16px 44px rgba(0,0,0,0.18)',
         border: '1px solid #eee', animation: 'crmCelebrateIn 0.28s ease-out', whiteSpace: 'nowrap',
       }}

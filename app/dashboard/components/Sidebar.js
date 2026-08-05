@@ -146,7 +146,7 @@ export default function Sidebar({
               top: '100%',
               right: 8,
               left: 8,
-              background: '#fff',
+              background: 'var(--bg)',
               border: '1px solid #e5e5e5',
               borderRadius: 8,
               boxShadow: '0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05)',

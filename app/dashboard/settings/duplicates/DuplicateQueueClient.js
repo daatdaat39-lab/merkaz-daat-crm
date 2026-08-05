@@ -28,7 +28,7 @@ function Row({ label, value }) {
 
 function ContactSummary({ contact, roleLabel }) {
   return (
-    <div style={{ flex: '1 1 260px', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: '14px 16px' }}>
+    <div style={{ flex: '1 1 260px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '14px 16px' }}>
       <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 6 }}>{roleLabel}</div>
       <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{contact.first} {contact.last}</div>
       {contact.frozen && <div style={{ fontSize: 11, color: '#1d4ed8', marginBottom: 6 }}>❄ מוקפא</div>}
@@ -135,7 +135,7 @@ export default function DuplicateQueueClient({ initialCandidates }) {
           onClick={() => setMerging(false)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
         >
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 10, padding: 22, width: 480, maxWidth: '92vw' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg)', borderRadius: 10, padding: 22, width: 480, maxWidth: '92vw' }}>
             <MergeFieldsPicker existing={existing} newValues={dup} onConfirm={handleMergeConfirm} onCancel={() => setMerging(false)} />
           </div>
         </div>
@@ -148,7 +148,7 @@ function navBtn() {
   return {
     display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px',
     borderRadius: 6, fontSize: 12.5, fontWeight: 500, cursor: 'pointer',
-    background: '#fff', color: 'var(--text-secondary)', border: '1px solid var(--border)',
+    background: 'var(--bg)', color: 'var(--text-secondary)', border: '1px solid var(--border)',
   };
 }
 
@@ -162,6 +162,6 @@ function primaryBtn() {
 function ghostBtn() {
   return {
     padding: '8px 16px', borderRadius: 6, fontSize: 13.5, fontWeight: 500, cursor: 'pointer',
-    background: '#fff', color: 'var(--text-secondary)', border: '1px solid var(--border)',
+    background: 'var(--bg)', color: 'var(--text-secondary)', border: '1px solid var(--border)',
   };
 }

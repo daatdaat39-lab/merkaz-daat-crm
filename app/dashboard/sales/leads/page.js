@@ -181,7 +181,7 @@ export default async function SalesLeadsPage() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {isManager && (
             <Link href="/dashboard/sales/campaigns" style={{
-              background: '#fff', color: '#0a0a0a', border: '1px solid var(--border, #e5e5e5)', textDecoration: 'none',
+              background: 'var(--bg)', color: '#0a0a0a', border: '1px solid var(--border, #e5e5e5)', textDecoration: 'none',
               fontSize: 13, padding: '7px 14px', borderRadius: 6,
             }}>
               🎯 קמפיינים
@@ -215,7 +215,7 @@ export default async function SalesLeadsPage() {
               <Link
                 key={a.contactId}
                 href={`/dashboard/contacts/${a.contactId}`}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', fontSize: 12.5, textDecoration: 'none', color: 'inherit' }}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg)', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', fontSize: 12.5, textDecoration: 'none', color: 'inherit' }}
               >
                 <span><b>{a.name}</b> · {pipeline.labels[a.stage] || a.stage}{a.reason ? ` · ${a.reason}` : ''}</span>
                 <span style={{ color: '#9b9b9b', fontSize: 11 }}>{new Date(a.createdAt).toLocaleDateString('he-IL')}</span>

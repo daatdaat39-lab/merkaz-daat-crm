@@ -60,7 +60,7 @@ export default async function TasksPage() {
       <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>משימות</h1>
 
       <form action={addTask} style={{
-        display: 'flex', gap: 8, marginBottom: 24, background: '#fff', border: '1px solid #e5e5e5',
+        display: 'flex', gap: 8, marginBottom: 24, background: 'var(--bg)', border: '1px solid #e5e5e5',
         borderRadius: 8, padding: 14, flexWrap: 'wrap',
       }}>
         <input name="title" placeholder="משימה חדשה..." required style={{

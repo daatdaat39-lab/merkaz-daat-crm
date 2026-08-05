@@ -79,7 +79,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
 
   return (
     <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}

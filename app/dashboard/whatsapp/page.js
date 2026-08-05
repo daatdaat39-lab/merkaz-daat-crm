@@ -42,7 +42,7 @@ export default async function WhatsappPage() {
             href={r.contact_id ? `/dashboard/contacts/${r.contact_id}` : '#'}
             style={{
               display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit',
-              background: '#fff', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px',
+              background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px',
             }}
           >
             <span style={{

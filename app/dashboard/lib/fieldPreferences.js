@@ -53,3 +53,14 @@ export async function toggleWidgetVisibility(workspaceId, widgetKey) {
   if (error) return { error: error.message };
   return { success: true, hidden: hidden[workspaceId] };
 }
+
+// ערכת נושא (בהיר/כהה/לפי מערכת) - אותו דפוס בדיוק, נקרא ב-app/layout.js
+// (root, מחוץ ל-dashboard) כדי לקבוע data-theme על ה-<html> לפני הרינדור
+export async function setThemePreference(theme) {
+  const { supabase, user } = await requireUser();
+  if (!['light', 'dark', 'system'].includes(theme)) return { error: 'ערך לא תקין' };
+
+  const { error } = await supabase.from('profiles').update({ theme_preference: theme }).eq('id', user.id);
+  if (error) return { error: error.message };
+  return { success: true };
+}

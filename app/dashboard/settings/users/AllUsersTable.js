@@ -6,7 +6,7 @@ import { setMembership, resetMemberPassword, setMemberPassword, changeMemberEmai
 
 export default function AllUsersTable({ workspaces, users, currentUserId }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+    <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
       <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 14, fontWeight: 600 }}>
         כל המשתמשים וכל המחלקות ({users.length})
       </div>
@@ -211,7 +211,7 @@ function UserRow({ user: u, workspaces, currentUserId }) {
                     onClick={handleReset}
                     disabled={isPending}
                     style={{
-                      background: '#fff', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6,
+                      background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6,
                       padding: '7px 14px', fontSize: 12.5, cursor: 'pointer',
                     }}
                   >

@@ -201,7 +201,7 @@ export default function MemberRow({ userId, name, role, workspaceId, email, allM
                 onClick={handleReset}
                 disabled={isPending}
                 style={{
-                  background: '#fff', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6,
+                  background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6,
                   padding: '7px 14px', fontSize: 12.5, cursor: 'pointer',
                 }}
               >

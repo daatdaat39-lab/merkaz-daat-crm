@@ -130,7 +130,7 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
         <button onClick={handleConfirm} style={{ flex: 1, background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}>
           מיזוג
         </button>
-        <button onClick={onCancel} style={{ background: '#fff', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}>
+        <button onClick={onCancel} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}>
           חזרה
         </button>
       </div>

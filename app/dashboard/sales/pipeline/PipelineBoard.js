@@ -101,7 +101,7 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
                       draggable
                       onDragStart={(e) => e.dataTransfer.setData('text/department-row-id', c.departmentRowId)}
                       style={{
-                        background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px',
+                        background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px',
                         marginBottom: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: 'grab',
                         opacity: isPending ? 0.7 : 1,
                       }}
@@ -155,7 +155,7 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
                 </div>
                 <div style={{ padding: 8, minHeight: 120 }}>
                   {stageContacts.map((contact) => (
-                    <div key={contact.departmentRowId} style={{ background: '#fff', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px', marginBottom: 8, opacity: 0.8 }}>
+                    <div key={contact.departmentRowId} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px', marginBottom: 8, opacity: 0.8 }}>
                       <Link href={`/dashboard/contacts/${contact.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                         <div style={{ fontSize: 13, fontWeight: 500 }}>{contact.first} {contact.last}</div>
                       </Link>
@@ -168,7 +168,7 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
           })}
         </div>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: '#fff', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
           <thead>
             <tr style={{ background: '#f9f9f9' }}>
               {['שם', 'שלב', 'מקור', 'נוצר', ''].map((h) => (
@@ -228,7 +228,7 @@ function CloseReasonPicker({ reasons = CLOSE_REASONS, onConfirm, onCancel }) {
       </select>
       <div style={{ display: 'flex', gap: 6 }}>
         <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, background: '#a3392f', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>אישור</button>
-        <button onClick={onCancel} style={{ flex: 1, fontSize: 11, background: '#fff', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>ביטול</button>
+        <button onClick={onCancel} style={{ flex: 1, fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>ביטול</button>
       </div>
     </div>
   );

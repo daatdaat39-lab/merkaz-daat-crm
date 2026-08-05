@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { analyzeManagerInsights, applySuggestedAutomation } from './actions';
+import { analyzeManagerInsights, applySuggestedAutomation, applyAssignUnassignedToSelf } from './actions';
 import { card, iconBlock } from '../../components/designTokens';
 
 export default function InsightsClient({ workspaceId, workspaceName }) {
@@ -23,6 +23,15 @@ export default function InsightsClient({ workspaceId, workspaceName }) {
     setError(null);
     startTransition(async () => {
       const res = await applySuggestedAutomation(workspaceId, suggestion.actionStageKey, suggestion.title);
+      if (res?.error) { setError(res.error); return; }
+      setApplied((prev) => new Set(prev).add(idx));
+    });
+  }
+
+  function handleApplyUnassigned(suggestion, idx) {
+    setError(null);
+    startTransition(async () => {
+      const res = await applyAssignUnassignedToSelf(workspaceId, suggestion.actionUnassignedStageKey);
       if (res?.error) { setError(res.error); return; }
       setApplied((prev) => new Set(prev).add(idx));
     });
@@ -60,6 +69,19 @@ export default function InsightsClient({ workspaceId, workspaceName }) {
                 }}
               >
                 {applied.has(idx) ? '✓ הוחל - הוספה כתזכורת פולו-אפ אוטומטית' : 'החל על כל הנציגים'}
+              </button>
+            )}
+            {s.actionUnassignedStageKey && (
+              <button
+                onClick={() => handleApplyUnassigned(s, idx)}
+                disabled={isPending || applied.has(idx)}
+                style={{
+                  marginTop: 10, background: applied.has(idx) ? '#f0fdf4' : 'var(--text)', color: applied.has(idx) ? '#16a34a' : '#fff',
+                  border: applied.has(idx) ? '1px solid #bbf7d0' : 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5,
+                  cursor: applied.has(idx) ? 'default' : 'pointer',
+                }}
+              >
+                {applied.has(idx) ? '✓ הוחל - הוקצו אליי' : 'הקצה אליי את הלא-מוקצים'}
               </button>
             )}
           </div>
