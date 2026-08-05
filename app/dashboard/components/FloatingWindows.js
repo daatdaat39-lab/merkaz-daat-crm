@@ -18,7 +18,10 @@ export function useFloatingWindows() {
 // יחד" (כל אחד עם id שונה) בלי לאפשר אותו איש קשר פעמיים בטעות.
 export function FloatingWindowsProvider({ children }) {
   const [windows, setWindows] = useState([]);
-  const zCounter = useRef(1000);
+  // מתחיל מעל ה-z-index הקבוע (2000) של ContactModalShell - חלון צף
+  // יכול להיפתח מתוך המודל עצמו (למשל היומן מכפתור "קביעת פגישה"), ואז
+  // הוא צריך לשבת מעליו, לא מתחתיו.
+  const zCounter = useRef(2001);
 
   const openWindow = useCallback((win) => {
     setWindows((prev) => {

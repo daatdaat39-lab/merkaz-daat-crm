@@ -25,9 +25,9 @@ export default function ContactModalShell({ children }) {
   return (
     <div
       style={{
-        // z-index גבוה בכוונה, מעל כל חלון צף (ר' FloatingWindowsHost.js) -
-        // רק מודל אחד יכול להיות פתוח בו-זמנית (ניתוב של Next), אז זה בטוח
-        // שהוא תמיד יישאר נגיש ולא ייחסם ע"י חלון צף שכבר תופס את אותו אזור.
+        // z-index קבוע - חלונות צפים (FloatingWindowsHost.js) מתחילים את
+        // ה-z-counter שלהם מעל הערך הזה בכוונה, כדי שחלון שנפתח מתוך המודל
+        // עצמו (למשל היומן מכפתור "קביעת פגישה") יופיע מעליו, לא מתחתיו.
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 2000,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
       }}
