@@ -4,7 +4,8 @@ import { redirect, notFound } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../../lib/contactGuards';
 import { getPicklistValues } from '../../../lib/picklists';
 import { getCampaignStages } from '../../../lib/campaignStages';
-import { getExtraFields } from '../../../lib/extraFields';
+import { getExtraFields, getAllExtraFields } from '../../../lib/extraFields';
+import { getAllPipelines } from '../../../lib/pipelines';
 import CampaignDetailClient from './CampaignDetailClient';
 
 // ניהול קמפיין בודד: הוספת אנשי קשר, סיווג לקטגוריה (חם/קר/תורם גדול),
@@ -54,6 +55,10 @@ export default async function CampaignDetailPage({ params }) {
   ]);
   const categories = categoryRows.map((r) => r.value);
   const extraFields = await getExtraFields(supabase, campaign.workspaces?.name);
+  const [extraFieldsByWorkspace, { byWorkspace: pipelinesByWorkspace }] = await Promise.all([
+    getAllExtraFields(supabase),
+    getAllPipelines(supabase),
+  ]);
   const admin = createAdminClient();
   const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
   const emailById = Object.fromEntries((usersList?.users || []).map((u) => [u.id, u.email]));
@@ -82,6 +87,9 @@ export default async function CampaignDetailPage({ params }) {
       tags: c.tags || [],
       departments: (c.contact_departments || []).map((d) => d.workspaces?.name).filter(Boolean),
       extraFields: (c.contact_departments || []).find((d) => d.workspace_id === campaign.workspace_id)?.extra_fields || {},
+      departmentDetails: (c.contact_departments || []).map((d) => ({
+        name: d.workspaces?.name, stage: d.stage, extraFields: d.extra_fields || {},
+      })),
     }));
 
   return (
@@ -112,6 +120,8 @@ export default async function CampaignDetailPage({ params }) {
         workspaceId={campaign.workspace_id}
         isDonationsWorkspace={campaign.workspaces?.name === 'תרומות'}
         extraFields={extraFields}
+        extraFieldsByWorkspace={extraFieldsByWorkspace}
+        pipelinesByWorkspace={pipelinesByWorkspace}
         initialRows={rows}
         availableContacts={availableContacts}
         agents={agents}

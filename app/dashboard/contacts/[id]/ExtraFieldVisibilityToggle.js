@@ -55,9 +55,9 @@ export default function ExtraFieldVisibilityToggle({ workspaceId, fields = [], h
         type="button"
         onClick={() => setOpen((v) => !v)}
         title="התאמת שדות מוצגים (אישי, רק אצלך)"
-        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: '0 2px', color: 'inherit', opacity: 0.65 }}
+        style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: 6, cursor: 'pointer', fontSize: 12, padding: '3px 8px', color: '#6b6b6b' }}
       >
-        ⚙
+        ⚙ שדות
       </button>
 
       {open && coords && createPortal(

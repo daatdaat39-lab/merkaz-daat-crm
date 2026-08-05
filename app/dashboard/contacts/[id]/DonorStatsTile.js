@@ -5,7 +5,6 @@
 // (donation_transactions) ומשדות המחלקה, ובעתיד יתעדכנו אוטומטית ממערכת
 // "קשר" החיה. עריכה ידנית כאן הוסרה בכוונה כדי שלא תתנגש עם מקור האמת.
 import NotConnectedButton from '../../components/NotConnectedButton';
-import ExtraFieldVisibilityToggle from './ExtraFieldVisibilityToggle';
 
 // "כמה זמן עבר" מתאריך נתון - ימים/חודשים/שנים, בעברית
 function elapsedSince(dateStr) {
@@ -58,18 +57,10 @@ export default function DonorStatsTile({ department, transactions = [], stageOrd
 
   return (
     <div style={{
-      position: 'relative', display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap',
+      display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap',
       background: 'var(--green-bg)', border: '1px solid var(--green)', borderRadius: 10,
       padding: '14px 16px', marginBottom: 16,
     }}>
-      <div style={{
-        position: 'absolute', top: 8, insetInlineEnd: 8, color: 'var(--green)',
-        background: 'var(--bg)', border: '1px solid var(--green)', borderRadius: '50%',
-        width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.08)', zIndex: 1,
-      }}>
-        <ExtraFieldVisibilityToggle workspaceId={department.workspaceId} fields={department.fieldDefs} hiddenKeys={department.hiddenExtraFieldKeys} />
-      </div>
       <Block label="נתוני תרומה">
         {hasDonatedBefore ? (
           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>✓ תרם בעבר</span>

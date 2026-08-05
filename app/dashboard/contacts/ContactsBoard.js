@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { StageBadge, Tag, initials } from '../components/ui';
 import ContactQuickActions from '../components/ContactQuickActions';
+import AdvancedFilterPanel from '../components/AdvancedFilterPanel';
+import { contactMatchesAdvancedFilter } from '../components/advancedFilter';
 import { addContactTag } from './actions';
 
 const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
@@ -12,13 +14,14 @@ const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding
 // רשימת אנשי קשר עם סינון/חיפוש/מיון בצד הלקוח - אותו דפוס בדיוק כמו
 // בעמוד הלידים (LeadsBoard.js), כדי שיהיה נוח לאתר איש קשר ספציפי גם
 // כשיש מאות רשומות, לא רק סינון לפי תגית כמו שהיה.
-export default function ContactsBoard({ contacts, allTags, tagGroups = null, allDepartments, sendConnections, whatsappTemplates, emailTemplates, stageLabels = {}, stageColors = {}, extraFieldsByDept = {} }) {
+export default function ContactsBoard({ contacts, allTags, tagGroups = null, allDepartments, sendConnections, whatsappTemplates, emailTemplates, stageLabels = {}, stageColors = {}, extraFieldsByDept = {}, pipelinesByWorkspace = {} }) {
   const [search, setSearch] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [sortBy, setSortBy] = useState('created_desc');
   const [selected, setSelected] = useState(() => new Set());
   const [fieldFilters, setFieldFilters] = useState({});
+  const [advancedFilters, setAdvancedFilters] = useState({});
   const router = useRouter();
 
   const activeExtraFields = deptFilter ? (extraFieldsByDept[deptFilter] || []) : [];
@@ -64,6 +67,10 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
       });
     }
 
+    if (Object.keys(advancedFilters).length > 0) {
+      result = result.filter((c) => contactMatchesAdvancedFilter(c, advancedFilters, extraFieldsByDept));
+    }
+
     const sorted = [...result].sort((a, b) => {
       switch (sortBy) {
         case 'name': return `${a.first} ${a.last}`.localeCompare(`${b.first} ${b.last}`, 'he');
@@ -73,7 +80,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
       }
     });
     return sorted;
-  }, [contacts, search, tagFilter, deptFilter, sortBy, fieldFilters, activeExtraFields]);
+  }, [contacts, search, tagFilter, deptFilter, sortBy, fieldFilters, activeExtraFields, advancedFilters, extraFieldsByDept]);
 
   const activeFilterCount = [tagFilter, deptFilter].filter(Boolean).length;
 
@@ -112,6 +119,13 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
           </button>
         )}
       </div>
+
+      <AdvancedFilterPanel
+        pipelinesByWorkspace={pipelinesByWorkspace}
+        extraFieldsByWorkspace={extraFieldsByDept}
+        value={advancedFilters}
+        onChange={setAdvancedFilters}
+      />
 
       {activeExtraFields.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>

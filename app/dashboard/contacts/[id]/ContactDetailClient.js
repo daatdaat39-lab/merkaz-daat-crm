@@ -9,10 +9,12 @@ import { updateCampaignContact } from '../../sales/campaigns/actions';
 import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
 import StageStepper from './StageStepper';
 import QuickActivityLogForm from './QuickActivityLogForm';
+import NewInquiryForm from './NewInquiryForm';
 import ReferrerPicker from './ReferrerPicker';
 import DonorStatsTile from './DonorStatsTile';
 import StudentStatsTile from './StudentStatsTile';
 import WidgetVisibilityToggle from './WidgetVisibilityToggle';
+import ExtraFieldVisibilityToggle from './ExtraFieldVisibilityToggle';
 import CalendarDedicationsCard from './CalendarDedicationsCard';
 import PersonalInfoCard from './PersonalInfoCard';
 import ContactSettingsMenu from './ContactSettingsMenu';
@@ -200,7 +202,10 @@ export default function ContactDetailClient({
       )}
 
       {active && (active.workspaceName === 'תרומות' || active.workspaceName === 'דעת ותבונה') && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          {!active.hiddenWidgetKeys?.includes(active.workspaceName === 'תרומות' ? 'donor_stats' : 'student_stats') && (
+            <ExtraFieldVisibilityToggle workspaceId={active.workspaceId} fields={active.fieldDefs} hiddenKeys={active.hiddenExtraFieldKeys} />
+          )}
           <WidgetVisibilityToggle workspaceId={active.workspaceId} hiddenKeys={active.hiddenWidgetKeys} />
         </div>
       )}
@@ -217,13 +222,21 @@ export default function ContactDetailClient({
       )}
 
       {active && (
-        <QuickActivityLogForm
-          contactId={contact.id}
-          department={active}
-          stages={[...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order, ...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).sideStages]}
-          labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
-          frozen={contact.frozen}
-        />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <QuickActivityLogForm
+            contactId={contact.id}
+            department={active}
+            stages={[...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order, ...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).sideStages]}
+            labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
+            frozen={contact.frozen}
+          />
+          <NewInquiryForm
+            contactId={contact.id}
+            workspaceId={active.workspaceId}
+            workspaceName={active.workspaceName}
+            frozen={contact.frozen}
+          />
+        </div>
       )}
 
       {/* שורת שלבי המחלקה הפעילה - מקופלת כברירת מחדל, נפתחת אוטומטית

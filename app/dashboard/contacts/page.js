@@ -13,7 +13,7 @@ export default async function ContactsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { labels: stageLabels, colors: stageColors } = await getAllPipelines(supabase);
+  const { byWorkspace: pipelinesByWorkspace, labels: stageLabels, colors: stageColors } = await getAllPipelines(supabase);
 
   // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים)
   const [{ data }, { data: workspaces }, { data: profile }, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
@@ -69,6 +69,7 @@ export default async function ContactsPage() {
         stageLabels={stageLabels}
         stageColors={stageColors}
         extraFieldsByDept={extraFieldsByDept}
+        pipelinesByWorkspace={pipelinesByWorkspace}
       />
     </div>
   );

@@ -22,13 +22,18 @@ const TABS = [
   { key: 'closed', label: 'נפלו / סגורים' },
 ];
 
-function tabOf(lead, leadStages, wonStage) {
+// שיוך שלב לטאב - אם המנהל קבע שיוך מפורש בהגדרות שלבי pipeline
+// (lead_tab שונה מ-'auto'), הוא גובר לגמרי על ההיוריסטיקה; אחרת נופלים
+// חזרה להיוריסטיקה הקיימת (שלב-ניצחון/leadStages/שיוך נציג).
+function tabOf(lead, leadStages, wonStage, leadTabByStage) {
+  const explicit = leadTabByStage?.[lead.stage];
+  if (explicit && explicit !== 'auto') return explicit;
   if (wonStage && lead.stage === wonStage) return 'won';
   if (leadStages.includes(lead.stage)) return lead.agent_id ? 'in_progress' : 'new';
   return 'closed';
 }
 
-export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sideStages = [], stageLabels = {}, stageColors = {}, leadStages = [], wonStage = null, sendConnections = [], whatsappTemplates = [], emailTemplates = [], extraFields = [], closeReasons, campaignLeadGroups = [] }) {
+export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sideStages = [], stageLabels = {}, stageColors = {}, leadStages = [], wonStage = null, leadTabByStage = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], extraFields = [], closeReasons, campaignLeadGroups = [] }) {
   const [activeTab, setActiveTab] = useState('new');
   const [search, setSearch] = useState('');
   const [agentFilter, setAgentFilter] = useState('');
@@ -38,14 +43,9 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
   const [overdueHours, setOverdueHours] = useState(24);
   const [sortBy, setSortBy] = useState('activity_desc');
   const [selected, setSelected] = useState(() => new Set());
-  const [fieldFilters, setFieldFilters] = useState({});
-
-  function setFieldFilter(key, value) {
-    setFieldFilters((prev) => ({ ...prev, [key]: value }));
-  }
   const router = useRouter();
 
-  const leadsWithTab = useMemo(() => leads.map((l) => ({ ...l, _tab: tabOf(l, leadStages, wonStage) })), [leads, leadStages, wonStage]);
+  const leadsWithTab = useMemo(() => leads.map((l) => ({ ...l, _tab: tabOf(l, leadStages, wonStage, leadTabByStage) })), [leads, leadStages, wonStage, leadTabByStage]);
   const tabCounts = useMemo(() => {
     const counts = { new: 0, in_progress: 0, won: 0, closed: 0 };
     for (const l of leadsWithTab) counts[l._tab] += 1;
@@ -65,6 +65,14 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
     () => Array.from(new Set(tabLeads.map((l) => l.latestReason).filter(Boolean))).sort(),
     [tabLeads]
   );
+
+  // ערכי "שלב" בסרגל הסינון הראשי כוללים גם את שלבי הקמפיינים הפעילים
+  // (בקידומת __campaign__:<campaignId>:<stageKey>, כדי לא להתנגש בערכי
+  // stage_key של המחלקה) - כשנבחר ערך כזה, מסננים רק את שורות הקמפיין
+  // הספציפי הזה, ולידים "רגילים" ממילא לא תואמים כי הערך לא שווה לאף
+  // stage_key אמיתי. בונים מ-campaignLeadGroups המקורי (לא המסונן) כדי
+  // שרשימת האפשרויות תישאר יציבה גם כשסינון אחר מצמצם תוצאות.
+  const isCampaignStageFilter = stageFilter.startsWith('__campaign__:');
 
   const filtered = useMemo(() => {
     let result = tabLeads;
@@ -87,15 +95,6 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       const threshold = Number(overdueHours) > 0 ? Number(overdueHours) : 24;
       result = result.filter((c) => c.last_activity_at && (Date.now() - new Date(c.last_activity_at).getTime()) / 3600000 >= threshold);
     }
-    const activeFieldFilterEntries = Object.entries(fieldFilters).filter(([, v]) => v);
-    if (activeFieldFilterEntries.length > 0) {
-      result = result.filter((c) => activeFieldFilterEntries.every(([key, value]) => {
-        const fieldDef = extraFields.find((f) => f.key === key);
-        const actual = c.extra_fields?.[key];
-        if (fieldDef?.type === 'select') return actual === value;
-        return (actual || '').toString().toLowerCase().includes(value.toLowerCase());
-      }));
-    }
 
     const agentName = (id) => agents.find((a) => a.id === id)?.name || '';
     const sorted = [...result].sort((a, b) => {
@@ -109,7 +108,36 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       }
     });
     return sorted;
-  }, [tabLeads, search, agentFilter, stageFilter, reasonFilter, overdueOnly, overdueHours, sortBy, agents, fieldFilters, extraFields]);
+  }, [tabLeads, search, agentFilter, stageFilter, reasonFilter, overdueOnly, overdueHours, sortBy, agents]);
+
+  // אותו סרגל סינון (חיפוש/נציג/שלב) חל גם על שורות הקמפיינים למטה -
+  // "מהות פנייה" ו"לא טופל מעל X שעות" לא רלוונטיים לשורת קמפיין (אין
+  // לה latestReason/last_activity_at), ולכן סינון כזה מחריג אותן; שלב
+  // "רגיל" של המחלקה גם מחריג אותן (אין להן stage כזה) - רק ערך שלב
+  // עם קידומת __campaign__ שייך לקמפיין הזה בדיוק משאיר אותן.
+  const campaignLeadGroupsFiltered = useMemo(() => {
+    return campaignLeadGroups
+      .map((g) => {
+        let rows = g.rows;
+        if (search.trim()) {
+          const q = search.trim().toLowerCase();
+          rows = rows.filter((r) => `${r.name} ${r.phone || ''} ${r.email || ''}`.toLowerCase().includes(q));
+        }
+        if (agentFilter === 'none') rows = rows.filter((r) => !r.assignedTo);
+        else if (agentFilter) rows = rows.filter((r) => r.assignedTo === agentFilter);
+        if (reasonFilter || overdueOnly) rows = [];
+        if (stageFilter) {
+          if (isCampaignStageFilter) {
+            const [, campaignId, stageKey] = stageFilter.split(':');
+            rows = g.campaignId === campaignId ? rows.filter((r) => r.status === stageKey) : [];
+          } else {
+            rows = [];
+          }
+        }
+        return { ...g, rows };
+      })
+      .filter((g) => g.rows.length > 0);
+  }, [campaignLeadGroups, search, agentFilter, reasonFilter, overdueOnly, stageFilter, isCampaignStageFilter]);
 
   const departments = Object.keys(DEPT_KEYWORDS);
   const categorized = departments
@@ -122,32 +150,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            style={{
-              background: 'none', border: 'none', borderBottom: '2px solid ' + (activeTab === t.key ? '#0a0a0a' : 'transparent'),
-              padding: '8px 4px', marginBottom: -1, fontSize: 13, fontWeight: activeTab === t.key ? 600 : 500,
-              color: activeTab === t.key ? '#0a0a0a' : 'var(--text-secondary)', cursor: 'pointer',
-            }}
-          >
-            {t.label} ({tabCounts[t.key]})
-          </button>
-        ))}
-      </div>
-
-      {campaignLeadGroups.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--text-secondary)' }}>🎯 לידים מקמפיינים</div>
-          {campaignLeadGroups.map((g) => (
-            <CampaignLeadGroup key={g.campaignId} group={g} />
-          ))}
-        </div>
-      )}
-
-      <div style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--bg)', paddingTop: 8, paddingBottom: 4, marginBottom: 10, boxShadow: '0 4px 10px -6px rgba(0,0,0,0.12)' }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--bg)', paddingTop: 8, paddingBottom: 4, marginBottom: 14, boxShadow: '0 4px 10px -6px rgba(0,0,0,0.12)' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }}>
         <input
           value={search}
@@ -160,9 +163,18 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
           <option value="none">ללא נציג</option>
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
-        <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} style={inputStyle}>
+        <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} style={inputStyle} title="סינון זה חל גם על לידי המחלקה וגם על לידי הקמפיינים למטה">
           <option value="">כל השלבים</option>
-          {stages.map((s) => <option key={s} value={s}>{stageLabels[s] || s}</option>)}
+          <optgroup label={`שלבי ${workspaceName}`}>
+            {stages.map((s) => <option key={s} value={s}>{stageLabels[s] || s}</option>)}
+          </optgroup>
+          {campaignLeadGroups.map((g) => (
+            <optgroup key={g.campaignId} label={`קמפיין: ${g.campaignName}`}>
+              {g.stages.order.map((s) => (
+                <option key={s} value={`__campaign__:${g.campaignId}:${s}`}>{g.stages.labels[s] || s}</option>
+              ))}
+            </optgroup>
+          ))}
         </select>
         <select value={reasonFilter} onChange={(e) => setReasonFilter(e.target.value)} style={inputStyle}>
           <option value="">כל הנושאים</option>
@@ -190,49 +202,39 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         </select>
         {activeFilterCount > 0 && (
           <button
-            onClick={() => { setAgentFilter(''); setStageFilter(''); setReasonFilter(''); setOverdueOnly(false); setOverdueHours(24); setSearch(''); setFieldFilters({}); }}
+            onClick={() => { setAgentFilter(''); setStageFilter(''); setReasonFilter(''); setOverdueOnly(false); setOverdueHours(24); setSearch(''); }}
             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}
           >
             ניקוי סינון
           </button>
         )}
       </div>
+      </div>
 
-      {extraFields.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '10px 14px' }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4 }}>סינון לפי שדות {workspaceName}</span>
-          {Object.entries(fieldFilters).some(([, v]) => v) && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {Object.entries(fieldFilters).filter(([, v]) => v).map(([key, v]) => {
-                const f = extraFields.find((ef) => ef.key === key);
-                return (
-                  <span key={key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 999, padding: '2px 8px' }}>
-                    {f?.label || key}: {v}
-                    <button type="button" onClick={() => setFieldFilter(key, '')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, padding: 0 }}>✕</button>
-                  </span>
-                );
-              })}
-            </div>
-          )}
-          {extraFields.map((f) => (
-            f.type === 'select' ? (
-              <select key={f.key} value={fieldFilters[f.key] || ''} onChange={(e) => setFieldFilter(f.key, e.target.value)} style={inputStyle}>
-                <option value="">{f.label}</option>
-                {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            ) : (
-              <input
-                key={f.key}
-                value={fieldFilters[f.key] || ''}
-                onChange={(e) => setFieldFilter(f.key, e.target.value)}
-                placeholder={f.label}
-                style={inputStyle}
-              />
-            )
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            style={{
+              background: 'none', border: 'none', borderBottom: '2px solid ' + (activeTab === t.key ? '#0a0a0a' : 'transparent'),
+              padding: '8px 4px', marginBottom: -1, fontSize: 13, fontWeight: activeTab === t.key ? 600 : 500,
+              color: activeTab === t.key ? '#0a0a0a' : 'var(--text-secondary)', cursor: 'pointer',
+            }}
+          >
+            {t.label} ({tabCounts[t.key]})
+          </button>
+        ))}
+      </div>
+
+      {campaignLeadGroupsFiltered.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--text-secondary)' }}>🎯 לידים מקמפיינים</div>
+          {campaignLeadGroupsFiltered.map((g) => (
+            <CampaignLeadGroup key={g.campaignId} group={g} />
           ))}
         </div>
       )}
-      </div>
 
       {filtered.length !== tabLeads.length && (
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>

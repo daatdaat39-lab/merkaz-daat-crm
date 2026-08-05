@@ -18,7 +18,9 @@ async function requireManager(workspaceId) {
 // stage_key לא ניתן לעריכה אחרי יצירה (immutable) - contact_departments.stage
 // הוא טקסט חופשי, לא FK, אז שינוי מפתח קיים יתמך אנשי קשר קיימים. ייחודיות
 // per-workspace (לא גלובלית) - ר' migration 0036 להסבר המלא.
-export async function createStage(workspaceId, { stageKey, label, colorBg, colorFg, isLeadStage, isSideStage }) {
+const VALID_LEAD_TABS = ['auto', 'new', 'in_progress', 'won', 'closed'];
+
+export async function createStage(workspaceId, { stageKey, label, colorBg, colorFg, isLeadStage, isSideStage, leadTab }) {
   const ctx = await requireManager(workspaceId);
   if (ctx.error) return ctx;
   const { supabase } = ctx;
@@ -44,12 +46,13 @@ export async function createStage(workspaceId, { stageKey, label, colorBg, color
     sort_order: sortOrder,
     is_lead_stage: !!isLeadStage,
     is_side_stage: !!isSideStage,
+    lead_tab: VALID_LEAD_TABS.includes(leadTab) ? leadTab : 'auto',
   });
   if (error) return { error: error.code === '23505' ? 'מפתח זה כבר קיים במחלקה זו' : error.message };
   return { success: true };
 }
 
-export async function updateStage(id, workspaceId, { label, colorBg, colorFg, isLeadStage }) {
+export async function updateStage(id, workspaceId, { label, colorBg, colorFg, isLeadStage, leadTab }) {
   const ctx = await requireManager(workspaceId);
   if (ctx.error) return ctx;
   const lbl = (label || '').trim();
@@ -57,6 +60,7 @@ export async function updateStage(id, workspaceId, { label, colorBg, colorFg, is
 
   const { error } = await ctx.supabase.from('pipeline_stages').update({
     label: lbl, color_bg: colorBg || '#f4f4f5', color_fg: colorFg || '#52525b', is_lead_stage: !!isLeadStage,
+    lead_tab: VALID_LEAD_TABS.includes(leadTab) ? leadTab : 'auto',
   }).eq('id', id);
   if (error) return { error: error.message };
   return { success: true };

@@ -1,10 +1,21 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createStage, updateStage, setWonStage, reorderStages, deleteStage, reassignStageAndDelete, upsertStageAutomation, deleteStageAutomation } from './actions';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
+
+// שיוך מפורש של שלב לטאב ברשימת הלידים (LeadsBoard.js) - 'auto' משתמש
+// בהיוריסטיקה הקיימת (leadStages/wonStage/שיוך נציג); כל ערך אחר עוקף
+// אותה לגמרי לשלב הזה (ר' migration 0047).
+const LEAD_TAB_OPTIONS = [
+  { value: 'auto', label: 'אוטומטי (ברירת מחדל)' },
+  { value: 'new', label: 'פתוחים / חדשים' },
+  { value: 'in_progress', label: 'בתהליך' },
+  { value: 'won', label: 'הצליחו' },
+  { value: 'closed', label: 'נפלו / סגורים' },
+];
 
 export default function PipelinesClient({ workspaces, stagesByWorkspaceId, automationsByStageId = {}, whatsappTemplates = [], emailTemplates = [] }) {
   const [activeId, setActiveId] = useState(workspaces[0]?.id || null);
@@ -51,7 +62,16 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
   const [reassignFor, setReassignFor] = useState(null); // { stage, contactCount }
   const router = useRouter();
 
-  const [newStage, setNewStage] = useState({ stageKey: '', label: '', colorBg: '#f4f4f5', colorFg: '#52525b', isLeadStage: false, isSideStage: false });
+  // useState(initialStages) קורא את הפרופ פעם אחת בלבד ב-mount - בלי
+  // ה-effect הזה, router.refresh() אחרי הוספה/מיון/מחיקה כן מביא מהשרת
+  // stages מעודכן, אבל ה-state המקומי הישן ממשיך "לנצח" בתצוגה (React
+  // לא מאתחל מחדש useState כשפרופ משתנה) - נראה כאילו כלום לא קרה,
+  // למרות שהפעולה כן הצליחה ב-DB.
+  useEffect(() => {
+    setStages(initialStages);
+  }, [initialStages]);
+
+  const [newStage, setNewStage] = useState({ stageKey: '', label: '', colorBg: '#f4f4f5', colorFg: '#52525b', isLeadStage: false, isSideStage: false, leadTab: 'auto' });
 
   const mainStages = [...stages].filter((s) => !s.is_side_stage).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const sideStages = stages.filter((s) => s.is_side_stage);
@@ -101,6 +121,7 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
       const merged = { ...stage, ...patch };
       const res = await updateStage(stage.id, workspaceId, {
         label: merged.label, colorBg: merged.color_bg, colorFg: merged.color_fg, isLeadStage: merged.is_lead_stage,
+        leadTab: merged.lead_tab,
       });
       if (res?.error) { setError(res.error); return; }
       refresh();
@@ -148,7 +169,7 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
     startTransition(async () => {
       const res = await createStage(workspaceId, newStage);
       if (res?.error) { setError(res.error); return; }
-      setNewStage({ stageKey: '', label: '', colorBg: '#f4f4f5', colorFg: '#52525b', isLeadStage: false, isSideStage: false });
+      setNewStage({ stageKey: '', label: '', colorBg: '#f4f4f5', colorFg: '#52525b', isLeadStage: false, isSideStage: false, leadTab: 'auto' });
       refresh();
     });
   }
@@ -218,6 +239,9 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
             onChange={(e) => setNewStage((p) => ({ ...p, label: e.target.value }))} style={{ ...inputStyle, width: 160 }} />
           <input type="color" value={newStage.colorBg} onChange={(e) => setNewStage((p) => ({ ...p, colorBg: e.target.value }))} title="צבע רקע" />
           <input type="color" value={newStage.colorFg} onChange={(e) => setNewStage((p) => ({ ...p, colorFg: e.target.value }))} title="צבע טקסט" />
+          <select value={newStage.leadTab} onChange={(e) => setNewStage((p) => ({ ...p, leadTab: e.target.value }))} title="שיוך לטאב ברשימת הלידים" style={inputStyle}>
+            {LEAD_TAB_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
           <label style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
             <input type="checkbox" checked={newStage.isLeadStage} onChange={(e) => setNewStage((p) => ({ ...p, isLeadStage: e.target.checked }))} />
             שלב ליד
@@ -331,6 +355,12 @@ function StageRow({ stage, reorderable, canMoveUp, canMoveDown, onMoveUp, onMove
           שלב ליד
         </label>
       )}
+      <label style={{ fontSize: 11.5, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ color: '#9b9b9b' }}>טאב לידים:</span>
+        <select value={stage.lead_tab || 'auto'} onChange={(e) => onUpdate({ lead_tab: e.target.value })} disabled={disabled} style={{ ...inputStyle, padding: '3px 6px', fontSize: 11.5 }}>
+          {LEAD_TAB_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </label>
       <button type="button" onClick={() => setAutomationOpen((v) => !v)} disabled={disabled} style={{ background: 'none', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '3px 9px', fontSize: 11.5, color: automations.length > 0 ? '#0d9488' : '#6b6b6b', cursor: 'pointer' }}>
         ⚡ אוטומציה{automations.length > 0 ? ` (${automations.length})` : ''}
       </button>

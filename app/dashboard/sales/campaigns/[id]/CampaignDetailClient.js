@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, markContactsEligibleForCalendar, addDedication, removeDedication, unlockDedication } from '../actions';
 import { DEDICATION_TEMPLATES } from '../../../components/pipelines';
+import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
+import { contactMatchesAdvancedFilter } from '../../../components/advancedFilter';
 
 // קטגוריות ברירת מחדל - משמשות רק אם רשימת הבחירה הדינמית (הגדרות ← רשימות
 // בחירה) ריקה, כדי שהמסך לעולם לא יישאר בלי אף קטגוריה לבחור
@@ -12,7 +14,7 @@ const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'ת�
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
 
-export default function CampaignDetailClient({ campaignId, campaignKind, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} }, extraFields = [] }) {
+export default function CampaignDetailClient({ campaignId, campaignKind, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} }, extraFields = [], extraFieldsByWorkspace = {}, pipelinesByWorkspace = {} }) {
   const CATEGORIES = categories.length ? categories : DEFAULT_CATEGORIES;
   const [rows, setRows] = useState(initialRows);
   const [adding, setAdding] = useState(false);
@@ -20,6 +22,7 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
   const [deptFilter, setDeptFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [fieldFilters, setFieldFilters] = useState({});
+  const [advancedFilters, setAdvancedFilters] = useState({});
 
   function setFieldFilter(key, value) {
     setFieldFilters((prev) => ({ ...prev, [key]: value }));
@@ -39,7 +42,8 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
     [availableContacts]
   );
 
-  const showPickerList = search.trim().length >= 2 || !!deptFilter || !!tagFilter || Object.values(fieldFilters).some(Boolean);
+  const hasAdvancedFilter = Object.keys(advancedFilters).length > 0;
+  const showPickerList = search.trim().length >= 2 || !!deptFilter || !!tagFilter || Object.values(fieldFilters).some(Boolean) || hasAdvancedFilter;
   const filtered = useMemo(() => {
     if (!showPickerList) return [];
     let result = availableContacts;
@@ -58,8 +62,11 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
         return (actual || '').toString().toLowerCase().includes(value.toLowerCase());
       }));
     }
+    if (hasAdvancedFilter) {
+      result = result.filter((c) => contactMatchesAdvancedFilter({ departments: c.departmentDetails }, advancedFilters, extraFieldsByWorkspace));
+    }
     return result.slice(0, 100);
-  }, [availableContacts, search, deptFilter, tagFilter, fieldFilters, extraFields, showPickerList]);
+  }, [availableContacts, search, deptFilter, tagFilter, fieldFilters, extraFields, showPickerList, hasAdvancedFilter, advancedFilters, extraFieldsByWorkspace]);
 
   function togglePick(id) {
     setPickIds((prev) => {
@@ -166,6 +173,12 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
                 ))}
               </div>
             )}
+            <AdvancedFilterPanel
+              pipelinesByWorkspace={pipelinesByWorkspace}
+              extraFieldsByWorkspace={extraFieldsByWorkspace}
+              value={advancedFilters}
+              onChange={setAdvancedFilters}
+            />
             {!showPickerList && (
               <div style={{ fontSize: 12.5, color: '#9b9b9b' }}>הקלידו לפחות 2 תווים לחיפוש, או בחרו מחלקה/תגית לסינון</div>
             )}

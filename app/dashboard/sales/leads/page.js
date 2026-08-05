@@ -6,6 +6,7 @@ import { getPipeline } from '../../lib/pipelines';
 import { getPicklistValues } from '../../lib/picklists';
 import AddContactForm from '../../contacts/AddContactForm';
 import LeadsBoard from './LeadsBoard';
+import AdvancedInquiriesBanner from './AdvancedInquiriesBanner';
 import { groupTagsByDepartment } from '../../lib/tagGroups';
 import { isManagerOfWorkspace } from '../../lib/contactGuards';
 import { getCampaignStages } from '../../lib/campaignStages';
@@ -90,16 +91,18 @@ export default async function SalesLeadsPage() {
     const recentCutoff = new Date(Date.now() - RECENT_INQUIRY_DAYS * 86400000).toISOString();
     const { data: advancedRows } = await supabase
       .from('contact_departments')
-      .select('id, stage, contacts:contact_id (id, first, last), lead_inquiries!inner (reason, note, created_at)')
+      .select('id, stage, contacts:contact_id (id, first, last), lead_inquiries!inner (id, reason, note, created_at, dismissed_at)')
       .eq('workspace_id', workspaceId)
       .in('stage', nonLeadStages)
-      .gte('lead_inquiries.created_at', recentCutoff);
+      .gte('lead_inquiries.created_at', recentCutoff)
+      .is('lead_inquiries.dismissed_at', null);
     advancedInquiries = (advancedRows || [])
       .filter((row) => row.contacts)
       .map((row) => {
         const latest = [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
-        return { contactId: row.contacts.id, name: `${row.contacts.first} ${row.contacts.last}`, stage: row.stage, reason: latest?.reason, createdAt: latest?.created_at };
+        return { contactId: row.contacts.id, name: `${row.contacts.first} ${row.contacts.last}`, stage: row.stage, reason: latest?.reason, createdAt: latest?.created_at, inquiryId: latest?.id };
       })
+      .filter((a) => a.inquiryId)
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }
 
@@ -203,26 +206,10 @@ export default async function SalesLeadsPage() {
       </div>
 
       {advancedInquiries.length > 0 && (
-        <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '14px 16px', marginBottom: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#92400e', marginBottom: 8 }}>
-            🔔 פניות חדשות מאנשי קשר שכבר מתקדמים ({advancedInquiries.length})
-          </div>
-          <p style={{ fontSize: 12, color: '#92400e', margin: '0 0 10px' }}>
-            אלה לא "לידים" במובן הרגיל — הם כבר בשלב מתקדם ({advancedInquiries.map((a) => pipeline.labels[a.stage] || a.stage).filter((v, i, arr) => arr.indexOf(v) === i).join(', ')}) — אבל פנו שוב לאחרונה, ולכן לא מוצגים ברשימה הרגילה למטה.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {advancedInquiries.map((a) => (
-              <Link
-                key={a.contactId}
-                href={`/dashboard/contacts/${a.contactId}`}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg)', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', fontSize: 12.5, textDecoration: 'none', color: 'inherit' }}
-              >
-                <span><b>{a.name}</b> · {pipeline.labels[a.stage] || a.stage}{a.reason ? ` · ${a.reason}` : ''}</span>
-                <span style={{ color: '#9b9b9b', fontSize: 11 }}>{new Date(a.createdAt).toLocaleDateString('he-IL')}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
+        <AdvancedInquiriesBanner
+          advancedInquiries={advancedInquiries.map((a) => ({ ...a, stageLabel: pipeline.labels[a.stage] || a.stage }))}
+          stagesSummary={advancedInquiries.map((a) => pipeline.labels[a.stage] || a.stage).filter((v, i, arr) => arr.indexOf(v) === i).join(', ')}
+        />
       )}
 
       {leads.length === 0 && campaignLeadGroups.length === 0 ? (
@@ -231,7 +218,7 @@ export default async function SalesLeadsPage() {
         <LeadsBoard
           leads={leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName}
           stages={pipeline.order} sideStages={pipeline.sideStages} stageLabels={pipeline.labels} stageColors={pipeline.colors}
-          leadStages={pipeline.leadStages} wonStage={pipeline.wonStage}
+          leadStages={pipeline.leadStages} wonStage={pipeline.wonStage} leadTabByStage={pipeline.leadTabByStage}
           sendConnections={sendConnections || []} whatsappTemplates={whatsappTemplates || []}
           emailTemplates={emailTemplates || []} extraFields={extraFields} closeReasons={closeReasons}
           campaignLeadGroups={campaignLeadGroups}

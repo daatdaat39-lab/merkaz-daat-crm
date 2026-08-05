@@ -729,6 +729,36 @@ export async function logQuickActivity(contactId, departmentRowId, note, newStag
   return { success: true };
 }
 
+// "פנייה חדשה" לאיש קשר שכבר קיים במחלקה - אותה רשימת סיבות בדיוק כמו
+// ביצירת ליד חדש (getInquiryReasons), דרך אותה upsertDepartmentMembership
+// ששיוך חדש/ייבוא/ליד יזום כבר משתמשים בה - מעדכנת last_activity_at,
+// פותחת מחדש שיוך "סגור" אם צריך, ומכניסה שורת lead_inquiries שמופיעה
+// מיד בעמוד הלידים. פתוח לכל משתמש מחובר (לא רק מנהל) - אותה רמת הרשאה
+// כמו logQuickActivity, כי זו פעולה יומיומית של נציג ולא פעולה ניהולית.
+export async function logNewInquiry(contactId, workspaceId, reason, note) {
+  const { supabase } = await requireUser();
+  if (!reason) return { error: 'יש לבחור מהות פנייה' };
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const { data: workspace } = await supabase.from('workspaces').select('id, name').eq('id', workspaceId).single();
+  if (!workspace) return { error: 'מחלקה לא נמצאה' };
+
+  await upsertDepartmentMembership(supabase, contactId, workspace, reason, note || null, 'פנייה חדשה (ידני)');
+  return { success: true };
+}
+
+// "סגירת פנייה" בבאנר "פניות חדשות מאנשי קשר שכבר מתקדמים" (עמוד לידים)
+// - מסמנת שהפנייה טופלה כדי שתפסיק להופיע שם, בלי לגעת בשלב איש הקשר
+// עצמו. פתוח לכל משתמש מחובר, אותה רמת הרשאה כמו logQuickActivity.
+export async function dismissAdvancedInquiry(inquiryId) {
+  const { supabase } = await requireUser();
+  if (!inquiryId) return { error: 'חסר מזהה פנייה' };
+  const { error } = await supabase.from('lead_inquiries').update({ dismissed_at: new Date().toISOString() }).eq('id', inquiryId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 // שיוך "מתווך/גורם מקשר" - מי הביא את התורם, נשמר כ-uuid בתוך extra_fields
 // (בדיוק כמו כל שדה ייעודי אחר) כדי לא לדרוש עמודה/מיגרציה נפרדת.
 export async function setReferrer(departmentRowId, referrerContactId) {
