@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createField, updateField, reorderFields, deleteField } from './actions';
 import { COMPUTED_FORMULAS } from '../../lib/computedFields';
+import { generateFieldKey } from '../../lib/fieldKey';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
 const TYPES = [
@@ -142,6 +143,14 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           <input placeholder="מפתח טכני (אנגלית, לא ניתן לשינוי אחר כך)" value={newField.fieldKey}
             onChange={(e) => setNewField((p) => ({ ...p, fieldKey: e.target.value }))} style={{ ...inputStyle, width: 220 }} />
+          <button
+            type="button"
+            onClick={() => setNewField((p) => ({ ...p, fieldKey: generateFieldKey(fields.map((f) => f.field_key)) }))}
+            title="יצירת מפתח טכני אוטומטי שעדיין לא תפוס"
+            style={{ background: 'none', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}
+          >
+            🎲 אוטומטי
+          </button>
           <input placeholder="תווית" value={newField.label}
             onChange={(e) => setNewField((p) => ({ ...p, label: e.target.value }))} style={{ ...inputStyle, width: 160 }} />
           <select value={newField.type} onChange={(e) => setNewField((p) => ({ ...p, type: e.target.value }))} style={inputStyle}>

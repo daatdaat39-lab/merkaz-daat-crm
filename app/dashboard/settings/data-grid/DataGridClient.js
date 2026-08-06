@@ -5,6 +5,7 @@ import DataGridRow from './DataGridRow';
 import { fetchGridRows } from './actions';
 import { createField } from '../fields/actions';
 import { COMPUTED_FORMULAS } from '../../lib/computedFields';
+import { generateFieldKey } from '../../lib/fieldKey';
 
 const PAGE_SIZE = 100;
 const COLUMN_TYPES = [
@@ -161,6 +162,14 @@ function AddColumnForm({ workspaceId, existingExtraFields, onDone }) {
     <div style={{ background: 'var(--bg-secondary, #f9f9f9)', border: '1px solid var(--border)', borderRadius: 8, padding: 12, marginBottom: 14 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
         <input placeholder="מפתח טכני (אנגלית)" value={fieldKey} onChange={(e) => setFieldKey(e.target.value)} style={{ ...selectStyle(), width: 200 }} />
+        <button
+          type="button"
+          onClick={() => setFieldKey(generateFieldKey(existingExtraFields.map((f) => f.key)))}
+          title="יצירת מפתח טכני אוטומטי שעדיין לא תפוס"
+          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}
+        >
+          🎲 אוטומטי
+        </button>
         <input placeholder="תווית" value={label} onChange={(e) => setLabel(e.target.value)} style={{ ...selectStyle(), width: 160 }} />
         <select value={type} onChange={(e) => setType(e.target.value)} style={selectStyle()}>
           {COLUMN_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
