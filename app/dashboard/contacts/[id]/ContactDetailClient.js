@@ -12,6 +12,7 @@ import QuickActivityLogForm from './QuickActivityLogForm';
 import NewInquiryForm from './NewInquiryForm';
 import ReferrerPicker from './ReferrerPicker';
 import GenericStatsTile from './GenericStatsTile';
+import CommitmentsCard from './CommitmentsCard';
 import WidgetVisibilityToggle from './WidgetVisibilityToggle';
 import ExtraFieldVisibilityToggle from './ExtraFieldVisibilityToggle';
 import CalendarDedicationsCard from './CalendarDedicationsCard';
@@ -37,6 +38,7 @@ export default function ContactDetailClient({
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
   dedications, dedicationCampaignId, callHistory, externalIds, closeReasons, isManager, phoneCalls, pipelinesByWorkspace,
+  commitments,
 }) {
   const FALLBACK_PIPELINE = { order: [], leadStages: [], wonStage: null, sideStages: [], labels: {}, colors: {} };
   const byWorkspace = pipelinesByWorkspace || {};
@@ -241,6 +243,16 @@ export default function ContactDetailClient({
           transactions={donationTransactions || []}
           stageOrder={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order}
           labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
+        />
+      )}
+
+      {active && (
+        <CommitmentsCard
+          contactId={contact.id}
+          department={active}
+          commitments={commitments || []}
+          frozen={contact.frozen}
+          isManager={isManager}
         />
       )}
 

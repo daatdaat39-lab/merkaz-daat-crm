@@ -16,6 +16,7 @@ const SETTINGS_LINKS = [
   { href: '/dashboard/settings/pipelines', icon: '🔀', title: 'שלבי pipeline', desc: 'הוספה/עריכה/סידור שלבי התהליך לכל מחלקה (owner/admin בלבד)' },
   { href: '/dashboard/settings/fields', icon: '🧩', title: 'שדות מחלקתיים', desc: 'הוספה/עריכה/סידור שדות נוספים לכל מחלקה (owner/admin בלבד)' },
   { href: '/dashboard/settings/insights', icon: '💡', title: 'תובנות והצעות AI', desc: 'ניתוח מדדים אמיתיים והצעות מעשיות למחלקה (owner/admin בלבד)' },
+  { href: '/dashboard/settings/data-grid', icon: '🗂', title: 'ניהול נתונים מרכזי', desc: 'טבלת עריכה מהירה לכל אנשי הקשר של מחלקה - שדות בסיס, שדות נוספים ושלב (owner/admin בלבד)' },
 ];
 
 export default async function SettingsPage() {

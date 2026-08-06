@@ -7,6 +7,7 @@ import { initials } from '../../components/ui';
 import { CLOSE_REASONS } from '../../components/pipelines';
 import { assignAgent, updateLeadStage, updateDepartmentExtraField } from '../../contacts/actions';
 import ContactQuickActions from '../../components/ContactQuickActions';
+import ExtraFieldCell from '../../components/ExtraFieldCell';
 import { celebrate } from '../../components/celebrate';
 
 function elapsedLabel(iso) {
@@ -134,25 +135,7 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
       </td>
       {extraFields.map((f) => (
         <td key={f.key} style={{ padding: '10px 16px', fontSize: 12.5 }}>
-          {f.type === 'select' ? (
-            <select
-              value={extraValues[f.key] || ''}
-              onChange={(e) => handleExtraFieldChange(f.key, e.target.value)}
-              disabled={isPending}
-              style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '4px 6px', fontSize: 12 }}
-            >
-              <option value="">—</option>
-              {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
-          ) : (
-            <input
-              type={f.type === 'number' ? 'number' : 'text'}
-              defaultValue={extraValues[f.key] || ''}
-              onBlur={(e) => { if (e.target.value !== (extraValues[f.key] || '')) handleExtraFieldChange(f.key, e.target.value); }}
-              disabled={isPending}
-              style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '4px 6px', fontSize: 12, width: 100 }}
-            />
-          )}
+          <ExtraFieldCell field={f} value={extraValues[f.key]} onCommit={(value) => handleExtraFieldChange(f.key, value)} disabled={isPending} />
         </td>
       ))}
       <td style={{ padding: '10px 16px' }}>

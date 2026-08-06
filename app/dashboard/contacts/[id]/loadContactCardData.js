@@ -26,7 +26,7 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -59,7 +59,7 @@ export async function loadContactCardData(contactId) {
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
     supabase
       .from('donation_transactions')
-      .select('id, workspace_id, source_system, amount, transaction_date')
+      .select('id, workspace_id, source_system, amount, transaction_date, commitment_id')
       .eq('contact_id', contact.id)
       .order('transaction_date', { ascending: false }),
     supabase
@@ -87,7 +87,20 @@ export async function loadContactCardData(contactId) {
       .select('id, campaign_id, status, assigned_to, campaigns:campaign_id!inner (id, name, workspace_id, kind)')
       .eq('contact_id', contact.id)
       .neq('campaigns.kind', 'dedication'),
+    supabase
+      .from('commitments')
+      .select('id, workspace_id, total_amount, installments_count, status, note, created_at')
+      .eq('contact_id', contact.id)
+      .order('created_at', { ascending: false }),
   ]);
+
+  // "שולם/נותר" לכל התחייבות - מחושב כאן מהתנועות שכבר נטענו למעלה
+  // (donationTransactionRows), בלי שאילתה נוספת - אותו עיקרון בדיוק כמו
+  // הסכומים שהקוביה הגנרית מחשבת מהתנועות שהיא מקבלת כ-props.
+  const commitments = (commitmentRows || []).map((c) => ({
+    ...c,
+    payments: (donationTransactionRows || []).filter((t) => t.commitment_id === c.id),
+  }));
 
   const closeReasonRows = await getPicklistValues(supabase, 'close_reason', null);
   const closeReasons = closeReasonRows.length ? closeReasonRows.map((r) => r.value) : undefined;
@@ -245,6 +258,7 @@ export async function loadContactCardData(contactId) {
       allInquiries,
       workspaceNameById,
       donationTransactions: donationTransactionRows || [],
+      commitments,
       dedications,
       dedicationCampaignId,
       callHistory: callHistoryRows || [],
