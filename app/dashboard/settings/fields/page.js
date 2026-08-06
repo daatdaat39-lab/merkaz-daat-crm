@@ -27,7 +27,7 @@ export default async function FieldsPage() {
 
   const { data: fieldRows } = await supabase
     .from('workspace_extra_fields')
-    .select('id, workspace_id, field_key, label, type, options, sort_order')
+    .select('id, workspace_id, field_key, label, type, options, sort_order, visible_to_agents')
     .order('sort_order', { ascending: true });
 
   const fieldsByWorkspaceId = {};

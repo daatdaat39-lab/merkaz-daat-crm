@@ -54,7 +54,7 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
   const router = useRouter();
   const [dragId, setDragId] = useState(null);
 
-  const [newField, setNewField] = useState({ fieldKey: '', label: '', type: 'text', optionsText: '', formula: COMPUTED_FORMULAS[0]?.value || '', dateField: '', durationField: '' });
+  const [newField, setNewField] = useState({ fieldKey: '', label: '', type: 'text', optionsText: '', formula: COMPUTED_FORMULAS[0]?.value || '', dateField: '', durationField: '', visibleToAgents: true });
   const [useAiWizard, setUseAiWizard] = useState(false);
   const dateFields = fields.filter((f) => f.type === 'date');
   const numberFields = fields.filter((f) => f.type === 'number');
@@ -86,7 +86,7 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
     setFields((prev) => prev.map((f) => (f.id === field.id ? { ...f, ...patch } : f)));
     startTransition(async () => {
       const merged = { ...field, ...patch };
-      const res = await updateField(field.id, workspaceId, { label: merged.label, options: merged.options });
+      const res = await updateField(field.id, workspaceId, { label: merged.label, options: merged.options, visibleToAgents: merged.visible_to_agents !== false });
       if (res?.error) { setError(res.error); return; }
       refresh();
     });
@@ -112,9 +112,9 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
       } else if (newField.type === 'computed') {
         options = { formula: newField.formula, dateField: newField.dateField, durationField: newField.durationField };
       }
-      const res = await createField(workspaceId, { fieldKey: newField.fieldKey, label: newField.label, type: newField.type, options });
+      const res = await createField(workspaceId, { fieldKey: newField.fieldKey, label: newField.label, type: newField.type, options, visibleToAgents: newField.visibleToAgents });
       if (res?.error) { setError(res.error); return; }
-      setNewField({ fieldKey: '', label: '', type: 'text', optionsText: '', formula: COMPUTED_FORMULAS[0]?.value || '', dateField: '', durationField: '' });
+      setNewField({ fieldKey: '', label: '', type: 'text', optionsText: '', formula: COMPUTED_FORMULAS[0]?.value || '', dateField: '', durationField: '', visibleToAgents: true });
       refresh();
     });
   }
@@ -186,6 +186,10 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
               </select>
             </>
           )}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }} title="אם מכובה, רק owner/admin יראו את השדה הזה - לא נציגים רגילים">
+            <input type="checkbox" checked={newField.visibleToAgents} onChange={(e) => setNewField((p) => ({ ...p, visibleToAgents: e.target.checked }))} />
+            נראה לנציגים
+          </label>
           <button
             type="button"
             onClick={handleCreate}
@@ -250,6 +254,15 @@ function FieldRow({ field, isDragging, onDragStart, onDragEnd, onDropOn, onUpdat
           מחושב מ: {field.options?.dateField} + {field.options?.durationField}
         </span>
       )}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--text-secondary)', cursor: 'pointer' }} title="אם מכובה, רק owner/admin יראו את השדה הזה - לא נציגים רגילים">
+        <input
+          type="checkbox"
+          checked={field.visible_to_agents !== false}
+          disabled={disabled}
+          onChange={(e) => onUpdate({ visible_to_agents: e.target.checked })}
+        />
+        נראה לנציגים
+      </label>
       <button type="button" onClick={onDelete} disabled={disabled} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: '#b23b2f', fontSize: 12, cursor: 'pointer' }}>
         🗑 מחיקה
       </button>

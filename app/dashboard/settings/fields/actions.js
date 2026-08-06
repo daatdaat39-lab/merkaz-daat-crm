@@ -19,7 +19,7 @@ async function requireManager(workspaceId) {
 
 // field_key לא ניתן לעריכה אחרי יצירה (immutable) - contact_departments.
 // extra_fields הוא jsonb חופשי, אז שינוי מפתח קיים יתמך נתונים קיימים.
-export async function createField(workspaceId, { fieldKey, label, type, options }) {
+export async function createField(workspaceId, { fieldKey, label, type, options, visibleToAgents }) {
   const ctx = await requireManager(workspaceId);
   if (ctx.error) return ctx;
   const { supabase } = ctx;
@@ -77,20 +77,22 @@ export async function createField(workspaceId, { fieldKey, label, type, options 
     type: type || 'text',
     options: storedOptions,
     sort_order: count || 0,
+    visible_to_agents: visibleToAgents !== false,
   });
   if (error) return { error: error.code === '23505' ? 'מפתח זה כבר קיים במחלקה זו' : error.message };
   return { success: true };
 }
 
-export async function updateField(id, workspaceId, { label, options }) {
+export async function updateField(id, workspaceId, { label, options, visibleToAgents }) {
   const ctx = await requireManager(workspaceId);
   if (ctx.error) return ctx;
   const lbl = (label || '').trim();
   if (!lbl) return { error: 'יש להזין תווית' };
 
-  const { error } = await ctx.supabase.from('workspace_extra_fields').update({
-    label: lbl, options: options || [],
-  }).eq('id', id);
+  const patch = { label: lbl, options: options || [] };
+  if (typeof visibleToAgents === 'boolean') patch.visible_to_agents = visibleToAgents;
+
+  const { error } = await ctx.supabase.from('workspace_extra_fields').update(patch).eq('id', id);
   if (error) return { error: error.message };
   return { success: true };
 }

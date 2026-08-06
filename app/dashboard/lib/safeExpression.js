@@ -4,22 +4,39 @@
 // בפעולות חשבון בסיסיות, סוגריים, וכמה פונקציות תאריך קבועות מראש -
 // שום קריאה חיצונית, שום גישה למשתני JS.
 //
-// דקדוק: expr := term (('+'|'-') term)*
+// דקדוק: expr := comparison
+//        comparison := arith (('>'|'<'|'>='|'<='|'=='|'!=') arith)?
+//        arith := term (('+'|'-') term)*
 //        term := factor (('*'|'/') factor)*
 //        factor := number | string | identifier | funcCall | '(' expr ')' | '-' factor
 //        funcCall := identifier '(' expr (',' expr)* ')'
 //
 // מחרוזות ("...") נתמכות רק לצורך הרכבת משפט תיאורי (חיבור עם +, למשל
-// count_filled(a,b) + " קורסים" ) - לא לשום שימוש אחר.
+// count_filled(a,b) + " קורסים" ) - לא לשום שימוש אחר. השוואות (>/</וכו')
+// קיימות רק כדי לשמש כתנאי לפונקציית if(תנאי, אז, אחרת) - אין שרשור
+// השוואות (a > b > c לא נתמך, בכוונה - שומר את הדקדוק פשוט ובטוח).
 
 // count_filled/list_filled מיוחדות: מקבלות כמה שמות שדות (כל כמות, לא
 // רק שניים) ועובדות על הערך הגולמי שלהם בלי קשר לסוג (טקסט/מספר/תאריך/
 // בחירה) - "כמה מהשדות האלה מלאים" / "מה הערכים המלאים, מרוכזים".
+//
+// פונקציות מצטברות (0 ארגומנטים) - לא קוראות משדה, אלא מהיסטוריית
+// התנועות (donation_transactions) של האדם באותה מחלקה, שמועברת בנפרד
+// ל-evaluateFormula. שם הטבלה נשאר היסטורי אבל הפונקציות גנריות לכל
+// מחלקה עם תנועות, לא רק תרומות.
 export const ALLOWED_FUNCTIONS = new Set([
   'months_between', 'days_between', 'years_between', 'percent',
-  'count_filled', 'list_filled',
+  'count_filled', 'list_filled', 'if',
+  'total_transactions', 'transaction_count', 'avg_transaction',
+  'days_since_last_transaction', 'first_transaction_date', 'last_transaction_date',
+  'total_transactions_this_year',
 ]);
 const VARIADIC_RAW_FUNCTIONS = new Set(['count_filled', 'list_filled']);
+const AGGREGATE_FUNCTIONS = new Set([
+  'total_transactions', 'transaction_count', 'avg_transaction',
+  'days_since_last_transaction', 'first_transaction_date', 'last_transaction_date',
+  'total_transactions_this_year',
+]);
 
 function tokenize(src) {
   const tokens = [];
@@ -27,6 +44,13 @@ function tokenize(src) {
   while (i < src.length) {
     const ch = src[i];
     if (/\s/.test(ch)) { i++; continue; }
+    if ('><='.includes(ch)) {
+      const two = src.slice(i, i + 2);
+      if (two === '>=' || two === '<=' || two === '==' || two === '!=') { tokens.push({ type: two, value: two }); i += 2; continue; }
+      if (ch === '>' || ch === '<') { tokens.push({ type: ch, value: ch }); i++; continue; }
+      throw new Error(`תו לא מוכר בנוסחה: "${ch}"`);
+    }
+    if (ch === '!' && src[i + 1] === '=') { tokens.push({ type: '!=', value: '!=' }); i += 2; continue; }
     if ('+-*/(),'.includes(ch)) { tokens.push({ type: ch, value: ch }); i++; continue; }
     if (/[0-9.]/.test(ch)) {
       let j = i;
@@ -65,7 +89,18 @@ function parseExpression(tokens) {
   const peek = () => tokens[pos];
   const next = () => tokens[pos++];
 
+  const COMPARE_OPS = new Set(['>', '<', '>=', '<=', '==', '!=']);
+
   function parseExpr() {
+    const left = parseArith();
+    if (peek() && COMPARE_OPS.has(peek().type)) {
+      const op = next().type;
+      return { kind: 'compare', op, left, right: parseArith() };
+    }
+    return left;
+  }
+
+  function parseArith() {
     let node = parseTerm();
     while (peek() && (peek().type === '+' || peek().type === '-')) {
       const op = next().type;
@@ -129,7 +164,7 @@ export function parseFormula(expression) {
 export function collectFieldRefs(ast, acc = new Set()) {
   if (!ast) return acc;
   if (ast.kind === 'identifier' && ast.name !== 'today') acc.add(ast.name);
-  if (ast.kind === 'binary') { collectFieldRefs(ast.left, acc); collectFieldRefs(ast.right, acc); }
+  if (ast.kind === 'binary' || ast.kind === 'compare') { collectFieldRefs(ast.left, acc); collectFieldRefs(ast.right, acc); }
   if (ast.kind === 'negate') collectFieldRefs(ast.value, acc);
   if (ast.kind === 'call') ast.args.forEach((a) => collectFieldRefs(a, acc));
   return acc;
@@ -149,13 +184,60 @@ function monthsBetween(a, b) {
   return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
 }
 
+// פונקציות מצטברות - קוראות מ-ctx.transactions (מערך {amount,
+// transaction_date} של האדם באותה מחלקה, לא משדה). אם לא סופקו תנועות
+// כלל (evaluateFormula נקרא בלי הפרמטר הרביעי - למשל בעמוד לידים, ששם
+// היסטוריית התנועות לא טעונה מראש) - זורקות, וה-catch החיצוני הופך
+// את זה ל-null בשקט, בדיוק כמו כל חוסר-נתון אחר.
+function aggregateValue(name, transactions) {
+  if (!Array.isArray(transactions)) throw new Error('היסטוריית תנועות לא זמינה כאן');
+  if (transactions.length === 0) {
+    if (name === 'transaction_count' || name === 'total_transactions' || name === 'total_transactions_this_year') return 0;
+    return null;
+  }
+  const amounts = transactions.map((t) => Number(t.amount) || 0);
+  const dates = transactions.map((t) => new Date(t.transaction_date)).filter((d) => !Number.isNaN(d.getTime()));
+  switch (name) {
+    case 'total_transactions': return amounts.reduce((s, a) => s + a, 0);
+    case 'transaction_count': return transactions.length;
+    case 'avg_transaction': return amounts.reduce((s, a) => s + a, 0) / transactions.length;
+    case 'days_since_last_transaction': {
+      if (!dates.length) return null;
+      const last = new Date(Math.max(...dates.map((d) => d.getTime())));
+      return Math.round((new Date() - last) / 86400000);
+    }
+    case 'first_transaction_date': return dates.length ? new Date(Math.min(...dates.map((d) => d.getTime()))) : null;
+    case 'last_transaction_date': return dates.length ? new Date(Math.max(...dates.map((d) => d.getTime()))) : null;
+    case 'total_transactions_this_year': {
+      const thisYear = new Date().getFullYear();
+      return transactions
+        .filter((t) => new Date(t.transaction_date).getFullYear() === thisYear)
+        .reduce((s, t) => s + (Number(t.amount) || 0), 0);
+    }
+    default: throw new Error('פונקציה מצטברת לא מוכרת');
+  }
+}
+
 function evalNode(ast, ctx) {
-  const { resolve, getRaw } = ctx;
+  const { resolve, getRaw, transactions } = ctx;
   switch (ast.kind) {
     case 'number': return ast.value;
     case 'string': return ast.value;
     case 'negate': return -toNumber(evalNode(ast.value, ctx));
     case 'identifier': return resolve(ast.name);
+    case 'compare': {
+      const l = evalNode(ast.left, ctx);
+      const r = evalNode(ast.right, ctx);
+      switch (ast.op) {
+        case '>': return l > r;
+        case '<': return l < r;
+        case '>=': return l >= r;
+        case '<=': return l <= r;
+        case '==': return l === r || (l instanceof Date && r instanceof Date && l.getTime() === r.getTime());
+        case '!=': return !(l === r || (l instanceof Date && r instanceof Date && l.getTime() === r.getTime()));
+        default: throw new Error('אופרטור השוואה לא מוכר');
+      }
+    }
     case 'binary': {
       const l = evalNode(ast.left, ctx);
       const r = evalNode(ast.right, ctx);
@@ -171,6 +253,17 @@ function evalNode(ast, ctx) {
       }
     }
     case 'call': {
+      if (ast.name === 'if') {
+        if (ast.args.length !== 3) throw new Error('if דורשת בדיוק 3 ארגומנטים: תנאי, אז, אחרת');
+        const cond = evalNode(ast.args[0], ctx);
+        // מעריכים רק את הענף שנבחר - כדי שהענף הלא-רלוונטי (שעשוי
+        // להפנות לשדה ריק) לא יגרום לשגיאה מיותרת.
+        return cond ? evalNode(ast.args[1], ctx) : evalNode(ast.args[2], ctx);
+      }
+      if (AGGREGATE_FUNCTIONS.has(ast.name)) {
+        if (ast.args.length !== 0) throw new Error(`${ast.name} לא מקבלת ארגומנטים`);
+        return aggregateValue(ast.name, transactions);
+      }
       if (VARIADIC_RAW_FUNCTIONS.has(ast.name)) {
         const names = ast.args.map((a) => {
           if (a.kind !== 'identifier') throw new Error(`${ast.name} מקבלת רק שמות שדות, לא ביטויים`);
@@ -193,10 +286,12 @@ function evalNode(ast, ctx) {
   }
 }
 
-// fieldTypes: { [fieldKey]: 'date' | 'number' | ... }, values: { [fieldKey]: rawValue }
-// מחזיר מספר או מחרוזת (list_filled), או null אם משהו חסר/לא תקין (לא
-// זורק - שדה מחושב שלא ניתן לחישוב כרגע פשוט לא מציג ערך, לא קורס).
-export function evaluateFormula(expression, fieldTypes, values) {
+// fieldTypes: { [fieldKey]: 'date' | 'number' | ... }, values: { [fieldKey]: rawValue },
+// transactions: מערך {amount, transaction_date} אופציונלי (להיסטוריית
+// תנועות - ר' הפונקציות המצטברות למעלה; אם לא סופק, הן מחזירות null
+// בשקט במקום לזרוק). מחזיר מספר או מחרוזת, או null אם משהו חסר/לא תקין
+// (לא זורק - שדה מחושב שלא ניתן לחישוב כרגע פשוט לא מציג ערך, לא קורס).
+export function evaluateFormula(expression, fieldTypes, values, transactions) {
   function resolve(name) {
     if (name === 'today') return new Date();
     const type = fieldTypes[name];
@@ -211,8 +306,9 @@ export function evaluateFormula(expression, fieldTypes, values) {
   }
   try {
     const ast = parseFormula(expression);
-    const result = evalNode(ast, { resolve, getRaw });
-    if (typeof result === 'number' && !Number.isNaN(result)) return result;
+    let result = evalNode(ast, { resolve, getRaw, transactions });
+    if (result instanceof Date) result = result.toLocaleDateString('he-IL');
+    if (typeof result === 'number' && !Number.isNaN(result)) return Math.round(result * 100) / 100;
     if (typeof result === 'string' && result) return result;
     return null;
   } catch {

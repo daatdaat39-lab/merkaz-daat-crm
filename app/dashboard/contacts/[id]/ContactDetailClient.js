@@ -243,6 +243,7 @@ export default function ContactDetailClient({
           transactions={donationTransactions || []}
           stageOrder={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order}
           labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
+          isManager={isManager}
         />
       )}
 
@@ -453,6 +454,7 @@ export default function ContactDetailClient({
             mainProcessConcluded={mainProcessConcluded}
             onReopenMain={reopenDepartment}
             onReopenCampaign={reopenCampaignProcess}
+            isManager={isManager}
           />
         </div>
       </div>

@@ -9,7 +9,7 @@ import { updateDepartmentExtraField } from '../actions';
 import { isProcessConcluded } from '../../lib/pipelineVisibility';
 import { computeFieldValue } from '../../lib/computedFields';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, isManager = false }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -66,6 +66,10 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
   }
 
   const fieldDefs = activeDepartment?.fieldDefs || [];
+  // שליטת מנהל (visible_to_agents) - שדה חסום נעלם גם מטאב "שדות נוספים"
+  // עצמו, לא רק מהקוביה, לכל מי שאינו owner/admin.
+  const visibleFieldDefs = fieldDefs.filter((f) => f.visibleToAgents !== false || isManager);
+  const deptTransactions = activeDepartment ? donationTransactions.filter((t) => t.workspace_id === activeDepartment.workspaceId) : [];
   const tabs = [
     { id: 'activity', label: 'פעילות' },
     { id: 'tasks', label: `משימות${tasks.length ? ` (${tasks.length})` : ''}` },
@@ -73,7 +77,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
     { id: 'documents', label: 'מסמכים' },
     { id: 'recordings', label: 'הקלטות שיחה' },
     ...(activeDepartment ? [{ id: 'processes', label: 'תהליכים' }] : []),
-    ...(fieldDefs.length > 0 ? [{ id: 'fields', label: `שדות נוספים — ${activeDepartment.workspaceName}` }] : []),
+    ...(visibleFieldDefs.length > 0 ? [{ id: 'fields', label: `שדות נוספים — ${activeDepartment.workspaceName}` }] : []),
   ];
 
   return (
@@ -321,11 +325,11 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
       {tab === 'fields' && activeDepartment && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 420 }}>
-          {fieldDefs.map((f) => (
+          {visibleFieldDefs.map((f) => (
             <div key={f.key}>
               <label style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', marginBottom: 4 }}>{f.label}</label>
               {f.type === 'computed' ? (
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '7px 0' }}>{computeFieldValue(f, extraValues, fieldDefs) || '—'}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '7px 0' }}>{computeFieldValue(f, extraValues, fieldDefs, deptTransactions) || '—'}</div>
               ) : f.type === 'select' ? (
                 <select
                   value={extraValues[f.key] || ''}

@@ -9,7 +9,7 @@
 // לגמרי (safeExpression.js, בלי eval/Function בשום שלב).
 import { evaluateFormula } from './safeExpression';
 
-export function computeFieldValue(field, extraValues, allFields = []) {
+export function computeFieldValue(field, extraValues, allFields = [], transactions) {
   if (field.type !== 'computed' || !field.options?.formula) return null;
 
   if (field.options.formula === 'remaining_months_from_date_plus_years') {
@@ -25,7 +25,7 @@ export function computeFieldValue(field, extraValues, allFields = []) {
 
   if (field.options.formula === 'expression' && field.options.expression) {
     const fieldTypes = Object.fromEntries(allFields.map((f) => [f.key, f.type]));
-    const result = evaluateFormula(field.options.expression, fieldTypes, extraValues || {});
+    const result = evaluateFormula(field.options.expression, fieldTypes, extraValues || {}, transactions);
     if (result === null) return null;
     if (typeof result === 'string') return field.options.unit ? `${result} ${field.options.unit}` : result;
     const rounded = Math.round(result * 100) / 100;

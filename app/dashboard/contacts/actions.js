@@ -890,7 +890,7 @@ export async function assignAgent(contactId, workspaceId, agentId) {
 // עדכון שדה נוסף ייעודי-מחלקה (extra_fields jsonb) על שיוך מחלקה - למשל
 // "מסלול לימודים מבוקש" או "סכום צפוי לתרומה" (ראו pipelines.js EXTRA_FIELDS)
 export async function updateDepartmentExtraField(departmentRowId, key, value) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
 
   const { data: row } = await supabase.from('contact_departments').select('extra_fields, contact_id, workspace_id').eq('id', departmentRowId).single();
   if (!row) return { error: 'שיוך מחלקה לא נמצא' };
@@ -899,9 +899,15 @@ export async function updateDepartmentExtraField(departmentRowId, key, value) {
 
   // הגנת-עומק: שדה "מחושב" לעולם לא נכתב ידנית - הממשק כבר לא מציג לו
   // input עריך, אבל בודקים שוב כאן כדי לא לסמוך רק על הסתרה בצד לקוח.
+  // אותו עיקרון לשדה עם visible_to_agents=false - אם הכותב אינו מנהל
+  // המחלקה, ההסתרה מהתצוגה לא מספיקה, חוסמים גם כתיבה ישירה.
   const { data: fieldDef } = await supabase.from('workspace_extra_fields')
-    .select('type').eq('workspace_id', row.workspace_id).eq('field_key', key).maybeSingle();
+    .select('type, visible_to_agents').eq('workspace_id', row.workspace_id).eq('field_key', key).maybeSingle();
   if (fieldDef?.type === 'computed') return { error: 'שדה מחושב לא ניתן לעריכה ידנית' };
+  if (fieldDef?.visible_to_agents === false) {
+    const allowed = await isManagerOfWorkspace(supabase, user.id, row.workspace_id);
+    if (!allowed) return { error: 'רק בעלים/מנהל המחלקה יכול לערוך שדה זה' };
+  }
 
   const extra_fields = { ...(row.extra_fields || {}), [key]: value };
   const { error } = await supabase.from('contact_departments').update({ extra_fields }).eq('id', departmentRowId);

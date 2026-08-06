@@ -220,7 +220,9 @@ export default async function SalesLeadsPage() {
           stages={pipeline.order} sideStages={pipeline.sideStages} stageLabels={pipeline.labels} stageColors={pipeline.colors}
           leadStages={pipeline.leadStages} wonStage={pipeline.wonStage} leadTabByStage={pipeline.leadTabByStage}
           sendConnections={sendConnections || []} whatsappTemplates={whatsappTemplates || []}
-          emailTemplates={emailTemplates || []} extraFields={extraFields} closeReasons={closeReasons}
+          emailTemplates={emailTemplates || []}
+          extraFields={isManager ? extraFields : extraFields.filter((f) => f.visibleToAgents !== false)}
+          closeReasons={closeReasons}
           campaignLeadGroups={campaignLeadGroups}
         />
       )}
