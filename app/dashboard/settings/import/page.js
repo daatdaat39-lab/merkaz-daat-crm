@@ -12,13 +12,24 @@ export default async function ImportDataPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: contacts }, { data: workspaces }, { data: profile }, { count: pendingConflicts }] = await Promise.all([
+  const [{ data: contacts }, { data: workspaces }, { data: profile }, { count: pendingConflicts }, { data: stages }] = await Promise.all([
     supabase.from('contacts').select('id, first, last, idnum, phone, phone2, email, dept, source, tags'),
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
     supabase.from('import_conflicts').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    supabase.from('pipeline_stages').select('workspace_id, stage_key, label, sort_order'),
   ]);
   const extraFieldsByWorkspaceName = await getAllExtraFields(supabase);
+
+  // מיפוי שלבי הפייפליין לפי שם מחלקה - משמש את אשף הייבוא כדי לתרגם
+  // עמודת "סטטוס" חופשית מקובץ ייבוא לשלב אמיתי (ר' DepartmentImportWizard).
+  const workspaceNameById = new Map((workspaces || []).map((w) => [w.id, w.name]));
+  const stagesByWorkspaceName = {};
+  for (const s of stages || []) {
+    const name = workspaceNameById.get(s.workspace_id);
+    if (!name) continue;
+    (stagesByWorkspaceName[name] ||= []).push({ stage_key: s.stage_key, label: s.label, sort_order: s.sort_order });
+  }
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: '28px 24px' }}>
@@ -30,7 +41,7 @@ export default async function ImportDataPage() {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         <DownloadTemplateButton />
         <ImportContactsButton workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} />
-        <DepartmentImportWizard workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} extraFieldsByWorkspaceName={extraFieldsByWorkspaceName} />
+        <DepartmentImportWizard workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} extraFieldsByWorkspaceName={extraFieldsByWorkspaceName} stagesByWorkspaceName={stagesByWorkspaceName} />
         <CallHistoryImportWizard />
         <ExportContactsButton contacts={contacts || []} />
         {pendingConflicts > 0 && (

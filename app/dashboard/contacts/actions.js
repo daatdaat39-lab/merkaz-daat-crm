@@ -13,7 +13,10 @@ import { summarizeContact } from '../../../lib/ai/summarizeContact';
 import { generateAndSendOtp, verifyOtp } from '../lib/otp';
 import { applyStageAutomations } from '../lib/stageAutomations';
 
-const EDITABLE_FIELDS = ['first', 'last', 'phone', 'phone2', 'email', 'email2', 'dept', 'source', 'idnum', 'birth_date', 'gender', 'related_contact_id', 'relation_label'];
+const EDITABLE_FIELDS = [
+  'first', 'last', 'phone', 'phone2', 'email', 'email2', 'dept', 'source', 'idnum', 'birth_date', 'gender', 'related_contact_id', 'relation_label',
+  'city', 'street', 'house_number', 'apartment', 'zip_code', 'neighborhood', 'country',
+];
 
 function parseTags(raw) {
   if (typeof raw !== 'string') return [];

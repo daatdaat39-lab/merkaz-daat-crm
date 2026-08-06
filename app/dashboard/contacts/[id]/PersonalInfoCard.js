@@ -85,6 +85,15 @@ export default function PersonalInfoCard({
           <Field label="מייל" name="email" type="email" defaultValue={contact.email} />
           <Field label="מייל נוסף" name="email2" type="email" defaultValue={contact.email2} />
 
+          <div style={categoryLabel}>כתובת</div>
+          <Field label="עיר" name="city" defaultValue={contact.city} />
+          <Field label="רחוב" name="street" defaultValue={contact.street} />
+          <Field label="מספר בית" name="house_number" defaultValue={contact.house_number} />
+          <Field label="דירה" name="apartment" defaultValue={contact.apartment} />
+          <Field label="מיקוד" name="zip_code" defaultValue={contact.zip_code} />
+          <Field label="שכונה" name="neighborhood" defaultValue={contact.neighborhood} />
+          <Field label="מדינה" name="country" defaultValue={contact.country} />
+
           <div style={categoryLabel}>קשרים</div>
           <RelatedContactPicker contactId={contact.id} related={related} setRelated={setRelated} />
           <Field label="סוג קרבה (למשל: אב, בן זוג)" name="relation_label" defaultValue={contact.relation_label} />
@@ -132,6 +141,17 @@ export default function PersonalInfoCard({
           <InfoRow label="טלפון נוסף" value={contact.phone2} />
           <InfoRow label="מייל" value={contact.email} />
           <InfoRow label="מייל נוסף" value={contact.email2} />
+
+          {(contact.city || contact.street || contact.zip_code || contact.neighborhood || contact.country) && (
+            <>
+              <div style={categoryLabel}>כתובת</div>
+              <InfoRow label="עיר" value={contact.city} />
+              <InfoRow label="רחוב" value={[contact.street, contact.house_number, contact.apartment ? `דירה ${contact.apartment}` : null].filter(Boolean).join(' ') || null} />
+              <InfoRow label="שכונה" value={contact.neighborhood} />
+              <InfoRow label="מיקוד" value={contact.zip_code} />
+              <InfoRow label="מדינה" value={contact.country} />
+            </>
+          )}
 
           <div style={categoryLabel}>פעילות ומעקב</div>
           <InfoRow label="פעילות אחרונה" value={lastActivityAt ? new Date(lastActivityAt).toLocaleDateString('he-IL') : null} />

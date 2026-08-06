@@ -23,6 +23,13 @@ const BASE_FIELDS = [
   { key: 'gender', label: 'מגדר' },
   { key: 'tags', label: 'תגיות (מופרדות בפסיק)' },
   { key: 'externalId', label: 'מזהה במערכת המקור (למשל מספר לקוח בקשר)' },
+  { key: 'city', label: 'עיר' },
+  { key: 'street', label: 'רחוב' },
+  { key: 'house_number', label: 'מספר בית' },
+  { key: 'apartment', label: 'דירה' },
+  { key: 'zip_code', label: 'מיקוד' },
+  { key: 'neighborhood', label: 'שכונה' },
+  { key: 'country', label: 'מדינה' },
 ];
 
 // שדות תנועה (לא תמונת מצב) - כשממופים amount+date, כל שורה הופכת
@@ -34,13 +41,18 @@ const TXN_FIELDS = [
   { key: 'txn:amount', label: 'סכום (תנועה בודדת)' },
   { key: 'txn:date', label: 'תאריך (תנועה בודדת)' },
   { key: 'txn:docNumber', label: 'מספר מסמך/תנועה' },
+  { key: 'txn:designation', label: 'ייעוד התרומה' },
+  { key: 'txn:payment_method', label: 'אופן תשלום' },
+  { key: 'txn:transaction_type', label: 'סוג פעולה/מסמך' },
+  { key: 'txn:campaign_reference', label: 'הפניית קמפיין (חופשי)' },
+  { key: 'txn:fundraiser_name', label: 'סוכן לזיכוי' },
 ];
 
 function mappingStorageKey(systemName) {
   return `crm-import-mapping::${systemName.trim().toLowerCase()}`;
 }
 
-export default function DepartmentImportWizard({ workspaces = [], defaultWorkspaceId = '', extraFieldsByWorkspaceName = {} }) {
+export default function DepartmentImportWizard({ workspaces = [], defaultWorkspaceId = '', extraFieldsByWorkspaceName = {}, stagesByWorkspaceName = {} }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState('upload'); // upload | classify | map | done
   const [headers, setHeaders] = useState([]);
@@ -51,6 +63,9 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
   const [batchLabel, setBatchLabel] = useState('');
   const [isPending, setIsPending] = useState(false);
   const [result, setResult] = useState(null);
+  // מיפוי ערכי סטטוס חופשיים מהקובץ לשלב פייפליין אמיתי, כשעמודה
+  // ממופה ליעד 'stage' - { [שם עמודה]: { [ערך גולמי]: stage_key } }
+  const [stageValueMaps, setStageValueMaps] = useState({});
   const router = useRouter();
 
   const workspace = workspaces.find((w) => w.id === workspaceId);
@@ -60,10 +75,38 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
     () => (workspace ? (extraFieldsByWorkspaceName[workspace.name] || []).filter((f) => f.type !== 'computed') : []),
     [workspace, extraFieldsByWorkspaceName]
   );
+  const stages = useMemo(
+    () => (workspace ? (stagesByWorkspaceName[workspace.name] || []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) : []),
+    [workspace, stagesByWorkspaceName]
+  );
+
+  function distinctValuesForHeader(header) {
+    const idx = headers.indexOf(header);
+    if (idx === -1) return [];
+    const set = new Set();
+    dataRows.forEach((cells) => {
+      const v = String(cells[idx] ?? '').trim();
+      if (v) set.add(v);
+    });
+    return Array.from(set);
+  }
+
+  function defaultStageForValue(rawValue) {
+    const match = stages.find((s) => (s.label || '').trim() === rawValue.trim());
+    return match ? match.stage_key : (stages[0]?.stage_key || '');
+  }
+
+  function stageValueFor(header, rawValue) {
+    return stageValueMaps[header]?.[rawValue] || defaultStageForValue(rawValue);
+  }
+
+  function setStageValue(header, rawValue, stageKey) {
+    setStageValueMaps((m) => ({ ...m, [header]: { ...(m[header] || {}), [rawValue]: stageKey } }));
+  }
 
   function resetAll() {
     setOpen(false); setStep('upload'); setHeaders([]); setDataRows([]);
-    setMapping({}); setSystemName(''); setBatchLabel(''); setResult(null);
+    setMapping({}); setSystemName(''); setBatchLabel(''); setResult(null); setStageValueMaps({});
   }
 
   function handleFile(e) {
@@ -116,6 +159,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
 
     const rows = dataRows.map((cells) => {
       const row = { extraFields: {}, donationTransaction: {} };
+      const noteParts = [];
       headers.forEach((h, idx) => {
         const target = mapping[h];
         if (!target || target === 'ignore') return;
@@ -125,9 +169,17 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
         else if (target === 'txn:amount') row.donationTransaction.amount = value;
         else if (target === 'txn:date') row.donationTransaction.date = value;
         else if (target === 'txn:docNumber') row.donationTransaction.docNumber = value;
+        else if (target === 'txn:designation') row.donationTransaction.designation = value;
+        else if (target === 'txn:payment_method') row.donationTransaction.paymentMethod = value;
+        else if (target === 'txn:transaction_type') row.donationTransaction.transactionType = value;
+        else if (target === 'txn:campaign_reference') row.donationTransaction.campaignReference = value;
+        else if (target === 'txn:fundraiser_name') row.donationTransaction.fundraiserName = value;
+        else if (target === 'note') noteParts.push(`${h}: ${value}`);
+        else if (target === 'stage') row.stage = stageValueMaps[h]?.[value] || defaultStageForValue(value);
         else row[target] = value;
       });
       if (!row.donationTransaction.amount || !row.donationTransaction.date) delete row.donationTransaction;
+      if (noteParts.length > 0) row.note = noteParts.join('\n');
       return row;
     });
 
@@ -208,10 +260,41 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                         {TXN_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
                       </optgroup>
                     )}
+                    {workspace && (
+                      <optgroup label="שיוך לפעילות/סטטוס">
+                        <option value="note">הערה ראשונית (לטאב פעילות)</option>
+                        {stages.length > 0 && <option value="stage">שלב בפייפליין (סטטוס)</option>}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
               ))}
             </div>
+
+            {headers.some((h) => mapping[h] === 'stage') && stages.length > 0 && (
+              <div style={{ marginTop: 14, border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>מיפוי ערכי סטטוס לשלב בפייפליין</div>
+                {headers.filter((h) => mapping[h] === 'stage').map((h) => (
+                  <div key={h} style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>עמודה: {h}</div>
+                    {distinctValuesForHeader(h).map((val) => (
+                      <div key={val} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <span style={{ flex: 1, fontSize: 12.5 }} title={val}>{val}</span>
+                        <span style={{ color: 'var(--text-secondary)' }}>←</span>
+                        <select
+                          value={stageValueFor(h, val)}
+                          onChange={(e) => setStageValue(h, val, e.target.value)}
+                          style={{ ...input(), width: 180, marginBottom: 0 }}
+                        >
+                          {stages.map((s) => <option key={s.stage_key} value={s.stage_key}>{s.label}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {result?.error && <p style={{ color: 'var(--red, #b23b2f)', fontSize: 13, marginTop: 10 }}>{result.error}</p>}
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 18 }}>
               <button type="button" onClick={() => setStep('classify')} style={ghostBtn()}>חזרה</button>

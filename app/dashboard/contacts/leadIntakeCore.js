@@ -120,9 +120,12 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
   } else {
     const pipeline = await getPipeline(supabase, workspace.name);
     // שיוך חדש בלבד יכול להיווצר כ"ממתין לאישור מנהל" - שיוך קיים לעולם
-    // לא חוזר להמתנה (הוא כבר אושר פעם אחת ומטופל)
+    // לא חוזר להמתנה (הוא כבר אושר פעם אחת ומטופל). options.stage - שלב
+    // מפורש (למשל מיפוי סטטוס בייבוא) - גובר על שלב ברירת המחדל, אבל
+    // רק ביצירת שיוך חדש; לשיוך קיים אף פעם לא "מזיזים אחורה" ליד
+    // שכבר בתהליך (ר' טיפול ב-existingRow.stage === 'closed' למעלה).
     const { data: created } = await supabase.from('contact_departments').insert({
-      contact_id: contactId, workspace_id: workspace.id, stage: pipeline.order[0], last_activity_at: new Date().toISOString(),
+      contact_id: contactId, workspace_id: workspace.id, stage: options.stage || pipeline.order[0], last_activity_at: new Date().toISOString(),
       extra_fields: extraFields || {},
       approval_status: options.requiresApproval ? 'pending' : 'approved',
       created_by_manager: !!options.createdByManager,
@@ -141,10 +144,15 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
 // לעולם לא לדרוס ערך שכבר קיים) בייבוא בכמות ממערכות חיצוניות. ערך
 // שמגיע לשדה שכבר תפוס בערך שונה נכנס לתור import_conflicts (ר' למטה)
 // במקום להיזרק בשקט.
-const FILLABLE_CONTACT_FIELDS = ['phone', 'phone2', 'email', 'email2', 'idnum', 'birth_date', 'gender'];
+const FILLABLE_CONTACT_FIELDS = [
+  'phone', 'phone2', 'email', 'email2', 'idnum', 'birth_date', 'gender',
+  'city', 'street', 'house_number', 'apartment', 'zip_code', 'neighborhood', 'country',
+];
 const FIELD_LABELS = {
   phone: 'טלפון', phone2: 'טלפון נוסף', email: 'מייל', email2: 'מייל נוסף',
   idnum: 'ת"ז', birth_date: 'תאריך לידה', gender: 'מגדר',
+  city: 'עיר', street: 'רחוב', house_number: 'מספר בית', apartment: 'דירה',
+  zip_code: 'מיקוד', neighborhood: 'שכונה', country: 'מדינה',
 };
 
 // מוסיף תנועת תרומה בודדת להיסטוריה (donation_transactions, מיגרציה
@@ -168,6 +176,11 @@ async function insertDonationTransaction(supabase, contactId, workspaceId, sourc
       external_doc_number: (donationTransaction.docNumber || '').toString().trim() || null,
       amount,
       transaction_date: date,
+      designation: (donationTransaction.designation || '').toString().trim() || null,
+      payment_method: (donationTransaction.paymentMethod || '').toString().trim() || null,
+      transaction_type: (donationTransaction.transactionType || '').toString().trim() || null,
+      campaign_reference: (donationTransaction.campaignReference || '').toString().trim() || null,
+      fundraiser_name: (donationTransaction.fundraiserName || '').toString().trim() || null,
     }, { onConflict: 'external_doc_number', ignoreDuplicates: true })
     .select('id');
   if (error) return null;
@@ -239,7 +252,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
         await supabase.from('import_conflicts').insert(conflictRows);
         conflictsFound += conflictRows.length;
       }
-      conflictsFound += await upsertDepartmentMembership(supabase, existing.id, ws, reason, null, sourceSystem, row.extraFields, membershipOptions);
+      conflictsFound += await upsertDepartmentMembership(supabase, existing.id, ws, reason, row.note || null, sourceSystem, row.extraFields, { ...membershipOptions, stage: row.stage || null });
       trackTransactionResult(await insertDonationTransaction(supabase, existing.id, ws.id, sourceSystem, row.donationTransaction));
       await upsertContactExternalId(supabase, existing.id, sourceSystem, externalId);
       enriched++;
@@ -254,11 +267,18 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       email2: (row.email2 || '').toString().trim() || null,
       birth_date: (row.birth_date || '').toString().trim() || null,
       gender: (row.gender || '').toString().trim() || null,
+      city: (row.city || '').toString().trim() || null,
+      street: (row.street || '').toString().trim() || null,
+      house_number: (row.house_number || '').toString().trim() || null,
+      apartment: (row.apartment || '').toString().trim() || null,
+      zip_code: (row.zip_code || '').toString().trim() || null,
+      neighborhood: (row.neighborhood || '').toString().trim() || null,
+      country: (row.country || '').toString().trim() || null,
       source: sourceSystem || 'ייבוא אקסל',
       tags: rowTags,
     }).select('id').single();
     if (createdContact) {
-      await upsertDepartmentMembership(supabase, createdContact.id, ws, reason, null, sourceSystem, row.extraFields, membershipOptions);
+      await upsertDepartmentMembership(supabase, createdContact.id, ws, reason, row.note || null, sourceSystem, row.extraFields, { ...membershipOptions, stage: row.stage || null });
       trackTransactionResult(await insertDonationTransaction(supabase, createdContact.id, ws.id, sourceSystem, row.donationTransaction));
       await upsertContactExternalId(supabase, createdContact.id, sourceSystem, externalId);
       created++;
