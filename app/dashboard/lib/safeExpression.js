@@ -6,8 +6,11 @@
 //
 // דקדוק: expr := term (('+'|'-') term)*
 //        term := factor (('*'|'/') factor)*
-//        factor := number | identifier | funcCall | '(' expr ')' | '-' factor
+//        factor := number | string | identifier | funcCall | '(' expr ')' | '-' factor
 //        funcCall := identifier '(' expr (',' expr)* ')'
+//
+// מחרוזות ("...") נתמכות רק לצורך הרכבת משפט תיאורי (חיבור עם +, למשל
+// count_filled(a,b) + " קורסים" ) - לא לשום שימוש אחר.
 
 // count_filled/list_filled מיוחדות: מקבלות כמה שמות שדות (כל כמות, לא
 // רק שניים) ועובדות על הערך הגולמי שלהם בלי קשר לסוג (טקסט/מספר/תאריך/
@@ -37,6 +40,19 @@ function tokenize(src) {
       while (j < src.length && /[a-zA-Z0-9_]/.test(src[j])) j++;
       tokens.push({ type: 'identifier', value: src.slice(i, j) });
       i = j;
+      continue;
+    }
+    if (ch === '"') {
+      let j = i + 1;
+      let value = '';
+      while (j < src.length && src[j] !== '"') {
+        if (src[j] === '\\' && j + 1 < src.length) { value += src[j + 1]; j += 2; continue; }
+        value += src[j];
+        j++;
+      }
+      if (src[j] !== '"') throw new Error('מרכאות לא נסגרו בנוסחה');
+      tokens.push({ type: 'string', value });
+      i = j + 1;
       continue;
     }
     throw new Error(`תו לא מוכר בנוסחה: "${ch}"`);
@@ -72,6 +88,7 @@ function parseExpression(tokens) {
     if (!t) throw new Error('נוסחה לא שלמה');
     if (t.type === '-') { next(); return { kind: 'negate', value: parseFactor() }; }
     if (t.type === 'number') { next(); return { kind: 'number', value: Number(t.value) }; }
+    if (t.type === 'string') { next(); return { kind: 'string', value: t.value }; }
     if (t.type === '(') {
       next();
       const node = parseExpr();
@@ -136,13 +153,17 @@ function evalNode(ast, ctx) {
   const { resolve, getRaw } = ctx;
   switch (ast.kind) {
     case 'number': return ast.value;
+    case 'string': return ast.value;
     case 'negate': return -toNumber(evalNode(ast.value, ctx));
     case 'identifier': return resolve(ast.name);
     case 'binary': {
       const l = evalNode(ast.left, ctx);
       const r = evalNode(ast.right, ctx);
       switch (ast.op) {
-        case '+': return toNumber(l) + toNumber(r);
+        // חיבור טקסטואלי אם אחד הצדדים מחרוזת (לצורך משפט מרוכז, למשל
+        // count_filled(...) + " קורסים: " + list_filled(...)) - שאר
+        // האופרטורים (- * /) עדיין דורשים מספרים בלבד, אין "חיסור טקסט".
+        case '+': return (typeof l === 'string' || typeof r === 'string') ? String(l) + String(r) : toNumber(l) + toNumber(r);
         case '-': return toNumber(l) - toNumber(r);
         case '*': return toNumber(l) * toNumber(r);
         case '/': { const rn = toNumber(r); if (!rn) throw new Error('חלוקה באפס'); return toNumber(l) / rn; }
