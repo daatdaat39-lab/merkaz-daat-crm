@@ -28,7 +28,12 @@ export default function GenericStatsTile({ department, stageOrder = [], labels =
     ? deptTransactions.reduce((min, t) => (t.transaction_date < min ? t.transaction_date : min), deptTransactions[0].transaction_date)
     : null;
 
+  // "הסתרה אישית" (⚙) חלה רק כאן, בשכבת התצוגה - איזה בלוקים מוצגים
+  // בקוביה. הנתונים עצמם (extra) תמיד מלאים, כדי ששדה מחושב שמסתמך על
+  // שדה-מקור שהצופה הזה הסתיר לעצמו עדיין יחושב נכון (ר' loadContactCardData.js).
+  const hiddenKeys = department.hiddenExtraFieldKeys || [];
   const filledFields = fieldDefs
+    .filter((f) => !hiddenKeys.includes(f.key))
     .map((f) => ({ ...f, display: f.type === 'computed' ? computeFieldValue(f, extra, fieldDefs) : formatValue(extra[f.key], f.type) }))
     .filter((f) => f.display !== null);
 

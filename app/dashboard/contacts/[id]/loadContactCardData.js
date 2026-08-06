@@ -178,11 +178,13 @@ export async function loadContactCardData(contactId) {
     const workspaceName = row.workspaces?.name || 'מחלקה';
     const hiddenExtraFieldKeys = hiddenExtraFieldsByWorkspace[row.workspace_id] || [];
     const fieldDefs = extraFieldDefsByWorkspaceName[workspaceName] || [];
-    const validExtraFieldKeys = new Set(fieldDefs.map((f) => f.key));
+    // חשוב: לא מוחקים כאן ערכי שדות שהצופה בחר להסתיר לעצמו מהקוביה -
+    // "הסתרה אישית" היא העדפת תצוגה בלבד ואסור לה לגעת בנתונים עצמם.
+    // מחיקת הערך מכאן הייתה שוברת כל שדה מחושב שמסתמך על השדה המוסתר
+    // (הוא היה "נעלם" עבור הצופה הזה בלבד, בלי שום סיבה עניינית) וגם
+    // הייתה מרוקנת את הערך בטאב "שדות נוספים" הניתן לעריכה. ההסתרה
+    // מיושמת רק בשכבת התצוגה של הקוביה (GenericStatsTile.js), לא כאן.
     const filteredExtraFields = { ...(row.extra_fields || {}) };
-    for (const key of Object.keys(filteredExtraFields)) {
-      if (validExtraFieldKeys.has(key) && hiddenExtraFieldKeys.includes(key)) delete filteredExtraFields[key];
-    }
     return {
       id: row.id,
       workspaceId: row.workspace_id,
