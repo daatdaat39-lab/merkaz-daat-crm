@@ -580,6 +580,53 @@ export async function importDepartmentBatch(rows, workspaceId, sourceSystem, bat
   return bulkImportContactRows(supabase, { rows, workspace, sourceSystem, batchLabel, requiresApproval });
 }
 
+// פתרון קונפליקט ייבוא בודד (import_conflicts, מיגרציה 0048) - נקרא הן
+// מיד אחרי ייבוא (בדיקה מיידית) והן ממסך "בדיקת כפיליות" בהגדרות
+// (בדיקה נדחית, אחד-אחד). resolution: 'kept_existing' (לא נוגעים בכלום),
+// 'used_new' (מחליף בערך מהקובץ), 'kept_both' (רק טלפון/מייל - שומר את
+// הערך החדש בשדה ה"נוסף" התאום, בלי לדרוס את הראשי). לעולם לא דורס שדה
+// תפוס בלי בחירה מפורשת של המשתמש - אותו עיקרון-על כמו הייבוא עצמו.
+const TWIN_FIELD = { phone: 'phone2', email: 'email2' };
+
+export async function resolveImportConflict(conflictId, resolution) {
+  const { supabase, user } = await requireUser();
+  if (!['kept_existing', 'used_new', 'kept_both'].includes(resolution)) return { error: 'פתרון לא תקין' };
+
+  const { data: conflict } = await supabase.from('import_conflicts').select('*').eq('id', conflictId).single();
+  if (!conflict) return { error: 'הקונפליקט לא נמצא' };
+  if (conflict.status !== 'pending') return { error: 'הקונפליקט הזה כבר טופל' };
+
+  const allowed = conflict.workspace_id ? await isManagerOfWorkspace(supabase, user.id, conflict.workspace_id) : false;
+  if (!allowed) return { error: 'רק בעלים/מנהל של המחלקה יכול לפתור קונפליקטים שלה' };
+
+  if (resolution === 'used_new') {
+    if (conflict.field_key.startsWith('extra:')) {
+      const key = conflict.field_key.slice(6);
+      const { data: dept } = await supabase.from('contact_departments').select('id, extra_fields')
+        .eq('contact_id', conflict.contact_id).eq('workspace_id', conflict.workspace_id).single();
+      if (dept) {
+        const extra_fields = { ...(dept.extra_fields || {}), [key]: conflict.new_value };
+        await supabase.from('contact_departments').update({ extra_fields }).eq('id', dept.id);
+      }
+    } else {
+      await supabase.from('contacts').update({ [conflict.field_key]: conflict.new_value }).eq('id', conflict.contact_id);
+    }
+  } else if (resolution === 'kept_both') {
+    const twinField = TWIN_FIELD[conflict.field_key];
+    if (!twinField) return { error: 'שמירת שני הערכים אפשרית רק עבור טלפון/מייל' };
+    const { data: c } = await supabase.from('contacts').select(twinField).eq('id', conflict.contact_id).single();
+    if (c && c[twinField]) return { error: `השדה "${twinField === 'phone2' ? 'טלפון נוסף' : 'מייל נוסף'}" כבר תפוס - יש לבחור "השאר קיים" או "החלף בחדש" במקום` };
+    await supabase.from('contacts').update({ [twinField]: conflict.new_value }).eq('id', conflict.contact_id);
+  }
+  // kept_existing - לא נוגעים בכלום
+
+  const { error } = await supabase.from('import_conflicts')
+    .update({ status: 'resolved', resolution, resolved_at: new Date().toISOString(), resolved_by: user.id })
+    .eq('id', conflictId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 // אישור ליד ממתין ושיגורו לנציג - מתוך תיבת ההמתנה של המנהל
 // (sales/pending). מותר רק לבעלים/מנהל של אותה מחלקה.
 export async function approveAndAssignLead(departmentRowId, agentId) {

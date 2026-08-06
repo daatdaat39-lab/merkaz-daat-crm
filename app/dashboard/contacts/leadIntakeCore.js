@@ -80,6 +80,7 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
     .single();
 
   let rowId;
+  let extraConflictCount = 0;
   if (existingRow) {
     rowId = existingRow.id;
     const update = { last_activity_at: new Date().toISOString() };
@@ -89,7 +90,31 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
       update.closed_reason = null;
     }
     if (extraFields) {
-      update.extra_fields = { ...extraFields, ...(existingRow.extra_fields || {}) };
+      const existingExtra = existingRow.extra_fields || {};
+      update.extra_fields = { ...extraFields, ...existingExtra };
+      // ייבוא בכמות בלבד (recordConflicts): ערך חדש שמתנגש עם ערך קיים
+      // לא נדרס בשקט (ר' מיזוג למעלה - הקיים תמיד מנצח) - הוא נשמר לתור
+      // בדיקה ידנית (import_conflicts) כדי שאף נתון מהקובץ לא "ייעלם".
+      if (options.recordConflicts) {
+        const conflictRows = [];
+        for (const [key, incoming] of Object.entries(extraFields)) {
+          const incomingStr = String(incoming ?? '').trim();
+          if (!incomingStr) continue;
+          const existingVal = existingExtra[key];
+          const existingStr = existingVal === undefined || existingVal === null ? '' : String(existingVal).trim();
+          if (existingStr && existingStr !== incomingStr) {
+            conflictRows.push({
+              contact_id: contactId, workspace_id: workspace.id, field_key: `extra:${key}`, field_label: key,
+              existing_value: existingStr, new_value: incomingStr,
+              source_system: options.sourceSystem || null, batch_label: options.batchLabel || null,
+            });
+          }
+        }
+        if (conflictRows.length > 0) {
+          await supabase.from('import_conflicts').insert(conflictRows);
+          extraConflictCount = conflictRows.length;
+        }
+      }
     }
     await supabase.from('contact_departments').update(update).eq('id', rowId);
   } else {
@@ -108,11 +133,19 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
   if (rowId && reason) {
     await supabase.from('lead_inquiries').insert({ contact_department_id: rowId, reason, note: note || null, source: source || null });
   }
+
+  return extraConflictCount;
 }
 
 // שדות בסיס באנשי קשר שמותר להשלים (רק אם ריקים אצל ההתאמה הקיימת -
-// לעולם לא לדרוס ערך שכבר קיים) בייבוא בכמות ממערכות חיצוניות
+// לעולם לא לדרוס ערך שכבר קיים) בייבוא בכמות ממערכות חיצוניות. ערך
+// שמגיע לשדה שכבר תפוס בערך שונה נכנס לתור import_conflicts (ר' למטה)
+// במקום להיזרק בשקט.
 const FILLABLE_CONTACT_FIELDS = ['phone', 'phone2', 'email', 'email2', 'idnum', 'birth_date', 'gender'];
+const FIELD_LABELS = {
+  phone: 'טלפון', phone2: 'טלפון נוסף', email: 'מייל', email2: 'מייל נוסף',
+  idnum: 'ת"ז', birth_date: 'תאריך לידה', gender: 'מגדר',
+};
 
 // מוסיף תנועת תרומה בודדת להיסטוריה (donation_transactions, מיגרציה
 // 0031) - לא "תמונת מצב" יחידה אלא רשומה מצטברת, כדי שאפשר יהיה לשמור
@@ -151,11 +184,12 @@ async function insertDonationTransaction(supabase, contactId, workspaceId, sourc
 export async function bulkImportContactRows(supabase, { rows, workspaceId, workspace, sourceSystem, batchLabel, requiresApproval = false }) {
   const ws = workspace || { id: workspaceId };
   const reason = (batchLabel || '').trim() || 'ייבוא';
-  const membershipOptions = { requiresApproval };
+  const membershipOptions = { requiresApproval, recordConflicts: true, sourceSystem, batchLabel };
   let created = 0;
   let enriched = 0;
   let transactionsAdded = 0;
   let transactionsSkipped = 0;
+  let conflictsFound = 0;
 
   function trackTransactionResult(added) {
     if (added === null) return;
@@ -179,10 +213,20 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
 
     if (existing) {
       const fill = {};
+      const conflictRows = [];
       for (const field of FILLABLE_CONTACT_FIELDS) {
         const incoming = row[field];
-        if (!existing[field] && incoming !== undefined && incoming !== null && String(incoming).trim() !== '') {
+        if (incoming === undefined || incoming === null) continue;
+        const incomingStr = String(incoming).trim();
+        if (!incomingStr) continue;
+        if (!existing[field]) {
           fill[field] = incoming;
+        } else if (String(existing[field]).trim() !== incomingStr) {
+          conflictRows.push({
+            contact_id: existing.id, workspace_id: ws.id, field_key: field, field_label: FIELD_LABELS[field] || field,
+            existing_value: String(existing[field]).trim(), new_value: incomingStr,
+            source_system: sourceSystem || null, batch_label: batchLabel || null,
+          });
         }
       }
       if (rowTags.length > 0) {
@@ -191,7 +235,11 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       if (Object.keys(fill).length > 0) {
         await supabase.from('contacts').update(fill).eq('id', existing.id);
       }
-      await upsertDepartmentMembership(supabase, existing.id, ws, reason, null, sourceSystem, row.extraFields, membershipOptions);
+      if (conflictRows.length > 0) {
+        await supabase.from('import_conflicts').insert(conflictRows);
+        conflictsFound += conflictRows.length;
+      }
+      conflictsFound += await upsertDepartmentMembership(supabase, existing.id, ws, reason, null, sourceSystem, row.extraFields, membershipOptions);
       trackTransactionResult(await insertDonationTransaction(supabase, existing.id, ws.id, sourceSystem, row.donationTransaction));
       await upsertContactExternalId(supabase, existing.id, sourceSystem, externalId);
       enriched++;
@@ -217,5 +265,5 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
     }
   }
 
-  return { success: true, created, enriched, transactionsAdded, transactionsSkipped, count: created + enriched };
+  return { success: true, created, enriched, transactionsAdded, transactionsSkipped, conflictsFound, count: created + enriched };
 }

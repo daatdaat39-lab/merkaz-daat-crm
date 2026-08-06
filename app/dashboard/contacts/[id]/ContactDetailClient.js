@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { getInquiryReasons } from '../../components/pipelines';
-import { shouldOpenPipeline } from '../../lib/pipelineVisibility';
+import { shouldOpenPipeline, isProcessConcluded } from '../../lib/pipelineVisibility';
 import { updateDepartmentStage, addDepartmentMembership } from '../actions';
 import { updateCampaignContact } from '../../sales/campaigns/actions';
 import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
@@ -11,8 +11,7 @@ import StageStepper from './StageStepper';
 import QuickActivityLogForm from './QuickActivityLogForm';
 import NewInquiryForm from './NewInquiryForm';
 import ReferrerPicker from './ReferrerPicker';
-import DonorStatsTile from './DonorStatsTile';
-import StudentStatsTile from './StudentStatsTile';
+import GenericStatsTile from './GenericStatsTile';
 import WidgetVisibilityToggle from './WidgetVisibilityToggle';
 import ExtraFieldVisibilityToggle from './ExtraFieldVisibilityToggle';
 import CalendarDedicationsCard from './CalendarDedicationsCard';
@@ -110,6 +109,29 @@ export default function ContactDetailClient({
     });
   }
 
+  // "פתיחה מחדש" של תהליך שהסתיים (מטאב "תהליכים") - מחזיר לשלב הראשון
+  // בסדר ה-pipeline, בדיוק כמו תהליך חדש שנפתח עכשיו.
+  function reopenDepartment() {
+    if (!active) return;
+    const stages = (byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order;
+    if (!stages.length) return;
+    startTransition(async () => {
+      await updateDepartmentStage(active.id, stages[0], null);
+      router.refresh();
+    });
+  }
+
+  function reopenCampaignProcess(rowId, stages) {
+    if (!stages?.order?.length) return;
+    startTransition(async () => {
+      await updateCampaignContact(rowId, { status: stages.order[0] });
+      router.refresh();
+    });
+  }
+
+  const activePipeline = byWorkspace[active?.workspaceName] || FALLBACK_PIPELINE;
+  const mainProcessConcluded = active ? isProcessConcluded(active.stage, activePipeline) : false;
+
   const outerStyle = isModal
     ? { padding: '24px' }
     : { maxWidth: 1000, margin: '0 auto', padding: '28px 24px' };
@@ -132,7 +154,10 @@ export default function ContactDetailClient({
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, margin: '16px 0 10px' }}>
         <AvatarUpload contact={contact} />
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 18, fontWeight: 600 }}>{contact.first} {contact.last}</div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ fontSize: 18, fontWeight: 600 }}>{contact.first} {contact.last}</div>
+            {active && <ReferrerPicker contactId={contact.id} department={active} frozen={contact.frozen} />}
+          </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             {visibleDepartments.map((d) => (
               <button
@@ -201,24 +226,22 @@ export default function ContactDetailClient({
         </div>
       )}
 
-      {active && (active.workspaceName === 'תרומות' || active.workspaceName === 'דעת ותבונה') && (
+      {active && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          {!active.hiddenWidgetKeys?.includes(active.workspaceName === 'תרומות' ? 'donor_stats' : 'student_stats') && (
+          {!active.hiddenWidgetKeys?.includes('stats_tile') && (
             <ExtraFieldVisibilityToggle workspaceId={active.workspaceId} fields={active.fieldDefs} hiddenKeys={active.hiddenExtraFieldKeys} />
           )}
           <WidgetVisibilityToggle workspaceId={active.workspaceId} hiddenKeys={active.hiddenWidgetKeys} />
         </div>
       )}
 
-      {active?.workspaceName === 'תרומות' && !active.hiddenWidgetKeys?.includes('donor_stats') && (
-        <>
-          <DonorStatsTile department={active} transactions={donationTransactions || []} stageOrder={(byWorkspace['תרומות'] || FALLBACK_PIPELINE).order} />
-          <ReferrerPicker contactId={contact.id} department={active} frozen={contact.frozen} />
-        </>
-      )}
-
-      {active?.workspaceName === 'דעת ותבונה' && !active.hiddenWidgetKeys?.includes('student_stats') && (
-        <StudentStatsTile department={active} stageOrder={(byWorkspace['דעת ותבונה'] || FALLBACK_PIPELINE).order} />
+      {active && !active.hiddenWidgetKeys?.includes('stats_tile') && (
+        <GenericStatsTile
+          department={active}
+          transactions={donationTransactions || []}
+          stageOrder={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order}
+          labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
+        />
       )}
 
       {active && (
@@ -240,8 +263,10 @@ export default function ContactDetailClient({
       )}
 
       {/* שורת שלבי המחלקה הפעילה - מקופלת כברירת מחדל, נפתחת אוטומטית
-          ברגעי החלטה (פנייה חדשה / ליד יזום / הגיע ליעד / נסגר) */}
-      {active && (
+          ברגעי החלטה (פנייה חדשה / ליד יזום / הגיע ליעד / נסגר). מוסתרת
+          לגמרי (לא רק מקופלת) אם התהליך כבר הסתיים - ר' טאב "תהליכים"
+          לפתיחה מחדש, וטאב "פעילות" להיסטוריה המלאה שנשארת שם. */}
+      {active && !mainProcessConcluded && (
         <div style={{ marginBottom: 16, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px' }}>
           {pipelineOpen ? (
             <>
@@ -277,8 +302,10 @@ export default function ContactDetailClient({
       )}
 
       {/* תהליכים נוספים מקמפיינים פעילים (לא הקדשה) שאיש הקשר חבר בהם
-          באותה מחלקה - ריבוי תהליכים במקביל, כל אחד עם השלבים שלו */}
-      {active?.campaignProcesses?.map((cp) => (
+          באותה מחלקה - ריבוי תהליכים במקביל, כל אחד עם השלבים שלו.
+          תהליך קמפיין שהסתיים (שלב-ניצחון/שלב צדדי) מוסתר מכאן גם כן,
+          באותו עיקרון בדיוק כמו התהליך הראשי - ר' טאב "תהליכים". */}
+      {active?.campaignProcesses?.filter((cp) => !isProcessConcluded(cp.status, cp.stages)).map((cp) => (
         <div key={cp.rowId} style={{ marginBottom: 16, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px' }}>
           <div style={{ fontSize: 12, color: '#6b6b6b', marginBottom: 10 }}>🎯 קמפיין: <b style={{ color: '#0a0a0a' }}>{cp.campaignName}</b></div>
           <StageStepper
@@ -322,7 +349,7 @@ export default function ContactDetailClient({
           onClick={() => openWindow({ id: 'calendar', kind: 'calendar', title: 'יומן', props: { initialContactId: contact.id, autoOpenToday: true } })}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: 'var(--bg)', color: '#333', border: '1px solid #e5e5e5' }}
         >
-          <span>📅</span><span>קביעת פגישה ביומן</span>
+          <span>📅</span><span>קביעת משימה/פגישה חדשה</span>
         </button>
         <AiSummaryButton contactId={contact.id} />
         {active?.stage === 'credit_issue' && contact.phone && !contact.frozen && (
@@ -410,6 +437,10 @@ export default function ContactDetailClient({
             workspaceNameById={workspaceNameById || {}}
             agents={active ? (agentsByWorkspace?.[active.workspaceId] || []) : []}
             activeDepartment={active}
+            pipeline={activePipeline}
+            mainProcessConcluded={mainProcessConcluded}
+            onReopenMain={reopenDepartment}
+            onReopenCampaign={reopenCampaignProcess}
           />
         </div>
       </div>

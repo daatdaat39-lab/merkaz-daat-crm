@@ -12,10 +12,11 @@ export default async function ImportDataPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: contacts }, { data: workspaces }, { data: profile }] = await Promise.all([
+  const [{ data: contacts }, { data: workspaces }, { data: profile }, { count: pendingConflicts }] = await Promise.all([
     supabase.from('contacts').select('id, first, last, idnum, phone, phone2, email, dept, source, tags'),
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
+    supabase.from('import_conflicts').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
   ]);
   const extraFieldsByWorkspaceName = await getAllExtraFields(supabase);
 
@@ -32,6 +33,14 @@ export default async function ImportDataPage() {
         <DepartmentImportWizard workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} extraFieldsByWorkspaceName={extraFieldsByWorkspaceName} />
         <CallHistoryImportWizard />
         <ExportContactsButton contacts={contacts || []} />
+        {pendingConflicts > 0 && (
+          <a href="/dashboard/settings/import-conflicts" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6,
+            fontSize: 13, fontWeight: 500, textDecoration: 'none', background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a',
+          }}>
+            ⚠ {pendingConflicts} קונפליקטים ממתינים לבדיקה
+          </a>
+        )}
       </div>
     </div>
   );

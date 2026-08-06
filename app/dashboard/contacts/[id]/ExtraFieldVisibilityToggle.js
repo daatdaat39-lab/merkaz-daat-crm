@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { toggleExtraFieldVisibility } from '../../lib/fieldPreferences';
 
-// אייקון ⚙ קטן ליד כותרת קובייה (DonorStatsTile/StudentStatsTile) -
+// אייקון ⚙ קטן ליד כותרת קובייה (GenericStatsTile) -
 // פותח פופ-אובר מהיר להתאמה אישית של אילו שדות מחלקתיים מוצגים
 // לצופה הנוכחי בלבד (לא משפיע על אף אחד אחר). ר' גם עמוד "ההעדפות
 // שלי" (settings/my-preferences) - אותה פעולה בדיוק, ריכוז של כל

@@ -20,6 +20,7 @@ const TABS = [
   { key: 'in_progress', label: 'בתהליך' },
   { key: 'won', label: 'הצליחו' },
   { key: 'closed', label: 'נפלו / סגורים' },
+  { key: 'all', label: 'הכל' },
 ];
 
 // שיוך שלב לטאב - אם המנהל קבע שיוך מפורש בהגדרות שלבי pipeline
@@ -47,11 +48,14 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
 
   const leadsWithTab = useMemo(() => leads.map((l) => ({ ...l, _tab: tabOf(l, leadStages, wonStage, leadTabByStage) })), [leads, leadStages, wonStage, leadTabByStage]);
   const tabCounts = useMemo(() => {
-    const counts = { new: 0, in_progress: 0, won: 0, closed: 0 };
+    const counts = { new: 0, in_progress: 0, won: 0, closed: 0, all: leadsWithTab.length };
     for (const l of leadsWithTab) counts[l._tab] += 1;
     return counts;
   }, [leadsWithTab]);
-  const tabLeads = useMemo(() => leadsWithTab.filter((l) => l._tab === activeTab), [leadsWithTab, activeTab]);
+  const tabLeads = useMemo(
+    () => (activeTab === 'all' ? leadsWithTab : leadsWithTab.filter((l) => l._tab === activeTab)),
+    [leadsWithTab, activeTab]
+  );
 
   function toggleSelect(id) {
     setSelected((prev) => {
@@ -330,6 +334,7 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
 }
 
 function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, sideStages = [], stageLabels = {}, stageColors = {}, sendConnections, whatsappTemplates, emailTemplates, selected, onToggleSelect, setSelected, extraFields = [], closeReasons }) {
+  const [collapsed, setCollapsed] = useState(false);
   const allSelected = leads.length > 0 && leads.every((l) => selected.has(l.id));
 
   function toggleSelectAll() {
@@ -343,30 +348,37 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text-secondary)' }}>
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}
+      >
+        <span style={{ fontSize: 10 }}>{collapsed ? '▸' : '▾'}</span>
         {title} ({leads.length})
-      </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-        <thead>
-          <tr style={{ background: 'var(--bg-secondary)' }}>
-            <th style={{ padding: '10px 8px', textAlign: 'center' }}>
-              <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
-            </th>
-            {['שם', 'סטטוס', 'טלפון', 'מייל', 'מקור', 'מהות הפנייה', 'טיפול אחרון', 'נציג מטפל'].map((h) => (
-              <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
+      </button>
+      {!collapsed && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-secondary)' }}>
+              <th style={{ padding: '10px 8px', textAlign: 'center' }}>
+                <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
+              </th>
+              {['שם', 'סטטוס', 'טלפון', 'מייל', 'מקור', 'מהות הפנייה', 'טיפול אחרון', 'נציג מטפל'].map((h) => (
+                <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
+              ))}
+              {extraFields.map((f) => (
+                <th key={f.key} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{f.label}</th>
+              ))}
+              <th style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>פעולות מהירות</th>
+            </tr>
+          </thead>
+          <tbody>
+            {leads.map((c) => (
+              <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sideStages={sideStages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} extraFields={extraFields} closeReasons={closeReasons} />
             ))}
-            {extraFields.map((f) => (
-              <th key={f.key} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{f.label}</th>
-            ))}
-            <th style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>פעולות מהירות</th>
-          </tr>
-        </thead>
-        <tbody>
-          {leads.map((c) => (
-            <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sideStages={sideStages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} extraFields={extraFields} closeReasons={closeReasons} />
-          ))}
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
@@ -375,6 +387,7 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
 // (מסונן כבר בשרת), מנהל רואה את כל חברי הקמפיין
 function CampaignLeadGroup({ group }) {
   const [isPending, startTransition] = useTransition();
+  const [collapsed, setCollapsed] = useState(false);
   const router = useRouter();
 
   function handleStatusChange(rowId, value) {
@@ -386,43 +399,50 @@ function CampaignLeadGroup({ group }) {
 
   return (
     <div style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}>
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, marginBottom: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}
+      >
+        <span style={{ fontSize: 10 }}>{collapsed ? '▸' : '▾'}</span>
         {group.campaignName} ({group.rows.length})
-      </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-        <thead>
-          <tr style={{ background: 'var(--bg-secondary)' }}>
-            {['שם', 'סטטוס', 'טלפון', 'מייל'].map((h) => (
-              <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {group.rows.map((r) => (
-            <tr key={r.rowId} style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
-              <td style={{ padding: '10px 16px', fontSize: 13 }}>
-                <a href={`/dashboard/contacts/${r.contactId}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>{r.name}</a>
-              </td>
-              <td style={{ padding: '10px 16px', fontSize: 13 }}>
-                <select
-                  value={r.status}
-                  onChange={(e) => handleStatusChange(r.rowId, e.target.value)}
-                  disabled={isPending}
-                  style={{
-                    border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 500, cursor: 'pointer',
-                    background: (group.stages.colors[r.status] || {}).bg || '#f4f4f5',
-                    color: (group.stages.colors[r.status] || {}).color || '#52525b',
-                  }}
-                >
-                  {group.stages.order.map((s) => <option key={s} value={s}>{group.stages.labels[s] || s}</option>)}
-                </select>
-              </td>
-              <td style={{ padding: '10px 16px', fontSize: 13 }}>{r.phone || '—'}</td>
-              <td style={{ padding: '10px 16px', fontSize: 13 }}>{r.email || '—'}</td>
+      </button>
+      {!collapsed && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-secondary)' }}>
+              {['שם', 'סטטוס', 'טלפון', 'מייל'].map((h) => (
+                <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {group.rows.map((r) => (
+              <tr key={r.rowId} style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
+                <td style={{ padding: '10px 16px', fontSize: 13 }}>
+                  <a href={`/dashboard/contacts/${r.contactId}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>{r.name}</a>
+                </td>
+                <td style={{ padding: '10px 16px', fontSize: 13 }}>
+                  <select
+                    value={r.status}
+                    onChange={(e) => handleStatusChange(r.rowId, e.target.value)}
+                    disabled={isPending}
+                    style={{
+                      border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 500, cursor: 'pointer',
+                      background: (group.stages.colors[r.status] || {}).bg || '#f4f4f5',
+                      color: (group.stages.colors[r.status] || {}).color || '#52525b',
+                    }}
+                  >
+                    {group.stages.order.map((s) => <option key={s} value={s}>{group.stages.labels[s] || s}</option>)}
+                  </select>
+                </td>
+                <td style={{ padding: '10px 16px', fontSize: 13 }}>{r.phone || '—'}</td>
+                <td style={{ padding: '10px 16px', fontSize: 13 }}>{r.email || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

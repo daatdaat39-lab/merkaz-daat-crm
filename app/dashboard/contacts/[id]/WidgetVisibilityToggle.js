@@ -6,8 +6,7 @@ import { useRouter } from 'next/navigation';
 import { toggleWidgetVisibility } from '../../lib/fieldPreferences';
 
 const WIDGETS = [
-  { key: 'donor_stats', label: 'קובייה: נתוני תרומה' },
-  { key: 'student_stats', label: 'קובייה: מצב לימודים' },
+  { key: 'stats_tile', label: 'קובייה: נתוני מחלקה' },
 ];
 
 // אותו רכיב בדיוק כמו ExtraFieldVisibilityToggle (portal + מיקום מ-

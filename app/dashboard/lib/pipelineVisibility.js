@@ -25,3 +25,15 @@ export function shouldOpenPipeline(department, pipeline) {
 
   return false;
 }
+
+// תהליך "הסתיים" (הגיע לשלב-ניצחון מפורש, או לאחד השלבים הצדדיים כמו
+// "נסגר"/"לא רלוונטי") - בשונה מ-shouldOpenPipeline (שרק קובע קיפול/
+// פתיחה), זה קובע הסתרה מלאה של קוביית השלבים: תהליך שהסתיים כבר לא
+// דורש מעקב שוטף, וההיסטוריה שלו נשארת מלאה בטאב "תהליכים" ובטאב
+// "פעילות" - רק הקוביה האינטראקטיבית מוסתרת.
+export function isProcessConcluded(stage, pipeline) {
+  if (!pipeline || !stage) return false;
+  if (pipeline.wonStage && stage === pipeline.wonStage) return true;
+  if (pipeline.sideStages?.includes(stage)) return true;
+  return false;
+}

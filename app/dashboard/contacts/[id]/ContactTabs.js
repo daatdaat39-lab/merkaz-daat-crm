@@ -6,8 +6,9 @@ import NotConnectedButton from '../../components/NotConnectedButton';
 import { celebrate } from '../../components/celebrate';
 import { addTask } from '../../tasks/actions';
 import { updateDepartmentExtraField } from '../actions';
+import { isProcessConcluded } from '../../lib/pipelineVisibility';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -70,6 +71,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
     { id: 'notes', label: 'הערות' },
     { id: 'documents', label: 'מסמכים' },
     { id: 'recordings', label: 'הקלטות שיחה' },
+    ...(activeDepartment ? [{ id: 'processes', label: 'תהליכים' }] : []),
     ...(fieldDefs.length > 0 ? [{ id: 'fields', label: `שדות נוספים — ${activeDepartment.workspaceName}` }] : []),
   ];
 
@@ -92,27 +94,22 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
         ))}
       </div>
 
-      {tab === 'activity' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <ActivityGroup
-            title="היסטוריית פניות — כל המחלקות"
-            items={inquiries}
-            emptyText="אין פניות רשומות"
-            renderItem={(inq, i) => (
+      {tab === 'activity' && (() => {
+        const groups = [
+          {
+            key: 'inquiries', title: 'היסטוריית פניות — כל המחלקות', shortLabel: 'פניות', items: inquiries,
+            renderItem: (inq, i) => (
               <div key={i} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <DeptTag name={inq.workspaceName} />
                 <span style={{ color: '#333' }}>{inq.reason}</span>
                 {inq.note && <span style={{ color: '#9b9b9b' }}> — {inq.note}</span>}
                 <span style={{ color: '#c0c0c0' }}> · {new Date(inq.created_at).toLocaleDateString('he-IL')}</span>
               </div>
-            )}
-          />
-
-          <ActivityGroup
-            title="מיילים שנשלחו — כל המחלקות"
-            items={sentEmails}
-            emptyText="לא נשלחו מיילים"
-            renderItem={(e) => (
+            ),
+          },
+          {
+            key: 'emails', title: 'מיילים שנשלחו — כל המחלקות', shortLabel: 'מיילים', items: sentEmails,
+            renderItem: (e) => (
               <div key={e.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <DeptTag name={workspaceNameById[e.workspace_id]} />
                 <div style={{ fontWeight: 500 }}>{e.subject}</div>
@@ -120,14 +117,11 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                   מאת {e.from_address} · {new Date(e.sent_at).toLocaleDateString('he-IL')} {new Date(e.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
-            )}
-          />
-
-          <ActivityGroup
-            title="הודעות WhatsApp — כל המחלקות"
-            items={sentWhatsapp}
-            emptyText="אין עדיין הודעות WhatsApp"
-            renderItem={(w) => (
+            ),
+          },
+          {
+            key: 'whatsapp', title: 'הודעות WhatsApp — כל המחלקות', shortLabel: 'הודעות WhatsApp', items: sentWhatsapp,
+            renderItem: (w) => (
               <div key={w.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <DeptTag name={workspaceNameById[w.workspace_id]} />
                 <div style={{ fontWeight: 500 }}>
@@ -138,41 +132,32 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                   {w.phone} · {new Date(w.sent_at).toLocaleDateString('he-IL')} {new Date(w.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
-            )}
-          />
-
-          <ActivityGroup
-            title="תרומות"
-            items={donationTransactions}
-            emptyText="אין תרומות רשומות"
-            renderItem={(t) => (
+            ),
+          },
+          {
+            key: 'donations', title: 'תרומות', shortLabel: 'תרומות', items: donationTransactions,
+            renderItem: (t) => (
               <div key={t.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <DeptTag name={workspaceNameById[t.workspace_id]} />
                 <span style={{ fontWeight: 600, color: '#15803d' }}>₪{Number(t.amount).toLocaleString('he-IL')}</span>
                 <span style={{ color: '#c0c0c0' }}> · {new Date(t.transaction_date).toLocaleDateString('he-IL')}</span>
                 {t.source_system && <span style={{ color: '#9b9b9b' }}> · {t.source_system}</span>}
               </div>
-            )}
-          />
-
-          <ActivityGroup
-            title="היסטוריית שיחות (מיובאת)"
-            items={callHistory}
-            emptyText="אין היסטוריית שיחות מיובאת"
-            renderItem={(c) => (
+            ),
+          },
+          {
+            key: 'call_history', title: 'היסטוריית שיחות (מיובאת)', shortLabel: 'היסטוריית שיחות', items: callHistory,
+            renderItem: (c) => (
               <div key={c.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <span style={{ fontWeight: 600 }}>📞 {c.response_text || 'שיחה'}</span>
                 {c.call_date && <span style={{ color: '#c0c0c0' }}> · {new Date(c.call_date).toLocaleDateString('he-IL')}</span>}
                 {c.source_system && <span style={{ color: '#9b9b9b' }}> · {c.source_system}</span>}
               </div>
-            )}
-          />
-
-          <ActivityGroup
-            title="שיחות טלפון (015)"
-            items={phoneCalls}
-            emptyText="אין שיחות רשומות"
-            renderItem={(c) => (
+            ),
+          },
+          {
+            key: 'phone_calls', title: 'שיחות טלפון (015)', shortLabel: 'שיחות טלפון', items: phoneCalls,
+            renderItem: (c) => (
               <div key={c.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <span style={{ fontWeight: 600 }}>{c.direction === 'out' ? '📤 יוצאת' : '📥 נכנסת'}</span>
                 <span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>
@@ -184,14 +169,11 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                   </div>
                 )}
               </div>
-            )}
-          />
-
-          <ActivityGroup
-            title="פגישות — כל המחלקות"
-            items={meetings}
-            emptyText="אין פעילות עדיין"
-            renderItem={(m) => (
+            ),
+          },
+          {
+            key: 'meetings', title: 'פגישות — כל המחלקות', shortLabel: 'פגישות', items: meetings,
+            renderItem: (m) => (
               <div key={m.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
                 <DeptTag name={workspaceNameById[m.workspace_id]} />
                 <div style={{ fontSize: 13, fontWeight: 500 }}>{m.title || 'פגישה'}</div>
@@ -204,10 +186,25 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                 )}
                 {m.notes && <div style={{ fontSize: 12.5, marginTop: 6, color: '#333' }}>{m.notes}</div>}
               </div>
+            ),
+          },
+        ];
+        const withContent = groups.filter((g) => g.items.length > 0);
+        const empty = groups.filter((g) => g.items.length === 0);
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {withContent.map((g) => (
+              <ActivityGroup key={g.key} title={g.title} items={g.items} renderItem={g.renderItem} />
+            ))}
+            {empty.length > 0 && (
+              <div style={{ fontSize: 12.5, color: '#9b9b9b' }}>
+                כאן תראה: {empty.map((g) => g.shortLabel).join(' · ')}
+              </div>
             )}
-          />
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {tab === 'tasks' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -301,6 +298,26 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
         </form>
       )}
 
+      {tab === 'processes' && activeDepartment && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <ProcessCard
+            title={`תהליך ראשי — ${activeDepartment.workspaceName}`}
+            label={pipeline?.labels?.[activeDepartment.stage] || activeDepartment.stage}
+            concluded={mainProcessConcluded}
+            onReopen={onReopenMain}
+          />
+          {(activeDepartment.campaignProcesses || []).map((cp) => (
+            <ProcessCard
+              key={cp.rowId}
+              title={`קמפיין — ${cp.campaignName}`}
+              label={cp.stages?.labels?.[cp.status] || cp.status}
+              concluded={isProcessConcluded(cp.status, cp.stages)}
+              onReopen={() => onReopenCampaign(cp.rowId, cp.stages)}
+            />
+          ))}
+        </div>
+      )}
+
       {tab === 'fields' && activeDepartment && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 420 }}>
           {fieldDefs.map((f) => (
@@ -376,12 +393,42 @@ function DeptTag({ name }) {
   );
 }
 
+// שורה בטאב "תהליכים" - כל תהליך (ראשי או קמפיין) עם השלב הנוכחי שלו,
+// ואופציה לפתוח מחדש כשהוא הסתיים (חזרה לשלב הראשון בסדר ה-pipeline).
+// היסטוריית התהליך עצמה לא נמחקת בשום שלב - זו רק פעולת קידום שלב רגילה.
+function ProcessCard({ title, label, concluded, onReopen }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+      border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px',
+    }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{title}</div>
+        <div style={{ fontSize: 12, color: '#9b9b9b', marginTop: 2 }}>
+          שלב נוכחי: <b style={{ color: concluded ? '#15803d' : '#0a0a0a' }}>{label}</b>
+          {concluded && ' · תהליך הסתיים'}
+        </div>
+      </div>
+      {concluded && (
+        <button
+          type="button"
+          onClick={onReopen}
+          style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 12px', fontSize: 12, color: '#6b6b6b', cursor: 'pointer', flexShrink: 0 }}
+        >
+          ↺ פתיחה מחדש
+        </button>
+      )}
+    </div>
+  );
+}
+
 const ACTIVITY_GROUP_LIMIT = 4;
 
-// קבוצת פריטים בטאב "פעילות" - מציגה כברירת מחדל רק את ה-4 האחרונים
-// (הרשימות כבר מגיעות ממוינות מהחדש לישן), עם כפתור "הצג עוד" שמרחיב
-// לרשימה המלאה - כדי שקטגוריה עם הרבה היסטוריה לא תציף את המסך.
-function ActivityGroup({ title, items, emptyText, renderItem }) {
+// קבוצת פריטים בטאב "פעילות" - נקראת רק עבור קטגוריות שיש בהן תוכן
+// (קטגוריות ריקות מתמזגות לשורה אחת למעלה, ר' תנאי withContent/empty).
+// מציגה כברירת מחדל רק את ה-4 האחרונים (הרשימות כבר מגיעות ממוינות
+// מהחדש לישן), עם כפתור "הצג עוד" שמרחיב לרשימה המלאה.
+function ActivityGroup({ title, items, renderItem }) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? items : items.slice(0, ACTIVITY_GROUP_LIMIT);
   const hiddenCount = items.length - visible.length;
@@ -391,7 +438,6 @@ function ActivityGroup({ title, items, emptyText, renderItem }) {
       <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
         {title}
       </div>
-      {items.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>{emptyText}</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {visible.map(renderItem)}
       </div>

@@ -26,11 +26,13 @@ const BASE_FIELDS = [
 ];
 
 // שדות תנועה (לא תמונת מצב) - כשממופים amount+date, כל שורה הופכת
-// לרשומה נפרדת בהיסטוריית התרומות (donation_transactions), לא רק
-// עדכון "סכום נוכחי" בכרטיס. מוצג רק למחלקת תרומות - ר' bulkImportContactRows.
+// לרשומה נפרדת בהיסטוריית התנועות (donation_transactions, שם הטבלה
+// נשאר היסטורי אבל השדה workspace_id גנרי לגמרי) - זמין לכל מחלקה,
+// לא רק תרומות (ר' insertDonationTransaction ב-leadIntakeCore.js -
+// לא הייתה שם הגבלה, רק ב-UI כאן).
 const TXN_FIELDS = [
-  { key: 'txn:amount', label: 'סכום תרומה (תנועה בודדת)' },
-  { key: 'txn:date', label: 'תאריך תרומה (תנועה בודדת)' },
+  { key: 'txn:amount', label: 'סכום (תנועה בודדת)' },
+  { key: 'txn:date', label: 'תאריך (תנועה בודדת)' },
   { key: 'txn:docNumber', label: 'מספר מסמך/תנועה' },
 ];
 
@@ -196,7 +198,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                         {extraFields.map((f) => <option key={f.key} value={`extra:${f.key}`}>{f.label}</option>)}
                       </optgroup>
                     )}
-                    {workspace?.name === 'תרומות' && (
+                    {workspace && (
                       <optgroup label="פרטי תנועה (להיסטוריה מלאה)">
                         {TXN_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
                       </optgroup>
@@ -228,7 +230,14 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                 </li>
               )}
             </ul>
-            <button type="button" onClick={resetAll} style={primaryBtn()}>סגירה</button>
+            {result.conflictsFound > 0 && (
+              <div style={note()}>
+                ⚠ {result.conflictsFound} ערכים בקובץ התנגשו עם נתון קיים ולא נדרסו - הם ממתינים לבדיקה שלכם (אפשר עכשיו או בכל זמן מאוחר יותר דרך "קונפליקטים בייבוא" בהגדרות).
+                {' '}
+                <a href="/dashboard/settings/import-conflicts" style={{ color: 'inherit', fontWeight: 600 }}>בדיקה עכשיו →</a>
+              </div>
+            )}
+            <button type="button" onClick={resetAll} style={{ ...primaryBtn(), marginTop: 14 }}>סגירה</button>
           </div>
         )}
       </div>
