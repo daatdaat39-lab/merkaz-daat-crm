@@ -62,13 +62,23 @@ export async function suggestFieldConfig(workspaceId, conversation) {
     let ast;
     try {
       ast = parseFormula(result.expression);
-    } catch {
-      return { needsClarification: true, question: 'הנוסחה שהצעתי לא יצאה תקינה - אפשר לתאר את החישוב במילים פשוטות יותר?' };
+    } catch (e) {
+      // חשוב: מחזירים את הנוסחה שכשלה ואת שגיאת הפארסינג המדויקת כחלק
+      // מהשאלה - זו נכנסת בחזרה להיסטוריית השיחה (ר' AiFieldWizard.js),
+      // כך שבניסיון הבא ה-AI *רואה* מה בדיוק הוא כתב ולמה זה נכשל, במקום
+      // לקבל שוב שאלה כללית וסתמית ולנחש עיוור בלולאה אינסופית.
+      return {
+        needsClarification: true,
+        question: `ניסיתי ליצור את הנוסחה "${result.expression}" אבל היא לא תקינה (שגיאה: ${e.message}). חשוב: יש להשתמש אך ורק במפתחות הטכניים המדויקים מהרשימה שסופקה (לא בתוויות בעברית, לא בנקודות "..."), ולציין כל שדה בנפרד בתור ארגומנט משלו. אפשר לנסות שוב?`,
+      };
     }
     const refs = Array.from(collectFieldRefs(ast));
     const unknownRefs = refs.filter((r) => r !== 'today' && !existingKeys.has(r));
     if (unknownRefs.length > 0) {
-      return { needsClarification: true, question: `לא מצאתי שדה בשם "${unknownRefs[0]}" במחלקה - איזה שדה קיים מייצג את זה?` };
+      return {
+        needsClarification: true,
+        question: `הנוסחה "${result.expression}" מפנה לשדות שלא קיימים בדיוק כך: ${unknownRefs.map((r) => `"${r}"`).join(', ')}. יש להשתמש רק במפתחות הטכניים המדויקים מהרשימה שסופקה למעלה (העתקה מדויקת, לא תרגום של התווית). אפשר לנסות שוב עם המפתחות הנכונים?`,
+      };
     }
     return {
       needsClarification: false,
