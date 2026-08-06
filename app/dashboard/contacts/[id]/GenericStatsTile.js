@@ -29,7 +29,7 @@ export default function GenericStatsTile({ department, stageOrder = [], labels =
     : null;
 
   const filledFields = fieldDefs
-    .map((f) => ({ ...f, display: f.type === 'computed' ? computeFieldValue(f, extra) : formatValue(extra[f.key], f.type) }))
+    .map((f) => ({ ...f, display: f.type === 'computed' ? computeFieldValue(f, extra, fieldDefs) : formatValue(extra[f.key], f.type) }))
     .filter((f) => f.display !== null);
 
   if (filledFields.length === 0 && deptTransactions.length === 0 && !department.stage) return null;

@@ -6,6 +6,7 @@ import { fetchGridRows } from './actions';
 import { createField } from '../fields/actions';
 import { COMPUTED_FORMULAS } from '../../lib/computedFields';
 import { generateFieldKey } from '../../lib/fieldKey';
+import AiFieldWizard from '../../components/AiFieldWizard';
 
 const PAGE_SIZE = 100;
 const COLUMN_TYPES = [
@@ -23,6 +24,7 @@ export default function DataGridClient({ workspaces = [] }) {
   const [data, setData] = useState(null); // { rows, totalCount, baseFields, extraFields, pipeline }
   const [error, setError] = useState(null);
   const [addingColumn, setAddingColumn] = useState(false);
+  const [aiWizardOpen, setAiWizardOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function loadRows() {
@@ -79,10 +81,21 @@ export default function DataGridClient({ workspaces = [] }) {
 
         {data && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>סה"כ {data.totalCount} אנשי קשר</span>}
 
-        <button type="button" onClick={() => setAddingColumn((v) => !v)} style={{ ...pageBtnStyle(), marginInlineStart: 'auto' }}>
+        <button type="button" onClick={() => { setAddingColumn((v) => !v); setAiWizardOpen(false); }} style={{ ...pageBtnStyle(), marginInlineStart: 'auto' }}>
           {addingColumn ? 'ביטול' : '+ הוספת עמודה'}
         </button>
+        <button type="button" onClick={() => { setAiWizardOpen((v) => !v); setAddingColumn(false); }} style={pageBtnStyle()}>
+          {aiWizardOpen ? 'ביטול' : '🤖 עם AI'}
+        </button>
       </div>
+
+      {aiWizardOpen && data && (
+        <AiFieldWizard
+          workspaceId={workspaceId}
+          onCreated={() => { setAiWizardOpen(false); loadRows(); }}
+          onClose={() => setAiWizardOpen(false)}
+        />
+      )}
 
       {addingColumn && data && (
         <AddColumnForm

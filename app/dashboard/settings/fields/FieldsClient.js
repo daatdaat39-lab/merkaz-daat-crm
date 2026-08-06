@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createField, updateField, reorderFields, deleteField } from './actions';
 import { COMPUTED_FORMULAS } from '../../lib/computedFields';
 import { generateFieldKey } from '../../lib/fieldKey';
+import AiFieldWizard from '../../components/AiFieldWizard';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
 const TYPES = [
@@ -54,6 +55,7 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
   const [dragId, setDragId] = useState(null);
 
   const [newField, setNewField] = useState({ fieldKey: '', label: '', type: 'text', optionsText: '', formula: COMPUTED_FORMULAS[0]?.value || '', dateField: '', durationField: '' });
+  const [useAiWizard, setUseAiWizard] = useState(false);
   const dateFields = fields.filter((f) => f.type === 'date');
   const numberFields = fields.filter((f) => f.type === 'number');
 
@@ -138,8 +140,20 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
         {fields.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b' }}>אין שדות למחלקה זו</div>}
       </div>
 
+      {useAiWizard ? (
+        <AiFieldWizard
+          workspaceId={workspaceId}
+          onCreated={() => { setUseAiWizard(false); refresh(); }}
+          onClose={() => setUseAiWizard(false)}
+        />
+      ) : (
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px 16px' }}>
-        <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>הוספת שדה חדש</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600 }}>הוספת שדה חדש</div>
+          <button type="button" onClick={() => setUseAiWizard(true)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+            🤖 עם AI
+          </button>
+        </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           <input placeholder="מפתח טכני (אנגלית, לא ניתן לשינוי אחר כך)" value={newField.fieldKey}
             onChange={(e) => setNewField((p) => ({ ...p, fieldKey: e.target.value }))} style={{ ...inputStyle, width: 220 }} />
@@ -187,6 +201,7 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

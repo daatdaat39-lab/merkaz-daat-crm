@@ -137,7 +137,7 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
       {extraFields.map((f) => (
         <td key={f.key} style={{ padding: '10px 16px', fontSize: 12.5 }}>
           {f.type === 'computed' ? (
-            <span style={{ color: 'var(--text-muted)' }}>{computeFieldValue(f, extraValues) || '—'}</span>
+            <span style={{ color: 'var(--text-muted)' }}>{computeFieldValue(f, extraValues, extraFields) || '—'}</span>
           ) : (
             <ExtraFieldCell field={f} value={extraValues[f.key]} onCommit={(value) => handleExtraFieldChange(f.key, value)} disabled={isPending} />
           )}

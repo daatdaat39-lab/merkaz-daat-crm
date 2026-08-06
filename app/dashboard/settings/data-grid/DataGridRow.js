@@ -77,7 +77,7 @@ export default function DataGridRow({ row, workspaceId, baseFields, extraFields,
       {extraFields.map((f) => (
         <td key={f.key} style={{ padding: '8px 10px' }}>
           {f.type === 'computed' ? (
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{computeFieldValue(f, extraValues) || '—'}</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{computeFieldValue(f, extraValues, extraFields) || '—'}</span>
           ) : (
             <ExtraFieldCell field={f} value={extraValues[f.key]} onCommit={(v) => handleExtraCommit(f.key, v)} disabled={isPending || row.frozen} />
           )}

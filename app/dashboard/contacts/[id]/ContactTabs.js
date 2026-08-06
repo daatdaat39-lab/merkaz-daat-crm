@@ -325,7 +325,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             <div key={f.key}>
               <label style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', marginBottom: 4 }}>{f.label}</label>
               {f.type === 'computed' ? (
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '7px 0' }}>{computeFieldValue(f, extraValues) || '—'}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '7px 0' }}>{computeFieldValue(f, extraValues, fieldDefs) || '—'}</div>
               ) : f.type === 'select' ? (
                 <select
                   value={extraValues[f.key] || ''}

@@ -4,6 +4,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { isManagerOfAnyWorkspace, isManagerOfWorkspace } from '../../lib/contactGuards';
 import { COMPUTED_FORMULAS } from '../../lib/computedFields';
+import { parseFormula, collectFieldRefs } from '../../lib/safeExpression';
 
 async function requireManager(workspaceId) {
   const supabase = createClient();
@@ -40,11 +41,30 @@ export async function createField(workspaceId, { fieldKey, label, type, options 
     if (!formula) return { error: 'נוסחת חישוב לא תקינה' };
     const { data: existingFields } = await supabase.from('workspace_extra_fields')
       .select('field_key, type').eq('workspace_id', workspaceId);
-    const dateField = (existingFields || []).find((f) => f.field_key === options.dateField && f.type === 'date');
-    const durationField = (existingFields || []).find((f) => f.field_key === options.durationField && f.type === 'number');
-    if (!dateField) return { error: 'יש לבחור שדה תאריך קיים מהמחלקה' };
-    if (!durationField) return { error: 'יש לבחור שדה משך (מספר) קיים מהמחלקה' };
-    storedOptions = { formula: options.formula, dateField: options.dateField, durationField: options.durationField };
+
+    if (options.formula === 'remaining_months_from_date_plus_years') {
+      const dateField = (existingFields || []).find((f) => f.field_key === options.dateField && f.type === 'date');
+      const durationField = (existingFields || []).find((f) => f.field_key === options.durationField && f.type === 'number');
+      if (!dateField) return { error: 'יש לבחור שדה תאריך קיים מהמחלקה' };
+      if (!durationField) return { error: 'יש לבחור שדה משך (מספר) קיים מהמחלקה' };
+      storedOptions = { formula: options.formula, dateField: options.dateField, durationField: options.durationField };
+    } else if (options.formula === 'expression') {
+      // נוסחה חופשית (בעיקר מוצעת ע"י אשף ה-AI) - מאומתת דרך פארסר בטוח
+      // (safeExpression.js, בלי eval) לפני שהיא נשמרת בכלל.
+      let ast;
+      try {
+        ast = parseFormula(options.expression);
+      } catch {
+        return { error: 'הנוסחה לא תקינה תחבירית' };
+      }
+      const existingKeys = new Set((existingFields || []).map((f) => f.field_key));
+      const refs = Array.from(collectFieldRefs(ast));
+      const unknownRefs = refs.filter((r) => r !== 'today' && !existingKeys.has(r));
+      if (unknownRefs.length > 0) return { error: `הנוסחה מפנה לשדה לא קיים: ${unknownRefs[0]}` };
+      storedOptions = { formula: 'expression', expression: options.expression, unit: options.unit || null };
+    } else {
+      return { error: 'נוסחת חישוב לא תקינה' };
+    }
   }
 
   const { count } = await supabase.from('workspace_extra_fields')
