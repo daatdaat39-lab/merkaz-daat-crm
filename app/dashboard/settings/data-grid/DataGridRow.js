@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import ExtraFieldCell from '../../components/ExtraFieldCell';
+import { computeFieldValue } from '../../lib/computedFields';
 import { updateGridBaseField, updateGridExtraField, updateGridStage } from './actions';
 
 // שורה אחת בגריד - בנוי על אותו דפוס בדיוק כמו LeadRow.js (עריכה
@@ -75,7 +76,11 @@ export default function DataGridRow({ row, workspaceId, baseFields, extraFields,
       </td>
       {extraFields.map((f) => (
         <td key={f.key} style={{ padding: '8px 10px' }}>
-          <ExtraFieldCell field={f} value={extraValues[f.key]} onCommit={(v) => handleExtraCommit(f.key, v)} disabled={isPending || row.frozen} />
+          {f.type === 'computed' ? (
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{computeFieldValue(f, extraValues) || '—'}</span>
+          ) : (
+            <ExtraFieldCell field={f} value={extraValues[f.key]} onCommit={(v) => handleExtraCommit(f.key, v)} disabled={isPending || row.frozen} />
+          )}
         </td>
       ))}
     </tr>

@@ -54,7 +54,12 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
   const router = useRouter();
 
   const workspace = workspaces.find((w) => w.id === workspaceId);
-  const extraFields = useMemo(() => (workspace ? (extraFieldsByWorkspaceName[workspace.name] || []) : []), [workspace, extraFieldsByWorkspaceName]);
+  // שדה "מחושב" מוצג בכל מקום אחר לקריאה בלבד - אי אפשר לייבא ערך
+  // לתוכו, לכן מוסתר מרשימת המיפוי כאן.
+  const extraFields = useMemo(
+    () => (workspace ? (extraFieldsByWorkspaceName[workspace.name] || []).filter((f) => f.type !== 'computed') : []),
+    [workspace, extraFieldsByWorkspaceName]
+  );
 
   function resetAll() {
     setOpen(false); setStep('upload'); setHeaders([]); setDataRows([]);

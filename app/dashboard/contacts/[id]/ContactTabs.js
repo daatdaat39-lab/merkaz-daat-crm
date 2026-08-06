@@ -7,6 +7,7 @@ import { celebrate } from '../../components/celebrate';
 import { addTask } from '../../tasks/actions';
 import { updateDepartmentExtraField } from '../actions';
 import { isProcessConcluded } from '../../lib/pipelineVisibility';
+import { computeFieldValue } from '../../lib/computedFields';
 
 export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign }) {
   const [tab, setTab] = useState('activity');
@@ -323,7 +324,9 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           {fieldDefs.map((f) => (
             <div key={f.key}>
               <label style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', marginBottom: 4 }}>{f.label}</label>
-              {f.type === 'select' ? (
+              {f.type === 'computed' ? (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '7px 0' }}>{computeFieldValue(f, extraValues) || '—'}</div>
+              ) : f.type === 'select' ? (
                 <select
                   value={extraValues[f.key] || ''}
                   onChange={(e) => handleExtraFieldChange(f.key, e.target.value)}

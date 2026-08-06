@@ -892,10 +892,16 @@ export async function assignAgent(contactId, workspaceId, agentId) {
 export async function updateDepartmentExtraField(departmentRowId, key, value) {
   const { supabase } = await requireUser();
 
-  const { data: row } = await supabase.from('contact_departments').select('extra_fields, contact_id').eq('id', departmentRowId).single();
+  const { data: row } = await supabase.from('contact_departments').select('extra_fields, contact_id, workspace_id').eq('id', departmentRowId).single();
   if (!row) return { error: 'שיוך מחלקה לא נמצא' };
   const frozenError = await requireNotFrozen(supabase, row.contact_id);
   if (frozenError) return frozenError;
+
+  // הגנת-עומק: שדה "מחושב" לעולם לא נכתב ידנית - הממשק כבר לא מציג לו
+  // input עריך, אבל בודקים שוב כאן כדי לא לסמוך רק על הסתרה בצד לקוח.
+  const { data: fieldDef } = await supabase.from('workspace_extra_fields')
+    .select('type').eq('workspace_id', row.workspace_id).eq('field_key', key).maybeSingle();
+  if (fieldDef?.type === 'computed') return { error: 'שדה מחושב לא ניתן לעריכה ידנית' };
 
   const extra_fields = { ...(row.extra_fields || {}), [key]: value };
   const { error } = await supabase.from('contact_departments').update({ extra_fields }).eq('id', departmentRowId);

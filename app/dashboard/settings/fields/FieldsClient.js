@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createField, updateField, reorderFields, deleteField } from './actions';
+import { COMPUTED_FORMULAS } from '../../lib/computedFields';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
 const TYPES = [
@@ -10,6 +11,7 @@ const TYPES = [
   { value: 'number', label: 'מספר' },
   { value: 'date', label: 'תאריך' },
   { value: 'select', label: 'בחירה מרשימה' },
+  { value: 'computed', label: 'מחושב (אוטומטי)' },
 ];
 
 export default function FieldsClient({ workspaces, fieldsByWorkspaceId }) {
@@ -50,7 +52,9 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
   const router = useRouter();
   const [dragId, setDragId] = useState(null);
 
-  const [newField, setNewField] = useState({ fieldKey: '', label: '', type: 'text', optionsText: '' });
+  const [newField, setNewField] = useState({ fieldKey: '', label: '', type: 'text', optionsText: '', formula: COMPUTED_FORMULAS[0]?.value || '', dateField: '', durationField: '' });
+  const dateFields = fields.filter((f) => f.type === 'date');
+  const numberFields = fields.filter((f) => f.type === 'number');
 
   function refresh() { router.refresh(); }
 
@@ -99,10 +103,15 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
   function handleCreate() {
     setError(null);
     startTransition(async () => {
-      const options = newField.type === 'select' ? newField.optionsText.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      let options = [];
+      if (newField.type === 'select') {
+        options = newField.optionsText.split(',').map((s) => s.trim()).filter(Boolean);
+      } else if (newField.type === 'computed') {
+        options = { formula: newField.formula, dateField: newField.dateField, durationField: newField.durationField };
+      }
       const res = await createField(workspaceId, { fieldKey: newField.fieldKey, label: newField.label, type: newField.type, options });
       if (res?.error) { setError(res.error); return; }
-      setNewField({ fieldKey: '', label: '', type: 'text', optionsText: '' });
+      setNewField({ fieldKey: '', label: '', type: 'text', optionsText: '', formula: COMPUTED_FORMULAS[0]?.value || '', dateField: '', durationField: '' });
       refresh();
     });
   }
@@ -142,11 +151,32 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
             <input placeholder="אפשרויות, מופרדות בפסיק" value={newField.optionsText}
               onChange={(e) => setNewField((p) => ({ ...p, optionsText: e.target.value }))} style={{ ...inputStyle, width: 220 }} />
           )}
-          <button type="button" onClick={handleCreate} disabled={isPending || !newField.fieldKey.trim() || !newField.label.trim()}
-            style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
+          {newField.type === 'computed' && (
+            <>
+              <select value={newField.dateField} onChange={(e) => setNewField((p) => ({ ...p, dateField: e.target.value }))} style={inputStyle}>
+                <option value="">שדה תאריך...</option>
+                {dateFields.map((f) => <option key={f.field_key} value={f.field_key}>{f.label}</option>)}
+              </select>
+              <select value={newField.durationField} onChange={(e) => setNewField((p) => ({ ...p, durationField: e.target.value }))} style={inputStyle}>
+                <option value="">שדה משך (שנים)...</option>
+                {numberFields.map((f) => <option key={f.field_key} value={f.field_key}>{f.label}</option>)}
+              </select>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={isPending || !newField.fieldKey.trim() || !newField.label.trim() || (newField.type === 'computed' && (!newField.dateField || !newField.durationField))}
+            style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}
+          >
             הוספה
           </button>
         </div>
+        {newField.type === 'computed' && (dateFields.length === 0 || numberFields.length === 0) && (
+          <div style={{ fontSize: 11.5, color: '#92400e', marginTop: 8 }}>
+            שדה מחושב דורש שכבר יהיו במחלקה זו שדה מסוג "תאריך" ושדה מסוג "מספר" - יש ליצור אותם קודם.
+          </div>
+        )}
       </div>
     </div>
   );
@@ -154,7 +184,7 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
 
 function FieldRow({ field, isDragging, onDragStart, onDragEnd, onDropOn, onUpdate, onDelete, disabled }) {
   const [label, setLabel] = useState(field.label);
-  const [optionsText, setOptionsText] = useState((field.options || []).join(', '));
+  const [optionsText, setOptionsText] = useState(field.type === 'select' ? (field.options || []).join(', ') : '');
 
   return (
     <div
@@ -190,6 +220,11 @@ function FieldRow({ field, isDragging, onDragStart, onDragEnd, onDropOn, onUpdat
           disabled={disabled}
           style={{ ...inputStyle, width: 220 }}
         />
+      )}
+      {field.type === 'computed' && (
+        <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+          מחושב מ: {field.options?.dateField} + {field.options?.durationField}
+        </span>
       )}
       <button type="button" onClick={onDelete} disabled={disabled} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: '#b23b2f', fontSize: 12, cursor: 'pointer' }}>
         🗑 מחיקה

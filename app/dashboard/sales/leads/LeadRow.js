@@ -8,6 +8,7 @@ import { CLOSE_REASONS } from '../../components/pipelines';
 import { assignAgent, updateLeadStage, updateDepartmentExtraField } from '../../contacts/actions';
 import ContactQuickActions from '../../components/ContactQuickActions';
 import ExtraFieldCell from '../../components/ExtraFieldCell';
+import { computeFieldValue } from '../../lib/computedFields';
 import { celebrate } from '../../components/celebrate';
 
 function elapsedLabel(iso) {
@@ -135,7 +136,11 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
       </td>
       {extraFields.map((f) => (
         <td key={f.key} style={{ padding: '10px 16px', fontSize: 12.5 }}>
-          <ExtraFieldCell field={f} value={extraValues[f.key]} onCommit={(value) => handleExtraFieldChange(f.key, value)} disabled={isPending} />
+          {f.type === 'computed' ? (
+            <span style={{ color: 'var(--text-muted)' }}>{computeFieldValue(f, extraValues) || '—'}</span>
+          ) : (
+            <ExtraFieldCell field={f} value={extraValues[f.key]} onCommit={(value) => handleExtraFieldChange(f.key, value)} disabled={isPending} />
+          )}
         </td>
       ))}
       <td style={{ padding: '10px 16px' }}>

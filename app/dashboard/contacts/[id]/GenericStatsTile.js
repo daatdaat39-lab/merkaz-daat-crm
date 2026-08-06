@@ -5,6 +5,8 @@
 // לתרומות/דעת ותבונה בלבד). מבוססת כולה על השדות הדינמיים של המחלקה
 // (workspace_extra_fields) ועל היסטוריית תנועות אם קיימת - בלי שום
 // לוגיקה קשיחה לפי שם מחלקה. **תצוגה בלבד (read-only)**.
+import { computeFieldValue } from '../../lib/computedFields';
+
 function formatValue(val, type) {
   if (val === null || val === undefined || val === '') return null;
   if (type === 'date') {
@@ -27,7 +29,7 @@ export default function GenericStatsTile({ department, stageOrder = [], labels =
     : null;
 
   const filledFields = fieldDefs
-    .map((f) => ({ ...f, display: formatValue(extra[f.key], f.type) }))
+    .map((f) => ({ ...f, display: f.type === 'computed' ? computeFieldValue(f, extra) : formatValue(extra[f.key], f.type) }))
     .filter((f) => f.display !== null);
 
   if (filledFields.length === 0 && deptTransactions.length === 0 && !department.stage) return null;

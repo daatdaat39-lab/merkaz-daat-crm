@@ -3,6 +3,7 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { isManagerOfAnyWorkspace, isManagerOfWorkspace } from '../../lib/contactGuards';
+import { COMPUTED_FORMULAS } from '../../lib/computedFields';
 
 async function requireManager(workspaceId) {
   const supabase = createClient();
@@ -26,6 +27,26 @@ export async function createField(workspaceId, { fieldKey, label, type, options 
   const lbl = (label || '').trim();
   if (!key || !lbl) return { error: 'יש להזין מפתח טכני ותווית' };
 
+  let storedOptions = [];
+  if (type === 'select') {
+    storedOptions = options || [];
+  } else if (type === 'computed') {
+    // שדה מחושב לעולם לא נערך ידנית - ה-options שלו הוא תצורת החישוב
+    // (איזו נוסחה + אילו שדות אחרים), לא רשימת ערכים. מוודאים שהנוסחה
+    // מוכרת (whitelist ב-computedFields.js) ושהשדות שהיא מצביעה עליהם
+    // קיימים בפועל באותה מחלקה, מהסוג הנכון - כדי שלא ייווצר שדה
+    // מחושב "שבור" שמצביע לשום מקום.
+    const formula = COMPUTED_FORMULAS.find((f) => f.value === options?.formula);
+    if (!formula) return { error: 'נוסחת חישוב לא תקינה' };
+    const { data: existingFields } = await supabase.from('workspace_extra_fields')
+      .select('field_key, type').eq('workspace_id', workspaceId);
+    const dateField = (existingFields || []).find((f) => f.field_key === options.dateField && f.type === 'date');
+    const durationField = (existingFields || []).find((f) => f.field_key === options.durationField && f.type === 'number');
+    if (!dateField) return { error: 'יש לבחור שדה תאריך קיים מהמחלקה' };
+    if (!durationField) return { error: 'יש לבחור שדה משך (מספר) קיים מהמחלקה' };
+    storedOptions = { formula: options.formula, dateField: options.dateField, durationField: options.durationField };
+  }
+
   const { count } = await supabase.from('workspace_extra_fields')
     .select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId);
 
@@ -34,7 +55,7 @@ export async function createField(workspaceId, { fieldKey, label, type, options 
     field_key: key,
     label: lbl,
     type: type || 'text',
-    options: type === 'select' ? (options || []) : [],
+    options: storedOptions,
     sort_order: count || 0,
   });
   if (error) return { error: error.code === '23505' ? 'מפתח זה כבר קיים במחלקה זו' : error.message };
