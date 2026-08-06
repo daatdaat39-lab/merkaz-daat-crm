@@ -27,6 +27,7 @@ export function computeFieldValue(field, extraValues, allFields = []) {
     const fieldTypes = Object.fromEntries(allFields.map((f) => [f.key, f.type]));
     const result = evaluateFormula(field.options.expression, fieldTypes, extraValues || {});
     if (result === null) return null;
+    if (typeof result === 'string') return field.options.unit ? `${result} ${field.options.unit}` : result;
     const rounded = Math.round(result * 100) / 100;
     return field.options.unit ? `${rounded} ${field.options.unit}` : String(rounded);
   }

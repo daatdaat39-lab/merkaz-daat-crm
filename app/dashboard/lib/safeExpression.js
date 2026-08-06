@@ -9,7 +9,14 @@
 //        factor := number | identifier | funcCall | '(' expr ')' | '-' factor
 //        funcCall := identifier '(' expr (',' expr)* ')'
 
-export const ALLOWED_FUNCTIONS = new Set(['months_between', 'days_between', 'years_between', 'percent']);
+// count_filled/list_filled מיוחדות: מקבלות כמה שמות שדות (כל כמות, לא
+// רק שניים) ועובדות על הערך הגולמי שלהם בלי קשר לסוג (טקסט/מספר/תאריך/
+// בחירה) - "כמה מהשדות האלה מלאים" / "מה הערכים המלאים, מרוכזים".
+export const ALLOWED_FUNCTIONS = new Set([
+  'months_between', 'days_between', 'years_between', 'percent',
+  'count_filled', 'list_filled',
+]);
+const VARIADIC_RAW_FUNCTIONS = new Set(['count_filled', 'list_filled']);
 
 function tokenize(src) {
   const tokens = [];
@@ -125,14 +132,15 @@ function monthsBetween(a, b) {
   return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
 }
 
-function evalNode(ast, resolve) {
+function evalNode(ast, ctx) {
+  const { resolve, getRaw } = ctx;
   switch (ast.kind) {
     case 'number': return ast.value;
-    case 'negate': return -toNumber(evalNode(ast.value, resolve));
+    case 'negate': return -toNumber(evalNode(ast.value, ctx));
     case 'identifier': return resolve(ast.name);
     case 'binary': {
-      const l = evalNode(ast.left, resolve);
-      const r = evalNode(ast.right, resolve);
+      const l = evalNode(ast.left, ctx);
+      const r = evalNode(ast.right, ctx);
       switch (ast.op) {
         case '+': return toNumber(l) + toNumber(r);
         case '-': return toNumber(l) - toNumber(r);
@@ -142,7 +150,16 @@ function evalNode(ast, resolve) {
       }
     }
     case 'call': {
-      const args = ast.args.map((a) => evalNode(a, resolve));
+      if (VARIADIC_RAW_FUNCTIONS.has(ast.name)) {
+        const names = ast.args.map((a) => {
+          if (a.kind !== 'identifier') throw new Error(`${ast.name} מקבלת רק שמות שדות, לא ביטויים`);
+          return a.name;
+        });
+        const filledValues = names.map((n) => getRaw(n)).filter((v) => v !== undefined && v !== null && v !== '');
+        if (ast.name === 'count_filled') return filledValues.length;
+        return filledValues.length ? filledValues.join(', ') : null; // list_filled
+      }
+      const args = ast.args.map((a) => evalNode(a, ctx));
       switch (ast.name) {
         case 'months_between': return monthsBetween(toDate(args[0]), toDate(args[1]));
         case 'days_between': return Math.round((toDate(args[1]) - toDate(args[0])) / 86400000);
@@ -155,9 +172,9 @@ function evalNode(ast, resolve) {
   }
 }
 
-// fieldTypes: { [fieldKey]: 'date' | 'number' }, values: { [fieldKey]: rawValue }
-// מחזיר מספר, או null אם משהו חסר/לא תקין (לא זורק - שדה מחושב שלא
-// ניתן לחישוב כרגע פשוט לא מציג ערך, לא קורס).
+// fieldTypes: { [fieldKey]: 'date' | 'number' | ... }, values: { [fieldKey]: rawValue }
+// מחזיר מספר או מחרוזת (list_filled), או null אם משהו חסר/לא תקין (לא
+// זורק - שדה מחושב שלא ניתן לחישוב כרגע פשוט לא מציג ערך, לא קורס).
 export function evaluateFormula(expression, fieldTypes, values) {
   function resolve(name) {
     if (name === 'today') return new Date();
@@ -168,10 +185,15 @@ export function evaluateFormula(expression, fieldTypes, values) {
     if (type === 'number') return toNumber(Number(raw));
     throw new Error(`שדה ${name} אינו מסוג תאריך/מספר`);
   }
+  function getRaw(name) {
+    return name === 'today' ? new Date().toLocaleDateString('he-IL') : values?.[name];
+  }
   try {
     const ast = parseFormula(expression);
-    const result = evalNode(ast, resolve);
-    return typeof result === 'number' && !Number.isNaN(result) ? result : null;
+    const result = evalNode(ast, { resolve, getRaw });
+    if (typeof result === 'number' && !Number.isNaN(result)) return result;
+    if (typeof result === 'string' && result) return result;
+    return null;
   } catch {
     return null;
   }
