@@ -76,7 +76,14 @@ export default function KesherSyncButton({ kesherConfigured = false }) {
             </div>
           )}
           {result.projectUnmatched > 0 && (
-            <div style={{ color: '#92400e' }}>⚠ {result.projectUnmatched} רשומות עם פרויקט קשר לא מזוהה - יש לבדוק את שם הפרויקט בקוד</div>
+            <div style={{ color: '#92400e' }}>
+              ⚠ {result.projectUnmatched} רשומות עם פרויקט קשר לא מזוהה
+              {result.unmatchedProjectSamples?.length > 0 && (
+                <div style={{ marginTop: 4, fontFamily: 'monospace', fontSize: 11.5 }}>
+                  {result.unmatchedProjectSamples.map((p) => <div key={p}>"{p}"</div>)}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

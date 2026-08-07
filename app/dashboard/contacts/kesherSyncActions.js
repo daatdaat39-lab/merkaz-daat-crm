@@ -54,6 +54,9 @@ export async function syncKesherReports(fromDate, toDate) {
     obligationsCreated: 0, obligationsUpdated: 0, obligationsUnmatched: 0,
     projectUnmatched: 0,
   };
+  // ערכי Project גולמיים שלא זוהו - לאבחון מהיר של PROJECT_TO_WORKSPACE
+  // בלי גישה ישירה לתשובת קשר (מוצג בתוצאה, לא רק בלוג שרת).
+  const unmatchedProjectSamples = new Set();
 
   let transactions = [];
   let obligations = [];
@@ -70,9 +73,14 @@ export async function syncKesherReports(fromDate, toDate) {
 
   for (const t of transactions) {
     try {
-      const workspaceName = resolveWorkspaceName(t.ProjectName || t.Project);
+      const rawProject = t.ProjectName || t.Project;
+      const workspaceName = resolveWorkspaceName(rawProject);
       const workspace = workspaceName ? workspaceByName.get(workspaceName) : null;
-      if (!workspace) { result.projectUnmatched++; continue; }
+      if (!workspace) {
+        result.projectUnmatched++;
+        if (rawProject && unmatchedProjectSamples.size < 10) unmatchedProjectSamples.add(rawProject.toString());
+        continue;
+      }
 
       const idnum = (t.Tz || '').toString().trim() || null;
       const phone = (t.Phone || '').toString().trim() || null;
@@ -103,7 +111,11 @@ export async function syncKesherReports(fromDate, toDate) {
     try {
       const workspaceName = resolveWorkspaceName(o.Project);
       const workspace = workspaceName ? workspaceByName.get(workspaceName) : null;
-      if (!workspace) { result.projectUnmatched++; continue; }
+      if (!workspace) {
+        result.projectUnmatched++;
+        if (o.Project && unmatchedProjectSamples.size < 10) unmatchedProjectSamples.add(o.Project.toString());
+        continue;
+      }
 
       const idnum = (o.ClientId || '').toString().trim() || null;
       const phone = (o.Phone || '').toString().trim() || null;
@@ -147,5 +159,6 @@ export async function syncKesherReports(fromDate, toDate) {
     }
   }
 
+  result.unmatchedProjectSamples = Array.from(unmatchedProjectSamples);
   return result;
 }
