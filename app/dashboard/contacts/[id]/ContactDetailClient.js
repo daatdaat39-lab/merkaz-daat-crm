@@ -12,7 +12,6 @@ import QuickActivityLogForm from './QuickActivityLogForm';
 import NewInquiryForm from './NewInquiryForm';
 import ReferrerPicker from './ReferrerPicker';
 import GenericStatsTile from './GenericStatsTile';
-import CommitmentsCard from './CommitmentsCard';
 import WidgetVisibilityToggle from './WidgetVisibilityToggle';
 import ExtraFieldVisibilityToggle from './ExtraFieldVisibilityToggle';
 import CalendarDedicationsCard from './CalendarDedicationsCard';
@@ -241,18 +240,9 @@ export default function ContactDetailClient({
         <GenericStatsTile
           department={active}
           transactions={donationTransactions || []}
+          commitments={commitments || []}
           stageOrder={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order}
           labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
-          isManager={isManager}
-        />
-      )}
-
-      {active && (
-        <CommitmentsCard
-          contactId={contact.id}
-          department={active}
-          commitments={commitments || []}
-          frozen={contact.frozen}
           isManager={isManager}
         />
       )}
@@ -445,6 +435,7 @@ export default function ContactDetailClient({
             sentEmails={sentEmails || []}
             sentWhatsapp={sentWhatsapp || []}
             donationTransactions={donationTransactions || []}
+            commitments={commitments || []}
             callHistory={callHistory || []}
             phoneCalls={phoneCalls || []}
             workspaceNameById={workspaceNameById || {}}

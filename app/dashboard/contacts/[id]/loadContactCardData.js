@@ -89,7 +89,7 @@ export async function loadContactCardData(contactId) {
       .neq('campaigns.kind', 'dedication'),
     supabase
       .from('commitments')
-      .select('id, workspace_id, total_amount, installments_count, status, note, created_at')
+      .select('id, workspace_id, total_amount, installments_count, status, note, created_at, start_date, end_date, frequency, bounced_count, external_reference')
       .eq('contact_id', contact.id)
       .order('created_at', { ascending: false }),
   ]);

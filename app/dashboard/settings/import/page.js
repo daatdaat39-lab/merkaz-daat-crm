@@ -3,7 +3,9 @@ import { redirect } from 'next/navigation';
 import { DownloadTemplateButton, ExportContactsButton, ImportContactsButton } from '../../contacts/ImportExportButtons';
 import DepartmentImportWizard from '../../contacts/DepartmentImportWizard';
 import CallHistoryImportWizard from '../../contacts/CallHistoryImportWizard';
+import KesherSyncButton from '../../contacts/KesherSyncButton';
 import { getAllExtraFields } from '../../lib/extraFields';
+import { isKesherConfigured } from '../../../../lib/kesher/client';
 
 // מסך ייעודי לכל כלי הייבוא/ייצוא - הועבר לכאן מעמוד "אנשי קשר" כדי לשמור
 // שם עיצוב נקי ומרווח (רק "+ איש קשר חדש"). כל הפעולות עצמן זהות לחלוטין.
@@ -43,6 +45,7 @@ export default async function ImportDataPage() {
         <ImportContactsButton workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} />
         <DepartmentImportWizard workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} extraFieldsByWorkspaceName={extraFieldsByWorkspaceName} stagesByWorkspaceName={stagesByWorkspaceName} />
         <CallHistoryImportWizard />
+        <KesherSyncButton kesherConfigured={isKesherConfigured()} />
         <ExportContactsButton contacts={contacts || []} />
         {pendingConflicts > 0 && (
           <a href="/dashboard/settings/import-conflicts" style={{

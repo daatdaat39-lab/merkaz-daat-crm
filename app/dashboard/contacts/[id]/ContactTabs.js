@@ -8,8 +8,9 @@ import { addTask } from '../../tasks/actions';
 import { updateDepartmentExtraField } from '../actions';
 import { isProcessConcluded } from '../../lib/pipelineVisibility';
 import { computeFieldValue } from '../../lib/computedFields';
+import KesherProjectPanel from './KesherProjectPanel';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, isManager = false }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, isManager = false }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -70,6 +71,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
   // עצמו, לא רק מהקוביה, לכל מי שאינו owner/admin.
   const visibleFieldDefs = fieldDefs.filter((f) => f.visibleToAgents !== false || isManager);
   const deptTransactions = activeDepartment ? donationTransactions.filter((t) => t.workspace_id === activeDepartment.workspaceId) : [];
+  const deptCommitments = activeDepartment ? commitments.filter((c) => c.workspace_id === activeDepartment.workspaceId) : [];
   const tabs = [
     { id: 'activity', label: 'פעילות' },
     { id: 'tasks', label: `משימות${tasks.length ? ` (${tasks.length})` : ''}` },
@@ -325,6 +327,11 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
       {tab === 'fields' && activeDepartment && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 420 }}>
+          <KesherProjectPanel
+            workspaceName={activeDepartment.workspaceName}
+            commitments={deptCommitments}
+            extraValues={extraValues}
+          />
           {visibleFieldDefs.map((f) => (
             <div key={f.key}>
               <label style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', marginBottom: 4 }}>{f.label}</label>

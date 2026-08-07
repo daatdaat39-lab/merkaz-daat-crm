@@ -17,7 +17,7 @@ function formatValue(val, type) {
   return String(val);
 }
 
-export default function GenericStatsTile({ department, stageOrder = [], labels = {}, transactions = [], isManager = false }) {
+export default function GenericStatsTile({ department, stageOrder = [], labels = {}, transactions = [], commitments = [], isManager = false }) {
   const extra = department.extraFields || {};
   const fieldDefs = department.fieldDefs || [];
   const currentStageLabel = labels[department.stage] || department.stage;
@@ -27,6 +27,11 @@ export default function GenericStatsTile({ department, stageOrder = [], labels =
   const earliestTransactionDate = deptTransactions.length
     ? deptTransactions.reduce((min, t) => (t.transaction_date < min ? t.transaction_date : min), deptTransactions[0].transaction_date)
     : null;
+
+  // התחייבות פעילה - בלוק מסוכם קבוע (לא שדה מחושב גנרי, כי הוא תלוי
+  // במבנה commitments עצמו). מוצג רק אם יש התחייבות פעילה למחלקה הזו -
+  // בדיוק כמו שאר הבלוקים המותנים כאן.
+  const activeCommitment = commitments.find((c) => c.workspace_id === department.workspaceId && c.status === 'active');
 
   // "הסתרה אישית" (⚙) חלה רק כאן, בשכבת התצוגה - איזה בלוקים מוצגים
   // בקוביה. הנתונים עצמם (extra) תמיד מלאים, כדי ששדה מחושב שמסתמך על
@@ -39,7 +44,7 @@ export default function GenericStatsTile({ department, stageOrder = [], labels =
     .map((f) => ({ ...f, display: f.type === 'computed' ? computeFieldValue(f, extra, fieldDefs, deptTransactions) : formatValue(extra[f.key], f.type) }))
     .filter((f) => f.display !== null);
 
-  if (filledFields.length === 0 && deptTransactions.length === 0 && !department.stage) return null;
+  if (filledFields.length === 0 && deptTransactions.length === 0 && !activeCommitment && !department.stage) return null;
 
   return (
     <div style={{
@@ -59,6 +64,12 @@ export default function GenericStatsTile({ department, stageOrder = [], labels =
           {earliestTransactionDate && (
             <div style={sub()}>מאז {new Date(earliestTransactionDate).toLocaleDateString('he-IL')}</div>
           )}
+        </Block>
+      )}
+
+      {activeCommitment && (
+        <Block label="התחייבות פעילה">
+          <span style={value()}>₪{Number(activeCommitment.total_amount).toLocaleString('he-IL')}</span>
         </Block>
       )}
 

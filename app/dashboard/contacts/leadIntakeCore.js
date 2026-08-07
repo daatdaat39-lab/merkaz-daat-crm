@@ -50,7 +50,7 @@ export async function findExistingMatch(supabase, { idnum, phone, email, sourceS
 // (contact_external_ids, מיגרציה 0033). ignoreDuplicates:true בכוונה -
 // אם אותו מזהה חיצוני כבר קיים ומצביע לכרטיס אחר, לא דורסים אותו בשקט
 // (זה בדיוק סימן לכפילות שדורשת בדיקה ידנית, לא ממוזג אוטומטית).
-async function upsertContactExternalId(supabase, contactId, sourceSystem, externalId) {
+export async function upsertContactExternalId(supabase, contactId, sourceSystem, externalId) {
   const source = (sourceSystem || '').toString().trim();
   const extId = (externalId || '').toString().trim();
   if (!source || !extId) return;
@@ -121,9 +121,10 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
     const pipeline = await getPipeline(supabase, workspace.name);
     // שיוך חדש בלבד יכול להיווצר כ"ממתין לאישור מנהל" - שיוך קיים לעולם
     // לא חוזר להמתנה (הוא כבר אושר פעם אחת ומטופל). options.stage - שלב
-    // מפורש (למשל מיפוי סטטוס בייבוא) - גובר על שלב ברירת המחדל, אבל
-    // רק ביצירת שיוך חדש; לשיוך קיים אף פעם לא "מזיזים אחורה" ליד
-    // שכבר בתהליך (ר' טיפול ב-existingRow.stage === 'closed' למעלה).
+    // מפורש (למשל סטטוס שמופה בזמן ייבוא, או שלב שנקבע מסנכרון קשר) -
+    // גובר על שלב ברירת המחדל, אבל רק ביצירת שיוך חדש; לשיוך קיים אף
+    // פעם לא "מזיזים אחורה" ליד שכבר בתהליך (ר' טיפול ב-
+    // existingRow.stage === 'closed' למעלה).
     const { data: created } = await supabase.from('contact_departments').insert({
       contact_id: contactId, workspace_id: workspace.id, stage: options.stage || pipeline.order[0], last_activity_at: new Date().toISOString(),
       extra_fields: extraFields || {},
@@ -161,7 +162,7 @@ const FIELD_LABELS = {
 // חי). דדופ אמיתי לפי מספר מסמך (external_doc_number, אינדקס ייחודי) -
 // אותה תנועה שמופיעה בשני קבצים/ייבואים לא נוצרת פעמיים. שורה בלי
 // amount/date תקינים פשוט מדולגת (לא שגיאה) - השדה כולו אופציונלי.
-async function insertDonationTransaction(supabase, contactId, workspaceId, sourceSystem, donationTransaction) {
+export async function insertDonationTransaction(supabase, contactId, workspaceId, sourceSystem, donationTransaction) {
   if (!donationTransaction) return null;
   const amount = Number(donationTransaction.amount);
   const date = (donationTransaction.date || '').toString().trim();
