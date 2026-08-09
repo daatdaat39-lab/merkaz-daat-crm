@@ -81,6 +81,7 @@ export async function syncKesherReports(fromDate, toDate) {
   const DEBUG_WATCH_CLIENT_IDS = ['205906571'];
   const DEBUG_WATCH_PHONES = ['0548053770'];
   const debugMatches = [];
+  const debugOutcomes = [];
 
   let transactions = [];
   let obligations = [];
@@ -150,28 +151,40 @@ export async function syncKesherReports(fromDate, toDate) {
   }
 
   for (const o of obligations) {
-    if (DEBUG_WATCH_CLIENT_IDS.includes((o.ClientId || '').toString().trim()) || DEBUG_WATCH_PHONES.includes((o.Phone || '').toString().trim())) {
-      debugMatches.push(o);
-    }
+    const isWatched = DEBUG_WATCH_CLIENT_IDS.includes((o.ClientId || '').toString().trim()) || DEBUG_WATCH_PHONES.includes((o.Phone || '').toString().trim());
+    if (isWatched) debugMatches.push(o);
     try {
       const workspaceName = resolveWorkspaceName(o.Project);
       const workspace = workspaceName ? workspaceByName.get(workspaceName) : null;
       if (!workspace) {
         result.projectUnmatched++;
         if (o.Project && unmatchedProjectSamples.size < 10) unmatchedProjectSamples.add(o.Project.toString());
+        if (isWatched) debugOutcomes.push({ reference: o.Reference, outcome: 'דולג - פרויקט לא זוהה', project: o.Project });
         continue;
       }
 
       const idnum = (o.ClientId || '').toString().trim() || null;
       const phone = (o.Phone || '').toString().trim() || null;
       const contact = await findExistingMatch(supabase, { idnum, phone });
-      if (!contact) { logIssue(o, 'לא הותאם לאיש קשר'); continue; }
+      if (!contact) {
+        logIssue(o, 'לא הותאם לאיש קשר');
+        if (isWatched) debugOutcomes.push({ reference: o.Reference, outcome: 'דולג - לא הותאם לאיש קשר', idnum, phone });
+        continue;
+      }
 
       const reference = (o.Reference || '').toString().trim();
-      if (!reference) { logIssue(o, 'אין אסמכתא (Reference)'); continue; }
+      if (!reference) {
+        logIssue(o, 'אין אסמכתא (Reference)');
+        if (isWatched) debugOutcomes.push({ reference: o.Reference, outcome: 'דולג - אין אסמכתא' });
+        continue;
+      }
 
       const totalAmount = Number(o.Sum) > 0 ? Number(o.Sum) * (Number(o.NumPayments) > 0 ? Number(o.NumPayments) : 1) : Number(o.FinalSum);
-      if (!totalAmount || totalAmount <= 0) { logIssue(o, 'סכום לא תקין'); continue; }
+      if (!totalAmount || totalAmount <= 0) {
+        logIssue(o, 'סכום לא תקין');
+        if (isWatched) debugOutcomes.push({ reference, outcome: 'דולג - סכום לא תקין', sum: o.Sum, numPayments: o.NumPayments, finalSum: o.FinalSum, computed: totalAmount });
+        continue;
+      }
 
       const { data: existing } = await supabase
         .from('commitments')
@@ -190,17 +203,24 @@ export async function syncKesherReports(fromDate, toDate) {
       if (existing) {
         await supabase.from('commitments').update(patch).eq('id', existing.id);
         result.obligationsUpdated++;
+        if (isWatched) debugOutcomes.push({ reference, outcome: 'עודכן', existingId: existing.id, patch });
       } else {
-        await supabase.from('commitments').insert({
+        const { error: insertError } = await supabase.from('commitments').insert({
           contact_id: contact.id, workspace_id: workspace.id,
           total_amount: totalAmount, installments_count: Number(o.NumPayments) || 1,
           external_reference: reference, created_by: user.id,
           ...patch,
         });
-        result.obligationsCreated++;
+        if (insertError) {
+          if (isWatched) debugOutcomes.push({ reference, outcome: 'שגיאת הכנסה ל-DB', error: insertError.message, totalAmount, workspaceId: workspace.id });
+        } else {
+          result.obligationsCreated++;
+          if (isWatched) debugOutcomes.push({ reference, outcome: 'נוצר', totalAmount, workspaceId: workspace.id });
+        }
       }
-    } catch {
+    } catch (err) {
       logIssue(o, 'שגיאה בעיבוד');
+      if (isWatched) debugOutcomes.push({ reference: o.Reference, outcome: 'שגיאה בעיבוד (catch)', error: err?.message });
     }
   }
 
@@ -208,5 +228,6 @@ export async function syncKesherReports(fromDate, toDate) {
   result.obligationsFetched = obligations.length;
   result.obligationIssues = obligationIssues;
   result.debugMatches = debugMatches;
+  result.debugOutcomes = debugOutcomes;
   return result;
 }

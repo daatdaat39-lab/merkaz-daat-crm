@@ -75,6 +75,14 @@ export default function KesherSyncButton({ kesherConfigured = false }) {
               ⚠ {result.transactionsUnmatched + result.obligationsUnmatched} רשומות לא הותאמו לאיש קשר קיים - יש להשלים פרטי זיהוי ולסנכרן שוב
             </div>
           )}
+          {result.debugOutcomes?.length > 0 && (
+            <div style={{ marginTop: 4, fontSize: 11, background: '#efe', border: '1px solid var(--border)', borderRadius: 6, padding: 8 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>אבחון זמני - מה קרה לכל התחייבות של איש הקשר הנצפה:</div>
+              {result.debugOutcomes.map((d, i) => (
+                <pre key={i} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: 10.5, margin: '4px 0' }}>{JSON.stringify(d, null, 1)}</pre>
+              ))}
+            </div>
+          )}
           {result.debugMatches?.length > 0 && (
             <div style={{ marginTop: 4, fontSize: 11, background: '#eef', border: '1px solid var(--border)', borderRadius: 6, padding: 8 }}>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>אבחון זמני - כל מה שקשר החזירה לאיש הקשר הנצפה:</div>
