@@ -15,7 +15,7 @@ import { applyStageAutomations } from '../lib/stageAutomations';
 
 const EDITABLE_FIELDS = [
   'first', 'last', 'phone', 'phone2', 'email', 'email2', 'dept', 'source', 'idnum', 'birth_date', 'gender', 'related_contact_id', 'relation_label',
-  'city', 'street', 'house_number', 'apartment', 'zip_code', 'neighborhood', 'country',
+  'city', 'street', 'house_number', 'apartment', 'zip_code', 'neighborhood', 'country', 'children_count',
 ];
 
 function parseTags(raw) {
@@ -160,6 +160,7 @@ export async function updateContact(contactId, formData) {
   for (const field of EDITABLE_FIELDS) {
     if (formData.has(field)) update[field] = formData.get(field) || null;
   }
+  if (update.children_count != null) update.children_count = Number(update.children_count) || null;
   if (formData.has('tags')) update.tags = parseTags(formData.get('tags'));
 
   const { error } = await supabase.from('contacts').update(update).eq('id', contactId);

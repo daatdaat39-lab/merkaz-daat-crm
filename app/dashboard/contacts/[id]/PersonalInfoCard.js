@@ -77,6 +77,7 @@ export default function PersonalInfoCard({
           <Field label="ת.ז / מזהה" name="idnum" defaultValue={contact.idnum} />
           <Field label="תאריך לידה" name="birth_date" type="date" defaultValue={contact.birth_date} />
           <SelectField label="מגדר" name="gender" defaultValue={contact.gender} options={[{ value: '', label: '—' }, { value: 'זכר', label: 'זכר' }, { value: 'נקבה', label: 'נקבה' }]} />
+          <Field label="מספר ילדים" name="children_count" type="number" defaultValue={contact.children_count} />
           <Field label="מקור" name="source" defaultValue={contact.source} />
 
           <div style={categoryLabel}>פרטי קשר</div>
@@ -117,6 +118,7 @@ export default function PersonalInfoCard({
           <InfoRow label="גיל" value={age} />
           <InfoRow label="תאריך עברי" value={hebrewDate} />
           <InfoRow label="מגדר" value={contact.gender} />
+          <InfoRow label="מספר ילדים" value={contact.children_count} />
           <InfoRow label="מקור" value={contact.source} />
           <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
           {externalIds.length > 0 && (
