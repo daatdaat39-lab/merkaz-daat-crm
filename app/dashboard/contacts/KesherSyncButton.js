@@ -69,10 +69,20 @@ export default function KesherSyncButton({ kesherConfigured = false }) {
       {result?.success && (
         <div style={{ marginTop: 10, fontSize: 12.5, lineHeight: 1.8 }}>
           <div>עסקאות: {result.transactionsCreated} נוספו, {result.transactionsSkipped} דולגו (קיימות)</div>
-          <div>התחייבויות: {result.obligationsCreated} נוצרו, {result.obligationsUpdated} עודכנו</div>
+          <div>התחייבויות: {result.obligationsCreated} נוצרו, {result.obligationsUpdated} עודכנו (מתוך {result.obligationsFetched} שהתקבלו מקשר)</div>
           {(result.transactionsUnmatched > 0 || result.obligationsUnmatched > 0) && (
             <div style={{ color: '#92400e' }}>
               ⚠ {result.transactionsUnmatched + result.obligationsUnmatched} רשומות לא הותאמו לאיש קשר קיים - יש להשלים פרטי זיהוי ולסנכרן שוב
+            </div>
+          )}
+          {result.obligationIssues?.length > 0 && (
+            <div style={{ marginTop: 4, fontSize: 11.5, background: 'var(--bg-secondary, #f9f9f9)', border: '1px solid var(--border)', borderRadius: 6, padding: 8 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>פירוט התחייבויות שלא נכתבו:</div>
+              {result.obligationIssues.map((iss, i) => (
+                <div key={i} style={{ fontFamily: 'monospace', marginBottom: 2 }}>
+                  {iss.reference || '(אין אסמכתא)'} · {iss.reason} · Status="{iss.status}" StatusId="{iss.statusId}" CancelDate="{iss.cancelDate}" ClientId="{iss.clientId}" Phone="{iss.phone}"
+                </div>
+              ))}
             </div>
           )}
           {result.projectUnmatched > 0 && (

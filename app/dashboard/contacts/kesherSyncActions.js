@@ -38,6 +38,16 @@ function safeDate(raw) {
   return s;
 }
 
+// זיהוי ביטול לא מסתמך רק על CancelDate (שראינו בפועל שלא תמיד מאוכלס
+// עבור התחייבות מבוטלת) - גם בודק מילות מפתח בטקסט הסטטוס החופשי
+// שקשר מחזירה. הערכים המדויקים עדיין לא ידועים לנו במלואם - זו הגנה
+// נוספת, לא המקור הסופי של האמת (ר' obligationIssues לאבחון בפועל).
+function isCancelledObligation(o) {
+  if (o.CancelDate) return true;
+  const text = `${o.Status || ''} ${o.StatusId || ''}`;
+  return /בוטל|מבוטל|בטל/.test(text);
+}
+
 export async function syncKesherReports(fromDate, toDate) {
   const { supabase, user } = await requireUser();
   const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
@@ -57,6 +67,10 @@ export async function syncKesherReports(fromDate, toDate) {
   // ערכי Project גולמיים שלא זוהו - לאבחון מהיר של PROJECT_TO_WORKSPACE
   // בלי גישה ישירה לתשובת קשר (מוצג בתוצאה, לא רק בלוג שרת).
   const unmatchedProjectSamples = new Set();
+  // אבחון להתחייבויות שלא נכתבו - שדות גולמיים לכל רשומה, כדי לדעת
+  // בדיוק למה (חוסר התאמת איש קשר, סכום לא תקין וכו') בלי גישה ישירה
+  // לתשובת קשר.
+  const obligationIssues = [];
 
   let transactions = [];
   let obligations = [];
@@ -107,6 +121,21 @@ export async function syncKesherReports(fromDate, toDate) {
     }
   }
 
+  function logIssue(o, reason) {
+    result.obligationsUnmatched++;
+    if (obligationIssues.length < 15) {
+      obligationIssues.push({
+        reference: o.Reference || null,
+        clientId: o.ClientId || null,
+        phone: o.Phone || null,
+        status: o.Status || null,
+        statusId: o.StatusId || null,
+        cancelDate: o.CancelDate || null,
+        reason,
+      });
+    }
+  }
+
   for (const o of obligations) {
     try {
       const workspaceName = resolveWorkspaceName(o.Project);
@@ -120,13 +149,13 @@ export async function syncKesherReports(fromDate, toDate) {
       const idnum = (o.ClientId || '').toString().trim() || null;
       const phone = (o.Phone || '').toString().trim() || null;
       const contact = await findExistingMatch(supabase, { idnum, phone });
-      if (!contact) { result.obligationsUnmatched++; continue; }
+      if (!contact) { logIssue(o, 'לא הותאם לאיש קשר'); continue; }
 
       const reference = (o.Reference || '').toString().trim();
-      if (!reference) { result.obligationsUnmatched++; continue; }
+      if (!reference) { logIssue(o, 'אין אסמכתא (Reference)'); continue; }
 
       const totalAmount = Number(o.Sum) > 0 ? Number(o.Sum) * (Number(o.NumPayments) > 0 ? Number(o.NumPayments) : 1) : Number(o.FinalSum);
-      if (!totalAmount || totalAmount <= 0) { result.obligationsUnmatched++; continue; }
+      if (!totalAmount || totalAmount <= 0) { logIssue(o, 'סכום לא תקין'); continue; }
 
       const { data: existing } = await supabase
         .from('commitments')
@@ -136,7 +165,7 @@ export async function syncKesherReports(fromDate, toDate) {
         .maybeSingle();
 
       const patch = {
-        status: o.CancelDate ? 'cancelled' : 'active',
+        status: isCancelledObligation(o) ? 'cancelled' : 'active',
         bounced_count: Number(o.NotPassedPayments) || 0,
         start_date: safeDate(o.StartDate),
         end_date: safeDate(o.EndDate),
@@ -155,10 +184,12 @@ export async function syncKesherReports(fromDate, toDate) {
         result.obligationsCreated++;
       }
     } catch {
-      result.obligationsUnmatched++;
+      logIssue(o, 'שגיאה בעיבוד');
     }
   }
 
   result.unmatchedProjectSamples = Array.from(unmatchedProjectSamples);
+  result.obligationsFetched = obligations.length;
+  result.obligationIssues = obligationIssues;
   return result;
 }
