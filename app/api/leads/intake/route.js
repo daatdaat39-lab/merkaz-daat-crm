@@ -32,9 +32,6 @@ export async function POST(request) {
   const reason = (body.reason || '').toString().trim();
   const note = (body.note || '').toString().trim() || null;
   const rawSource = (body.source || '').toString().trim();
-  // אם המקור הוא קישור (מגיע מ"קישור מקור" שה-AI חילץ מהמייל) - מתרגמים
-  // אותו לשם המפרסם לפי טבלת ההתאמה; אם זה כבר טקסט רגיל, נשאר כמו שהוא
-  const source = (rawSource.startsWith('http') ? resolveSourceFromLink(rawSource) : rawSource) || 'מייל';
   const workspaceIdParam = (body.workspace_id || '').toString().trim();
   const workspaceNameParam = (body.workspace_name || body.workspace || '').toString().trim();
 
@@ -54,6 +51,11 @@ export async function POST(request) {
   if (!workspace) {
     return NextResponse.json({ error: `מחלקה לא נמצאה: ${workspaceIdParam || workspaceNameParam}` }, { status: 404 });
   }
+
+  // אם המקור הוא קישור (מגיע מ"קישור מקור" שה-AI חילץ מהמייל) - מתרגמים
+  // אותו לשם המפרסם לפי רשימת המקורות של המחלקה; אם זה כבר טקסט רגיל,
+  // נשאר כמו שהוא
+  const source = (rawSource.startsWith('http') ? await resolveSourceFromLink(supabase, workspace.id, rawSource) : rawSource) || 'מייל';
 
   const existing = await findExistingMatch(supabase, { idnum, phone, email });
 

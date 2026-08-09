@@ -9,6 +9,7 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const workspaceId = searchParams.get('workspace_id');
   const purpose = searchParams.get('purpose') === 'send' ? 'send' : 'intake';
+  const campaignId = searchParams.get('campaign_id') || '';
   if (!workspaceId) {
     return NextResponse.json({ error: 'יש לציין workspace_id' }, { status: 400 });
   }
@@ -37,7 +38,7 @@ export async function GET(request) {
     access_type: 'offline',
     prompt: 'consent',
     scope: 'https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send',
-    state: `${workspaceId}:${purpose}`,
+    state: `${workspaceId}:${purpose}:${campaignId}`,
   });
 
   return NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);

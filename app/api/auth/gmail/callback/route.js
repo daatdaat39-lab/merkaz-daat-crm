@@ -19,8 +19,9 @@ export async function GET(request) {
   if (!code || !state) {
     return NextResponse.json({ error: 'חסר code או state' }, { status: 400 });
   }
-  const [workspaceId, purposeRaw] = state.split(':');
+  const [workspaceId, purposeRaw, campaignIdRaw] = state.split(':');
   const purpose = purposeRaw === 'send' ? 'send' : 'intake';
+  const campaignId = campaignIdRaw || null;
 
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -64,13 +65,20 @@ export async function GET(request) {
     return NextResponse.json({ error: 'לא ניתן היה לזהות את כתובת המייל' }, { status: 500 });
   }
 
+  // upsert רגיל לא מתאים כאן - האינדקסים הייחודיים על email_connections
+  // חלקיים (WHERE campaign_id is/isn't null, ר' migration 0057), ו-
+  // onConflict של supabase-js לא יודע לפנות לאינדקס חלקי. בודקים ידנית
+  // אם כבר יש שורה מתאימה (לפי workspace_id+purpose+campaign_id, עם
+  // .is() ל-null כדי שהשוואה תעבוד נכון) ומעדכנים/יוצרים בהתאם.
   const admin = createAdminClient();
-  const { error: dbError } = await admin
-    .from('email_connections')
-    .upsert(
-      { workspace_id: workspaceId, purpose, email_address: emailAddress, refresh_token: tokenData.refresh_token },
-      { onConflict: 'workspace_id,purpose' }
-    );
+  let existingQuery = admin.from('email_connections').select('id').eq('workspace_id', workspaceId).eq('purpose', purpose);
+  existingQuery = campaignId ? existingQuery.eq('campaign_id', campaignId) : existingQuery.is('campaign_id', null);
+  const { data: existingConn } = await existingQuery.maybeSingle();
+
+  const row = { workspace_id: workspaceId, purpose, campaign_id: campaignId, email_address: emailAddress, refresh_token: tokenData.refresh_token };
+  const { error: dbError } = existingConn
+    ? await admin.from('email_connections').update(row).eq('id', existingConn.id)
+    : await admin.from('email_connections').insert(row);
   if (dbError) {
     return NextResponse.json({ error: dbError.message }, { status: 500 });
   }

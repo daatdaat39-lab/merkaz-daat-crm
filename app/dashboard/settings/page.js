@@ -11,6 +11,7 @@ const SETTINGS_LINKS = [
   { href: '/dashboard/settings/activity', icon: '📊', title: 'דוח פעילות נציגים', desc: 'זמן פעילות ותפוקה לכל נציג (owner/admin בלבד)' },
   { href: '/dashboard/settings/duplicates', icon: '🔎', title: 'בדיקת כפליות', desc: 'סריקת אנשי קשר למיזוג כפילויות (owner/admin בלבד)' },
   { href: '/dashboard/settings/import', icon: '📥', title: 'ייבוא נתונים', desc: 'ייבוא/ייצוא אנשי קשר, מערכת חיצונית, היסטוריית שיחות' },
+  { href: '/dashboard/settings/lead-sources', icon: '📨', title: 'מקורות לידים', desc: 'חיבורי מייל לכל מחלקה, ניתוב מייל לקמפיינים, ורשימת מקורות (owner/admin בלבד)' },
   { href: '/dashboard/settings/import-conflicts', icon: '⚠', title: 'קונפליקטים בייבוא', desc: 'ערכים מקבצי ייבוא שהתנגשו עם נתון קיים - בדיקה ופתרון אחד-אחד (owner/admin בלבד)' },
   { href: '/dashboard/settings/picklists', icon: '🏷', title: 'רשימות בחירה', desc: 'קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)' },
   { href: '/dashboard/settings/pipelines', icon: '🔀', title: 'שלבי pipeline', desc: 'הוספה/עריכה/סידור שלבי התהליך לכל מחלקה (owner/admin בלבד)' },
