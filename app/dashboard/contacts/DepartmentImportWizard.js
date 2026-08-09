@@ -10,6 +10,15 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { importDepartmentBatch } from './actions';
+import { createField } from '../settings/fields/actions';
+import { generateFieldKey } from '../lib/fieldKey';
+
+const NEW_FIELD_TYPES = [
+  { value: 'text', label: 'טקסט' },
+  { value: 'number', label: 'מספר' },
+  { value: 'date', label: 'תאריך' },
+  { value: 'select', label: 'בחירה מרשימה' },
+];
 
 const BASE_FIELDS = [
   { key: 'first', label: 'שם פרטי' },
@@ -67,14 +76,19 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
   // מיפוי ערכי סטטוס חופשיים מהקובץ לשלב פייפליין אמיתי, כשעמודה
   // ממופה ליעד 'stage' - { [שם עמודה]: { [ערך גולמי]: stage_key } }
   const [stageValueMaps, setStageValueMaps] = useState({});
+  // שדות חדשים שנוצרו דרך "+ שדה חדש" באשף עצמו, בלי לצאת ממנו - נוספים
+  // לרשימת השדות הזמינה למיפוי מיד, בלי רענון עמוד (שהיה מאבד את הקובץ
+  // שכבר נטען).
+  const [addedFields, setAddedFields] = useState([]);
+  const [addingField, setAddingField] = useState(false);
   const router = useRouter();
 
   const workspace = workspaces.find((w) => w.id === workspaceId);
   // שדה "מחושב" מוצג בכל מקום אחר לקריאה בלבד - אי אפשר לייבא ערך
   // לתוכו, לכן מוסתר מרשימת המיפוי כאן.
   const extraFields = useMemo(
-    () => (workspace ? (extraFieldsByWorkspaceName[workspace.name] || []).filter((f) => f.type !== 'computed') : []),
-    [workspace, extraFieldsByWorkspaceName]
+    () => (workspace ? [...(extraFieldsByWorkspaceName[workspace.name] || []).filter((f) => f.type !== 'computed'), ...addedFields] : []),
+    [workspace, extraFieldsByWorkspaceName, addedFields]
   );
   const stages = useMemo(
     () => (workspace ? (stagesByWorkspaceName[workspace.name] || []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) : []),
@@ -251,6 +265,18 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
         {step === 'map' && (
           <div>
             <p style={hint()}>שלב 3 מתוך 3: לכל עמודה שזוהתה בקובץ, בחרו לאיזה שדה במערכת היא שייכת. עמודה שלא נבחר לה שדה תתעלם ממנה. {dataRows.length} שורות נתונים זוהו.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button type="button" onClick={() => setAddingField((v) => !v)} style={ghostBtn()}>
+                {addingField ? 'ביטול' : '+ שדה חדש'}
+              </button>
+            </div>
+            {addingField && (
+              <NewFieldPanel
+                workspaceId={workspaceId}
+                existingKeys={extraFields.map((f) => f.key)}
+                onCreated={(field) => { setAddedFields((prev) => [...prev, field]); setAddingField(false); }}
+              />
+            )}
             <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
               {headers.map((h) => (
                 <div key={h} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -338,6 +364,49 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// יצירת שדה מחלקתי חדש בלי לצאת מהאשף - אותה פעולת שרת (createField)
+// ואותם כללים בדיוק כמו מסך "שדות מחלקתיים"/"+ הוספת עמודה" בניהול
+// נתונים מרכזי (ר' DataGridClient.js), רק טופס מקוצר: בלי סוג "מחושב",
+// כי אי אפשר לייבא ערך לתוכו ממילא.
+function NewFieldPanel({ workspaceId, existingKeys, onCreated }) {
+  const [fieldKey, setFieldKey] = useState(() => generateFieldKey(existingKeys));
+  const [label, setLabel] = useState('');
+  const [type, setType] = useState('text');
+  const [optionsText, setOptionsText] = useState('');
+  const [error, setError] = useState(null);
+  const [isPending, setIsPending] = useState(false);
+
+  function handleCreate() {
+    setError(null);
+    setIsPending(true);
+    const options = type === 'select' ? optionsText.split(',').map((s) => s.trim()).filter(Boolean) : [];
+    createField(workspaceId, { fieldKey, label, type, options }).then((res) => {
+      setIsPending(false);
+      if (res?.error) { setError(res.error); return; }
+      onCreated({ key: fieldKey, label, type, options });
+    });
+  }
+
+  return (
+    <div style={{ background: 'var(--bg-secondary, #f9f9f9)', border: '1px solid var(--border)', borderRadius: 8, padding: 10, marginBottom: 10 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+        <input placeholder="מפתח טכני (אנגלית)" value={fieldKey} onChange={(e) => setFieldKey(e.target.value)} style={{ ...input(), width: 160, marginBottom: 0 }} />
+        <input placeholder="תווית (למשל: מקור פנייה)" value={label} onChange={(e) => setLabel(e.target.value)} style={{ ...input(), width: 180, marginBottom: 0 }} />
+        <select value={type} onChange={(e) => setType(e.target.value)} style={{ ...input(), width: 130, marginBottom: 0 }}>
+          {NEW_FIELD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+        {type === 'select' && (
+          <input placeholder="אפשרויות, מופרדות בפסיק" value={optionsText} onChange={(e) => setOptionsText(e.target.value)} style={{ ...input(), width: 200, marginBottom: 0 }} />
+        )}
+        <button type="button" onClick={handleCreate} disabled={isPending || !fieldKey.trim() || !label.trim()} style={primaryBtn()}>
+          {isPending ? 'יוצר...' : 'יצירה'}
+        </button>
+      </div>
+      {error && <div style={{ color: 'var(--red, #b23b2f)', fontSize: 12, marginTop: 6 }}>{error}</div>}
     </div>
   );
 }
