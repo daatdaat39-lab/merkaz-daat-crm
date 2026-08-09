@@ -32,9 +32,20 @@ function resolveWorkspaceName(projectField) {
   return found?.workspaceName || null;
 }
 
+// קשר מחזירה תאריכים כ-DD/MM/YYYY (לדוגמה "26/05/2026") - אם מעבירים
+// את זה כמו שהוא ל-Postgres, הוא מפרש כ-MM/DD/YYYY ונופל בכל תאריך
+// שהיום בו גדול מ-12 (למשל "26/05" -> חודש 26, לא תקין). אושר ישירות
+// מריצה חיה - שגיאת DB "date/time field value out of range" בדיוק
+// על הרשומות עם יום>12 (26, 28, 30), בעוד רשומות עם יום<=12 (11, 02)
+// עברו "במקרה". ממירים תמיד ל-YYYY-MM-DD.
 function safeDate(raw) {
   const s = (raw || '').toString().trim();
   if (!s || s === '-----') return null;
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    const [, day, month, year] = m;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
   return s;
 }
 
