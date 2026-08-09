@@ -111,8 +111,19 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
           }
         }
         if (conflictRows.length > 0) {
-          await supabase.from('import_conflicts').insert(conflictRows);
+          // .select() כדי לדעת את ה-id של כל קונפליקט שנוצר - נדרש רק
+          // לשדות "רב-ערכיים" (options.multiValueFieldDefs), כדי שאפשר
+          // יהיה אחר כך (עדיין בתוך אשף הייבוא) להעביר בדיוק את
+          // הקונפליקטים האלה לעמודה כפולה חדשה, לא את כולם.
+          const { data: insertedConflicts } = await supabase.from('import_conflicts').insert(conflictRows).select('id, field_key');
           extraConflictCount = conflictRows.length;
+          if (options.multiValueTracker && options.multiValueFieldDefs) {
+            for (const row of insertedConflicts || []) {
+              const key = row.field_key.slice(6);
+              const label = options.multiValueFieldDefs.get(key);
+              if (label) options.multiValueTracker.push({ id: row.id, fieldKey: key, label });
+            }
+          }
         }
       }
     }
@@ -203,7 +214,17 @@ export async function insertDonationTransaction(supabase, contactId, workspaceId
 export async function bulkImportContactRows(supabase, { rows, workspaceId, workspace, sourceSystem, batchLabel, requiresApproval = false, openProcess = true }) {
   const ws = workspace || { id: workspaceId };
   const reason = (batchLabel || '').trim() || 'ייבוא';
-  const membershipOptions = { requiresApproval, recordConflicts: true, sourceSystem, batchLabel, openProcess };
+
+  // שדות "רב-ערכיים" של המחלקה הזו (migration 0058) - קונפליקט על אחד
+  // מהם, בזמן הייבוא הזה בדיוק, מוצע בסוף האשף כ"לפתוח עמודה נוספת?"
+  // במקום להישאר סתם קונפליקט רגיל. Map ולא Set כי צריך גם את התווית
+  // המקורית להצגה בשאלה.
+  const { data: multiValueFields } = await supabase
+    .from('workspace_extra_fields').select('field_key, label').eq('workspace_id', ws.id).eq('allow_multiple', true);
+  const multiValueFieldDefs = new Map((multiValueFields || []).map((f) => [f.field_key, f.label]));
+  const multiValueTracker = [];
+
+  const membershipOptions = { requiresApproval, recordConflicts: true, sourceSystem, batchLabel, openProcess, multiValueFieldDefs, multiValueTracker };
   let created = 0;
   let enriched = 0;
   let transactionsAdded = 0;
@@ -291,5 +312,14 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
     }
   }
 
-  return { success: true, created, enriched, transactionsAdded, transactionsSkipped, conflictsFound, count: created + enriched };
+  const multiValueByField = new Map();
+  for (const c of multiValueTracker) {
+    if (!multiValueByField.has(c.fieldKey)) multiValueByField.set(c.fieldKey, { fieldKey: c.fieldKey, label: c.label, conflictIds: [] });
+    multiValueByField.get(c.fieldKey).conflictIds.push(c.id);
+  }
+
+  return {
+    success: true, created, enriched, transactionsAdded, transactionsSkipped, conflictsFound, count: created + enriched,
+    multiValueFieldConflicts: Array.from(multiValueByField.values()),
+  };
 }

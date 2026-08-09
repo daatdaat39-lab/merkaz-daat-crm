@@ -54,7 +54,7 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
   const router = useRouter();
   const [dragId, setDragId] = useState(null);
 
-  const [newField, setNewField] = useState({ fieldKey: '', label: '', type: 'text', optionsText: '', formula: COMPUTED_FORMULAS[0]?.value || '', dateField: '', durationField: '', visibleToAgents: true });
+  const [newField, setNewField] = useState({ fieldKey: '', label: '', type: 'text', optionsText: '', formula: COMPUTED_FORMULAS[0]?.value || '', dateField: '', durationField: '', visibleToAgents: true, allowMultiple: false });
   const [useAiWizard, setUseAiWizard] = useState(false);
   const dateFields = fields.filter((f) => f.type === 'date');
   const numberFields = fields.filter((f) => f.type === 'number');
@@ -86,7 +86,7 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
     setFields((prev) => prev.map((f) => (f.id === field.id ? { ...f, ...patch } : f)));
     startTransition(async () => {
       const merged = { ...field, ...patch };
-      const res = await updateField(field.id, workspaceId, { label: merged.label, options: merged.options, visibleToAgents: merged.visible_to_agents !== false });
+      const res = await updateField(field.id, workspaceId, { label: merged.label, options: merged.options, visibleToAgents: merged.visible_to_agents !== false, allowMultiple: !!merged.allow_multiple });
       if (res?.error) { setError(res.error); return; }
       refresh();
     });
@@ -112,9 +112,9 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
       } else if (newField.type === 'computed') {
         options = { formula: newField.formula, dateField: newField.dateField, durationField: newField.durationField };
       }
-      const res = await createField(workspaceId, { fieldKey: newField.fieldKey, label: newField.label, type: newField.type, options, visibleToAgents: newField.visibleToAgents });
+      const res = await createField(workspaceId, { fieldKey: newField.fieldKey, label: newField.label, type: newField.type, options, visibleToAgents: newField.visibleToAgents, allowMultiple: newField.allowMultiple });
       if (res?.error) { setError(res.error); return; }
-      setNewField({ fieldKey: '', label: '', type: 'text', optionsText: '', formula: COMPUTED_FORMULAS[0]?.value || '', dateField: '', durationField: '', visibleToAgents: true });
+      setNewField({ fieldKey: '', label: '', type: 'text', optionsText: '', formula: COMPUTED_FORMULAS[0]?.value || '', dateField: '', durationField: '', visibleToAgents: true, allowMultiple: false });
       refresh();
     });
   }
@@ -190,6 +190,10 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
             <input type="checkbox" checked={newField.visibleToAgents} onChange={(e) => setNewField((p) => ({ ...p, visibleToAgents: e.target.checked }))} />
             נראה לנציגים
           </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }} title="לאדם אחד יכולים להיות כמה ערכים שונים בשדה הזה (למשל קורסים שנרכשו לאורך זמן) - בייבוא, ערך שונה מהקיים יציע לפתוח עמודה נוספת במקום סתם קונפליקט">
+            <input type="checkbox" checked={newField.allowMultiple} onChange={(e) => setNewField((p) => ({ ...p, allowMultiple: e.target.checked }))} />
+            יכול להיות כמה ערכים
+          </label>
           <button
             type="button"
             onClick={handleCreate}
@@ -262,6 +266,15 @@ function FieldRow({ field, isDragging, onDragStart, onDragEnd, onDropOn, onUpdat
           onChange={(e) => onUpdate({ visible_to_agents: e.target.checked })}
         />
         נראה לנציגים
+      </label>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--text-secondary)', cursor: 'pointer' }} title="לאדם אחד יכולים להיות כמה ערכים שונים בשדה הזה - בייבוא, ערך שונה מהקיים יציע לפתוח עמודה נוספת במקום סתם קונפליקט">
+        <input
+          type="checkbox"
+          checked={!!field.allow_multiple}
+          disabled={disabled}
+          onChange={(e) => onUpdate({ allow_multiple: e.target.checked })}
+        />
+        כמה ערכים
       </label>
       <button type="button" onClick={onDelete} disabled={disabled} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: '#b23b2f', fontSize: 12, cursor: 'pointer' }}>
         🗑 מחיקה

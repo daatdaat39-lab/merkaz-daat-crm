@@ -19,7 +19,7 @@ async function requireManager(workspaceId) {
 
 // field_key לא ניתן לעריכה אחרי יצירה (immutable) - contact_departments.
 // extra_fields הוא jsonb חופשי, אז שינוי מפתח קיים יתמך נתונים קיימים.
-export async function createField(workspaceId, { fieldKey, label, type, options, visibleToAgents }) {
+export async function createField(workspaceId, { fieldKey, label, type, options, visibleToAgents, allowMultiple }) {
   const ctx = await requireManager(workspaceId);
   if (ctx.error) return ctx;
   const { supabase } = ctx;
@@ -78,12 +78,13 @@ export async function createField(workspaceId, { fieldKey, label, type, options,
     options: storedOptions,
     sort_order: count || 0,
     visible_to_agents: visibleToAgents !== false,
+    allow_multiple: !!allowMultiple,
   });
   if (error) return { error: error.code === '23505' ? 'מפתח זה כבר קיים במחלקה זו' : error.message };
   return { success: true };
 }
 
-export async function updateField(id, workspaceId, { label, options, visibleToAgents }) {
+export async function updateField(id, workspaceId, { label, options, visibleToAgents, allowMultiple }) {
   const ctx = await requireManager(workspaceId);
   if (ctx.error) return ctx;
   const lbl = (label || '').trim();
@@ -91,10 +92,62 @@ export async function updateField(id, workspaceId, { label, options, visibleToAg
 
   const patch = { label: lbl, options: options || [] };
   if (typeof visibleToAgents === 'boolean') patch.visible_to_agents = visibleToAgents;
+  if (typeof allowMultiple === 'boolean') patch.allow_multiple = allowMultiple;
 
   const { error } = await ctx.supabase.from('workspace_extra_fields').update(patch).eq('id', id);
   if (error) return { error: error.message };
   return { success: true };
+}
+
+// "לפתוח עמודה נוספת" עבור שדה רב-ערכי (migration 0058) - נקרא מתוך
+// אשף הייבוא עצמו (DepartmentImportWizard.js), אחרי שהמשתמש אישר את
+// השאלה שקפצה בסוף הייבוא. יוצר שדה כפילה (fieldKey_2, fieldKey_3...)
+// עם אותו סוג/אפשרויות כמו המקור, כותב את הערך החדש של כל קונפליקט
+// שהועבר אליו (conflictIds - בדיוק אלה שנוצרו בייבוא הזה, לא כל
+// קונפליקט פתוח על השדה מכל הזמנים) לתוך השדה החדש, ומסמן אותם
+// "resolved" - אותה כתיבה בדיוק כמו resolveImportConflict(used_new),
+// רק לשדה יעד אחר.
+export async function splitMultiValueField(workspaceId, fieldKey, conflictIds) {
+  const ctx = await requireManager(workspaceId);
+  if (ctx.error) return ctx;
+  const { supabase } = ctx;
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data: original } = await supabase.from('workspace_extra_fields')
+    .select('label, type, options').eq('workspace_id', workspaceId).eq('field_key', fieldKey).single();
+  if (!original) return { error: 'השדה המקורי לא נמצא' };
+
+  const { data: existingFields } = await supabase.from('workspace_extra_fields').select('field_key').eq('workspace_id', workspaceId);
+  const existingKeys = new Set((existingFields || []).map((f) => f.field_key));
+  let n = 2;
+  while (existingKeys.has(`${fieldKey}_${n}`)) n++;
+  const newKey = `${fieldKey}_${n}`;
+  const newLabel = `${original.label} (נוסף)`;
+
+  const { count } = await supabase.from('workspace_extra_fields').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId);
+  const { error: createError } = await supabase.from('workspace_extra_fields').insert({
+    workspace_id: workspaceId, field_key: newKey, label: newLabel, type: original.type,
+    options: original.options || [], sort_order: count || 0, visible_to_agents: true, allow_multiple: true,
+  });
+  if (createError) return { error: createError.message };
+
+  if (Array.isArray(conflictIds) && conflictIds.length > 0) {
+    const { data: conflicts } = await supabase.from('import_conflicts')
+      .select('id, contact_id, new_value').in('id', conflictIds).eq('status', 'pending');
+    for (const conflict of conflicts || []) {
+      const { data: dept } = await supabase.from('contact_departments').select('id, extra_fields')
+        .eq('contact_id', conflict.contact_id).eq('workspace_id', workspaceId).maybeSingle();
+      if (dept) {
+        const extra_fields = { ...(dept.extra_fields || {}), [newKey]: conflict.new_value };
+        await supabase.from('contact_departments').update({ extra_fields }).eq('id', dept.id);
+      }
+    }
+    await supabase.from('import_conflicts')
+      .update({ status: 'resolved', resolution: 'used_new', resolved_at: new Date().toISOString(), resolved_by: user?.id || null })
+      .in('id', conflictIds);
+  }
+
+  return { success: true, newFieldKey: newKey, newFieldLabel: newLabel };
 }
 
 export async function reorderFields(workspaceId, orderedIds) {

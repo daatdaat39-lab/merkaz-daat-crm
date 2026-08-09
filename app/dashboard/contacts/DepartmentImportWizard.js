@@ -10,7 +10,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 import { importDepartmentBatch } from './actions';
-import { createField } from '../settings/fields/actions';
+import { createField, splitMultiValueField } from '../settings/fields/actions';
 import { generateFieldKey } from '../lib/fieldKey';
 
 const NEW_FIELD_TYPES = [
@@ -353,6 +353,13 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                 </li>
               )}
             </ul>
+            {result.multiValueFieldConflicts?.length > 0 && (
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {result.multiValueFieldConflicts.map((c) => (
+                  <MultiValueFieldPrompt key={c.fieldKey} workspaceId={workspaceId} conflict={c} />
+                ))}
+              </div>
+            )}
             {result.conflictsFound > 0 && (
               <div style={note()}>
                 ⚠ {result.conflictsFound} ערכים בקובץ התנגשו עם נתון קיים ולא נדרסו - הם ממתינים לבדיקה שלכם (אפשר עכשיו או בכל זמן מאוחר יותר דרך "קונפליקטים בייבוא" בהגדרות).
@@ -364,6 +371,53 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// שאלה חד-פעמית לשדה (לא לכל שורה בנפרד) שמופיעה בסוף הייבוא כשנמצאו
+// התנגשויות על שדה שמסומן "יכול להיות כמה ערכים" (migration 0058) -
+// למשל "קורס קצר שנרכש", כשבאקסל אחד רשום קורס אחד ובאקסל אחר קורס
+// שונה לאותו אדם. "כן" יוצר עמודה כפילה ומעביר אליה בדיוק את
+// ההתנגשויות שנוצרו בייבוא הזה (conflict.conflictIds); "לא" משאיר
+// אותן בתור הקונפליקטים הרגיל לבדיקה ידנית מאוחר יותר.
+function MultiValueFieldPrompt({ workspaceId, conflict }) {
+  const [status, setStatus] = useState('asking'); // asking | done | skipped
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState(null);
+  const [newFieldLabel, setNewFieldLabel] = useState(null);
+
+  function handleSplit() {
+    setIsPending(true);
+    setError(null);
+    splitMultiValueField(workspaceId, conflict.fieldKey, conflict.conflictIds).then((res) => {
+      setIsPending(false);
+      if (res?.error) { setError(res.error); return; }
+      setNewFieldLabel(res.newFieldLabel);
+      setStatus('done');
+    });
+  }
+
+  return (
+    <div style={{ background: '#eef6f2', border: '1px solid #bfe0cf', borderRadius: 8, padding: '10px 14px', fontSize: 12.5 }}>
+      {status === 'asking' && (
+        <>
+          <div style={{ marginBottom: 8 }}>
+            נמצאו {conflict.conflictIds.length} ערכים שונים בשדה "{conflict.label}" שכבר קיים אצל אנשי קשר בקובץ הזה - השדה מסומן כ"יכול להיות כמה ערכים". לפתוח עמודה נוספת ולהעביר אליה את הערכים החדשים, במקום שהם יישארו סתם קונפליקט?
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={handleSplit} disabled={isPending} style={primaryBtn()}>
+              {isPending ? 'פותח עמודה...' : 'כן, לפתוח עמודה נוספת'}
+            </button>
+            <button type="button" onClick={() => setStatus('skipped')} disabled={isPending} style={ghostBtn()}>
+              לא, להשאיר בתור קונפליקטים
+            </button>
+          </div>
+          {error && <div style={{ color: 'var(--red, #b23b2f)', marginTop: 6 }}>{error}</div>}
+        </>
+      )}
+      {status === 'done' && <div>✓ נוצרה עמודה "{newFieldLabel}" - הערכים הועברו אליה.</div>}
+      {status === 'skipped' && <div>הערכים נשארו בתור הקונפליקטים לבדיקה ידנית.</div>}
     </div>
   );
 }
