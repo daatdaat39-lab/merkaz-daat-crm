@@ -28,6 +28,9 @@ export default async function SalesPipelinePage() {
       .from('contact_departments')
       .select('id, stage, closed_reason, created_at, contacts:contact_id (id, first, last, tags, source)')
       .eq('workspace_id', workspaceId)
+      // אנשי קשר שיובאו בלי "פתיחת תהליך" לא מופיעים בבורד הקנבן - ר'
+      // sales/leads/page.js לאותו סינון.
+      .eq('opened_process', true)
       .order('created_at', { ascending: false });
     contacts = (data || [])
       .filter((row) => row.contacts)

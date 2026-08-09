@@ -44,6 +44,9 @@ export default async function SalesLeadsPage() {
       .eq('workspace_id', workspaceId)
       // לידים שממתינים לאישור המנהל לא מוצגים לנציגים - ר' sales/pending
       .eq('approval_status', 'approved')
+      // אנשי קשר שיובאו בלי "פתיחת תהליך" (ר' DepartmentImportWizard.js) -
+      // לא מופיעים כאן בכלל, רק דרך חיפוש אנשי קשר/הכרטיס האישי.
+      .eq('opened_process', true)
       .order('last_activity_at', { ascending: false });
     leads = (data || [])
       .filter((row) => row.contacts)

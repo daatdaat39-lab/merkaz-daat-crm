@@ -22,7 +22,10 @@ export default async function SalesDashboardPage() {
     const { data } = await supabase
       .from('contact_departments')
       .select('stage, created_at, contacts:contact_id (source)')
-      .eq('workspace_id', workspaceId);
+      .eq('workspace_id', workspaceId)
+      // אנשי קשר שיובאו בלי "פתיחת תהליך" לא נספרים בסטטיסטיקות - ר'
+      // sales/leads/page.js לאותו סינון.
+      .eq('opened_process', true);
     contacts = (data || []).map((row) => ({ stage: row.stage, created_at: row.created_at, source: row.contacts?.source }));
   }
 

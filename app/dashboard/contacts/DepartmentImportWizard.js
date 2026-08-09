@@ -61,6 +61,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
   const [systemName, setSystemName] = useState('');
   const [workspaceId, setWorkspaceId] = useState(defaultWorkspaceId);
   const [batchLabel, setBatchLabel] = useState('');
+  const [openProcess, setOpenProcess] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [result, setResult] = useState(null);
   // מיפוי ערכי סטטוס חופשיים מהקובץ לשלב פייפליין אמיתי, כשעמודה
@@ -106,7 +107,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
 
   function resetAll() {
     setOpen(false); setStep('upload'); setHeaders([]); setDataRows([]);
-    setMapping({}); setSystemName(''); setBatchLabel(''); setResult(null); setStageValueMaps({});
+    setMapping({}); setSystemName(''); setBatchLabel(''); setOpenProcess(false); setResult(null); setStageValueMaps({});
   }
 
   function handleFile(e) {
@@ -185,7 +186,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
 
     setIsPending(true);
     setResult(null);
-    importDepartmentBatch(rows, workspaceId, systemName.trim() || null, batchLabel.trim() || null).then((res) => {
+    importDepartmentBatch(rows, workspaceId, systemName.trim() || null, batchLabel.trim() || null, openProcess).then((res) => {
       setIsPending(false);
       setResult(res);
       if (res.success) { setStep('done'); router.refresh(); }
@@ -227,6 +228,14 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
             <input type="text" value={systemName} onChange={(e) => applySystemName(e.target.value)} placeholder="קשר" style={input()} />
             <label style={label()}>תקופה/תאריך לתיוג (למשל: מרץ 2026)</label>
             <input type="text" value={batchLabel} onChange={(e) => setBatchLabel(e.target.value)} placeholder="מרץ 2026" style={input()} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={openProcess} onChange={(e) => setOpenProcess(e.target.checked)} />
+              לפתוח תהליך/ליד לאנשי קשר חדשים בקובץ הזה
+            </label>
+            <div style={hint()}>
+              השאירו לא מסומן לרשימות של אנשי קשר ותיקים - הם יישמרו ככרטיס בלבד, בלי להופיע ללידים לעבודה.
+              סמנו רק כשמדובר בקובץ אמיתי של לידים חדשים שצריך לעבוד עליהם.
+            </div>
             {workspace?.name === 'תרומות' && (
               <div style={note()}>
                 💡 יש לכם גם דוח מפורט (כל תרומה בשורה נפרדת) וגם דוח מסכם לאותה תקופה? ייבאו קודם את המפורט, ורק אחר כך את המסכם — כך נמנעת ספירה כפולה של אותה תרומה.

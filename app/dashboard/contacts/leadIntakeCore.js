@@ -130,6 +130,9 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
       extra_fields: extraFields || {},
       approval_status: options.requiresApproval ? 'pending' : 'approved',
       created_by_manager: !!options.createdByManager,
+      // רק ביצירת שיוך חדש - שיוך קיים לעולם לא נוגעים ב-opened_process
+      // שלו (אותו עיקרון כמו stage: לא "מורידים" ליד פעיל בשקט בייבוא חוזר).
+      opened_process: options.openProcess === false ? false : true,
     }).select('id').single();
     rowId = created?.id;
   }
@@ -197,10 +200,10 @@ export async function insertDonationTransaction(supabase, contactId, workspaceId
 // (משלים שדות ריקים בלבד + מוסיף רשומת פנייה חדשה להיסטוריה).
 // sourceSystem/batchLabel מתויגים על כל רשומת lead_inquiries שנוצרת, כך
 // שהמקור והתקופה של כל ייבוא נשארים גלויים לצמיתות בטאב "פעילות".
-export async function bulkImportContactRows(supabase, { rows, workspaceId, workspace, sourceSystem, batchLabel, requiresApproval = false }) {
+export async function bulkImportContactRows(supabase, { rows, workspaceId, workspace, sourceSystem, batchLabel, requiresApproval = false, openProcess = true }) {
   const ws = workspace || { id: workspaceId };
   const reason = (batchLabel || '').trim() || 'ייבוא';
-  const membershipOptions = { requiresApproval, recordConflicts: true, sourceSystem, batchLabel };
+  const membershipOptions = { requiresApproval, recordConflicts: true, sourceSystem, batchLabel, openProcess };
   let created = 0;
   let enriched = 0;
   let transactionsAdded = 0;
