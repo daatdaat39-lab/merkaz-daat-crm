@@ -62,6 +62,35 @@ function mapKesherStatus(o) {
   return o.CancelDate ? 'cancelled' : 'active';
 }
 
+// ממלא אוטומטית את השדה הנוסף card_last4/bank_account_ref (אם קיים
+// ומוגדר למחלקה) מתוך 4 הספרות האחרונות שקשר מחזירה - רק אם השדה
+// עדיין ריק (לעולם לא דורס ערך שהוזן ידנית). לא יוצר שיוך מחלקה חדש
+// רק בשביל השדה - אם אין עדיין contact_departments לא עושה כלום.
+async function autoFillPaymentRef(supabase, contact, workspace, o) {
+  const last4 = (o.AccountOrNumCard || '').toString().trim();
+  if (!last4) return;
+  const isCredit = (o.ChargeOptionType || '').toString().includes('אשראי');
+  const key = isCredit ? 'card_last4' : 'bank_account_ref';
+
+  const { data: deptRow } = await supabase
+    .from('contact_departments')
+    .select('id, extra_fields')
+    .eq('contact_id', contact.id)
+    .eq('workspace_id', workspace.id)
+    .maybeSingle();
+  if (!deptRow) return;
+
+  const existingValue = (deptRow.extra_fields || {})[key];
+  if (existingValue) return;
+
+  const { data: fieldDef } = await supabase.from('workspace_extra_fields')
+    .select('type').eq('workspace_id', workspace.id).eq('field_key', key).maybeSingle();
+  if (!fieldDef || fieldDef.type === 'computed') return;
+
+  const extra_fields = { ...(deptRow.extra_fields || {}), [key]: last4 };
+  await supabase.from('contact_departments').update({ extra_fields }).eq('id', deptRow.id);
+}
+
 export async function syncKesherReports(fromDate, toDate) {
   const { supabase, user } = await requireUser();
   const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
@@ -93,6 +122,7 @@ export async function syncKesherReports(fromDate, toDate) {
   const DEBUG_WATCH_PHONES = ['0548053770'];
   const debugMatches = [];
   const debugOutcomes = [];
+  const debugTransactionMatches = [];
 
   let transactions = [];
   let obligations = [];
@@ -108,6 +138,9 @@ export async function syncKesherReports(fromDate, toDate) {
   }
 
   for (const t of transactions) {
+    if (DEBUG_WATCH_CLIENT_IDS.includes((t.Tz || '').toString().trim()) || DEBUG_WATCH_PHONES.includes((t.Phone || '').toString().trim())) {
+      debugTransactionMatches.push(t);
+    }
     try {
       const rawProject = t.ProjectName || t.Project;
       const workspaceName = resolveWorkspaceName(rawProject);
@@ -215,6 +248,11 @@ export async function syncKesherReports(fromDate, toDate) {
         start_date: safeDate(o.StartDate),
         end_date: safeDate(o.EndDate),
         frequency: isRecurring ? 'חודשי' : null,
+        designation: (o.ObligationFor || '').toString().trim() || null,
+        payment_method: (o.ChargeOptionType || '').toString().trim() || null,
+        last_payment_status: (o.StatusLastTran || '').toString().trim() || null,
+        source_channel: (o.OpenBy || '').toString().trim() || null,
+        note: (o.Comment || '').toString().trim() || null,
       };
 
       if (existing) {
@@ -235,6 +273,8 @@ export async function syncKesherReports(fromDate, toDate) {
           if (isWatched) debugOutcomes.push({ reference, outcome: 'נוצר', totalAmount, workspaceId: workspace.id });
         }
       }
+
+      await autoFillPaymentRef(supabase, contact, workspace, o);
     } catch (err) {
       logIssue(o, 'שגיאה בעיבוד');
       if (isWatched) debugOutcomes.push({ reference: o.Reference, outcome: 'שגיאה בעיבוד (catch)', error: err?.message });
@@ -246,5 +286,6 @@ export async function syncKesherReports(fromDate, toDate) {
   result.obligationIssues = obligationIssues;
   result.debugMatches = debugMatches;
   result.debugOutcomes = debugOutcomes;
+  result.debugTransactionMatches = debugTransactionMatches;
   return result;
 }

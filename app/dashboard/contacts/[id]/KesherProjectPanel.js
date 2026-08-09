@@ -51,12 +51,15 @@ export default function KesherProjectPanel({ workspaceName, commitments = [], ex
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', color: 'var(--text-secondary)' }}>
               <span>סכום: <b style={{ color: 'var(--text)' }}>₪{Number(c.total_amount).toLocaleString('he-IL')}</b></span>
-              {paymentMethod && <span>אמצעי תשלום: {paymentMethod}</span>}
+              {c.designation && <span>ייעוד: {c.designation}</span>}
+              {(c.payment_method || paymentMethod) && <span>אמצעי תשלום: {c.payment_method || paymentMethod}</span>}
               {c.frequency && <span>תדירות: {c.frequency}</span>}
               {c.start_date && <span>התחלה: {new Date(c.start_date).toLocaleDateString('he-IL')}</span>}
               {c.end_date && <span>סיום: {new Date(c.end_date).toLocaleDateString('he-IL')}</span>}
               {c.external_reference && <span>אסמכתא: {c.external_reference}</span>}
               {c.bounced_count > 0 && <span style={{ color: '#c62828' }}>חזרות: {c.bounced_count}</span>}
+              {c.last_payment_status && <span>תשלום אחרון: {c.last_payment_status}</span>}
+              {c.source_channel && <span>ערוץ מקור: {c.source_channel}</span>}
             </div>
             {c.note && <div style={{ marginTop: 4, color: 'var(--text-secondary)' }}>{c.note}</div>}
           </div>

@@ -91,6 +91,14 @@ export default function KesherSyncButton({ kesherConfigured = false }) {
               ))}
             </div>
           )}
+          {result.debugTransactionMatches?.length > 0 && (
+            <div style={{ marginTop: 4, fontSize: 11, background: '#ffeef5', border: '1px solid var(--border)', borderRadius: 6, padding: 8 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>אבחון זמני - כל העסקאות הגולמיות שקשר החזירה לאיש הקשר הנצפה:</div>
+              {result.debugTransactionMatches.map((t, i) => (
+                <pre key={i} style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontSize: 10.5, margin: '4px 0' }}>{JSON.stringify(t, null, 1)}</pre>
+              ))}
+            </div>
+          )}
           {result.obligationIssues?.length > 0 && (
             <div style={{ marginTop: 4, fontSize: 11.5, background: 'var(--bg-secondary, #f9f9f9)', border: '1px solid var(--border)', borderRadius: 6, padding: 8 }}>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>פירוט התחייבויות שלא נכתבו:</div>
