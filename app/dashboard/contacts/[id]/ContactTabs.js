@@ -149,6 +149,11 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                 <span style={{ fontWeight: 600, color: '#15803d' }}>₪{Number(t.amount).toLocaleString('he-IL')}</span>
                 <span style={{ color: '#c0c0c0' }}> · {new Date(t.transaction_date).toLocaleDateString('he-IL')}</span>
                 {t.source_system && <span style={{ color: '#9b9b9b' }}> · {t.source_system}</span>}
+                {t.receipt_url && (
+                  <a href={t.receipt_url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 8, color: 'var(--accent, #1f4d3d)' }}>
+                    📄 קבלה
+                  </a>
+                )}
               </div>
             ),
           },

@@ -137,48 +137,6 @@ export async function syncKesherReports(fromDate, toDate) {
     return { error: err.message };
   }
 
-  for (const t of transactions) {
-    if (DEBUG_WATCH_CLIENT_IDS.includes((t.Tz || '').toString().trim()) || DEBUG_WATCH_PHONES.includes((t.Phone || '').toString().trim())) {
-      debugTransactionMatches.push(t);
-    }
-    try {
-      const rawProject = t.ProjectName || t.Project;
-      const workspaceName = resolveWorkspaceName(rawProject);
-      const workspace = workspaceName ? workspaceByName.get(workspaceName) : null;
-      if (!workspace) {
-        result.projectUnmatched++;
-        if (rawProject && unmatchedProjectSamples.size < 10) unmatchedProjectSamples.add(rawProject.toString());
-        continue;
-      }
-
-      const idnum = (t.Tz || '').toString().trim() || null;
-      const phone = (t.Phone || '').toString().trim() || null;
-      const email = (t.Mail || '').toString().trim() || null;
-      const contact = await findExistingMatch(supabase, { idnum, phone, email });
-      if (!contact) { result.transactionsUnmatched++; continue; }
-
-      // GetTrans מחזירה Total באגורות (בשונה מ-GetObligations, ששם Sum
-      // כבר בשקלים) - אושר ישירות מול נתונים אמיתיים: ₪500.00 בקשר
-      // הוגיע כ-Total=50000. לא היה ברור מהתיעוד, רק מריצה חיה.
-      const added = await insertDonationTransaction(supabase, contact.id, workspace.id, 'קשר', {
-        amount: Number(t.Total) / 100,
-        date: safeDate(t.TranDate),
-        docNumber: t.NumTransaction,
-        paymentMethod: t.TransactionCreditType || t.CreditType || null,
-        transactionType: t.TransactionType || null,
-        campaignReference: t.ProjectName || null,
-        fundraiserName: t.User || null,
-      });
-      if (added === true) result.transactionsCreated++;
-      else if (added === false) result.transactionsSkipped++;
-      else result.transactionsUnmatched++;
-
-      await upsertContactExternalId(supabase, contact.id, 'קשר', t.NumTransaction);
-    } catch {
-      result.transactionsUnmatched++;
-    }
-  }
-
   function logIssue(o, reason) {
     result.obligationsUnmatched++;
     if (obligationIssues.length < 15) {
@@ -278,6 +236,68 @@ export async function syncKesherReports(fromDate, toDate) {
     } catch (err) {
       logIssue(o, 'שגיאה בעיבוד');
       if (isWatched) debugOutcomes.push({ reference: o.Reference, outcome: 'שגיאה בעיבוד (catch)', error: err?.message });
+    }
+  }
+
+  // הלולאה רצה אחרי ההתחייבויות (לא לפני) כדי שאפשר יהיה לקשר כל תנועה
+  // להתחייבות שלה (ObligationReference) גם באותה ריצת סנכרון - כולל
+  // התחייבות שרק נוצרה כרגע בלולאה למעלה, לא רק בהתחייבות ישנה מריצה קודמת.
+  for (const t of transactions) {
+    if (DEBUG_WATCH_CLIENT_IDS.includes((t.Tz || '').toString().trim()) || DEBUG_WATCH_PHONES.includes((t.Phone || '').toString().trim())) {
+      debugTransactionMatches.push(t);
+    }
+    try {
+      const rawProject = t.ProjectName || t.Project;
+      const workspaceName = resolveWorkspaceName(rawProject);
+      const workspace = workspaceName ? workspaceByName.get(workspaceName) : null;
+      if (!workspace) {
+        result.projectUnmatched++;
+        if (rawProject && unmatchedProjectSamples.size < 10) unmatchedProjectSamples.add(rawProject.toString());
+        continue;
+      }
+
+      const idnum = (t.Tz || '').toString().trim() || null;
+      const phone = (t.Phone || '').toString().trim() || null;
+      const email = (t.Mail || '').toString().trim() || null;
+      const contact = await findExistingMatch(supabase, { idnum, phone, email });
+      if (!contact) { result.transactionsUnmatched++; continue; }
+
+      // ObligationReference מקשרת כל תנועה בודדת להתחייבות/הוראת הקבע
+      // שממנה היא נגבתה - אושר מריצה חיה (השדה קיים בכל תנועה, מצביע
+      // על Reference אמיתי בהתחייבויות). ממלא commitment_id הקיים.
+      let commitmentId = null;
+      const obligationRef = (t.ObligationReference || '').toString().trim();
+      if (obligationRef) {
+        const { data: linkedCommitment } = await supabase
+          .from('commitments')
+          .select('id')
+          .eq('workspace_id', workspace.id)
+          .eq('external_reference', obligationRef)
+          .maybeSingle();
+        commitmentId = linkedCommitment?.id || null;
+      }
+
+      // GetTrans מחזירה Total באגורות (בשונה מ-GetObligations, ששם Sum
+      // כבר בשקלים) - אושר ישירות מול נתונים אמיתיים: ₪500.00 בקשר
+      // הוגיע כ-Total=50000. לא היה ברור מהתיעוד, רק מריצה חיה.
+      const added = await insertDonationTransaction(supabase, contact.id, workspace.id, 'קשר', {
+        amount: Number(t.Total) / 100,
+        date: safeDate(t.TranDate),
+        docNumber: t.NumTransaction,
+        paymentMethod: t.TransactionCreditType || t.CreditType || null,
+        transactionType: t.TransactionType || null,
+        campaignReference: t.ProjectName || null,
+        fundraiserName: t.User || null,
+        commitmentId,
+        receiptUrl: t.PdfLink || null,
+      });
+      if (added === true) result.transactionsCreated++;
+      else if (added === false) result.transactionsSkipped++;
+      else result.transactionsUnmatched++;
+
+      await upsertContactExternalId(supabase, contact.id, 'קשר', t.NumTransaction);
+    } catch {
+      result.transactionsUnmatched++;
     }
   }
 

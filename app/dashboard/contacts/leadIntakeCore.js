@@ -182,6 +182,8 @@ export async function insertDonationTransaction(supabase, contactId, workspaceId
       transaction_type: (donationTransaction.transactionType || '').toString().trim() || null,
       campaign_reference: (donationTransaction.campaignReference || '').toString().trim() || null,
       fundraiser_name: (donationTransaction.fundraiserName || '').toString().trim() || null,
+      commitment_id: donationTransaction.commitmentId || null,
+      receipt_url: (donationTransaction.receiptUrl || '').toString().trim() || null,
     }, { onConflict: 'external_doc_number', ignoreDuplicates: true })
     .select('id');
   if (error) return null;
