@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import DataGridRow from './DataGridRow';
-import { fetchGridRows } from './actions';
+import { fetchGridRows, fetchAllContactIds, exportGridContacts } from './actions';
 import { createField } from '../fields/actions';
 import { COMPUTED_FORMULAS } from '../../lib/computedFields';
 import { generateFieldKey } from '../../lib/fieldKey';
@@ -25,6 +25,8 @@ export default function DataGridClient({ workspaces = [] }) {
   const [error, setError] = useState(null);
   const [addingColumn, setAddingColumn] = useState(false);
   const [aiWizardOpen, setAiWizardOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [isExporting, setIsExporting] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function loadRows() {
@@ -46,11 +48,42 @@ export default function DataGridClient({ workspaces = [] }) {
   function handleWorkspaceChange(id) {
     setWorkspaceId(id);
     setPage(1);
+    setSelectedIds(new Set());
   }
 
   function handleModeChange(newMode) {
     setMode(newMode);
     setPage(1);
+  }
+
+  function toggleSelected(contactId) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(contactId)) next.delete(contactId);
+      else next.add(contactId);
+      return next;
+    });
+  }
+
+  // "בחירת הכל" בוחרת את כל אנשי הקשר המתאימים בכל העמודים (לא רק את
+  // העמוד שכבר נטען) - שולפת את כל המזהים משרת בנפרד מ-data.rows.
+  function toggleSelectAll() {
+    if (selectedIds.size > 0) { setSelectedIds(new Set()); return; }
+    startTransition(async () => {
+      const res = await fetchAllContactIds(workspaceId);
+      if (res?.error) { setError(res.error); return; }
+      setSelectedIds(new Set(res.contactIds));
+    });
+  }
+
+  function handleExport() {
+    setIsExporting(true);
+    startTransition(async () => {
+      const res = await exportGridContacts(workspaceId, Array.from(selectedIds));
+      setIsExporting(false);
+      if (res?.error) { setError(res.error); return; }
+      downloadExport(res);
+    });
   }
 
   const totalPages = data ? Math.max(1, Math.ceil(data.totalCount / PAGE_SIZE)) : 1;
@@ -80,6 +113,15 @@ export default function DataGridClient({ workspaces = [] }) {
         )}
 
         {data && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>סה"כ {data.totalCount} אנשי קשר</span>}
+
+        {selectedIds.size > 0 && (
+          <>
+            <span style={{ fontSize: 12.5, fontWeight: 600 }}>✓ {selectedIds.size} נבחרו</span>
+            <button type="button" onClick={handleExport} disabled={isExporting} style={pageBtnStyle()}>
+              {isExporting ? 'מייצא...' : '⬇ ייצוא נבחרים'}
+            </button>
+          </>
+        )}
 
         <button type="button" onClick={() => { setAddingColumn((v) => !v); setAiWizardOpen(false); }} style={{ ...pageBtnStyle(), marginInlineStart: 'auto' }}>
           {addingColumn ? 'ביטול' : '+ הוספת עמודה'}
@@ -113,7 +155,15 @@ export default function DataGridClient({ workspaces = [] }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }}>
             <thead>
               <tr style={{ background: 'var(--bg-secondary)' }}>
-                <th style={thStyle()}></th>
+                <th style={thStyle()}>
+                  <input
+                    type="checkbox"
+                    checked={data && selectedIds.size >= data.totalCount && selectedIds.size > 0}
+                    ref={(el) => { if (el) el.indeterminate = selectedIds.size > 0 && (!data || selectedIds.size < data.totalCount); }}
+                    onChange={toggleSelectAll}
+                    title="בחירת הכל"
+                  />
+                </th>
                 {data.baseFields.map((f) => <th key={f.key} style={thStyle()}>{f.label}</th>)}
                 <th style={thStyle()}>שלב</th>
                 {data.extraFields.map((f) => <th key={f.key} style={thStyle()}>{f.label}</th>)}
@@ -128,6 +178,8 @@ export default function DataGridClient({ workspaces = [] }) {
                   baseFields={data.baseFields}
                   extraFields={data.extraFields}
                   pipeline={data.pipeline}
+                  selected={selectedIds.has(row.contactId)}
+                  onToggleSelected={() => toggleSelected(row.contactId)}
                 />
               ))}
             </tbody>
@@ -215,6 +267,73 @@ function AddColumnForm({ workspaceId, existingExtraFields, onDone }) {
       {error && <div style={{ color: '#b23b2f', fontSize: 12, marginTop: 8 }}>{error}</div>}
     </div>
   );
+}
+
+// בניית CSV + הורדה - אותה תבנית בדיוק כמו ImportExportButtons.js
+// (אין lib משותף היום בפרויקט, זו הדוגמה הקיימת היחידה) - BOM ל-UTF-8
+// כדי שעברית תיפתח נכון באקסל, וכל תא מוקף גרשיים עם escaping.
+function downloadBlob(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function toCsv(headers, rows) {
+  const escaped = rows.map((row) => row.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
+  return '﻿' + [headers.join(','), ...escaped].join('\n');
+}
+
+// בונה 3 קבצי CSV מתוצאת exportGridContacts ומוריד את כולם ביחד - אנשי
+// קשר (בסיס + שדות נוספים), תרומות, והתחייבויות, כל אחד עם עמודת שם+ת.ז
+// לזיהוי כדי שאפשר יהיה לצלוב בין הקבצים בלי להסתמך על contact_id גולמי.
+function downloadExport({ contacts, memberships, extraFields, transactions, commitments }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const membershipByContact = new Map(memberships.map((m) => [m.contact_id, m]));
+  const nameById = new Map(contacts.map((c) => [c.id, `${c.first || ''} ${c.last || ''}`.trim()]));
+
+  const contactHeaders = [
+    'שם פרטי', 'שם משפחה', 'ת"ז', 'טלפון', 'טלפון נוסף', 'מייל', 'מייל נוסף', 'מקור', 'תאריך לידה', 'מגדר',
+    'עיר', 'רחוב', 'מספר בית', 'דירה', 'מיקוד', 'שכונה', 'מדינה', 'מספר ילדים', 'תגיות', 'שלב',
+    ...extraFields.map((f) => f.label),
+  ];
+  const contactRows = contacts.map((c) => {
+    const membership = membershipByContact.get(c.id);
+    const extra = membership?.extra_fields || {};
+    return [
+      c.first, c.last, c.idnum, c.phone, c.phone2, c.email, c.email2, c.source, c.birth_date, c.gender,
+      c.city, c.street, c.house_number, c.apartment, c.zip_code, c.neighborhood, c.country, c.children_count,
+      (c.tags || []).join('; '), membership?.stage,
+      ...extraFields.map((f) => extra[f.key]),
+    ];
+  });
+
+  const transactionHeaders = ['שם איש קשר', 'ת"ז', 'סכום', 'תאריך', 'מקור', 'ייעוד', 'אמצעי תשלום', 'סוג עסקה', 'אסמכתא קמפיין', 'גורם מגייס', 'מספר מסמך', 'קישור קבלה'];
+  const transactionRows = transactions.map((t) => {
+    const contact = contacts.find((c) => c.id === t.contact_id);
+    return [
+      nameById.get(t.contact_id), contact?.idnum, t.amount, t.transaction_date, t.source_system, t.designation,
+      t.payment_method, t.transaction_type, t.campaign_reference, t.fundraiser_name, t.external_doc_number, t.receipt_url,
+    ];
+  });
+
+  const commitmentHeaders = ['שם איש קשר', 'ת"ז', 'סכום', 'סטטוס', 'תדירות', 'תאריך התחלה', 'תאריך סיום', 'אסמכתא', 'ייעוד', 'אמצעי תשלום', 'תשלום אחרון', 'ערוץ מקור', 'חזרות', 'הערה', 'נוצר בתאריך'];
+  const commitmentRows = commitments.map((c) => {
+    const contact = contacts.find((x) => x.id === c.contact_id);
+    return [
+      nameById.get(c.contact_id), contact?.idnum, c.total_amount, c.status, c.frequency, c.start_date, c.end_date,
+      c.external_reference, c.designation, c.payment_method, c.last_payment_status, c.source_channel, c.bounced_count, c.note, c.created_at,
+    ];
+  });
+
+  downloadBlob(toCsv(contactHeaders, contactRows), `אנשי-קשר-מלא-${today}.csv`, 'text/csv;charset=utf-8;');
+  downloadBlob(toCsv(transactionHeaders, transactionRows), `תרומות-${today}.csv`, 'text/csv;charset=utf-8;');
+  downloadBlob(toCsv(commitmentHeaders, commitmentRows), `התחייבויות-${today}.csv`, 'text/csv;charset=utf-8;');
 }
 
 function selectStyle() {

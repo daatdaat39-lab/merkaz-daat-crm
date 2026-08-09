@@ -10,7 +10,7 @@ import { updateGridBaseField, updateGridExtraField, updateGridStage } from './ac
 // בלחיצה-ויציאה לטקסט/מספר, onChange לרשימות בחירה/תאריך), אבל מצומצם
 // לעריכת שדות בסיס+נוספים+שלב בלבד - בלי עמודת נציג/פעולות מהירות
 // (זה מסך עריכה מהירה, לא מסך עבודה שוטפת).
-export default function DataGridRow({ row, workspaceId, baseFields, extraFields, pipeline }) {
+export default function DataGridRow({ row, workspaceId, baseFields, extraFields, pipeline, selected = false, onToggleSelected }) {
   const [isPending, startTransition] = useTransition();
   const [baseValues, setBaseValues] = useState(row.base);
   const [extraValues, setExtraValues] = useState(row.extra);
@@ -48,6 +48,7 @@ export default function DataGridRow({ row, workspaceId, baseFields, extraFields,
   return (
     <tr style={{ borderBottom: '1px solid var(--bg-tertiary)', opacity: row.frozen ? 0.6 : 1 }}>
       <td style={{ padding: '8px 10px', fontSize: 12.5 }}>
+        <input type="checkbox" checked={selected} onChange={onToggleSelected} style={{ marginInlineEnd: 6 }} />
         <Link href={`/dashboard/contacts/${row.contactId}`} target="_blank" style={{ color: 'inherit', textDecoration: 'none', fontSize: 11 }} title="פתיחה בכרטיס איש קשר">
           🔗
         </Link>

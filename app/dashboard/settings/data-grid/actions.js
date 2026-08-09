@@ -110,3 +110,54 @@ export async function updateGridStage(departmentRowId, workspaceId, stage, close
   if (ctx.error) return ctx;
   return updateLeadStage(departmentRowId, stage, closedReason);
 }
+
+// כל מזהי אנשי הקשר במחלקה (בלי עימוד) - משמש את "בחירת הכל" בייצוא,
+// כדי שהבחירה תכלול את כל השורות המתאימות בכל העמודים, לא רק את מה
+// שכבר נטען בעמוד הנוכחי.
+export async function fetchAllContactIds(workspaceId) {
+  const ctx = await requireGridManager(workspaceId);
+  if (ctx.error) return ctx;
+  const { supabase } = ctx;
+
+  const { data, error } = await supabase
+    .from('contact_departments')
+    .select('contact_id')
+    .eq('workspace_id', workspaceId);
+  if (error) return { error: error.message };
+  return { contactIds: (data || []).map((r) => r.contact_id) };
+}
+
+// ייצוא מלא לאנשי קשר נבחרים - לא רק שדות הגריד (בסיס+נוספים) אלא גם
+// היסטוריית תרומות (donation_transactions) והתחייבויות (commitments),
+// שהן טבלאות אחד-לרבים ולכן לא חלק מהשורה השטוחה של הגריד. מוחזר גולמי -
+// בניית ה-CSV בפועל קורית בלקוח (עקבי עם ImportExportButtons.js).
+export async function exportGridContacts(workspaceId, contactIds) {
+  const ctx = await requireGridManager(workspaceId);
+  if (ctx.error) return ctx;
+  const { supabase } = ctx;
+  if (!Array.isArray(contactIds) || contactIds.length === 0) return { error: 'לא נבחרו אנשי קשר' };
+
+  const { data: workspace } = await supabase.from('workspaces').select('id, name').eq('id', workspaceId).single();
+  if (!workspace) return { error: 'המחלקה לא נמצאה' };
+
+  const [{ data: contacts }, { data: memberships }, { data: transactions }, { data: commitments }] = await Promise.all([
+    supabase.from('contacts').select('*').in('id', contactIds),
+    supabase.from('contact_departments').select('contact_id, stage, extra_fields').eq('workspace_id', workspaceId).in('contact_id', contactIds),
+    supabase.from('donation_transactions')
+      .select('contact_id, source_system, amount, transaction_date, designation, payment_method, transaction_type, campaign_reference, fundraiser_name, external_doc_number, receipt_url')
+      .eq('workspace_id', workspaceId).in('contact_id', contactIds),
+    supabase.from('commitments')
+      .select('contact_id, total_amount, installments_count, status, note, created_at, start_date, end_date, frequency, bounced_count, external_reference, designation, payment_method, last_payment_status, source_channel')
+      .eq('workspace_id', workspaceId).in('contact_id', contactIds),
+  ]);
+
+  const extraFields = await getExtraFields(supabase, workspace.name);
+
+  return {
+    contacts: contacts || [],
+    memberships: memberships || [],
+    extraFields,
+    transactions: transactions || [],
+    commitments: commitments || [],
+  };
+}
