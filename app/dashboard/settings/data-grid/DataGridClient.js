@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import * as XLSX from 'xlsx';
 import DataGridRow from './DataGridRow';
 import { fetchGridRows, fetchAllContactIds, exportGridContacts } from './actions';
 import { createField } from '../fields/actions';
@@ -269,29 +270,12 @@ function AddColumnForm({ workspaceId, existingExtraFields, onDone }) {
   );
 }
 
-// בניית CSV + הורדה - אותה תבנית בדיוק כמו ImportExportButtons.js
-// (אין lib משותף היום בפרויקט, זו הדוגמה הקיימת היחידה) - BOM ל-UTF-8
-// כדי שעברית תיפתח נכון באקסל, וכל תא מוקף גרשיים עם escaping.
-function downloadBlob(content, filename, type) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function toCsv(headers, rows) {
-  const escaped = rows.map((row) => row.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
-  return '﻿' + [headers.join(','), ...escaped].join('\n');
-}
-
-// בונה 3 קבצי CSV מתוצאת exportGridContacts ומוריד את כולם ביחד - אנשי
+// בונה קובץ Excel אחד עם 3 לשוניות מתוצאת exportGridContacts - אנשי
 // קשר (בסיס + שדות נוספים), תרומות, והתחייבויות, כל אחד עם עמודת שם+ת.ז
-// לזיהוי כדי שאפשר יהיה לצלוב בין הקבצים בלי להסתמך על contact_id גולמי.
+// לזיהוי כדי שאפשר יהיה לצלוב בין הלשוניות בלי להסתמך על contact_id
+// גולמי. xlsx (SheetJS) כבר תלות קיימת בפרויקט (משמשת לייבוא בקבצי
+// DepartmentImportWizard.js/CallHistoryImportWizard.js) - כאן בשימוש
+// גם לכתיבה (aoa_to_sheet + writeFile), לא רק לקריאה.
 function downloadExport({ contacts, memberships, extraFields, transactions, commitments }) {
   const today = new Date().toISOString().slice(0, 10);
   const membershipByContact = new Map(memberships.map((m) => [m.contact_id, m]));
@@ -331,9 +315,11 @@ function downloadExport({ contacts, memberships, extraFields, transactions, comm
     ];
   });
 
-  downloadBlob(toCsv(contactHeaders, contactRows), `אנשי-קשר-מלא-${today}.csv`, 'text/csv;charset=utf-8;');
-  downloadBlob(toCsv(transactionHeaders, transactionRows), `תרומות-${today}.csv`, 'text/csv;charset=utf-8;');
-  downloadBlob(toCsv(commitmentHeaders, commitmentRows), `התחייבויות-${today}.csv`, 'text/csv;charset=utf-8;');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([contactHeaders, ...contactRows]), 'אנשי קשר');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([transactionHeaders, ...transactionRows]), 'תרומות');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([commitmentHeaders, ...commitmentRows]), 'התחייבויות');
+  XLSX.writeFile(wb, `אנשי-קשר-מלא-${today}.xlsx`);
 }
 
 function selectStyle() {
