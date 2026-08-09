@@ -204,11 +204,17 @@ export async function syncKesherReports(fromDate, toDate) {
         .eq('external_reference', reference)
         .maybeSingle();
 
+      // NumPayments לא מספרי (למשל "לא הגבלה") מסמן הוראת קבע מתמשכת -
+      // אושר מריצה חיה: יחד עם שדה Day (יום בחודש) ותשלומים שעברו בפועל
+      // בהפרש חודש בדיוק (28/5, 28/6, 28/7) - זו הוראת קבע חודשית.
+      // NumPayments מספרי אמיתי מסמן התחייבות חד-פעמית/קבועת-כמות.
+      const isRecurring = o.NumPayments != null && Number.isNaN(Number(o.NumPayments));
       const patch = {
         status: mapKesherStatus(o),
         bounced_count: Number(o.NotPassedPayments) || 0,
         start_date: safeDate(o.StartDate),
         end_date: safeDate(o.EndDate),
+        frequency: isRecurring ? 'חודשי' : null,
       };
 
       if (existing) {
