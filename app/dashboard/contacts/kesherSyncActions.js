@@ -38,14 +38,17 @@ function safeDate(raw) {
   return s;
 }
 
-// זיהוי ביטול לא מסתמך רק על CancelDate (שראינו בפועל שלא תמיד מאוכלס
-// עבור התחייבות מבוטלת) - גם בודק מילות מפתח בטקסט הסטטוס החופשי
-// שקשר מחזירה. הערכים המדויקים עדיין לא ידועים לנו במלואם - זו הגנה
-// נוספת, לא המקור הסופי של האמת (ר' obligationIssues לאבחון בפועל).
-function isCancelledObligation(o) {
-  if (o.CancelDate) return true;
-  const text = `${o.Status || ''} ${o.StatusId || ''}`;
-  return /בוטל|מבוטל|בטל/.test(text);
+// מיפוי סטטוס - מאומת מריצה חיה אמיתית (לא ניחוש): StatusId="1" הוא
+// "פעיל", StatusId="2" הוא "נכשל" (יש CancelDate), StatusId="3" הוא
+// "הסתיים" (בלי CancelDate - הגיע לסוף התקופה). "בוטל" כמילה מילולית
+// לא הופיע בכלל בערכים האמיתיים - הניחוש הקודם (חיפוש "בוטל" בטקסט)
+// לכן לא תפס שום דבר.
+function mapKesherStatus(o) {
+  if (o.StatusId === '1') return 'active';
+  if (o.StatusId === '2') return 'cancelled';
+  if (o.StatusId === '3') return 'fulfilled';
+  // גיבוי אם StatusId חסר: CancelDate כסימן ביטול, אחרת פעיל.
+  return o.CancelDate ? 'cancelled' : 'active';
 }
 
 export async function syncKesherReports(fromDate, toDate) {
@@ -71,6 +74,13 @@ export async function syncKesherReports(fromDate, toDate) {
   // בדיוק למה (חוסר התאמת איש קשר, סכום לא תקין וכו') בלי גישה ישירה
   // לתשובת קשר.
   const obligationIssues = [];
+  // אבחון ממוקד זמני (לחקירה הנוכחית בלבד - להסיר אחרי שנסגור אותה):
+  // מציג את כל הרשומות הגולמיות שקשר מחזירה עבור איש קשר ספציפי,
+  // עוד לפני כל סינון/פענוח - כדי לדעת בוודאות אם רשומה "חסרה" בכלל
+  // לא הגיעה מקשר, או שהיא הגיעה ונפלה בהתאמה/סינון אצלנו.
+  const DEBUG_WATCH_CLIENT_IDS = ['205906571'];
+  const DEBUG_WATCH_PHONES = ['0548053770'];
+  const debugMatches = [];
 
   let transactions = [];
   let obligations = [];
@@ -137,6 +147,9 @@ export async function syncKesherReports(fromDate, toDate) {
   }
 
   for (const o of obligations) {
+    if (DEBUG_WATCH_CLIENT_IDS.includes((o.ClientId || '').toString().trim()) || DEBUG_WATCH_PHONES.includes((o.Phone || '').toString().trim())) {
+      debugMatches.push(o);
+    }
     try {
       const workspaceName = resolveWorkspaceName(o.Project);
       const workspace = workspaceName ? workspaceByName.get(workspaceName) : null;
@@ -165,7 +178,7 @@ export async function syncKesherReports(fromDate, toDate) {
         .maybeSingle();
 
       const patch = {
-        status: isCancelledObligation(o) ? 'cancelled' : 'active',
+        status: mapKesherStatus(o),
         bounced_count: Number(o.NotPassedPayments) || 0,
         start_date: safeDate(o.StartDate),
         end_date: safeDate(o.EndDate),
@@ -191,5 +204,6 @@ export async function syncKesherReports(fromDate, toDate) {
   result.unmatchedProjectSamples = Array.from(unmatchedProjectSamples);
   result.obligationsFetched = obligations.length;
   result.obligationIssues = obligationIssues;
+  result.debugMatches = debugMatches;
   return result;
 }
