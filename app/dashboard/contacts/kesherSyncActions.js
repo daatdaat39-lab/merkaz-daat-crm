@@ -112,8 +112,11 @@ export async function syncKesherReports(fromDate, toDate) {
       const contact = await findExistingMatch(supabase, { idnum, phone, email });
       if (!contact) { result.transactionsUnmatched++; continue; }
 
+      // GetTrans מחזירה Total באגורות (בשונה מ-GetObligations, ששם Sum
+      // כבר בשקלים) - אושר ישירות מול נתונים אמיתיים: ₪500.00 בקשר
+      // הוגיע כ-Total=50000. לא היה ברור מהתיעוד, רק מריצה חיה.
       const added = await insertDonationTransaction(supabase, contact.id, workspace.id, 'קשר', {
-        amount: t.Total,
+        amount: Number(t.Total) / 100,
         date: safeDate(t.TranDate),
         docNumber: t.NumTransaction,
         paymentMethod: t.TransactionCreditType || t.CreditType || null,
