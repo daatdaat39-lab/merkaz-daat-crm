@@ -1,7 +1,9 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { respondApprovalRequest, resendApprovalRequest } from './actions';
+import { fetchMyPendingAutomations } from '../lib/pendingAutomationActions';
 import ApprovalRow from './ApprovalRow';
+import PendingAutomationRow from './PendingAutomationRow';
 
 // עמוד בקשות אישור - בקשות שממתינות לתגובה שלי, ובקשות שאני שלחתי
 // (כדי לעקוב אחרי הסטטוס ולשלוח מחדש אם נדרשו פרטים נוספים)
@@ -9,6 +11,8 @@ export default async function ApprovalsPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+
+  const pendingAutomations = await fetchMyPendingAutomations();
 
   const [{ data: incoming }, { data: outgoing }] = await Promise.all([
     supabase
@@ -36,6 +40,16 @@ export default async function ApprovalsPage() {
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px' }}>
       <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>בקשות אישור</h1>
+
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
+        אוטומציות ממתינות לאישור ({pendingAutomations.length})
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+        {pendingAutomations.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין אוטומציות ממתינות</div>}
+        {pendingAutomations.map((item) => (
+          <PendingAutomationRow key={item.id} item={item} />
+        ))}
+      </div>
 
       <div style={{ fontSize: 12, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
         ממתינות לאישור שלי ({pendingIncoming.length})

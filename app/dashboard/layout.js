@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import NewLeadToast from './components/NewLeadToast';
 import ConcurrentInquiryToast from './components/ConcurrentInquiryToast';
+import PendingAutomationWatcher from './components/PendingAutomationWatcher';
 import CelebrationHost from './components/CelebrationHost';
 import IdleLock from './components/IdleLock';
 import { FloatingWindowsProvider } from './components/FloatingWindows';
@@ -180,6 +181,7 @@ export default async function DashboardLayout({ children, modal }) {
       {modal}
       <NewLeadToast workspaceId={currentWorkspaceId} />
       <ConcurrentInquiryToast workspaceId={currentWorkspaceId} userId={user.id} />
+      <PendingAutomationWatcher userId={user.id} />
       <CelebrationHost />
       <IdleLock userEmail={user.email} />
       <FloatingWindowsHost />

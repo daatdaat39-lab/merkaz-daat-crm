@@ -400,7 +400,7 @@ export async function updateDepartmentStage(departmentRowId, stage, closedReason
     .eq('id', departmentRowId);
   if (error) return { error: error.message };
 
-  await applyStageAutomations(supabase, { workspaceId: row.workspace_id, stageKey: stage, contactId: row.contact_id, userId: user.id });
+  await applyStageAutomations(supabase, { workspaceId: row.workspace_id, stageKey: stage, contactId: row.contact_id, userId: user.id, contactDepartmentId: departmentRowId });
   return { success: true };
 }
 
@@ -420,7 +420,7 @@ export async function updateLeadStage(departmentRowId, stage, closedReason) {
     .eq('id', departmentRowId);
   if (error) return { error: error.message };
 
-  await applyStageAutomations(supabase, { workspaceId: row.workspace_id, stageKey: stage, contactId: row.contact_id, userId: user.id });
+  await applyStageAutomations(supabase, { workspaceId: row.workspace_id, stageKey: stage, contactId: row.contact_id, userId: user.id, contactDepartmentId: departmentRowId });
   return { success: true };
 }
 
@@ -771,7 +771,7 @@ export async function logQuickActivity(contactId, departmentRowId, note, newStag
   if (updateError) return { error: updateError.message };
 
   if (stageChanged) {
-    await applyStageAutomations(supabase, { workspaceId: dept.workspace_id, stageKey: newStage, contactId, userId: user.id });
+    await applyStageAutomations(supabase, { workspaceId: dept.workspace_id, stageKey: newStage, contactId, userId: user.id, contactDepartmentId: departmentRowId });
   }
 
   const { error } = await supabase.from('lead_inquiries').insert({
