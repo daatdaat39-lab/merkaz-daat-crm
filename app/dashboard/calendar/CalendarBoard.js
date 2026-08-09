@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import MeetingRow from './MeetingRow';
 import TaskRow from '../tasks/TaskRow';
 import EventModal from './EventModal';
+import { hebrewDayMonth, hebrewMonthYearLabelForDate, hebrewMonthDays, shiftHebrewMonth } from '../lib/hebrewDate';
 
 const WEEKDAY_LABELS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const MAX_CHIPS_PER_DAY = 3;
@@ -21,6 +22,10 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
   const [view, setView] = useState('week');
   const [anchor, setAnchor] = useState(() => new Date());
   const [modalDate, setModalDate] = useState(() => (autoOpenToday ? toDateStr(new Date()) : null));
+  // מצב הניווט הראשי בתצוגת חודש - 'gregorian' (ברירת מחדל) או 'hebrew'.
+  // התאריך העברי המקוצר מוצג ליד כל יום בכל מצב - המתג רק קובע לפי
+  // איזה לוח מנווטים (חודש לועזי מול חודש עברי) ואיזה מספר גדול.
+  const [calendarMode, setCalendarMode] = useState('gregorian');
 
   const todayStr = toDateStr(new Date());
 
@@ -42,12 +47,14 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
   const undatedTasks = useMemo(() => tasks.filter((t) => !t.due_date && !t.done), [tasks]);
 
   function goPrev() {
-    if (view === 'month') setAnchor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
+    if (view === 'month' && calendarMode === 'hebrew') setAnchor((d) => shiftHebrewMonth(d, -1));
+    else if (view === 'month') setAnchor((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
     else if (view === 'week') setAnchor((d) => addDays(d, -7));
     else setAnchor((d) => addDays(d, -1));
   }
   function goNext() {
-    if (view === 'month') setAnchor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
+    if (view === 'month' && calendarMode === 'hebrew') setAnchor((d) => shiftHebrewMonth(d, 1));
+    else if (view === 'month') setAnchor((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
     else if (view === 'week') setAnchor((d) => addDays(d, 7));
     else setAnchor((d) => addDays(d, 1));
   }
@@ -59,12 +66,13 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
   }
 
   const headerLabel = useMemo(() => {
+    if (view === 'month' && calendarMode === 'hebrew') return hebrewMonthYearLabelForDate(anchor);
     if (view === 'month') return anchor.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
     if (view === 'day') return anchor.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     const start = startOfWeek(anchor);
     const end = addDays(start, 6);
     return `${start.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('he-IL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-  }, [view, anchor]);
+  }, [view, anchor, calendarMode]);
 
   return (
     <div>
@@ -75,6 +83,24 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
           <button onClick={goNext} style={navBtnStyle()}>‹</button>
         </div>
         <div style={{ fontSize: 15, fontWeight: 600 }}>{headerLabel}</div>
+
+        {view === 'month' && (
+          <div style={{ display: 'flex', gap: 4 }} title="לוח הניווט הראשי - לועזי או עברי">
+            {[{ id: 'gregorian', label: 'לועזי' }, { id: 'hebrew', label: 'עברי' }].map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setCalendarMode(m.id)}
+                style={{
+                  padding: '5px 12px', borderRadius: 6, fontSize: 11.5, cursor: 'pointer',
+                  border: calendarMode === m.id ? '1px solid #1f4d3d' : '1px solid #e5e5e5',
+                  background: calendarMode === m.id ? '#1f4d3d' : '#fff', color: calendarMode === m.id ? '#fff' : '#666',
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: 4, marginInlineStart: 'auto' }}>
           {[{ id: 'month', label: 'חודש' }, { id: 'week', label: 'שבוע' }, { id: 'day', label: 'יום' }].map((v) => (
@@ -100,8 +126,11 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
         </button>
       </div>
 
-      {view === 'month' && (
+      {view === 'month' && calendarMode === 'gregorian' && (
         <MonthGrid anchor={anchor} eventsByDate={eventsByDate} todayStr={todayStr} onDayClick={setModalDate} onEventClick={openDay} />
+      )}
+      {view === 'month' && calendarMode === 'hebrew' && (
+        <HebrewMonthGrid anchor={anchor} eventsByDate={eventsByDate} todayStr={todayStr} onDayClick={setModalDate} onEventClick={openDay} />
       )}
       {view === 'week' && (
         <WeekGrid anchor={anchor} eventsByDate={eventsByDate} todayStr={todayStr} onDayClick={setModalDate} onEventClick={openDay} />
@@ -190,13 +219,78 @@ function MonthGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventClick })
                 padding: 6, cursor: 'pointer', opacity: inMonth ? 1 : 0.4,
               }}
             >
-              <div style={{
-                fontSize: 11.5, fontWeight: isToday ? 700 : 400, marginBottom: 4,
-                color: isToday ? '#fff' : '#333',
-                background: isToday ? '#0a0a0a' : 'transparent',
-                display: 'inline-flex', width: 20, height: 20, alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
-              }}>
-                {day.getDate()}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 4 }}>
+                <div style={{
+                  fontSize: 11.5, fontWeight: isToday ? 700 : 400,
+                  color: isToday ? '#fff' : '#333',
+                  background: isToday ? '#0a0a0a' : 'transparent',
+                  display: 'inline-flex', width: 20, height: 20, alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
+                }}>
+                  {day.getDate()}
+                </div>
+                <div style={{ fontSize: 9, color: 'var(--text-muted, #9b9b9b)' }}>{hebrewDayMonth(day)}</div>
+              </div>
+              {visible.map((ev) => (
+                <div key={`${ev.kind}-${ev.id}`} onClick={(e) => { e.stopPropagation(); onEventClick(dateStr); }}>
+                  <EventChip ev={ev} />
+                </div>
+              ))}
+              {hidden > 0 && (
+                <div style={{ fontSize: 10, color: '#9b9b9b' }}>+{hidden} עוד</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// גרסת "חודש" של הלוח לפי חודש עברי במקום לועזי - אותה תבנית בדיוק כמו
+// MonthGrid, רק שהתאים נבנים מ-hebrewMonthDays (כל ימי החודש העברי
+// הנוכחי, עם תאריך לועזי מקביל לכל אחד) במקום מרשת 42 ימים קבועה.
+// היישור לימי השבוע נעשה ע"י תאים ריקים בהתחלה, לפי היום בשבוע האמיתי
+// של היום העברי הראשון בחודש.
+function HebrewMonthGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventClick }) {
+  const days = hebrewMonthDays(anchor);
+  const leadingBlanks = days.length > 0 ? days[0].greg.getDay() : 0;
+
+  return (
+    <div style={{ border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', background: 'var(--bg)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg-secondary, #f5f5f5)' }}>
+        {WEEKDAY_LABELS.map((d) => (
+          <div key={d} style={{ padding: '8px 10px', fontSize: 11, fontWeight: 600, color: '#9b9b9b', textAlign: 'center' }}>{d}</div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+        {Array.from({ length: leadingBlanks }, (_, i) => (
+          <div key={`blank-${i}`} style={{ minHeight: 92, borderTop: '1px solid #f0f0f0', borderInlineStart: '1px solid #f0f0f0', opacity: 0.4 }} />
+        ))}
+        {days.map(({ hebrewDay, greg }) => {
+          const dateStr = toDateStr(greg);
+          const events = eventsByDate.get(dateStr) || [];
+          const isToday = dateStr === todayStr;
+          const visible = events.slice(0, MAX_CHIPS_PER_DAY);
+          const hidden = events.length - visible.length;
+          return (
+            <div
+              key={dateStr}
+              onClick={() => onDayClick(dateStr)}
+              style={{
+                minHeight: 92, borderTop: '1px solid #f0f0f0', borderInlineStart: '1px solid #f0f0f0',
+                padding: 6, cursor: 'pointer',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 4 }}>
+                <div style={{
+                  fontSize: 11.5, fontWeight: isToday ? 700 : 400,
+                  color: isToday ? '#fff' : '#333',
+                  background: isToday ? '#0a0a0a' : 'transparent',
+                  display: 'inline-flex', minWidth: 20, height: 20, padding: '0 3px', alignItems: 'center', justifyContent: 'center', borderRadius: 10,
+                }}>
+                  {hebrewDay}
+                </div>
+                <div style={{ fontSize: 9, color: 'var(--text-muted, #9b9b9b)' }}>{greg.getDate()}/{greg.getMonth() + 1}</div>
               </div>
               {visible.map((ev) => (
                 <div key={`${ev.kind}-${ev.id}`} onClick={(e) => { e.stopPropagation(); onEventClick(dateStr); }}>
