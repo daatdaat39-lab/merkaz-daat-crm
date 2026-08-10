@@ -117,7 +117,7 @@ async function createContactFromKesher(supabase, { name, idnum, phone, email }, 
   return created;
 }
 
-export async function syncKesherReports(fromDate, toDate) {
+export async function syncKesherReports(fromDate, toDate, createNewContacts = true) {
   const { supabase, user } = await requireUser();
   const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
   if (!allowed) return { error: 'רק בעלים/מנהל יכול להריץ סנכרון מקשר' };
@@ -194,7 +194,7 @@ export async function syncKesherReports(fromDate, toDate) {
       const idnum = (o.ClientId || '').toString().trim() || null;
       const phone = (o.Phone || '').toString().trim() || null;
       let contact = await findExistingMatch(supabase, { idnum, phone });
-      if (!contact) {
+      if (!contact && createNewContacts) {
         contact = await createContactFromKesher(supabase, { name: o.Name, idnum, phone }, workspace, user.id);
       }
       if (!contact) {
@@ -290,7 +290,7 @@ export async function syncKesherReports(fromDate, toDate) {
       const phone = (t.Phone || '').toString().trim() || null;
       const email = (t.Mail || '').toString().trim() || null;
       let contact = await findExistingMatch(supabase, { idnum, phone, email });
-      if (!contact) {
+      if (!contact && createNewContacts) {
         contact = await createContactFromKesher(supabase, { name: t.Name, idnum, phone, email }, workspace, user.id);
       }
       if (!contact) { result.transactionsUnmatched++; continue; }

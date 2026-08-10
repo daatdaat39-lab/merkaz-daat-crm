@@ -16,6 +16,7 @@ export default function KesherSyncButton({ kesherConfigured = false }) {
   const [open, setOpen] = useState(false);
   const [fromDate, setFromDate] = useState(defaultDate(30));
   const [toDate, setToDate] = useState(defaultDate(0));
+  const [createNewContacts, setCreateNewContacts] = useState(true);
   const [result, setResult] = useState(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -23,7 +24,7 @@ export default function KesherSyncButton({ kesherConfigured = false }) {
   function handleSync() {
     setResult(null);
     startTransition(async () => {
-      const res = await syncKesherReports(fromDate, toDate);
+      const res = await syncKesherReports(fromDate, toDate, createNewContacts);
       setResult(res);
       if (res?.success) router.refresh();
     });
@@ -61,6 +62,10 @@ export default function KesherSyncButton({ kesherConfigured = false }) {
           <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} style={inputStyle()} />
         </div>
       </div>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginBottom: 10, cursor: 'pointer' }}>
+        <input type="checkbox" checked={createNewContacts} onChange={(e) => setCreateNewContacts(e.target.checked)} />
+        ליצור איש קשר חדש לתורם שלא נמצא במערכת (נרשם לקמפיין "נכנס ממערכת קשר", לא ללוח הלידים)
+      </label>
       <button type="button" onClick={handleSync} disabled={isPending} style={primaryBtn()}>
         {isPending ? 'מסנכרן...' : 'סנכרון'}
       </button>
