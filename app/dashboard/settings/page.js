@@ -7,6 +7,7 @@ import EmailTemplatesPanel from './EmailTemplatesPanel';
 import { card, iconBlock, sectionLabel } from '../components/designTokens';
 import { isKesherConfigured } from '../../../lib/kesher/client';
 import { isInforuConfigured, isInforuWebhookConfigured } from '../../../lib/inforu/whatsapp';
+import { isHallo015Configured } from '../../../lib/hallo015/config';
 
 const SETTINGS_LINKS = [
   { href: '/dashboard/settings/users', icon: '👥', title: 'חברי הצוות', desc: 'ניהול משתמשים והרשאות' },
@@ -81,7 +82,10 @@ export default async function SettingsPage() {
           אינטגרציות
         </div>
         {[
-          { label: 'טלפוניה (ימות המשיח)', desc: 'חיוג, הקלטות, תמלול', configured: false },
+          {
+            label: 'טלפוניה (015)', desc: 'קליטת שיחות נכנסות + הקלטות (חיוג יוצא לא נתמך)',
+            configured: isHallo015Configured(),
+          },
           { label: 'SMS', desc: 'שליחה ידנית ואוטומטית', configured: false },
           {
             label: 'WhatsApp (InforU)', desc: 'שליחה וקבלה של הודעות',
