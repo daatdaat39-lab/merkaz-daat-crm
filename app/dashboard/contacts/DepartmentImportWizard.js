@@ -81,6 +81,19 @@ function mappingStorageKey(systemName) {
   return `crm-import-mapping::${systemName.trim().toLowerCase()}`;
 }
 
+// מנרמל תאריך DD/MM/YYYY (פורמט נפוץ בקבצי ייצוא ישראליים) לפני פענוח -
+// אותה היוריסטיקה בדיוק שכבר קיימת ומאומתת ב-safeDate (kesherSyncActions.js);
+// כפול פה כי זהו קובץ 'use client' ואי אפשר לייבא פונקציה לא-מיוצאת
+// מקובץ 'use server'. תאריך שלא ניתן לפרסר מחזיר null - לא חוסם ייבוא,
+// ר' השימוש למטה.
+function parseRowDate(raw) {
+  const s = (raw || '').toString().trim();
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const iso = m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : s;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export default function DepartmentImportWizard({ workspaces = [], defaultWorkspaceId = '', extraFieldsByWorkspaceName = {}, stagesByWorkspaceName = {} }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState('upload'); // upload | classify | map | done
@@ -91,6 +104,8 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
   const [workspaceId, setWorkspaceId] = useState(defaultWorkspaceId);
   const [batchLabel, setBatchLabel] = useState('');
   const [openProcess, setOpenProcess] = useState(false);
+  const [skipFutureDates, setSkipFutureDates] = useState(true);
+  const [futureSkipped, setFutureSkipped] = useState(0);
   const [isPending, setIsPending] = useState(false);
   const [result, setResult] = useState(null);
   // מיפוי ערכי סטטוס חופשיים מהקובץ לשלב פייפליין אמיתי, כשעמודה
@@ -141,7 +156,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
 
   function resetAll() {
     setOpen(false); setStep('upload'); setHeaders([]); setDataRows([]);
-    setMapping({}); setSystemName(''); setBatchLabel(''); setOpenProcess(false); setResult(null); setStageValueMaps({});
+    setMapping({}); setSystemName(''); setBatchLabel(''); setOpenProcess(false); setSkipFutureDates(true); setFutureSkipped(0); setResult(null); setStageValueMaps({});
   }
 
   function handleFile(e) {
@@ -192,6 +207,10 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       try { localStorage.setItem(mappingStorageKey(systemName), JSON.stringify(mapping)); } catch { /* לא קריטי */ }
     }
 
+    let futureSkippedCount = 0;
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
     const rows = dataRows.map((cells) => {
       const row = { extraFields: {}, donationTransaction: {}, commitment: {} };
       const noteParts = [];
@@ -235,12 +254,18 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
         if (row.commitment.externalReference) row.commitment.paymentMethod = composedPaymentMethod;
       }
 
+      if (skipFutureDates && row.donationTransaction.date) {
+        const parsed = parseRowDate(row.donationTransaction.date);
+        if (parsed && parsed > endOfToday) { futureSkippedCount++; delete row.donationTransaction; }
+      }
+
       if (!row.donationTransaction.amount || !row.donationTransaction.date) delete row.donationTransaction;
       if (!row.commitment.externalReference) delete row.commitment;
       if (noteParts.length > 0) row.note = noteParts.join('\n');
       return row;
     });
 
+    setFutureSkipped(futureSkippedCount);
     setIsPending(true);
     setResult(null);
     importDepartmentBatch(rows, workspaceId, systemName.trim() || null, batchLabel.trim() || null, openProcess).then((res) => {
@@ -292,6 +317,13 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
             <div style={hint()}>
               השאירו לא מסומן לרשימות של אנשי קשר ותיקים - הם יישמרו ככרטיס בלבד, בלי להופיע ללידים לעבודה.
               סמנו רק כשמדובר בקובץ אמיתי של לידים חדשים שצריך לעבוד עליהם.
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={skipFutureDates} onChange={(e) => setSkipFutureDates(e.target.checked)} />
+              דלג על תנועות עם תאריך עתידי
+            </label>
+            <div style={hint()}>
+              מומלץ להשאיר מסומן בקבצים היסטוריים - שורה עם תאריך עתידי לא באמת נגבתה, ואולי לעולם לא תיגבה (למשל אם הגבייה עברה למערכת אחרת).
             </div>
             {workspace?.name === 'תרומות' && (
               <div style={note()}>
@@ -405,6 +437,9 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                   {result.commitmentsCreated} הוראות קבע/התחייבויות חדשות נוצרו
                   {result.commitmentsUpdated > 0 && `, ${result.commitmentsUpdated} עודכנו`}
                 </li>
+              )}
+              {futureSkipped > 0 && (
+                <li>{futureSkipped} תנועות עם תאריך עתידי דולגו (טרם נגבו בפועל, לא נרשמו כתרומה)</li>
               )}
             </ul>
             {result.multiValueFieldConflicts?.length > 0 && (

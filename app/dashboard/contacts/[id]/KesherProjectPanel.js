@@ -45,8 +45,15 @@ export default function KesherProjectPanel({ workspaceName, commitments = [], ex
               <span style={{ color: 'var(--text-secondary)' }}>
                 תאריך רישום: {new Date(c.created_at).toLocaleDateString('he-IL')}
               </span>
-              <span style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: pill.bg, color: pill.fg }}>
-                {pill.label}
+              <span style={{ display: 'flex', gap: 6 }}>
+                {c.source_system && (
+                  <span style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: 'var(--bg-secondary, #f0f0f0)', color: 'var(--text-secondary)' }}>
+                    {c.source_system}
+                  </span>
+                )}
+                <span style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: pill.bg, color: pill.fg }}>
+                  {pill.label}
+                </span>
               </span>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', color: 'var(--text-secondary)' }}>

@@ -213,7 +213,7 @@ export async function insertDonationTransaction(supabase, contactId, workspaceId
 // לא upsert ברמת ה-DB, כדי לדעת להבחין created מ-updated לתצוגה. כל שורה
 // בקבוצה דורסת (patch מלא) - כלומר הסטטוס/אמצעי-התשלום שנשמרים משקפים את
 // השורה האחרונה שעובדה (סדר הקובץ), שזה בדרך כלל גם הכרונולוגי ביותר.
-export async function resolveCommitment(supabase, contactId, workspace, commitment) {
+export async function resolveCommitment(supabase, contactId, workspace, commitment, sourceSystem) {
   const externalReference = (commitment.externalReference || '').toString().trim();
   if (!externalReference) return null;
   const totalAmount = Number(commitment.totalAmount);
@@ -232,6 +232,7 @@ export async function resolveCommitment(supabase, contactId, workspace, commitme
     payment_method: (commitment.paymentMethod || '').toString().trim() || null,
     status,
     last_payment_status: lastPaymentStatus,
+    source_system: (sourceSystem || '').toString().trim() || null,
   };
 
   const { data: existingCommitment } = await supabase
@@ -285,7 +286,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
 
   async function attachCommitment(contactId, row) {
     if (!row.commitment) return;
-    const resolved = await resolveCommitment(supabase, contactId, ws, row.commitment);
+    const resolved = await resolveCommitment(supabase, contactId, ws, row.commitment, sourceSystem);
     if (!resolved) return;
     if (resolved.created) commitmentsCreated++; else commitmentsUpdated++;
     if (row.donationTransaction) row.donationTransaction.commitmentId = resolved.id;

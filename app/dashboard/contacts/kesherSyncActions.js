@@ -9,8 +9,9 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { isManagerOfAnyWorkspace } from '../lib/contactGuards';
-import { findExistingMatch, insertDonationTransaction, upsertContactExternalId } from './leadIntakeCore';
+import { findExistingMatch, insertDonationTransaction, upsertContactExternalId, upsertDepartmentMembership } from './leadIntakeCore';
 import { isKesherConfigured, getKesherTransactions, getKesherObligations } from '../../../lib/kesher/client';
+import { enrollInKesherCampaign } from '../sales/campaigns/kesherCampaign';
 
 async function requireUser() {
   const supabase = createClient();
@@ -91,6 +92,31 @@ async function autoFillPaymentRef(supabase, contact, workspace, o) {
   await supabase.from('contact_departments').update({ extra_fields }).eq('id', deptRow.id);
 }
 
+// יוצר איש קשר חדש עבור רשומת קשר (עסקה/התחייבות) שלא הותאמה לאף איש
+// קשר קיים - קורה רק אם יש שם שמיש (Name); בלי שם, לא ניתן ליצור כרטיס
+// תקין (contacts.first חובה), אז מחזירים null וממשיכים לנתיב "לא הותאם"
+// הקיים. איש קשר חדש נוצר עם opened_process=false (לא נכנס ללוח
+// הלידים) ונרשם לקמפיין "נכנס ממערכת קשר" של המחלקה - כך שהצוות יכול
+// לעקוב אחריו בלי להציף את לוח הלידים הרגיל בכל תרומה חד-פעמית שקשר
+// מזהה. הערה: לא מאומת מריצה חיה אם קשר בפועל מחזירה שדה Name בתשובת
+// GetTrans/GetObligations - אם לא, הפונקציה פשוט לא יוצרת כלום (בלי
+// שגיאה) וההתנהגות נשארת זהה למה שהיה לפני השינוי הזה.
+async function createContactFromKesher(supabase, { name, idnum, phone, email }, workspace, userId) {
+  const trimmedName = (name || '').toString().trim();
+  if (!trimmedName) return null;
+  const [first, ...rest] = trimmedName.split(/\s+/);
+  const last = rest.join(' ');
+
+  const { data: created } = await supabase.from('contacts').insert({
+    first, last, phone: phone || null, idnum: idnum || null, email: email || null, source: 'קשר',
+  }).select('id, tags, phone, phone2, email, email2, idnum, birth_date, gender').single();
+  if (!created) return null;
+
+  await upsertDepartmentMembership(supabase, created.id, workspace, 'תרומה/התחייבות מקשר', null, 'קשר', null, { openProcess: false, requiresApproval: false });
+  await enrollInKesherCampaign(supabase, workspace.id, created.id, userId);
+  return created;
+}
+
 export async function syncKesherReports(fromDate, toDate) {
   const { supabase, user } = await requireUser();
   const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
@@ -167,7 +193,10 @@ export async function syncKesherReports(fromDate, toDate) {
 
       const idnum = (o.ClientId || '').toString().trim() || null;
       const phone = (o.Phone || '').toString().trim() || null;
-      const contact = await findExistingMatch(supabase, { idnum, phone });
+      let contact = await findExistingMatch(supabase, { idnum, phone });
+      if (!contact) {
+        contact = await createContactFromKesher(supabase, { name: o.Name, idnum, phone }, workspace, user.id);
+      }
       if (!contact) {
         logIssue(o, 'לא הותאם לאיש קשר');
         if (isWatched) debugOutcomes.push({ reference: o.Reference, outcome: 'דולג - לא הותאם לאיש קשר', idnum, phone });
@@ -211,6 +240,7 @@ export async function syncKesherReports(fromDate, toDate) {
         last_payment_status: (o.StatusLastTran || '').toString().trim() || null,
         source_channel: (o.OpenBy || '').toString().trim() || null,
         note: (o.Comment || '').toString().trim() || null,
+        source_system: 'קשר',
       };
 
       if (existing) {
@@ -259,7 +289,10 @@ export async function syncKesherReports(fromDate, toDate) {
       const idnum = (t.Tz || '').toString().trim() || null;
       const phone = (t.Phone || '').toString().trim() || null;
       const email = (t.Mail || '').toString().trim() || null;
-      const contact = await findExistingMatch(supabase, { idnum, phone, email });
+      let contact = await findExistingMatch(supabase, { idnum, phone, email });
+      if (!contact) {
+        contact = await createContactFromKesher(supabase, { name: t.Name, idnum, phone, email }, workspace, user.id);
+      }
       if (!contact) { result.transactionsUnmatched++; continue; }
 
       // ObligationReference מקשרת כל תנועה בודדת להתחייבות/הוראת הקבע
