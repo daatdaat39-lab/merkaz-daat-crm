@@ -5,6 +5,8 @@ import NotConnectedButton from '../components/NotConnectedButton';
 import WhatsAppTemplatesPanel from './WhatsAppTemplatesPanel';
 import EmailTemplatesPanel from './EmailTemplatesPanel';
 import { card, iconBlock, sectionLabel } from '../components/designTokens';
+import { isKesherConfigured } from '../../../lib/kesher/client';
+import { isInforuConfigured, isInforuWebhookConfigured } from '../../../lib/inforu/whatsapp';
 
 const SETTINGS_LINKS = [
   { href: '/dashboard/settings/users', icon: '👥', title: 'חברי הצוות', desc: 'ניהול משתמשים והרשאות' },
@@ -79,10 +81,17 @@ export default async function SettingsPage() {
           אינטגרציות
         </div>
         {[
-          { label: 'טלפוניה (ימות המשיח)', desc: 'חיוג, הקלטות, תמלול' },
-          { label: 'SMS', desc: 'שליחה ידנית ואוטומטית' },
-          { label: 'קשר (סליקה וקבלות)', desc: 'תרומות, הוראות קבע, קבלות' },
-          { label: 'Google Calendar', desc: 'סנכרון פגישות' },
+          { label: 'טלפוניה (ימות המשיח)', desc: 'חיוג, הקלטות, תמלול', configured: false },
+          { label: 'SMS', desc: 'שליחה ידנית ואוטומטית', configured: false },
+          {
+            label: 'WhatsApp (InforU)', desc: 'שליחה וקבלה של הודעות',
+            configured: isInforuConfigured(),
+            note: isInforuConfigured() && !isInforuWebhookConfigured()
+              ? 'שליחה מחוברת, קליטת הודעות נכנסות עדיין לא (חסר INFORU_WEBHOOK_SECRET)'
+              : null,
+          },
+          { label: 'קשר (סליקה וקבלות)', desc: 'תרומות, הוראות קבע, קבלות', configured: isKesherConfigured() },
+          { label: 'Google Calendar', desc: 'סנכרון פגישות', configured: false },
         ].map((item) => (
           <div key={item.label} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -91,17 +100,17 @@ export default async function SettingsPage() {
             <div>
               <div style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</div>
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{item.desc}</div>
+              {item.note && <div style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>⚠ {item.note}</div>}
             </div>
-            <NotConnectedButton label="חיבור" message={`חיבור ${item.label} — עדיין לא מחובר`} />
+            {item.configured ? (
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                ✓ מחובר
+              </span>
+            ) : (
+              <NotConnectedButton label="חיבור" message={`חיבור ${item.label} — עדיין לא מחובר`} />
+            )}
           </div>
         ))}
-      </div>
-
-      <div style={{
-        background: 'var(--amber-bg)', border: '1px solid #fde68a', borderRadius: 'var(--radius)', padding: '12px 16px',
-        fontSize: 12.5, color: '#92400e',
-      }}>
-        אינטגרציות (מייל/וואטסאפ/טלפוניה) יתווספו בשלב הבא — ניהול משתמשים כבר פעיל.
       </div>
     </div>
   );
