@@ -269,7 +269,7 @@ export default function ContactDetailClient({
           ברגעי החלטה (פנייה חדשה / ליד יזום / הגיע ליעד / נסגר). מוסתרת
           לגמרי (לא רק מקופלת) אם התהליך כבר הסתיים - ר' טאב "תהליכים"
           לפתיחה מחדש, וטאב "פעילות" להיסטוריה המלאה שנשארת שם. */}
-      {active && !mainProcessConcluded && (
+      {active && !mainProcessConcluded && active.openedProcess !== false && (
         <div style={{ marginBottom: 16, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px' }}>
           {pipelineOpen ? (
             <>
