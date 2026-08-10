@@ -50,6 +50,7 @@ export async function GET(request) {
       const messageIds = await listNewMessageIds(accessToken, afterUnixSeconds);
 
       let created = 0;
+      let skippedNotLead = 0;
       for (const messageId of messageIds) {
         stage = `getMessage:${messageId}`;
         const { subject, body } = await getMessage(accessToken, messageId);
@@ -57,6 +58,7 @@ export async function GET(request) {
 
         stage = `extractLeadFromEmail:${messageId}`;
         const extracted = await extractLeadFromEmail(subject, body);
+        if (!extracted.isLead) { skippedNotLead++; continue; } // ספאם/ניוזלטר/הודעת מערכת - Claude סיווג
         const first = (extracted.first || '').trim();
         if (!first) continue; // בלי שם פרטי אין מספיק מידע ליצור ליד
 
@@ -112,7 +114,7 @@ export async function GET(request) {
 
       stage = 'updateLastChecked';
       await supabase.from('email_connections').update({ last_checked_at: new Date().toISOString() }).eq('id', conn.id);
-      results.push({ email: conn.email_address, checked: messageIds.length, created });
+      results.push({ email: conn.email_address, checked: messageIds.length, created, skippedNotLead });
     } catch (err) {
       results.push({ email: conn.email_address, failedAt: stage, error: err.message, stack: err.stack });
     }
