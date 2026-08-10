@@ -55,6 +55,26 @@ const TXN_FIELDS = [
   { key: 'txn:transaction_type', label: 'סוג פעולה/מסמך' },
   { key: 'txn:campaign_reference', label: 'הפניית קמפיין (חופשי)' },
   { key: 'txn:fundraiser_name', label: 'סוכן לזיכוי' },
+  { key: 'txn:payment_method_type', label: 'אופן תשלום (סוג - אשראי/העברה/צ׳ק/מזומן)' },
+  { key: 'txn:payment_card_last4', label: '4 ספרות אחרונות של כרטיס אשראי' },
+  { key: 'txn:payment_bank_account', label: 'מספר חשבון בנק' },
+];
+
+// שדות ברמת הוראת קבע/התחייבות (לא תנועה בודדת) - כשעמודה ממופה ל-
+// commit:ref, כל השורות שחולקות אותו ערך גולמי באותה עמודה (לאותו איש
+// קשר) מתאחדות לשורת commitments אחת בלבד, וכל שורה נשארת גם תנועה
+// (donation_transactions) נפרדת המקושרת אליה דרך commitment_id - ר'
+// resolveCommitment ב-leadIntakeCore.js. בלי מיפוי commit:ref, שום
+// דבר כאן לא משפיע - כל שורה ממשיכה להיות תנועה עצמאית כמו היום.
+const COMMIT_FIELDS = [
+  { key: 'commit:ref', label: 'אסמכתא הוראת קבע/התחייבות' },
+  { key: 'commit:total_amount', label: 'סכום כולל להתחייבות' },
+  { key: 'commit:installments_count', label: 'מספר תשלומים כולל' },
+  { key: 'commit:start_date', label: 'תאריך התחלת ההתחייבות' },
+  { key: 'commit:end_date', label: 'תאריך סיום ההתחייבות' },
+  { key: 'commit:designation', label: 'ייעוד ההתחייבות' },
+  { key: 'commit:cancelled_flag', label: 'דגל ביטול (כל ערך שאינו ריק/0 = בוטלה)' },
+  { key: 'commit:frozen_flag', label: 'דגל הקפאה (כל ערך שאינו ריק/0 = מוקפאת)' },
 ];
 
 function mappingStorageKey(systemName) {
@@ -173,8 +193,11 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
     }
 
     const rows = dataRows.map((cells) => {
-      const row = { extraFields: {}, donationTransaction: {} };
+      const row = { extraFields: {}, donationTransaction: {}, commitment: {} };
       const noteParts = [];
+      let paymentMethodType = '';
+      let paymentCardLast4 = '';
+      let paymentBankAccount = '';
       headers.forEach((h, idx) => {
         const target = mapping[h];
         if (!target || target === 'ignore') return;
@@ -189,11 +212,31 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
         else if (target === 'txn:transaction_type') row.donationTransaction.transactionType = value;
         else if (target === 'txn:campaign_reference') row.donationTransaction.campaignReference = value;
         else if (target === 'txn:fundraiser_name') row.donationTransaction.fundraiserName = value;
+        else if (target === 'txn:payment_method_type') paymentMethodType = value;
+        else if (target === 'txn:payment_card_last4') paymentCardLast4 = value;
+        else if (target === 'txn:payment_bank_account') paymentBankAccount = value;
+        else if (target === 'commit:ref') row.commitment.externalReference = value;
+        else if (target === 'commit:total_amount') row.commitment.totalAmount = value;
+        else if (target === 'commit:installments_count') row.commitment.installmentsCount = value;
+        else if (target === 'commit:start_date') row.commitment.startDate = value;
+        else if (target === 'commit:end_date') row.commitment.endDate = value;
+        else if (target === 'commit:designation') row.commitment.designation = value;
+        else if (target === 'commit:cancelled_flag') row.commitment.cancelled = value !== '0';
+        else if (target === 'commit:frozen_flag') row.commitment.frozen = value !== '0';
         else if (target === 'note') noteParts.push(`${h}: ${value}`);
         else if (target === 'stage') row.stage = stageValueMaps[h]?.[value] || defaultStageForValue(value);
         else row[target] = value;
       });
+
+      const cardOrAccount = paymentCardLast4 ? `****${paymentCardLast4}` : paymentBankAccount;
+      const composedPaymentMethod = [paymentMethodType, cardOrAccount].filter(Boolean).join(' ');
+      if (composedPaymentMethod) {
+        row.donationTransaction.paymentMethod = composedPaymentMethod;
+        if (row.commitment.externalReference) row.commitment.paymentMethod = composedPaymentMethod;
+      }
+
       if (!row.donationTransaction.amount || !row.donationTransaction.date) delete row.donationTransaction;
+      if (!row.commitment.externalReference) delete row.commitment;
       if (noteParts.length > 0) row.note = noteParts.join('\n');
       return row;
     });
@@ -296,6 +339,11 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                       </optgroup>
                     )}
                     {workspace && (
+                      <optgroup label="פרטי התחייבות/הוראת קבע (לקיבוץ שורות)">
+                        {COMMIT_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                      </optgroup>
+                    )}
+                    {workspace && (
                       <optgroup label="שיוך לפעילות/סטטוס">
                         <option value="note">הערה ראשונית (לטאב פעילות)</option>
                         {stages.length > 0 && <option value="stage">שלב בפייפליין (סטטוס)</option>}
@@ -350,6 +398,12 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                 <li>
                   {result.transactionsAdded} תנועות תרומה נוספו להיסטוריה
                   {result.transactionsSkipped > 0 && ` (${result.transactionsSkipped} דולגו — כבר קיימות מייבוא קודם)`}
+                </li>
+              )}
+              {(result.commitmentsCreated > 0 || result.commitmentsUpdated > 0) && (
+                <li>
+                  {result.commitmentsCreated} הוראות קבע/התחייבויות חדשות נוצרו
+                  {result.commitmentsUpdated > 0 && `, ${result.commitmentsUpdated} עודכנו`}
                 </li>
               )}
             </ul>

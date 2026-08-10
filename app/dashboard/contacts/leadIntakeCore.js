@@ -204,6 +204,50 @@ export async function insertDonationTransaction(supabase, contactId, workspaceId
   return (data?.length || 0) > 0; // true = נוספה תנועה חדשה, false = דולגה (כבר קיימת)
 }
 
+// מאחד קבוצת שורות שחולקות אותה אסמכתא חיצונית (למשל "אסמכתא בילינג"
+// בקובץ הנהלת חשבונות) לשורת commitments אחת - נקרא פעם אחת לכל שורה
+// גולמית שיש לה row.commitment (ר' DepartmentImportWizard.js), לפני
+// insertDonationTransaction, כדי לצרף את commitment_id לתנועה שנוצרת
+// ממנה. התאמה/עדכון לפי (workspace_id, external_reference) - אותו רעיון
+// בדיוק כמו הסנכרון מול "קשר" (kesherSyncActions.js): select-then-branch,
+// לא upsert ברמת ה-DB, כדי לדעת להבחין created מ-updated לתצוגה. כל שורה
+// בקבוצה דורסת (patch מלא) - כלומר הסטטוס/אמצעי-התשלום שנשמרים משקפים את
+// השורה האחרונה שעובדה (סדר הקובץ), שזה בדרך כלל גם הכרונולוגי ביותר.
+export async function resolveCommitment(supabase, contactId, workspace, commitment) {
+  const externalReference = (commitment.externalReference || '').toString().trim();
+  if (!externalReference) return null;
+  const totalAmount = Number(commitment.totalAmount);
+  if (!totalAmount || totalAmount <= 0) return null; // commitments.total_amount is not null > 0
+
+  let status = 'active';
+  if (commitment.cancelled || commitment.frozen) status = 'cancelled'; // אין ערך "מוקפא" נפרד בקונסטריינט - מטופל כבטל, ר' last_payment_status
+  const lastPaymentStatus = commitment.frozen ? 'מוקפא (מקור)' : (commitment.cancelled ? 'בוטל (מקור)' : null);
+
+  const patch = {
+    total_amount: totalAmount,
+    installments_count: Number(commitment.installmentsCount) > 0 ? Number(commitment.installmentsCount) : 1,
+    start_date: (commitment.startDate || '').toString().trim() || null,
+    end_date: (commitment.endDate || '').toString().trim() || null,
+    designation: (commitment.designation || '').toString().trim() || null,
+    payment_method: (commitment.paymentMethod || '').toString().trim() || null,
+    status,
+    last_payment_status: lastPaymentStatus,
+  };
+
+  const { data: existingCommitment } = await supabase
+    .from('commitments').select('id')
+    .eq('workspace_id', workspace.id).eq('external_reference', externalReference).maybeSingle();
+
+  if (existingCommitment) {
+    await supabase.from('commitments').update(patch).eq('id', existingCommitment.id);
+    return { id: existingCommitment.id, created: false };
+  }
+  const { data: created } = await supabase.from('commitments')
+    .insert({ contact_id: contactId, workspace_id: workspace.id, external_reference: externalReference, ...patch })
+    .select('id').single();
+  return created ? { id: created.id, created: true } : null;
+}
+
 // ייבוא בכמות ממערכת חיצונית (למשל דוח אקסל ממערכת "קשר" למחלקת
 // תרומות) - מיועד לשימוש גם מאשף הייבוא הידני וגם (בעתיד) מחיבור חי
 // לאותה מערכת, ולכן חי כאן ולא ב-actions.js. עקרון-העל: שום נתיב כאן
@@ -230,11 +274,21 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
   let transactionsAdded = 0;
   let transactionsSkipped = 0;
   let conflictsFound = 0;
+  let commitmentsCreated = 0;
+  let commitmentsUpdated = 0;
 
   function trackTransactionResult(added) {
     if (added === null) return;
     if (added) transactionsAdded++;
     else transactionsSkipped++;
+  }
+
+  async function attachCommitment(contactId, row) {
+    if (!row.commitment) return;
+    const resolved = await resolveCommitment(supabase, contactId, ws, row.commitment);
+    if (!resolved) return;
+    if (resolved.created) commitmentsCreated++; else commitmentsUpdated++;
+    if (row.donationTransaction) row.donationTransaction.commitmentId = resolved.id;
   }
 
   for (const row of rows) {
@@ -280,6 +334,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
         conflictsFound += conflictRows.length;
       }
       conflictsFound += await upsertDepartmentMembership(supabase, existing.id, ws, reason, row.note || null, sourceSystem, row.extraFields, { ...membershipOptions, stage: row.stage || null });
+      await attachCommitment(existing.id, row);
       trackTransactionResult(await insertDonationTransaction(supabase, existing.id, ws.id, sourceSystem, row.donationTransaction));
       await upsertContactExternalId(supabase, existing.id, sourceSystem, externalId);
       enriched++;
@@ -306,6 +361,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
     }).select('id').single();
     if (createdContact) {
       await upsertDepartmentMembership(supabase, createdContact.id, ws, reason, row.note || null, sourceSystem, row.extraFields, { ...membershipOptions, stage: row.stage || null });
+      await attachCommitment(createdContact.id, row);
       trackTransactionResult(await insertDonationTransaction(supabase, createdContact.id, ws.id, sourceSystem, row.donationTransaction));
       await upsertContactExternalId(supabase, createdContact.id, sourceSystem, externalId);
       created++;
@@ -320,6 +376,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
 
   return {
     success: true, created, enriched, transactionsAdded, transactionsSkipped, conflictsFound, count: created + enriched,
+    commitmentsCreated, commitmentsUpdated,
     multiValueFieldConflicts: Array.from(multiValueByField.values()),
   };
 }

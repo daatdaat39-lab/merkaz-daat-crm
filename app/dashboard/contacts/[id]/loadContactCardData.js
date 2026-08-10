@@ -59,7 +59,7 @@ export async function loadContactCardData(contactId) {
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
     supabase
       .from('donation_transactions')
-      .select('id, workspace_id, source_system, amount, transaction_date, commitment_id, receipt_url')
+      .select('id, workspace_id, source_system, amount, transaction_date, commitment_id, receipt_url, designation, payment_method, transaction_type, campaign_reference, fundraiser_name, external_doc_number')
       .eq('contact_id', contact.id)
       .order('transaction_date', { ascending: false }),
     supabase
