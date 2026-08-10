@@ -144,8 +144,8 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
   // מציג את כל הרשומות הגולמיות שקשר מחזירה עבור איש קשר ספציפי,
   // עוד לפני כל סינון/פענוח - כדי לדעת בוודאות אם רשומה "חסרה" בכלל
   // לא הגיעה מקשר, או שהיא הגיעה ונפלה בהתאמה/סינון אצלנו.
-  const DEBUG_WATCH_CLIENT_IDS = ['205906571', '301517561'];
-  const DEBUG_WATCH_PHONES = ['0548053770', '0525652770'];
+  const DEBUG_WATCH_CLIENT_IDS = ['205906571'];
+  const DEBUG_WATCH_PHONES = ['0548053770'];
   const debugMatches = [];
   const debugOutcomes = [];
   const debugTransactionMatches = [];
@@ -322,7 +322,11 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
         campaignReference: t.ProjectName || null,
         fundraiserName: t.User || null,
         commitmentId,
-        receiptUrl: t.PdfLink || null,
+        // אושר מריצה חיה: אין t.PdfLink ברמה העליונה (כפי שנוחש קודם) -
+        // הקישור נמצא ב-t.OriginalDoc (מקביל בדיוק לערך שבתוך
+        // t.DocumentsDetails.DocumentDetails[0].PdfLink, שנשאר כגיבוי
+        // למקרה שחסר OriginalDoc בתשובה עתידית).
+        receiptUrl: t.OriginalDoc || t.DocumentsDetails?.DocumentDetails?.[0]?.PdfLink || null,
       });
       if (added === true) result.transactionsCreated++;
       else if (added === false) result.transactionsSkipped++;
