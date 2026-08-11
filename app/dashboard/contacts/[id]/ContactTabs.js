@@ -171,7 +171,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             key: 'phone_calls', title: 'שיחות טלפון (015)', shortLabel: 'שיחות טלפון', items: phoneCalls,
             renderItem: (c) => (
               <div key={c.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
-                <span style={{ fontWeight: 600 }}>{c.direction === 'out' ? '📤 יוצאת' : '📥 נכנסת'}</span>
+                <span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? '📤 יוצאת' : '📥 נכנסת'}</span>
                 <span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>
                 {c.duration_seconds ? <span style={{ color: '#9b9b9b' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}
                 {c.started_at && <span style={{ color: '#c0c0c0' }}> · {new Date(c.started_at).toLocaleDateString('he-IL')} {new Date(c.started_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>}
@@ -386,7 +386,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           {phoneCalls.filter((c) => c.recording_url).map((c) => (
             <div key={c.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
               <div style={{ fontSize: 12.5, marginBottom: 6 }}>
-                <span style={{ fontWeight: 600 }}>{c.direction === 'out' ? '📤 יוצאת' : '📥 נכנסת'}</span>
+                <span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? '📤 יוצאת' : '📥 נכנסת'}</span>
                 {c.started_at && <span style={{ color: '#9b9b9b' }}> · {new Date(c.started_at).toLocaleDateString('he-IL')} {new Date(c.started_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>}
               </div>
               <audio controls src={c.recording_url} style={{ width: '100%' }} />

@@ -3,8 +3,10 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { initials } from '../components/ui';
 
+// 015 שולחת direction כ-"inbound"/"outbound" (אומת מריצה חיה - לא
+// "in"/"out" כמו שהונח בהתחלה).
 function statusPill(call) {
-  if (call.direction === 'in' && !call.answered) return { label: 'לא נענתה', bg: '#fdecea', fg: '#c62828' };
+  if (call.direction === 'inbound' && !call.answered) return { label: 'לא נענתה', bg: '#fdecea', fg: '#c62828' };
   if (call.answered) return { label: 'נענתה', bg: '#e8f5e9', fg: '#2e7d32' };
   return { label: call.status || 'לא ידוע', bg: 'var(--bg-secondary, #f0f0f0)', fg: 'var(--text-secondary)' };
 }
@@ -48,7 +50,7 @@ export default async function CallsPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {calls.map((c) => {
           const pill = statusPill(c);
-          const otherNumber = c.direction === 'in' ? c.snumber : c.dnumber;
+          const otherNumber = c.direction === 'inbound' ? c.snumber : c.dnumber;
           return (
             <div key={c.id} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -63,7 +65,7 @@ export default async function CallsPage() {
                   style={{ flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit' }}
                 >
                   <div style={{ fontSize: 13.5, fontWeight: 500 }}>
-                    {c.direction === 'in' ? '⬅️ ' : '➡️ '}
+                    {c.direction === 'inbound' ? '⬅️ ' : '➡️ '}
                     {c.contacts ? `${c.contacts.first} ${c.contacts.last}` : otherNumber || 'מספר לא ידוע'}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
