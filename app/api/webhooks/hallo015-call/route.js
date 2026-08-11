@@ -24,6 +24,10 @@ export async function POST(request) {
   const body = await request.json().catch(() => null);
   if (!body) return NextResponse.json({ error: 'invalid body' }, { status: 400 });
 
+  // אבחון זמני (להסיר אחרי שנוודא את פורמט answered/direction האמיתי
+  // ש-015 שולחת בפועל - לא ניחוש, ר' Vercel Logs).
+  console.log('hallo015 webhook body:', JSON.stringify(body));
+
   const externalCallId = (body.callid || body.uniqueid || '').toString().trim();
   if (!externalCallId) return NextResponse.json({ error: 'missing callid' }, { status: 400 });
 
