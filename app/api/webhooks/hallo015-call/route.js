@@ -21,12 +21,26 @@ export async function POST(request) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  const body = await request.json().catch(() => null);
+  // הטמפלט שהוגדר בפאנל של 015 (Features ← Webhooks) משאיר כמה שדות
+  // בלי מרכאות (start/uniqueid/callid/totaltime/talktime/answered) כדי
+  // שיוצבו כמספר/בוליאני גולמי - אבל אם 015 שולחת ערך ריק לאחד מהם
+  // (לדוגמה שיחה שלא נענתה, totaltime ריק), זה שובר את תחביר ה-JSON
+  // (":" ואחריו ישר "," בלי שום ערך ביניהם - אומת ב-Vercel Logs, שיחת
+  // בדיקה אמיתית נפלה בדיוק על זה). מתקנים דפנסיבית: "," את כל ":"
+  // שאחריו ישר "," או "}" (בלי ערך) עם null, ומנסים שוב לפני שנכשלים.
+  const rawText = await request.text();
+  console.log('hallo015 webhook raw body:', rawText);
+  let body;
+  try {
+    body = JSON.parse(rawText);
+  } catch {
+    try {
+      body = JSON.parse(rawText.replace(/:(\s*)([,}])/g, ':null$2'));
+    } catch {
+      body = null;
+    }
+  }
   if (!body) return NextResponse.json({ error: 'invalid body' }, { status: 400 });
-
-  // אבחון זמני (להסיר אחרי שנוודא את פורמט answered/direction האמיתי
-  // ש-015 שולחת בפועל - לא ניחוש, ר' Vercel Logs).
-  console.log('hallo015 webhook body:', JSON.stringify(body));
 
   const externalCallId = (body.callid || body.uniqueid || '').toString().trim();
   if (!externalCallId) return NextResponse.json({ error: 'missing callid' }, { status: 400 });
