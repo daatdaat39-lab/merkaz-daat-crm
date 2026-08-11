@@ -12,10 +12,11 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https://*.supabase.co",
   "font-src 'self'",
-  // נגן ההקלטות בכרטיס איש קשר/מסך שיחות טוען קובץ mp3 ישירות מהדומיין
-  // של 015 (015pbx.net) - בלי media-src מפורש, default-src 'self' חוסם
-  // את זה (אומת מריצה חיה - הנגן נתקע על 0:00/0:00, שגיאת CSP בקונסול).
-  "media-src 'self' https://015pbx.net",
+  // נגן ההקלטות בכרטיס איש קשר/מסך שיחות טוען קובץ מדיה מ-015pbx.net
+  // (קישורים ישנים/לא-מותאמים) וגם מ-Supabase Storage (bucket
+  // call-recordings - העתק שלנו של הקלטות 015, ר' poll-call-recordings) -
+  // בלי media-src מפורש, default-src 'self' חוסם את שניהם.
+  "media-src 'self' https://015pbx.net https://*.supabase.co",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
   "frame-ancestors 'none'",
   "base-uri 'self'",
