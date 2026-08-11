@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createLeadSource, deleteLeadSource, updateCampaignRouting, disconnectEmailConnection } from './actions';
 
-const PURPOSE_LABEL = { intake: 'מייל נכנס', send: 'מייל יוצא' };
+const PURPOSE_LABEL = { intake: 'מייל נכנס', send: 'מייל יוצא', call_recordings: 'הקלטות שיחה (015)' };
 
 export default function LeadSourcesClient({ workspaces = [], connectionsByWorkspace = {}, connectionsByCampaign = {}, campaignsByWorkspace = {}, leadSourcesByWorkspace = {} }) {
   const [workspaceId, setWorkspaceId] = useState(workspaces[0]?.id || '');
@@ -52,6 +52,11 @@ function sectionHeader() {
   return { padding: '12px 16px', borderBottom: '1px solid var(--border, #e5e5e5)', background: 'var(--bg-secondary, #f9f9f9)', fontSize: 13.5, fontWeight: 600 };
 }
 
+// purpose='call_recordings' חורג מהתבנית "מייל למחלקה" - phone_calls
+// אין לה workspace_id בכלל (מערכת טלפוניה גלובלית, לא מחולקת למחלקות),
+// אז חיבור התיבה כאן תחת מחלקה ספציפית הוא רק נוחות UI (המסך הזה כבר
+// מאורגן לפי מחלקה) - ה-cron שקורא ממנה (poll-call-recordings) לא
+// מסנן/מתייחס למחלקה בכלל, רק מעדכן phone_calls לפי מספר טלפון+משך.
 function EmailConnectionsSection({ workspace, connections }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -67,7 +72,7 @@ function EmailConnectionsSection({ workspace, connections }) {
     <div style={sectionCard()}>
       <div style={sectionHeader()}>חיבורי מייל למחלקה "{workspace.name}"</div>
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {['intake', 'send'].map((purpose) => {
+        {['intake', 'send', 'call_recordings'].map((purpose) => {
           const conn = connections[purpose];
           return (
             <div key={purpose} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

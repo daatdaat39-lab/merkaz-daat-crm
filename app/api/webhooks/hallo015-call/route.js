@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
+import { normalizePhone } from '../../../../lib/hallo015/config';
 
 // נקודת קצה שאליה מערכת הטלפוניה hallo015 (015) שולחת webhook בכל סיום
 // שיחה (אירוע "Hangup", מוגדר ידנית בפאנל שלהם - Features ← Webhooks).
@@ -7,9 +8,6 @@ import { createAdminClient } from '../../../../lib/supabase/admin';
 // דפוס בדיוק כמו /api/webhooks/inforu-whatsapp ו-/api/cron/poll-emails.
 // לא ברור מראש איזה מהמספרים (snumber/dnumber) הוא הצד החיצוני, אז
 // מנסים להתאים איש קשר לפי שניהם.
-function normalizePhone(p) {
-  return (p || '').replace(/\D/g, '').slice(-9);
-}
 
 export async function POST(request) {
   const configuredSecret = process.env.HALLO015_WEBHOOK_SECRET;

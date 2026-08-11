@@ -20,7 +20,7 @@ export async function GET(request) {
     return NextResponse.json({ error: 'חסר code או state' }, { status: 400 });
   }
   const [workspaceId, purposeRaw, campaignIdRaw] = state.split(':');
-  const purpose = purposeRaw === 'send' ? 'send' : 'intake';
+  const purpose = purposeRaw === 'send' ? 'send' : purposeRaw === 'call_recordings' ? 'call_recordings' : 'intake';
   const campaignId = campaignIdRaw || null;
 
   const supabase = createClient();
@@ -83,7 +83,7 @@ export async function GET(request) {
     return NextResponse.json({ error: dbError.message }, { status: 500 });
   }
 
-  const purposeLabel = purpose === 'send' ? 'לשליחת מיילים' : 'לקליטת לידים';
+  const purposeLabel = purpose === 'send' ? 'לשליחת מיילים' : purpose === 'call_recordings' ? 'לקליטת הקלטות שיחה' : 'לקליטת לידים';
   return new NextResponse(
     `<html dir="rtl"><body style="font-family:sans-serif;text-align:center;padding:60px">
       <h2>✅ התיבה ${emailAddress} חוברה בהצלחה (${purposeLabel})!</h2>

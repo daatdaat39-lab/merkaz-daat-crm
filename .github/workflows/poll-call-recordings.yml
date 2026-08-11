@@ -1,0 +1,15 @@
+name: Poll for call recording emails from 015
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poll for new recording emails
+        run: |
+          curl -sf -X GET "https://merkaz-daat-crm-8ubv.vercel.app/api/cron/poll-call-recordings" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

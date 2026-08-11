@@ -8,7 +8,8 @@ import { createClient } from '../../../../../lib/supabase/server';
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const workspaceId = searchParams.get('workspace_id');
-  const purpose = searchParams.get('purpose') === 'send' ? 'send' : 'intake';
+  const purposeRaw = searchParams.get('purpose');
+  const purpose = purposeRaw === 'send' ? 'send' : purposeRaw === 'call_recordings' ? 'call_recordings' : 'intake';
   const campaignId = searchParams.get('campaign_id') || '';
   if (!workspaceId) {
     return NextResponse.json({ error: 'יש לציין workspace_id' }, { status: 400 });
