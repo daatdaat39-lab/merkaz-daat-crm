@@ -566,7 +566,7 @@ export async function importContacts(rows, workspaceId) {
 // תיוג מקור+תקופה על כל הקובץ. בשונה מ-importContacts למעלה (שמאחדת רק
 // תגיות), כאן גם משלימים שדות ריקים אצל התאמה קיימת - ר' bulkImportContactRows
 // ב-leadIntakeCore.js. מותר רק לבעלים/מנהל של המחלקה הספציפית שנבחרה.
-export async function importDepartmentBatch(rows, workspaceId, sourceSystem, batchLabel, openProcess = true) {
+export async function importDepartmentBatch(rows, workspaceId, sourceSystem, batchLabel, openProcess = true, autoDetectCommitments = null) {
   const { supabase, user } = await requireUser();
   if (!workspaceId) return { error: 'לא נבחרה מחלקת יעד' };
 
@@ -582,7 +582,7 @@ export async function importDepartmentBatch(rows, workspaceId, sourceSystem, bat
   // בתור אישור לליד שגם ככה לא ייפתח לו תהליך (openProcess=false).
   const requiresApproval = openProcess && workspace.name === 'תרומות';
 
-  return bulkImportContactRows(supabase, { rows, workspace, sourceSystem, batchLabel, requiresApproval, openProcess });
+  return bulkImportContactRows(supabase, { rows, workspace, sourceSystem, batchLabel, requiresApproval, openProcess, autoDetectCommitments });
 }
 
 // פתרון קונפליקט ייבוא בודד (import_conflicts, מיגרציה 0048) - נקרא הן

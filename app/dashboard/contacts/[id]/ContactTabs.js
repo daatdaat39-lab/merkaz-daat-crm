@@ -10,7 +10,7 @@ import { isProcessConcluded } from '../../lib/pipelineVisibility';
 import { computeFieldValue } from '../../lib/computedFields';
 import KesherProjectPanel from './KesherProjectPanel';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, isManager = false }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, isManager = false }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -80,6 +80,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
     { id: 'recordings', label: 'הקלטות שיחה' },
     ...(activeDepartment ? [{ id: 'processes', label: 'תהליכים' }] : []),
     ...(visibleFieldDefs.length > 0 ? [{ id: 'fields', label: `שדות נוספים — ${activeDepartment.workspaceName}` }] : []),
+    ...(additionalPhones.length > 0 ? [{ id: 'phones', label: `טלפונים נוספים (${additionalPhones.length})` }] : []),
   ];
 
   return (
@@ -362,6 +363,18 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                   style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
                 />
               )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'phones' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {additionalPhones.map((p) => (
+            <div key={p.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '9px 14px', fontSize: 13 }}>
+              <span style={{ fontWeight: 600 }}>{p.phone}</span>
+              {p.label && <span style={{ color: '#9b9b9b' }}> · {p.label}</span>}
+              {p.source && <span style={{ color: '#c0c0c0' }}> · {p.source}</span>}
             </div>
           ))}
         </div>

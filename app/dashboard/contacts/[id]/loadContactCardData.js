@@ -26,7 +26,7 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -92,6 +92,11 @@ export async function loadContactCardData(contactId) {
       .select('id, workspace_id, total_amount, installments_count, status, note, created_at, start_date, end_date, frequency, bounced_count, external_reference, designation, payment_method, last_payment_status, source_channel, source_system')
       .eq('contact_id', contact.id)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('contact_phones')
+      .select('id, phone, label, source, created_at')
+      .eq('contact_id', contact.id)
+      .order('created_at'),
   ]);
 
   // "שולם/נותר" לכל התחייבות - מחושב כאן מהתנועות שכבר נטענו למעלה
@@ -270,6 +275,7 @@ export async function loadContactCardData(contactId) {
       isManager,
       phoneCalls: phoneCallRows || [],
       pipelinesByWorkspace,
+      additionalPhones: additionalPhoneRows || [],
     },
   };
 }

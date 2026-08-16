@@ -4,6 +4,8 @@
 // פתיחה מחדש של ליד סגור, רישום היסטוריית פניות). קובץ רגיל בלי 'use
 // server' כדי שיהיה ניתן לייבוא גם מ-Route Handler.
 import { getPipeline } from '../lib/pipelines';
+import { detectCommitments } from './commitmentClustering';
+import { planAdditionalPhones } from './phoneRouting';
 
 // מחפש איש קשר קיים לפי ת"ז/טלפון/מייל (זיהוי כפילויות לפי האפיון) -
 // שאילתות נפרדות ומפורמטות במקום .or() בנוי ממחרוזת, כי הערכים האלה
@@ -42,6 +44,17 @@ export async function findExistingMatch(supabase, { idnum, phone, email, sourceS
   );
   for (const { data } of results) {
     if (data?.[0]) return data[0];
+  }
+
+  // אם הטלפון לא נמצא כ-phone/phone2 ראשי - בודקים גם contact_phones
+  // (מיגרציה 0062, "טלפונים נוספים") - כדי שטלפון שכבר ידוע כ"מספר נוסף"
+  // של מישהו לא ייצור איש קשר כפול אם הוא מופיע כטלפון ראשי בקובץ עתידי.
+  if (phone) {
+    const { data: viaExtraPhone } = await supabase.from('contact_phones').select('contact_id').eq('phone', phone).limit(1);
+    if (viaExtraPhone?.[0]?.contact_id) {
+      const { data: byExtraPhone } = await supabase.from('contacts').select(select).eq('id', viaExtraPhone[0].contact_id).limit(1);
+      if (byExtraPhone?.[0]) return byExtraPhone[0];
+    }
   }
   return null;
 }
@@ -198,7 +211,7 @@ export async function insertDonationTransaction(supabase, contactId, workspaceId
       fundraiser_name: (donationTransaction.fundraiserName || '').toString().trim() || null,
       commitment_id: donationTransaction.commitmentId || null,
       receipt_url: (donationTransaction.receiptUrl || '').toString().trim() || null,
-    }, { onConflict: 'external_doc_number', ignoreDuplicates: true })
+    }, { onConflict: 'contact_id,source_system,external_doc_number', ignoreDuplicates: true })
     .select('id');
   if (error) return null;
   return (data?.length || 0) > 0; // true = נוספה תנועה חדשה, false = דולגה (כבר קיימת)
@@ -221,7 +234,10 @@ export async function resolveCommitment(supabase, contactId, workspace, commitme
 
   let status = 'active';
   if (commitment.cancelled || commitment.frozen) status = 'cancelled'; // אין ערך "מוקפא" נפרד בקונסטריינט - מטופל כבטל, ר' last_payment_status
-  const lastPaymentStatus = commitment.frozen ? 'מוקפא (מקור)' : (commitment.cancelled ? 'בוטל (מקור)' : null);
+  let lastPaymentStatus = commitment.frozen ? 'מוקפא (מקור)' : (commitment.cancelled ? 'בוטל (מקור)' : null);
+  // דריסה מפורשת מזיהוי אוטומטי של תשלום כושל (commitmentClustering.js) -
+  // סיבת הכישלון האמיתית מהמקור (למשל "כרטיס חסום") גוברת על מוקפא/בוטל.
+  if (commitment.lastPaymentStatus) lastPaymentStatus = commitment.lastPaymentStatus;
 
   const patch = {
     total_amount: totalAmount,
@@ -234,6 +250,10 @@ export async function resolveCommitment(supabase, contactId, workspace, commitme
     last_payment_status: lastPaymentStatus,
     source_system: (sourceSystem || '').toString().trim() || null,
   };
+  // ערך מוחלט (לא הצטברות) - מחושב פעם אחת לכל "ריצה" שזוהתה
+  // (commitmentClustering.js) ומועבר בשלמותו על כל שורה בריצה, כדי
+  // שריצה חוזרת של אותו ייבוא תישאר אידמפוטנטית ולא תכפיל את המונה.
+  if (commitment.bouncedCount !== undefined) patch.bounced_count = Number(commitment.bouncedCount) || 0;
 
   const { data: existingCommitment } = await supabase
     .from('commitments').select('id')
@@ -256,9 +276,16 @@ export async function resolveCommitment(supabase, contactId, workspace, commitme
 // (משלים שדות ריקים בלבד + מוסיף רשומת פנייה חדשה להיסטוריה).
 // sourceSystem/batchLabel מתויגים על כל רשומת lead_inquiries שנוצרת, כך
 // שהמקור והתקופה של כל ייבוא נשארים גלויים לצמיתות בטאב "פעילות".
-export async function bulkImportContactRows(supabase, { rows, workspaceId, workspace, sourceSystem, batchLabel, requiresApproval = false, openProcess = true }) {
+export async function bulkImportContactRows(supabase, { rows, workspaceId, workspace, sourceSystem, batchLabel, requiresApproval = false, openProcess = true, autoDetectCommitments = null }) {
   const ws = workspace || { id: workspaceId };
   const reason = (batchLabel || '').trim() || 'ייבוא';
+
+  // מעבר-הכנה על כל השורות ביחד (לפני הלולאה שכותבת ל-DB שורה-שורה) -
+  // מזהה הוראות קבע מתוך תנועות חוזרות ומסמן/מסלק תשלומים כושלים, ר'
+  // commitmentClustering.js. חייב לרוץ על המערך המלא כי הזיהוי דורש
+  // ראייה חוצת-שורות (קיבוץ לפי חשבון+סכום), לא אפשרי per-row.
+  const { clustersFound: commitmentsAutoDetected, skippedNoCommitment: bouncedRowsSkippedNoCommitment } =
+    detectCommitments(rows, autoDetectCommitments || {});
 
   // שדות "רב-ערכיים" של המחלקה הזו (migration 0058) - קונפליקט על אחד
   // מהם, בזמן הייבוא הזה בדיוק, מוצע בסוף האשף כ"לפתוח עמודה נוספת?"
@@ -277,6 +304,9 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
   let conflictsFound = 0;
   let commitmentsCreated = 0;
   let commitmentsUpdated = 0;
+  let bouncedAttached = 0;
+  let bouncedOrphanCommitmentsCreated = 0;
+  let additionalPhonesCreated = 0;
 
   function trackTransactionResult(added) {
     if (added === null) return;
@@ -290,6 +320,27 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
     if (!resolved) return;
     if (resolved.created) commitmentsCreated++; else commitmentsUpdated++;
     if (row.donationTransaction) row.donationTransaction.commitmentId = resolved.id;
+    if (row.commitment.__isBounceRow) {
+      if (resolved.created && row.commitment.__isOrphanRun) bouncedOrphanCommitmentsCreated++;
+      else bouncedAttached++;
+    }
+  }
+
+  // מנתב טלפונים "נוספים" (row.additionalPhones, ממופים מ-phone3/phone4
+  // באשף) בין contacts.phone/phone2 (אם עדיין ריקים) לבין contact_phones
+  // (מיגרציה 0062) - ר' phoneRouting.js. existingExtraPhones ריק ליצירת
+  // כרטיס חדש (אין עדיין שום contact_phones לאיש קשר שלא נוצר).
+  async function routeAdditionalPhones(contactId, currentPhone, currentPhone2, existingExtraPhones, row) {
+    if (!row.additionalPhones?.length) return {};
+    const plan = planAdditionalPhones(currentPhone, currentPhone2, existingExtraPhones, row.additionalPhones);
+    if (plan.toInsert.length > 0) {
+      await supabase.from('contact_phones').upsert(
+        plan.toInsert.map((p) => ({ contact_id: contactId, phone: p.phone, label: p.label, source: sourceSystem || null })),
+        { onConflict: 'contact_id,phone', ignoreDuplicates: true }
+      );
+      additionalPhonesCreated += plan.toInsert.length;
+    }
+    return plan.patch;
   }
 
   for (const row of rows) {
@@ -327,6 +378,14 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       if (rowTags.length > 0) {
         fill.tags = Array.from(new Set([...(existing.tags || []), ...rowTags]));
       }
+      if (row.additionalPhones?.length) {
+        const { data: extraPhoneRows } = await supabase.from('contact_phones').select('phone').eq('contact_id', existing.id);
+        const phonePatch = await routeAdditionalPhones(
+          existing.id, fill.phone || existing.phone, fill.phone2 || existing.phone2,
+          (extraPhoneRows || []).map((r) => r.phone), row
+        );
+        Object.assign(fill, phonePatch);
+      }
       if (Object.keys(fill).length > 0) {
         await supabase.from('contacts').update(fill).eq('id', existing.id);
       }
@@ -342,11 +401,16 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       continue;
     }
 
+    const phone2Value = (row.phone2 || '').toString().trim() || null;
+    const initialPhonePlan = row.additionalPhones?.length
+      ? planAdditionalPhones(phone, phone2Value, [], row.additionalPhones)
+      : null;
+
     const { data: createdContact } = await supabase.from('contacts').insert({
       first,
       last: (row.last || '').toString().trim(), // contacts.last היא NOT NULL
-      phone, idnum, email,
-      phone2: (row.phone2 || '').toString().trim() || null,
+      phone: initialPhonePlan?.patch.phone || phone, idnum, email,
+      phone2: initialPhonePlan?.patch.phone2 || phone2Value,
       email2: (row.email2 || '').toString().trim() || null,
       birth_date: (row.birth_date || '').toString().trim() || null,
       gender: (row.gender || '').toString().trim() || null,
@@ -361,6 +425,13 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       tags: rowTags,
     }).select('id').single();
     if (createdContact) {
+      if (initialPhonePlan?.toInsert.length > 0) {
+        await supabase.from('contact_phones').upsert(
+          initialPhonePlan.toInsert.map((p) => ({ contact_id: createdContact.id, phone: p.phone, label: p.label, source: sourceSystem || null })),
+          { onConflict: 'contact_id,phone', ignoreDuplicates: true }
+        );
+        additionalPhonesCreated += initialPhonePlan.toInsert.length;
+      }
       await upsertDepartmentMembership(supabase, createdContact.id, ws, reason, row.note || null, sourceSystem, row.extraFields, { ...membershipOptions, stage: row.stage || null });
       await attachCommitment(createdContact.id, row);
       trackTransactionResult(await insertDonationTransaction(supabase, createdContact.id, ws.id, sourceSystem, row.donationTransaction));
@@ -378,6 +449,8 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
   return {
     success: true, created, enriched, transactionsAdded, transactionsSkipped, conflictsFound, count: created + enriched,
     commitmentsCreated, commitmentsUpdated,
+    commitmentsAutoDetected, bouncedAttached, bouncedOrphanCommitmentsCreated, bouncedRowsSkippedNoCommitment,
+    additionalPhonesCreated,
     multiValueFieldConflicts: Array.from(multiValueByField.values()),
   };
 }

@@ -25,6 +25,8 @@ const BASE_FIELDS = [
   { key: 'last', label: 'שם משפחה' },
   { key: 'phone', label: 'טלפון' },
   { key: 'phone2', label: 'טלפון נוסף' },
+  { key: 'phone3', label: 'טלפון נוסף 2 (מעבר ל-2 - נכנס ללשונית "טלפונים נוספים" בכרטיס)' },
+  { key: 'phone4', label: 'טלפון נוסף 3 (מעבר ל-2 - נכנס ללשונית "טלפונים נוספים" בכרטיס)' },
   { key: 'email', label: 'מייל' },
   { key: 'email2', label: 'מייל נוסף' },
   { key: 'idnum', label: 'ת"ז' },
@@ -58,6 +60,8 @@ const TXN_FIELDS = [
   { key: 'txn:payment_method_type', label: 'אופן תשלום (סוג - אשראי/העברה/צ׳ק/מזומן)' },
   { key: 'txn:payment_card_last4', label: '4 ספרות אחרונות של כרטיס אשראי' },
   { key: 'txn:payment_bank_account', label: 'מספר חשבון בנק' },
+  { key: 'txn:source', label: 'מקור התנועה (למשל: הפעלת בילינג / ידני)' },
+  { key: 'txn:payment_status', label: 'סטטוס תשלום (ריק/"תקין" = הצליח, כל ערך אחר = נכשל)' },
 ];
 
 // שדות ברמת הוראת קבע/התחייבות (לא תנועה בודדת) - כשעמודה ממופה ל-
@@ -106,6 +110,13 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
   const [openProcess, setOpenProcess] = useState(false);
   const [skipFutureDates, setSkipFutureDates] = useState(true);
   const [futureSkipped, setFutureSkipped] = useState(0);
+  // זיהוי אוטומטי של הוראות קבע מתוך תנועות חוזרות (בקבצים בלי עמודת
+  // אסמכתא הוראת-קבע מוכנה, כמו "מערכת עסקים") - ר' commitmentClustering.js.
+  // billingSourceValue/successStatusValuesText ניתנים לעריכה (לא קבועים
+  // בקוד) כי קובץ ייצוא אחר מאותה מערכת עשוי להשתמש בערכי טקסט שונים.
+  const [autoDetectCommitments, setAutoDetectCommitments] = useState(false);
+  const [billingSourceValue, setBillingSourceValue] = useState('הפעלת בילינג');
+  const [successStatusValuesText, setSuccessStatusValuesText] = useState('תקין');
   const [isPending, setIsPending] = useState(false);
   const [result, setResult] = useState(null);
   // מיפוי ערכי סטטוס חופשיים מהקובץ לשלב פייפליין אמיתי, כשעמודה
@@ -157,6 +168,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
   function resetAll() {
     setOpen(false); setStep('upload'); setHeaders([]); setDataRows([]);
     setMapping({}); setSystemName(''); setBatchLabel(''); setOpenProcess(false); setSkipFutureDates(true); setFutureSkipped(0); setResult(null); setStageValueMaps({});
+    setAutoDetectCommitments(false); setBillingSourceValue('הפעלת בילינג'); setSuccessStatusValuesText('תקין');
   }
 
   function handleFile(e) {
@@ -223,6 +235,13 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
         const value = String(cells[idx] ?? '').trim();
         if (!value) return;
         if (target.startsWith('extra:')) row.extraFields[target.slice(6)] = value;
+        else if (target === 'phone3' || target === 'phone4') {
+          // לא הופך לעמודת contacts אמיתית - נאסף בנפרד ומנותב ל-phone/
+          // phone2 (אם עדיין ריקים) או ל-contact_phones ("טלפונים נוספים"),
+          // ר' phoneRouting.js / leadIntakeCore.js.
+          row.additionalPhones = row.additionalPhones || [];
+          row.additionalPhones.push({ phone: value, label: h });
+        }
         else if (target === 'txn:amount') row.donationTransaction.amount = value;
         else if (target === 'txn:date') row.donationTransaction.date = value;
         else if (target === 'txn:docNumber') row.donationTransaction.docNumber = value;
@@ -234,6 +253,8 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
         else if (target === 'txn:payment_method_type') paymentMethodType = value;
         else if (target === 'txn:payment_card_last4') paymentCardLast4 = value;
         else if (target === 'txn:payment_bank_account') paymentBankAccount = value;
+        else if (target === 'txn:source') row.donationTransaction.source = value;
+        else if (target === 'txn:payment_status') row.donationTransaction.paymentStatus = value;
         else if (target === 'commit:ref') row.commitment.externalReference = value;
         else if (target === 'commit:total_amount') row.commitment.totalAmount = value;
         else if (target === 'commit:installments_count') row.commitment.installmentsCount = value;
@@ -266,9 +287,22 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
     });
 
     setFutureSkipped(futureSkippedCount);
+
+    // "לא לרשום תשלום כושל כתרומה" פעיל בכל פעם שעמודת סטטוס תשלום
+    // ממופה בכלל - בלי תלות בתיבת "זהה הוראות קבע אוטומטית" (כדי שלא
+    // יהיה מצב שממפים סטטוס אבל שוכחים לסמן, ותשלום כושל בכל זאת נכנס
+    // כתרומה אמיתית). קיבוץ להתחייבות עצמו כן דורש את התיבה + ערך מקור.
+    const paymentStatusMapped = Object.values(mapping).includes('txn:payment_status');
+    const autoDetectOption = paymentStatusMapped
+      ? {
+          successStatusValues: successStatusValuesText.split(',').map((s) => s.trim()),
+          billingSourceValue: autoDetectCommitments ? billingSourceValue.trim() : null,
+        }
+      : null;
+
     setIsPending(true);
     setResult(null);
-    importDepartmentBatch(rows, workspaceId, systemName.trim() || null, batchLabel.trim() || null, openProcess).then((res) => {
+    importDepartmentBatch(rows, workspaceId, systemName.trim() || null, batchLabel.trim() || null, openProcess, autoDetectOption).then((res) => {
       setIsPending(false);
       setResult(res);
       if (res.success) { setStep('done'); router.refresh(); }
@@ -325,6 +359,21 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
             <div style={hint()}>
               מומלץ להשאיר מסומן בקבצים היסטוריים - שורה עם תאריך עתידי לא באמת נגבתה, ואולי לעולם לא תיגבה (למשל אם הגבייה עברה למערכת אחרת).
             </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={autoDetectCommitments} onChange={(e) => setAutoDetectCommitments(e.target.checked)} />
+              לזהות אוטומטית הוראות קבע מתוך תנועות חוזרות (חיוב אוטומטי)
+            </label>
+            <div style={hint()}>
+              מתאים לקבצים בלי עמודת "אסמכתא הוראת קבע" מוכנה (למפות בשלב הבא גם "מקור התנועה" ו"סטטוס תשלום" כדי שזה יעבוד).
+            </div>
+            {autoDetectCommitments && (
+              <>
+                <label style={label()}>ערך "מקור התנועה" שמסמן חיוב אוטומטי (בילינג)</label>
+                <input type="text" value={billingSourceValue} onChange={(e) => setBillingSourceValue(e.target.value)} style={input()} />
+              </>
+            )}
+            <label style={label()}>ערכי "סטטוס תשלום" שנחשבים הצלחה (מופרדים בפסיק, ריק תמיד נחשב הצלחה)</label>
+            <input type="text" value={successStatusValuesText} onChange={(e) => setSuccessStatusValuesText(e.target.value)} style={input()} placeholder="תקין" />
             {workspace?.name === 'תרומות' && (
               <div style={note()}>
                 💡 יש לכם גם דוח מפורט (כל תרומה בשורה נפרדת) וגם דוח מסכם לאותה תקופה? ייבאו קודם את המפורט, ורק אחר כך את המסכם — כך נמנעת ספירה כפולה של אותה תרומה.
@@ -440,6 +489,21 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
               )}
               {futureSkipped > 0 && (
                 <li>{futureSkipped} תנועות עם תאריך עתידי דולגו (טרם נגבו בפועל, לא נרשמו כתרומה)</li>
+              )}
+              {result.commitmentsAutoDetected > 0 && (
+                <li>{result.commitmentsAutoDetected} הוראות קבע זוהו אוטומטית מתוך תנועות חוזרות</li>
+              )}
+              {(result.bouncedAttached > 0 || result.bouncedOrphanCommitmentsCreated > 0) && (
+                <li>
+                  {result.bouncedAttached} חיובים כושלים צורפו להתחייבות (לא נרשמו כתרומה - רק עדכנו מונה כשלונות)
+                  {result.bouncedOrphanCommitmentsCreated > 0 && `, ${result.bouncedOrphanCommitmentsCreated} התחייבויות נוצרו מחיובים כושלים בלבד (ללא אף תשלום מוצלח)`}
+                </li>
+              )}
+              {result.bouncedRowsSkippedNoCommitment > 0 && (
+                <li>{result.bouncedRowsSkippedNoCommitment} חיובים כושלים בודדים דולגו (לא ניתן לשייך להתחייבות - לא נרשמו כתרומה)</li>
+              )}
+              {result.additionalPhonesCreated > 0 && (
+                <li>{result.additionalPhonesCreated} מספרי טלפון נוספים נשמרו (מעבר לשני שדות הטלפון הרגילים - זמינים בלשונית "טלפונים נוספים" בכרטיס)</li>
               )}
             </ul>
             {result.multiValueFieldConflicts?.length > 0 && (
