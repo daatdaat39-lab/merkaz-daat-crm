@@ -12,6 +12,7 @@ import * as XLSX from 'xlsx';
 import { importDepartmentBatch } from './actions';
 import { createField, splitMultiValueField } from '../settings/fields/actions';
 import { generateFieldKey } from '../lib/fieldKey';
+import { detectCommitments } from './commitmentClustering';
 
 const NEW_FIELD_TYPES = [
   { value: 'text', label: 'טקסט' },
@@ -119,6 +120,8 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
   const [successStatusValuesText, setSuccessStatusValuesText] = useState('תקין');
   const [isPending, setIsPending] = useState(false);
   const [result, setResult] = useState(null);
+  // התקדמות ייבוא מרובה-קטעים (ר' handleSubmit) - null כשלא באמצע ייבוא.
+  const [importProgress, setImportProgress] = useState(null);
   // מיפוי ערכי סטטוס חופשיים מהקובץ לשלב פייפליין אמיתי, כשעמודה
   // ממופה ליעד 'stage' - { [שם עמודה]: { [ערך גולמי]: stage_key } }
   const [stageValueMaps, setStageValueMaps] = useState({});
@@ -208,7 +211,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
     } catch { /* מיפוי שמור לא תקין - מתעלמים, לא חוסם */ }
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!workspaceId) { setResult({ error: 'יש לבחור מחלקת יעד' }); return; }
     if (!Object.values(mapping).includes('first')) {
       setResult({ error: 'יש למפות לפחות עמודה אחת לשדה "שם פרטי"' });
@@ -300,13 +303,63 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
         }
       : null;
 
+    // זיהוי הוראות קבע חייב לרוץ פעם אחת על כל השורות יחד, לפני שמפצלים
+    // לקטעים בהמשך - הוא מקבץ לפי חשבון+סכום על פני כל הקובץ, וההתחייבויות
+    // של אדם נתון בהחלט יכולות להיות מפוזרות בשורות רחוקות זו מזו בקובץ
+    // (לא בהכרח רצופות) - פיצול מוקדם מדי היה שובר את הקיבוץ. הקריאה
+    // מסמנת row.commitment / מוחקת row.donationTransaction בתוך אותו
+    // מערך rows (מוטציה) - כל שורה "מוכנה" לגמרי לפני שהיא נשלחת לשרת.
+    const { clustersFound, skippedNoCommitment } = detectCommitments(rows, autoDetectOption || {});
+
+    // שליחת כל השורות בבקשה אחת חורגת ממגבלת גודל הפונקציה של Vercel
+    // (FUNCTION_PAYLOAD_TOO_LARGE, כ-4.5MB) בקבצים גדולים - אומת בפועל
+    // מול קובץ עם 20,521 שורות. הפתרון: לפצל לקטעים ולשלוח ברצף, ולאחד
+    // את התוצאות בסוף. autoDetectCommitments נשלח כ-null לכל קטע - הזיהוי
+    // כבר בוצע פעם אחת למעלה על כל השורות; קריאה חוזרת לו על קטע חלקי
+    // הייתה שוברת את הקיבוץ החוצה-שורות.
+    const CHUNK_SIZE = 500;
+    const chunks = [];
+    for (let i = 0; i < rows.length; i += CHUNK_SIZE) chunks.push(rows.slice(i, i + CHUNK_SIZE));
+
     setIsPending(true);
     setResult(null);
-    importDepartmentBatch(rows, workspaceId, systemName.trim() || null, batchLabel.trim() || null, openProcess, autoDetectOption).then((res) => {
-      setIsPending(false);
-      setResult(res);
-      if (res.success) { setStep('done'); router.refresh(); }
-    });
+    setImportProgress({ done: 0, total: rows.length });
+
+    const merged = {
+      success: true, created: 0, enriched: 0, transactionsAdded: 0, transactionsSkipped: 0, conflictsFound: 0,
+      commitmentsCreated: 0, commitmentsUpdated: 0,
+      commitmentsAutoDetected: clustersFound, bouncedAttached: 0, bouncedOrphanCommitmentsCreated: 0,
+      bouncedRowsSkippedNoCommitment: skippedNoCommitment,
+      additionalPhonesCreated: 0, multiValueFieldConflicts: [],
+    };
+
+    for (const chunk of chunks) {
+      const res = await importDepartmentBatch(chunk, workspaceId, systemName.trim() || null, batchLabel.trim() || null, openProcess, null);
+      if (!res?.success) {
+        setIsPending(false);
+        setImportProgress(null);
+        setResult({ error: `${res?.error || 'הייבוא נכשל באמצע התהליך'} — עובדו ${merged.created + merged.enriched} אנשי קשר בהצלחה לפני הכשל, שום דבר מזה לא אבד.` });
+        return;
+      }
+      merged.created += res.created || 0;
+      merged.enriched += res.enriched || 0;
+      merged.transactionsAdded += res.transactionsAdded || 0;
+      merged.transactionsSkipped += res.transactionsSkipped || 0;
+      merged.conflictsFound += res.conflictsFound || 0;
+      merged.commitmentsCreated += res.commitmentsCreated || 0;
+      merged.commitmentsUpdated += res.commitmentsUpdated || 0;
+      merged.bouncedAttached += res.bouncedAttached || 0;
+      merged.bouncedOrphanCommitmentsCreated += res.bouncedOrphanCommitmentsCreated || 0;
+      merged.additionalPhonesCreated += res.additionalPhonesCreated || 0;
+      if (res.multiValueFieldConflicts?.length) merged.multiValueFieldConflicts.push(...res.multiValueFieldConflicts);
+      setImportProgress((p) => ({ done: Math.min((p?.done || 0) + chunk.length, rows.length), total: rows.length }));
+    }
+
+    setIsPending(false);
+    setImportProgress(null);
+    setResult(merged);
+    setStep('done');
+    router.refresh();
   }
 
   if (!open) {
@@ -463,7 +516,9 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 18 }}>
               <button type="button" onClick={() => setStep('classify')} style={ghostBtn()}>חזרה</button>
               <button type="button" onClick={handleSubmit} disabled={isPending} style={primaryBtn()}>
-                {isPending ? 'מייבא...' : `ייבוא ${dataRows.length} שורות`}
+                {isPending
+                  ? (importProgress ? `מייבא... (${importProgress.done.toLocaleString()} / ${importProgress.total.toLocaleString()})` : 'מייבא...')
+                  : `ייבוא ${dataRows.length} שורות`}
               </button>
             </div>
           </div>
