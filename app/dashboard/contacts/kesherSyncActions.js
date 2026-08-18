@@ -149,6 +149,12 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
   const debugMatches = [];
   const debugOutcomes = [];
   const debugTransactionMatches = [];
+  // אבחון ממוקד זמני נוסף (לחקירת מיפוי "ישיבה" - להסיר אחרי שנסגור אותה):
+  // רשומות גולמיות (התחייבויות+עסקאות) ששדה הפרויקט שלהן מכיל "ישיבה" -
+  // כדי למצוא שדה שמבחין בין דמי רישום/שכר לימוד/תשלום קורסים (ה-Project
+  // עצמו, לפי מה שראינו, תמיד רק "ישיבה" - חייב להיות שדה אחר).
+  const debugYeshivaObligations = [];
+  const debugYeshivaTransactions = [];
 
   let transactions = [];
   let obligations = [];
@@ -181,6 +187,7 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
   for (const o of obligations) {
     const isWatched = DEBUG_WATCH_CLIENT_IDS.includes((o.ClientId || '').toString().trim()) || DEBUG_WATCH_PHONES.includes((o.Phone || '').toString().trim());
     if (isWatched) debugMatches.push(o);
+    if ((o.Project || '').toString().includes('ישיבה') && debugYeshivaObligations.length < 8) debugYeshivaObligations.push(o);
     try {
       const workspaceName = resolveWorkspaceName(o.Project);
       const workspace = workspaceName ? workspaceByName.get(workspaceName) : null;
@@ -276,6 +283,7 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
     if (DEBUG_WATCH_CLIENT_IDS.includes((t.Tz || '').toString().trim()) || DEBUG_WATCH_PHONES.includes((t.Phone || '').toString().trim())) {
       debugTransactionMatches.push(t);
     }
+    if ((t.ProjectName || t.Project || '').toString().includes('ישיבה') && debugYeshivaTransactions.length < 8) debugYeshivaTransactions.push(t);
     try {
       const rawProject = t.ProjectName || t.Project;
       const workspaceName = resolveWorkspaceName(rawProject);
@@ -344,5 +352,7 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
   result.debugMatches = debugMatches;
   result.debugOutcomes = debugOutcomes;
   result.debugTransactionMatches = debugTransactionMatches;
+  result.debugYeshivaObligations = debugYeshivaObligations;
+  result.debugYeshivaTransactions = debugYeshivaTransactions;
   return result;
 }
