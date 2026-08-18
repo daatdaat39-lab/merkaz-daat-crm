@@ -405,7 +405,24 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
         receiptUrl: t.OriginalDoc || t.DocumentsDetails?.DocumentDetails?.[0]?.PdfLink || null,
       });
       if (added === true) result.transactionsCreated++;
-      else if (added === false) result.transactionsSkipped++;
+      else if (added === false) {
+        result.transactionsSkipped++;
+        // insertDonationTransaction מדלגת בשקט על תנועה שכבר קיימת (לא
+        // דורסת - עיקרון קבוע בכל הקוד הזה). אבל תנועות קשר שנכתבו לפני
+        // שהתחלנו לשמור PaymentPageName (ר' למעלה) נשארו עם designation
+        // ריק - כאן בלבד (לא בזרימת הייבוא הכללית) ממלאים את זה בדיעבד,
+        // ורק אם עדיין ריק (is('designation', null)) - לעולם לא דורסים
+        // ערך אמיתי שכבר קיים.
+        const docNumber = (t.NumTransaction || '').toString().trim();
+        if (t.PaymentPageName && docNumber) {
+          await supabase.from('donation_transactions')
+            .update({ designation: t.PaymentPageName })
+            .eq('contact_id', contact.id)
+            .eq('source_system', 'קשר')
+            .eq('external_doc_number', docNumber)
+            .is('designation', null);
+        }
+      }
       else result.transactionsUnmatched++;
 
       await upsertContactExternalId(supabase, contact.id, 'קשר', t.NumTransaction);
