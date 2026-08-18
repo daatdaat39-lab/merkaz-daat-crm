@@ -91,6 +91,18 @@ export function detectCommitments(rows, { successStatusValues, billingSourceValu
     const externalReference = `עסקים:${account}:${amount}:${firstDateRaw}`;
     clustersFound++;
 
+    // ריצה נחשבת "לא פעילה עוד" (status='cancelled' דרך resolveCommitment,
+    // לא 'active') אם התשלום האחרון הידוע בה נכשל, או שעברו יותר מ-
+    // RUN_GAP_DAYS יום מהתשלום האחרון עד "עכשיו" (זמן הייבוא) - כלומר
+    // לאורך כל שאר הקובץ (שמכיל היסטוריה מלאה, לא רק חלון זמן חלקי) לא
+    // נמצא שום המשך. בלי הבדיקה הזו כל הוראת-קבע מזוהה מסומנת 'active'
+    // ללא תנאי (resolveCommitment's ברירת המחדל) - אושר מריצה חיה: 781
+    // הוראות קבע ממערכת עסקים סומנו כך בטעות, 689 מהן עם תאריך סיום
+    // שכבר עבר (חלקן עד 2015), 154 עם תשלום אחרון כושל.
+    const lastEntry = run[run.length - 1];
+    const daysSinceLastPayment = (Date.now() - lastEntry.date.getTime()) / 86400000;
+    const isStale = lastEntry.isFailure || daysSinceLastPayment > RUN_GAP_DAYS;
+
     for (const entry of run) {
       const { row } = entry;
       const commitment = {
@@ -102,12 +114,15 @@ export function detectCommitments(rows, { successStatusValues, billingSourceValu
         bouncedCount,
         designation: row.donationTransaction?.designation,
         paymentMethod: row.donationTransaction?.paymentMethod,
+        cancelled: isStale,
       };
       if (entry.isFailure) {
         commitment.lastPaymentStatus = entry.status;
         if (!hasAnySuccess) commitment.__isOrphanRun = true;
         commitment.__isBounceRow = true;
         delete row.donationTransaction; // מוחקים אחרי שכבר קראנו designation/paymentMethod ממנו למעלה
+      } else if (isStale) {
+        commitment.lastPaymentStatus = 'לא זוהה תשלום נוסף לאורך יתרת הקובץ - כנראה לא נגבה יותר';
       }
       row.commitment = commitment;
     }
