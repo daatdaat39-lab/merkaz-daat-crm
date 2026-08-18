@@ -143,7 +143,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             ),
           },
           {
-            key: 'donations', title: 'תרומות', shortLabel: 'תרומות', items: donationTransactions,
+            key: 'donations', title: 'תשלומים ותרומות', shortLabel: 'תשלומים', items: donationTransactions,
             renderItem: (t) => (
               <div key={t.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <DeptTag name={workspaceNameById[t.workspace_id]} />

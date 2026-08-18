@@ -151,7 +151,8 @@ async function createContactFromKesher(supabase, { name, idnum, phone, email }, 
   }).select('id, tags, phone, phone2, email, email2, idnum, birth_date, gender').single();
   if (!created) return null;
 
-  await upsertDepartmentMembership(supabase, created.id, workspace, 'תרומה/התחייבות מקשר', null, 'קשר', null, { openProcess: false, requiresApproval: false });
+  const reason = workspace.name === 'תרומות' ? 'תרומה/התחייבות מקשר' : 'תשלום/התחייבות מקשר';
+  await upsertDepartmentMembership(supabase, created.id, workspace, reason, null, 'קשר', null, { openProcess: false, requiresApproval: false });
   await enrollInKesherCampaign(supabase, workspace.id, created.id, userId);
   return created;
 }

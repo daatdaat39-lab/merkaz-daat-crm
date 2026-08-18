@@ -15,7 +15,10 @@ function statusPill(status) {
   return { label: 'הוראת קבע · מומשה', bg: 'var(--bg-secondary, #f0f0f0)', fg: 'var(--text-secondary)' };
 }
 
-const ONE_TIME_PILL = { label: 'תרומה חד"פ', bg: '#eef2ff', fg: '#3730a3' };
+function oneTimePill(workspaceName) {
+  const label = workspaceName === 'תרומות' ? 'תרומה חד"פ' : 'תשלום חד"פ';
+  return { label, bg: '#eef2ff', fg: '#3730a3' };
+}
 
 function maskedPaymentMethod(extraValues) {
   const last4 = (extraValues?.card_last4 || '').toString().trim();
@@ -31,6 +34,7 @@ export default function KesherProjectPanel({ workspaceName, commitments = [], on
     .filter((c) => c.status === 'active')
     .reduce((sum, c) => sum + (Number(c.total_amount) || 0), 0);
   const paymentMethod = maskedPaymentMethod(extraValues);
+  const ONE_TIME_PILL = oneTimePill(workspaceName);
 
   return (
     <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
