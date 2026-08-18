@@ -5,7 +5,7 @@
 // server' כדי שיהיה ניתן לייבוא גם מ-Route Handler.
 import { getPipeline } from '../lib/pipelines';
 import { detectCommitments } from './commitmentClustering';
-import { planAdditionalPhones } from './phoneRouting';
+import { planAdditionalPhones, normalizePhoneDigits } from './phoneRouting';
 
 // מחפש איש קשר קיים לפי ת"ז/טלפון/מייל (זיהוי כפילויות לפי האפיון) -
 // שאילתות נפרדות ומפורמטות במקום .or() בנוי ממחרוזת, כי הערכים האלה
@@ -51,7 +51,11 @@ export async function findExistingMatch(supabase, { idnum, phone, email, sourceS
   // מדויקת פספסה בשקט התאמות אמיתיות (אושר מריצה חיה - 8 כרטיסים כפולים
   // נוצרו בגלל זה בדיוק). בודק גם phone2 (בעבר לא נבדק בכלל כאן).
   if (phone) {
-    const digits = phone.toString().replace(/\D/g, '');
+    // 9 ספרות אחרונות (normalizePhoneDigits, phoneRouting.js) - לא כל
+    // הספרות - כדי לאחד "0501234567"/"972501234567"/"+972501234567",
+    // וגם באג תיעוד שנצפה בפועל בקשר: "0" מיותר לפני קידומת בינלאומית
+    // קיימת ("0+972501234567"). ר' מיגרציה 0065.
+    const digits = normalizePhoneDigits(phone);
     if (digits) {
       const { data: viaPhone } = await supabase
         .from('contacts').select(select)
