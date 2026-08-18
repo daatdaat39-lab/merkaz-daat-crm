@@ -46,7 +46,8 @@ export default async function DashboardHome() {
   const totalToday = (outreachToday || 0) + (emailsToday || 0);
   const totalYesterday = (outreachYesterday || 0) + (emailsYesterday || 0);
 
-  let contacts = [];
+  let totalContactsCount = 0;
+  let newThisWeekCount = 0;
   let workspaceContacts = [];
   let meetings = [];
   let openTasks = [];
@@ -89,8 +90,10 @@ export default async function DashboardHome() {
   }
 
   if (workspaceId) {
-    const [{ data: c }, { data: wc }, { data: m }, { data: t }] = await Promise.all([
-      supabase.from('contacts').select('id, created_at'),
+    const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const [{ count: totalCount }, { count: newCount }, { data: wc }, { data: m }, { data: t }] = await Promise.all([
+      supabase.from('contacts').select('id', { count: 'exact', head: true }),
+      supabase.from('contacts').select('id', { count: 'exact', head: true }).gte('created_at', weekAgoIso),
       supabase.from('contact_departments').select('stage').eq('workspace_id', workspaceId),
       supabase
         .from('meetings')
@@ -101,7 +104,8 @@ export default async function DashboardHome() {
         .limit(5),
       supabase.from('tasks').select('id').eq('workspace_id', workspaceId).eq('done', false),
     ]);
-    contacts = c || [];
+    totalContactsCount = totalCount || 0;
+    newThisWeekCount = newCount || 0;
     workspaceContacts = wc || [];
     meetings = m || [];
     openTasks = t || [];
@@ -198,13 +202,9 @@ export default async function DashboardHome() {
     return acc;
   }, {});
 
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  const newThisWeek = contacts.filter((c) => new Date(c.created_at) >= weekAgo).length;
-
   const statCards = [
-    { label: 'סה"כ אנשי קשר', value: contacts.length },
-    { label: 'חדשים השבוע', value: newThisWeek },
+    { label: 'סה"כ אנשי קשר', value: totalContactsCount },
+    { label: 'חדשים השבוע', value: newThisWeekCount },
     { label: 'משימות פתוחות', value: openTasks.length },
     { label: 'פגישות קרובות', value: meetings.length },
   ];
