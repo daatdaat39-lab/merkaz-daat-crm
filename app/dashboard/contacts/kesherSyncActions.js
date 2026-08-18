@@ -293,7 +293,10 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
         start_date: safeDate(o.StartDate),
         end_date: safeDate(o.EndDate),
         frequency: isRecurring ? 'חודשי' : null,
-        designation: (o.ObligationFor || '').toString().trim() || null,
+        // עדיפות ל-PaymentPageName (שם הדף הספציפי, למשל "קורס 'מבעד
+        // לפחד'") על פני ObligationFor (סיבה גנרית כמו "תרומה") - הרבה
+        // יותר אינפורמטיבי לדעת מה בדיוק האדם רכש, לא רק שהוא "תרם".
+        designation: (refToPaymentPage.get(referenceForRouting) || o.ObligationFor || '').toString().trim() || null,
         payment_method: (o.ChargeOptionType || '').toString().trim() || null,
         last_payment_status: (o.StatusLastTran || '').toString().trim() || null,
         source_channel: (o.OpenBy || '').toString().trim() || null,
@@ -390,6 +393,9 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
         paymentMethod: t.TransactionCreditType || t.CreditType || null,
         transactionType: t.TransactionType || null,
         campaignReference: t.ProjectName || null,
+        // שם הדף הספציפי (למשל שם הקורס) - כדי שהתנועה עצמה תגיד מה
+        // בדיוק נרכש, לא רק לאיזו מחלקה זה נותב.
+        designation: t.PaymentPageName || null,
         fundraiserName: t.User || null,
         commitmentId,
         // אושר מריצה חיה: אין t.PdfLink ברמה העליונה (כפי שנוחש קודם) -
