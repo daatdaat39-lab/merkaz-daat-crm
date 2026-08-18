@@ -114,6 +114,16 @@ export default function KesherSyncButton({ kesherConfigured = false }) {
               ))}
             </div>
           )}
+          {result.allProjectPages?.length > 0 && (
+            <div style={{ marginTop: 4, fontSize: 11.5, background: '#fff8e6', border: '1px solid var(--border)', borderRadius: 6, padding: 8 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>אבחון זמני - כל העמודים (Project) ותתי-העמודים (PaymentPageName) שנצפו בטווח הזה:</div>
+              {result.allProjectPages.map((pp) => (
+                <div key={pp.project} style={{ fontFamily: 'monospace', marginBottom: 4 }}>
+                  <b>{pp.project}</b>{pp.pages.length > 0 && `: ${pp.pages.join(' | ')}`}
+                </div>
+              ))}
+            </div>
+          )}
           {result.projectUnmatched > 0 && (
             <div style={{ color: '#92400e' }}>
               ⚠ {result.projectUnmatched} רשומות עם פרויקט קשר לא מזוהה

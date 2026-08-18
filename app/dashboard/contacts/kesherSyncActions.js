@@ -176,6 +176,19 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
   // ערכי Project גולמיים שלא זוהו - לאבחון מהיר של PROJECT_TO_WORKSPACE
   // בלי גישה ישירה לתשובת קשר (מוצג בתוצאה, לא רק בלוג שרת).
   const unmatchedProjectSamples = new Set();
+  // אבחון זמני (לחקירה הנוכחית - "כל העמודים במערכת קשר כולל תתי
+  // עמודים" - להסיר אחרי שנסגור אותה): מרכז את כל צירופי Project +
+  // PaymentPageName שנצפו בפועל בטווח הריצה, ממותה ולא רק "לא זוהו" -
+  // גם כאלה שכבר ממופים אצלנו. עוזר לוודא שלא קיימים עמודים/תתי-עמודים
+  // בקשר שאף פעם לא הופיעו כ"לא זוהה" (למשל כי הם כבר בטעות נופלים תחת
+  // ניתוב אחר בגלל match חלקי/includes) אבל בפועל שונים ממה שחשבנו.
+  const allProjectPages = new Map(); // project -> Set(pageName || '(ללא תת-עמוד)')
+  function trackProjectPage(project, page) {
+    const p = (project || '(ריק)').toString().trim() || '(ריק)';
+    const pg = (page || '').toString().trim() || '(ללא תת-עמוד)';
+    if (!allProjectPages.has(p)) allProjectPages.set(p, new Set());
+    allProjectPages.get(p).add(pg);
+  }
   // אבחון להתחייבויות שלא נכתבו - שדות גולמיים לכל רשומה, כדי לדעת
   // בדיוק למה (חוסר התאמת איש קשר, סכום לא תקין וכו') בלי גישה ישירה
   // לתשובת קשר.
@@ -233,6 +246,7 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
     if (isWatched) debugMatches.push(o);
     try {
       const referenceForRouting = (o.Reference || '').toString().trim();
+      trackProjectPage(o.Project, refToPaymentPage.get(referenceForRouting));
       const routing = resolveRouting(o.Project, refToPaymentPage.get(referenceForRouting));
       const workspace = routing ? workspaceByName.get(routing.workspaceName) : null;
       if (!workspace) {
@@ -332,6 +346,7 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
     }
     try {
       const rawProject = t.ProjectName || t.Project;
+      trackProjectPage(rawProject, t.PaymentPageName);
       const routing = resolveRouting(rawProject, t.PaymentPageName);
       const workspace = routing ? workspaceByName.get(routing.workspaceName) : null;
       if (!workspace) {
@@ -410,5 +425,8 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
   result.debugMatches = debugMatches;
   result.debugOutcomes = debugOutcomes;
   result.debugTransactionMatches = debugTransactionMatches;
+  result.allProjectPages = Array.from(allProjectPages.entries()).map(([project, pages]) => ({
+    project, pages: Array.from(pages),
+  }));
   return result;
 }
