@@ -353,17 +353,26 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
 
       // ObligationReference מקשרת כל תנועה בודדת להתחייבות/הוראת הקבע
       // שממנה היא נגבתה - אושר מריצה חיה (השדה קיים בכל תנועה, מצביע
-      // על Reference אמיתי בהתחייבויות). ממלא commitment_id הקיים.
+      // על Reference אמיתי בהתחייבויות). ממלא commitment_id הקיים - אבל
+      // רק אם ההתחייבות שנמצאה שייכת לאותו איש קשר שהתנועה עצמה הותאמה
+      // אליו! אומת מריצה חיה: כשההתאמה של ההתחייבות (לפי ClientId+Phone
+      // בלבד) ושל התנועה (לפי Tz+Phone+Mail) לא מסתדרות בדיוק על אותו
+      // איש קשר (למשל בגלל פרטים לא-עקביים בקשר עצמה), אותה אסמכתא
+      // חיצונית עלולה "להצביע" בטעות על התחייבות של אדם אחר לגמרי -
+      // בלי הבדיקה הזו, commitment_id היה מקשר תרומה של תורם אחד להתחייבות
+      // של תורם אחר.
       let commitmentId = null;
       const obligationRef = (t.ObligationReference || '').toString().trim();
       if (obligationRef) {
         const { data: linkedCommitment } = await supabase
           .from('commitments')
-          .select('id')
+          .select('id, contact_id')
           .eq('workspace_id', workspace.id)
           .eq('external_reference', obligationRef)
           .maybeSingle();
-        commitmentId = linkedCommitment?.id || null;
+        if (linkedCommitment && linkedCommitment.contact_id === contact.id) {
+          commitmentId = linkedCommitment.id;
+        }
       }
 
       // GetTrans מחזירה Total באגורות (בשונה מ-GetObligations, ששם Sum
