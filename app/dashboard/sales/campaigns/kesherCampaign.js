@@ -5,18 +5,18 @@
 // addContactsToCampaign שם דורשות session מחובר בעצמן).
 const KESHER_CAMPAIGN_NAME = 'נכנס ממערכת קשר';
 
-// מוצא (או יוצר בפעם הראשונה) את קמפיין "נכנס ממערכת קשר" של מחלקה,
-// ורושם אליו איש קשר - הזרימה שתורם חדש שקשר מזהה עובר, במקום להיכנס
-// ללוח הלידים הרגיל. שני שלבי ברירת המחדל (pending/done) זהים לאלה
+// מוצא (או יוצר בפעם הראשונה) קמפיין לפי שם, ורושם אליו איש קשר - נקראת
+// גם מ"נכנס ממערכת קשר" (תורם חדש שקשר זיהתה) וגם מהקמפיין הייעודי
+// ל"צרידי ידידי דעת". שני שלבי ברירת המחדל (pending/done) זהים לאלה
 // שכבר נזרעים ב-createCampaign (actions.js) - המנהל יכול לערוך אותם
 // אחר כך במסך ניהול הקמפיינים הרגיל בדיוק כמו כל קמפיין אחר.
-export async function enrollInKesherCampaign(supabase, workspaceId, contactId, userId) {
+export async function enrollInCampaign(supabase, workspaceId, contactId, userId, campaignName) {
   let { data: campaign } = await supabase.from('campaigns')
-    .select('id').eq('workspace_id', workspaceId).eq('name', KESHER_CAMPAIGN_NAME).maybeSingle();
+    .select('id').eq('workspace_id', workspaceId).eq('name', campaignName).maybeSingle();
 
   if (!campaign) {
     const { data: created } = await supabase.from('campaigns')
-      .insert({ workspace_id: workspaceId, name: KESHER_CAMPAIGN_NAME, created_by: userId })
+      .insert({ workspace_id: workspaceId, name: campaignName, created_by: userId })
       .select('id').single();
     if (!created) return;
     campaign = created;
@@ -30,4 +30,8 @@ export async function enrollInKesherCampaign(supabase, workspaceId, contactId, u
     { campaign_id: campaign.id, contact_id: contactId },
     { onConflict: 'campaign_id,contact_id', ignoreDuplicates: true },
   );
+}
+
+export async function enrollInKesherCampaign(supabase, workspaceId, contactId, userId) {
+  return enrollInCampaign(supabase, workspaceId, contactId, userId, KESHER_CAMPAIGN_NAME);
 }

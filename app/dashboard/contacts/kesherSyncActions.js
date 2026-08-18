@@ -11,7 +11,7 @@ import { redirect } from 'next/navigation';
 import { isManagerOfAnyWorkspace } from '../lib/contactGuards';
 import { findExistingMatch, insertDonationTransaction, upsertContactExternalId, upsertDepartmentMembership } from './leadIntakeCore';
 import { isKesherConfigured, getKesherTransactions, getKesherObligations } from '../../../lib/kesher/client';
-import { enrollInKesherCampaign } from '../sales/campaigns/kesherCampaign';
+import { enrollInKesherCampaign, enrollInCampaign } from '../sales/campaigns/kesherCampaign';
 
 async function requireUser() {
   const supabase = createClient();
@@ -20,17 +20,56 @@ async function requireUser() {
   return { supabase, user };
 }
 
-// מיפוי תת-מחרוזת משם ה-Project בקשר לשם מחלקה אצלנו - צריך אימות/כיוונון
-// מול השמות האמיתיים בחשבון קשר בריצה הראשונה החיה (לא ידוע מראש מהתיעוד).
+// מיפוי תת-מחרוזת משם ה-Project בקשר לשם מחלקה אצלנו - אומת מריצה חיה.
 const PROJECT_TO_WORKSPACE = [
   { match: 'תרומות', workspaceName: 'תרומות' },
   { match: 'קורסים', workspaceName: 'דעת ותבונה' },
 ];
 
-function resolveWorkspaceName(projectField) {
+// עמוד "ישיבה" בקשר מכיל בתוכו כמה תת-תוכניות שכל אחת אמורה להיכנס
+// למחלקה שונה אצלנו - שדה ה-Project עצמו תמיד רק "ישיבה" (אין תת-פירוט
+// שם), ההבחנה היחידה שנמצאה בפועל (מריצה חיה) היא PaymentPageName על
+// התנועה עצמה (GetTrans) - "דמי רישום לישיבה - התשפ"ז" וכו'.
+// GetObligations לא מכיל את השדה הזה בכלל - ר' refToPaymentPage למטה,
+// שבונה מיפוי אסמכתא->PaymentPageName מהתנועות כדי שגם התחייבויות
+// (שאין להן PaymentPageName ישיר) יידעו להיכנס למחלקה הנכונה.
+const YESHIVA_PAGE_TO_ROUTING = [
+  { match: 'רישום', workspaceName: 'מרכז דעת — ראשי', tag: 'הורי תלמידים' },
+  { match: 'שכר לימוד', workspaceName: 'מרכז דעת — ראשי', tag: 'הורי תלמידים' },
+  { match: 'קורס', workspaceName: 'דעת ותבונה' },
+];
+
+const TZRIDEI_CAMPAIGN_NAME = 'קמפיין צרידי אלול פ"ו';
+
+// מחזיר { workspaceName, tag?, enrollCampaignName? } או null אם לא זוהה
+// שום ניתוב. pageName רלוונטי רק לפרויקט "ישיבה" - PaymentPageName ישיר
+// (מתנועה) או דרך refToPaymentPage (עבור התחייבות, לפי אסמכתא).
+function resolveRouting(projectField, pageName) {
   const p = (projectField || '').toString();
-  const found = PROJECT_TO_WORKSPACE.find((m) => p.includes(m.match));
-  return found?.workspaceName || null;
+  const direct = PROJECT_TO_WORKSPACE.find((m) => p.includes(m.match));
+  if (direct) return { workspaceName: direct.workspaceName };
+
+  if (p.includes('ישיבה')) {
+    const page = (pageName || '').toString();
+    const found = YESHIVA_PAGE_TO_ROUTING.find((m) => page.includes(m.match));
+    return found ? { workspaceName: found.workspaceName, tag: found.tag || null } : null;
+  }
+
+  // "קמפיין צרידי ידידי דעת" - נכנס למחלקת תרומות כרגיל (תרומה/התחייבות
+  // נרשמת שם), ובנוסף נרשם לקמפיין ייעודי "קמפיין צרידי אלול פ"ו".
+  if (p.includes('צריד')) return { workspaceName: 'תרומות', enrollCampaignName: TZRIDEI_CAMPAIGN_NAME };
+
+  return null;
+}
+
+// מוסיף תגית לאיש קשר (בלי לדרוס תגיות קיימות, בלי כפילות) - למשל
+// "הורי תלמידים" לתורמים שזוהו דרך עמוד "דמי רישום"/"שכר לימוד" בישיבה.
+async function addTagToContact(supabase, contactId, tag) {
+  const { data: c } = await supabase.from('contacts').select('tags').eq('id', contactId).maybeSingle();
+  if (!c) return;
+  const tags = Array.isArray(c.tags) ? c.tags : [];
+  if (tags.includes(tag)) return;
+  await supabase.from('contacts').update({ tags: [...tags, tag] }).eq('id', contactId);
 }
 
 // קשר מחזירה תאריכים כ-DD/MM/YYYY (לדוגמה "26/05/2026") - אם מעבירים
@@ -149,12 +188,6 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
   const debugMatches = [];
   const debugOutcomes = [];
   const debugTransactionMatches = [];
-  // אבחון ממוקד זמני נוסף (לחקירת מיפוי "ישיבה" - להסיר אחרי שנסגור אותה):
-  // רשומות גולמיות (התחייבויות+עסקאות) ששדה הפרויקט שלהן מכיל "ישיבה" -
-  // כדי למצוא שדה שמבחין בין דמי רישום/שכר לימוד/תשלום קורסים (ה-Project
-  // עצמו, לפי מה שראינו, תמיד רק "ישיבה" - חייב להיות שדה אחר).
-  const debugYeshivaObligations = [];
-  const debugYeshivaTransactions = [];
 
   let transactions = [];
   let obligations = [];
@@ -167,6 +200,16 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
     obligations = await getKesherObligations({ fromDate, toDate });
   } catch (err) {
     return { error: err.message };
+  }
+
+  // GetObligations לא מכיל PaymentPageName - בונים מיפוי אסמכתא (Reference
+  // == ObligationReference בתנועה) -> PaymentPageName מהתנועות שכבר
+  // נשלפו, כדי שגם התחייבויות תחת "ישיבה" יידעו לאיזו תת-תוכנית לנתב.
+  const refToPaymentPage = new Map();
+  for (const t of transactions) {
+    const ref = (t.ObligationReference || '').toString().trim();
+    const page = (t.PaymentPageName || '').toString().trim();
+    if (ref && page && !refToPaymentPage.has(ref)) refToPaymentPage.set(ref, page);
   }
 
   function logIssue(o, reason) {
@@ -187,10 +230,10 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
   for (const o of obligations) {
     const isWatched = DEBUG_WATCH_CLIENT_IDS.includes((o.ClientId || '').toString().trim()) || DEBUG_WATCH_PHONES.includes((o.Phone || '').toString().trim());
     if (isWatched) debugMatches.push(o);
-    if ((o.Project || '').toString().includes('ישיבה') && debugYeshivaObligations.length < 8) debugYeshivaObligations.push(o);
     try {
-      const workspaceName = resolveWorkspaceName(o.Project);
-      const workspace = workspaceName ? workspaceByName.get(workspaceName) : null;
+      const referenceForRouting = (o.Reference || '').toString().trim();
+      const routing = resolveRouting(o.Project, refToPaymentPage.get(referenceForRouting));
+      const workspace = routing ? workspaceByName.get(routing.workspaceName) : null;
       if (!workspace) {
         result.projectUnmatched++;
         if (o.Project && unmatchedProjectSamples.size < 10) unmatchedProjectSamples.add(o.Project.toString());
@@ -210,7 +253,10 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
         continue;
       }
 
-      const reference = (o.Reference || '').toString().trim();
+      if (routing.tag) await addTagToContact(supabase, contact.id, routing.tag);
+      if (routing.enrollCampaignName) await enrollInCampaign(supabase, workspace.id, contact.id, user.id, routing.enrollCampaignName);
+
+      const reference = referenceForRouting;
       if (!reference) {
         logIssue(o, 'אין אסמכתא (Reference)');
         if (isWatched) debugOutcomes.push({ reference: o.Reference, outcome: 'דולג - אין אסמכתא' });
@@ -283,11 +329,10 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
     if (DEBUG_WATCH_CLIENT_IDS.includes((t.Tz || '').toString().trim()) || DEBUG_WATCH_PHONES.includes((t.Phone || '').toString().trim())) {
       debugTransactionMatches.push(t);
     }
-    if ((t.ProjectName || t.Project || '').toString().includes('ישיבה') && debugYeshivaTransactions.length < 8) debugYeshivaTransactions.push(t);
     try {
       const rawProject = t.ProjectName || t.Project;
-      const workspaceName = resolveWorkspaceName(rawProject);
-      const workspace = workspaceName ? workspaceByName.get(workspaceName) : null;
+      const routing = resolveRouting(rawProject, t.PaymentPageName);
+      const workspace = routing ? workspaceByName.get(routing.workspaceName) : null;
       if (!workspace) {
         result.projectUnmatched++;
         if (rawProject && unmatchedProjectSamples.size < 10) unmatchedProjectSamples.add(rawProject.toString());
@@ -302,6 +347,9 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
         contact = await createContactFromKesher(supabase, { name: t.Name, idnum, phone, email }, workspace, user.id);
       }
       if (!contact) { result.transactionsUnmatched++; continue; }
+
+      if (routing.tag) await addTagToContact(supabase, contact.id, routing.tag);
+      if (routing.enrollCampaignName) await enrollInCampaign(supabase, workspace.id, contact.id, user.id, routing.enrollCampaignName);
 
       // ObligationReference מקשרת כל תנועה בודדת להתחייבות/הוראת הקבע
       // שממנה היא נגבתה - אושר מריצה חיה (השדה קיים בכל תנועה, מצביע
@@ -352,7 +400,5 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
   result.debugMatches = debugMatches;
   result.debugOutcomes = debugOutcomes;
   result.debugTransactionMatches = debugTransactionMatches;
-  result.debugYeshivaObligations = debugYeshivaObligations;
-  result.debugYeshivaTransactions = debugYeshivaTransactions;
   return result;
 }
