@@ -147,6 +147,12 @@ async function autoFillPaymentRef(supabase, contact, workspace, o) {
 async function createContactFromKesher(supabase, { name, idnum, phone, email }, workspace, userId) {
   const trimmedName = (name || '').toString().trim();
   if (!trimmedName) return null;
+  // בלי אף פרט מזהה (לא ת.ז, לא טלפון, לא מייל) - אין שום דרך לזהות
+  // בריצה הבאה שכבר יצרנו כרטיס לאותו אדם, ואז כל ריצת סנכרון הייתה
+  // יוצרת עוד כרטיס ריק כפול (אושר מריצה חיה - 6 כרטיסים ריקים ל"שמש
+  // ענת" בלבד, ועוד זוג ל"רם לורן", מריצות היום). עדיף לא ליצור כלל -
+  // ממשיכים לנתיב "לא הותאם" הקיים, בדיוק כמו כשאין שם בכלל.
+  if (!idnum && !phone && !email) return null;
   const [first, ...rest] = trimmedName.split(/\s+/);
   const last = rest.join(' ');
 
