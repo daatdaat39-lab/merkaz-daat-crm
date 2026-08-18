@@ -25,10 +25,26 @@ export default async function DuplicatesPage() {
     );
   }
 
-  const [{ data: contactRows }, { data: dismissedPairs }] = await Promise.all([
-    supabase
-      .from('contacts')
-      .select('id, first, last, phone, phone2, email, email2, idnum, source, dept, tags, notes, frozen, created_at, contact_departments (stage, workspaces:workspace_id (name))'),
+  // שולפים את כל אנשי הקשר בדפים של 1000 (מגבלת ברירת המחדל של
+  // PostgREST) - אחרת בכמויות גדולות (אלפי אנשי קשר) הסריקה הייתה
+  // מכסה רק את ה-1000 הראשונים לפי סדר שאילתה לא-מוגדר.
+  const contactsSelect = 'id, first, last, phone, phone2, email, email2, idnum, source, dept, tags, notes, frozen, created_at, contact_departments (stage, workspaces:workspace_id (name))';
+  async function fetchAllContactRows() {
+    const pageSize = 1000;
+    let page = 0;
+    let all = [];
+    while (true) {
+      const { data: pageData } = await supabase.from('contacts').select(contactsSelect).range(page * pageSize, page * pageSize + pageSize - 1);
+      if (!pageData || pageData.length === 0) break;
+      all = all.concat(pageData);
+      if (pageData.length < pageSize) break;
+      page++;
+    }
+    return all;
+  }
+
+  const [contactRows, { data: dismissedPairs }] = await Promise.all([
+    fetchAllContactRows(),
     supabase.from('dismissed_duplicate_pairs').select('contact_id_a, contact_id_b'),
   ]);
 

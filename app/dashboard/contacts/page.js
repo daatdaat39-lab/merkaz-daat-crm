@@ -15,12 +15,31 @@ export default async function ContactsPage() {
 
   const { byWorkspace: pipelinesByWorkspace, labels: stageLabels, colors: stageColors } = await getAllPipelines(supabase);
 
-  // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים)
-  const [{ data }, { data: workspaces }, { data: profile }, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
-    supabase
-      .from('contacts')
-      .select('id, first, last, idnum, phone, phone2, email, dept, tags, source, frozen, created_at, contact_departments (workspace_id, stage, extra_fields, workspaces:workspace_id (name))')
-      .order('created_at', { ascending: false }),
+  // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים).
+  // שולפים בדפים של 1000 (מגבלת ברירת המחדל של PostgREST/Supabase לכל
+  // קריאה בודדת) עד שמגיעים לדף לא-מלא - כדי לקבל את כל אנשי הקשר בפועל,
+  // לא רק את ה-1000 הראשונים לפי created_at.
+  const contactsSelect = 'id, first, last, idnum, phone, phone2, email, dept, tags, source, frozen, created_at, contact_departments (workspace_id, stage, extra_fields, workspaces:workspace_id (name))';
+  async function fetchAllContacts() {
+    const pageSize = 1000;
+    let page = 0;
+    let all = [];
+    while (true) {
+      const { data: pageData } = await supabase
+        .from('contacts')
+        .select(contactsSelect)
+        .order('created_at', { ascending: false })
+        .range(page * pageSize, page * pageSize + pageSize - 1);
+      if (!pageData || pageData.length === 0) break;
+      all = all.concat(pageData);
+      if (pageData.length < pageSize) break;
+      page++;
+    }
+    return all;
+  }
+
+  const [data, { data: workspaces }, { data: profile }, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
+    fetchAllContacts(),
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
