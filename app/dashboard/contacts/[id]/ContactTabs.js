@@ -336,6 +336,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           <KesherProjectPanel
             workspaceName={activeDepartment.workspaceName}
             commitments={deptCommitments}
+            oneTimeTransactions={deptTransactions.filter((t) => !t.commitment_id)}
             extraValues={extraValues}
           />
           {visibleFieldDefs.map((f) => (
