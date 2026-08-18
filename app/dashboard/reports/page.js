@@ -21,8 +21,24 @@ export default async function ReportsPage() {
   let tasks = [];
   let meetings = [];
   if (workspaceId) {
-    const [{ data: c }, { data: wc }, { data: t }, { data: m }] = await Promise.all([
-      supabase.from('contacts').select('dept, created_at'),
+    async function fetchAllContactDepts() {
+      const pageSize = 1000;
+      let page = 0;
+      let all = [];
+      while (true) {
+        const { data: pageData } = await supabase
+          .from('contacts')
+          .select('dept, created_at')
+          .range(page * pageSize, page * pageSize + pageSize - 1);
+        if (!pageData || pageData.length === 0) break;
+        all = all.concat(pageData);
+        if (pageData.length < pageSize) break;
+        page++;
+      }
+      return all;
+    }
+    const [c, { data: wc }, { data: t }, { data: m }] = await Promise.all([
+      fetchAllContactDepts(),
       supabase.from('contact_departments').select('stage').eq('workspace_id', workspaceId),
       supabase.from('tasks').select('done').eq('workspace_id', workspaceId),
       supabase.from('meetings').select('meeting_date').eq('workspace_id', workspaceId),
