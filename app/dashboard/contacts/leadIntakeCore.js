@@ -35,15 +35,30 @@ export async function findExistingMatch(supabase, { idnum, phone, email, sourceS
 
   const filters = [];
   if (idnum) filters.push(['idnum', idnum]);
-  if (phone) filters.push(['phone', phone]);
   if (email) filters.push(['email', email]);
-  if (filters.length === 0) return null;
+  if (filters.length > 0) {
+    const results = await Promise.all(
+      filters.map(([column, value]) => supabase.from('contacts').select(select).eq(column, value).limit(1))
+    );
+    for (const { data } of results) {
+      if (data?.[0]) return data[0];
+    }
+  }
 
-  const results = await Promise.all(
-    filters.map(([column, value]) => supabase.from('contacts').select(select).eq(column, value).limit(1))
-  );
-  for (const { data } of results) {
-    if (data?.[0]) return data[0];
+  // טלפון: השוואה מנורמלת (ספרות בלבד, מול phone_digits/phone2_digits -
+  // עמודות generated, מיגרציה 0064) ולא השוואת מחרוזת מדויקת - כי מקורות
+  // שונים (מערכת עסקים מול קשר) מפרמטים טלפון אחרת (עם/בלי מקפים), והשוואה
+  // מדויקת פספסה בשקט התאמות אמיתיות (אושר מריצה חיה - 8 כרטיסים כפולים
+  // נוצרו בגלל זה בדיוק). בודק גם phone2 (בעבר לא נבדק בכלל כאן).
+  if (phone) {
+    const digits = phone.toString().replace(/\D/g, '');
+    if (digits) {
+      const { data: viaPhone } = await supabase
+        .from('contacts').select(select)
+        .or(`phone_digits.eq.${digits},phone2_digits.eq.${digits}`)
+        .limit(1);
+      if (viaPhone?.[0]) return viaPhone[0];
+    }
   }
 
   // אם הטלפון לא נמצא כ-phone/phone2 ראשי - בודקים גם contact_phones
