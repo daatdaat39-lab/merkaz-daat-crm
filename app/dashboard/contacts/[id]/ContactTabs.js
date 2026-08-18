@@ -337,6 +337,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             workspaceName={activeDepartment.workspaceName}
             commitments={deptCommitments}
             oneTimeTransactions={deptTransactions.filter((t) => !t.commitment_id)}
+            linkedTransactions={deptTransactions.filter((t) => !!t.commitment_id)}
             extraValues={extraValues}
           />
           {visibleFieldDefs.map((f) => (

@@ -27,14 +27,30 @@ function maskedPaymentMethod(extraValues) {
   return bank || null;
 }
 
-export default function KesherProjectPanel({ workspaceName, commitments = [], oneTimeTransactions = [], extraValues = {} }) {
+// מחשב "תשלום חודשי" (total_amount/installments_count) ו"כמה עברו מתוך
+// כמה" (ספירת donation_transactions שבפועל מקושרות ל-commitment_id הזה,
+// out of installments_count) - לא שדה שמור, מחושב בזמן תצוגה מהנתונים
+// שכבר קיימים. installments_count<=1 = תשלום בודד/סכום כולל בלבד -
+// אין משמעות ל"חודשי", לא מציגים.
+function commitmentProgress(c, linkedTransactions) {
+  const installments = Number(c.installments_count) || 0;
+  if (installments <= 1) return null;
+  const monthly = Number(c.total_amount) / installments;
+  const paidCount = linkedTransactions.filter((t) => t.commitment_id === c.id).length;
+  return { monthly, paidCount, installments };
+}
+
+export default function KesherProjectPanel({ workspaceName, commitments = [], oneTimeTransactions = [], linkedTransactions = [], extraValues = {} }) {
   if (commitments.length === 0 && oneTimeTransactions.length === 0) return null;
 
-  const total = commitments
-    .filter((c) => c.status === 'active')
-    .reduce((sum, c) => sum + (Number(c.total_amount) || 0), 0);
+  const activeCommitments = commitments.filter((c) => c.status === 'active');
+  const total = activeCommitments.reduce((sum, c) => sum + (Number(c.total_amount) || 0), 0);
   const paymentMethod = maskedPaymentMethod(extraValues);
   const ONE_TIME_PILL = oneTimePill(workspaceName);
+  // כשיש בדיוק הוראת קבע פעילה אחת - מצרפים לשורת הסיכום גם את הפירוט
+  // החודשי שלה (₪X/חודש, כמה עברו מתוך כמה). כשיש כמה, אין "אחת" ברורה
+  // להציג כאן - הפירוט עדיין מופיע בכרטיס של כל הוראת קבע בנפרד למטה.
+  const singleActiveProgress = activeCommitments.length === 1 ? commitmentProgress(activeCommitments[0], linkedTransactions) : null;
 
   return (
     <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
@@ -42,11 +58,19 @@ export default function KesherProjectPanel({ workspaceName, commitments = [], on
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted, #9b9b9b)', textTransform: 'uppercase' }}>
           פרויקט: {workspaceName}
         </span>
-        <span style={{ fontSize: 13, fontWeight: 700 }}>סך הכל (הוראות קבע פעילות): ₪{total.toLocaleString('he-IL')}</span>
+        <span style={{ fontSize: 13, fontWeight: 700 }}>
+          סך הכל (הוראות קבע פעילות): ₪{total.toLocaleString('he-IL')}
+          {singleActiveProgress && (
+            <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>
+              {' '}· ₪{singleActiveProgress.monthly.toLocaleString('he-IL', { maximumFractionDigits: 2 })}/חודש · {singleActiveProgress.paidCount}/{singleActiveProgress.installments}
+            </span>
+          )}
+        </span>
       </div>
 
       {commitments.map((c) => {
         const pill = statusPill(c.status);
+        const progress = commitmentProgress(c, linkedTransactions);
         return (
           <div key={`c-${c.id}`} style={{ border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '8px 10px', marginBottom: 8, fontSize: 12.5 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -66,6 +90,12 @@ export default function KesherProjectPanel({ workspaceName, commitments = [], on
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', color: 'var(--text-secondary)' }}>
               <span>סכום: <b style={{ color: 'var(--text)' }}>₪{Number(c.total_amount).toLocaleString('he-IL')}</b></span>
+              {progress && (
+                <span>
+                  תשלום חודשי: <b style={{ color: 'var(--text)' }}>₪{progress.monthly.toLocaleString('he-IL', { maximumFractionDigits: 2 })}</b>
+                  {' '}· עברו {progress.paidCount} מתוך {progress.installments}
+                </span>
+              )}
               {c.designation && <span>ייעוד: {c.designation}</span>}
               {(c.payment_method || paymentMethod) && <span>אמצעי תשלום: {c.payment_method || paymentMethod}</span>}
               {c.frequency && <span>תדירות: {c.frequency}</span>}
