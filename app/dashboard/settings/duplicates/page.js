@@ -58,6 +58,28 @@ export default async function DuplicatesPage() {
 
   const { candidates } = findDuplicateCandidates(contacts, dismissedPairs || [], namePairs || []);
 
+  // כמה תרומות/התחייבויות יש לכל צד בכל זוג - כדי שהמנהל יראה *לפני*
+  // שהוא לוחץ "מיזוג" אם יש נתונים כספיים בסיכון (בדיוק כמו שקרה בפועל
+  // עם "מוריס מנחם" הלילה - כרטיס שנראה ריק אבל החביא תרומה אמיתית).
+  // נשלף רק לאנשי הקשר שבתור (לא לכל 2,840) - קבוצה קטנה וזולה.
+  const candidateIds = new Set();
+  for (const c of candidates) { candidateIds.add(c.contactA.id); candidateIds.add(c.contactB.id); }
+  const idsArray = Array.from(candidateIds);
+  const [{ data: txnRows }, { data: commitmentRows }] = idsArray.length > 0
+    ? await Promise.all([
+        supabase.from('donation_transactions').select('contact_id').in('contact_id', idsArray),
+        supabase.from('commitments').select('contact_id').in('contact_id', idsArray),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const txnCounts = new Map();
+  for (const r of txnRows || []) txnCounts.set(r.contact_id, (txnCounts.get(r.contact_id) || 0) + 1);
+  const commitmentCounts = new Map();
+  for (const r of commitmentRows || []) commitmentCounts.set(r.contact_id, (commitmentCounts.get(r.contact_id) || 0) + 1);
+  function withMoneyCounts(contact) {
+    return { ...contact, transactionsCount: txnCounts.get(contact.id) || 0, commitmentsCount: commitmentCounts.get(contact.id) || 0 };
+  }
+  const candidatesWithCounts = candidates.map((c) => ({ ...c, contactA: withMoneyCounts(c.contactA), contactB: withMoneyCounts(c.contactB) }));
+
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 24px' }}>
       <a href="/dashboard/settings" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה להגדרות</a>
@@ -65,7 +87,7 @@ export default async function DuplicatesPage() {
       <p style={{ margin: '0 0 4px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
         סריקה של כל אנשי הקשר במערכת — זוגות עם ת"ז/טלפון/מייל זהים, או שם דומה מאוד. עברו זוג-זוג ומזגו, או סמנו "לא כפילות".
       </p>
-      <DuplicateQueueClient initialCandidates={candidates} />
+      <DuplicateQueueClient initialCandidates={candidatesWithCounts} />
     </div>
   );
 }

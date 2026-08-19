@@ -13,6 +13,7 @@ function richnessScore(c) {
   let score = fields.filter((f) => (c[f] || '').toString().trim()).length;
   score += (c.departments || []).length;
   score += (c.tags || []).length > 0 ? 1 : 0;
+  score += (c.transactionsCount || 0) + (c.commitmentsCount || 0);
   return score;
 }
 
@@ -32,6 +33,11 @@ function ContactSummary({ contact, roleLabel }) {
       <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: 6 }}>{roleLabel}</div>
       <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{contact.first} {contact.last}</div>
       {contact.frozen && <div style={{ fontSize: 11, color: '#1d4ed8', marginBottom: 6 }}>❄ מוקפא</div>}
+      {(contact.transactionsCount > 0 || contact.commitmentsCount > 0) && (
+        <div style={{ fontSize: 11.5, fontWeight: 600, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '4px 8px', marginBottom: 8 }}>
+          💰 {contact.transactionsCount} תרומות · {contact.commitmentsCount} התחייבויות — בדקו לפני מיזוג
+        </div>
+      )}
       <Row label='ת"ז' value={contact.idnum} />
       <Row label="טלפון" value={contact.phone} />
       <Row label="טלפון נוסף" value={contact.phone2} />
