@@ -6,6 +6,7 @@
 import { getPipeline } from '../lib/pipelines';
 import { detectCommitments } from './commitmentClustering';
 import { planAdditionalPhones, normalizePhoneDigits } from './phoneRouting';
+import { enrollInCampaign } from '../sales/campaigns/kesherCampaign';
 
 // מחפש איש קשר קיים לפי ת"ז/טלפון/מייל (זיהוי כפילויות לפי האפיון) -
 // שאילתות נפרדות ומפורמטות במקום .or() בנוי ממחרוזת, כי הערכים האלה
@@ -295,7 +296,7 @@ export async function resolveCommitment(supabase, contactId, workspace, commitme
 // (משלים שדות ריקים בלבד + מוסיף רשומת פנייה חדשה להיסטוריה).
 // sourceSystem/batchLabel מתויגים על כל רשומת lead_inquiries שנוצרת, כך
 // שהמקור והתקופה של כל ייבוא נשארים גלויים לצמיתות בטאב "פעילות".
-export async function bulkImportContactRows(supabase, { rows, workspaceId, workspace, sourceSystem, batchLabel, requiresApproval = false, openProcess = true, autoDetectCommitments = null }) {
+export async function bulkImportContactRows(supabase, { rows, workspaceId, workspace, sourceSystem, batchLabel, requiresApproval = false, openProcess = true, autoDetectCommitments = null, campaignName = null, userId = null }) {
   const ws = workspace || { id: workspaceId };
   const reason = (batchLabel || '').trim() || 'ייבוא';
 
@@ -416,6 +417,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       await attachCommitment(existing.id, row);
       trackTransactionResult(await insertDonationTransaction(supabase, existing.id, ws.id, sourceSystem, row.donationTransaction));
       await upsertContactExternalId(supabase, existing.id, sourceSystem, externalId);
+      if (campaignName) await enrollInCampaign(supabase, ws.id, existing.id, userId, campaignName);
       enriched++;
       continue;
     }
@@ -455,6 +457,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       await attachCommitment(createdContact.id, row);
       trackTransactionResult(await insertDonationTransaction(supabase, createdContact.id, ws.id, sourceSystem, row.donationTransaction));
       await upsertContactExternalId(supabase, createdContact.id, sourceSystem, externalId);
+      if (campaignName) await enrollInCampaign(supabase, ws.id, createdContact.id, userId, campaignName);
       created++;
     }
   }

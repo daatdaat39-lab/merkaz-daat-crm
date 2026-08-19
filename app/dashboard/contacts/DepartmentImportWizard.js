@@ -108,6 +108,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
   const [systemName, setSystemName] = useState('');
   const [workspaceId, setWorkspaceId] = useState(defaultWorkspaceId);
   const [batchLabel, setBatchLabel] = useState('');
+  const [campaignName, setCampaignName] = useState('');
   const [openProcess, setOpenProcess] = useState(false);
   const [skipFutureDates, setSkipFutureDates] = useState(true);
   const [futureSkipped, setFutureSkipped] = useState(0);
@@ -170,7 +171,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
 
   function resetAll() {
     setOpen(false); setStep('upload'); setHeaders([]); setDataRows([]);
-    setMapping({}); setSystemName(''); setBatchLabel(''); setOpenProcess(false); setSkipFutureDates(true); setFutureSkipped(0); setResult(null); setStageValueMaps({});
+    setMapping({}); setSystemName(''); setBatchLabel(''); setCampaignName(''); setOpenProcess(false); setSkipFutureDates(true); setFutureSkipped(0); setResult(null); setStageValueMaps({});
     setAutoDetectCommitments(false); setBillingSourceValue('הפעלת בילינג'); setSuccessStatusValuesText('תקין');
   }
 
@@ -334,7 +335,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
     };
 
     for (const chunk of chunks) {
-      const res = await importDepartmentBatch(chunk, workspaceId, systemName.trim() || null, batchLabel.trim() || null, openProcess, null);
+      const res = await importDepartmentBatch(chunk, workspaceId, systemName.trim() || null, batchLabel.trim() || null, openProcess, null, campaignName.trim() || null);
       if (!res?.success) {
         setIsPending(false);
         setImportProgress(null);
@@ -397,6 +398,8 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
             <input type="text" value={systemName} onChange={(e) => applySystemName(e.target.value)} placeholder="קשר" style={input()} />
             <label style={label()}>תקופה/תאריך לתיוג (למשל: מרץ 2026)</label>
             <input type="text" value={batchLabel} onChange={(e) => setBatchLabel(e.target.value)} placeholder="מרץ 2026" style={input()} />
+            <label style={label()}>שיוך לקמפיין (אופציונלי) - כל אנשי הקשר בקובץ ישויכו אליו</label>
+            <input type="text" value={campaignName} onChange={(e) => setCampaignName(e.target.value)} placeholder="למשל: קמפיין צ'ריידי דעת" style={input()} />
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, fontSize: 13, cursor: 'pointer' }}>
               <input type="checkbox" checked={openProcess} onChange={(e) => setOpenProcess(e.target.checked)} />
               לפתוח תהליך/ליד לאנשי קשר חדשים בקובץ הזה
