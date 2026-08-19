@@ -203,6 +203,25 @@ const FIELD_LABELS = {
   zip_code: 'מיקוד', neighborhood: 'שכונה', country: 'מדינה',
 };
 
+// ממיר DD/MM/YYYY (הפורמט הנפוץ בקבצי ייצוא ישראליים, וגם מה שהאשף
+// הכללי - DepartmentImportWizard.js - שולח כברירת מחדל) ל-ISO
+// (YYYY-MM-DD) לפני כתיבה לעמודת date ב-Postgres. קריטי: בלי ההמרה
+// הזו, Postgres מפרש "DD/MM/YYYY" לפי datestyle ברירת המחדל (MDY) -
+// כשה-DD>12 זו שגיאת "date/time field value out of range" ש-
+// insertDonationTransaction בולעת בשקט (מחזירה null, לא נספר גם
+// כ"נכשל" וגם לא כ"דולג") והתנועה כלל לא נכתבת; כשה-DD<=12 הוא
+// "מצליח" בשקט אבל עם יום/חודש מוחלפים (תאריך שגוי, לא שגיאה גלויה).
+// נמצא בפועל: 91% מהתנועות בייבוא צ'ריידי (DD>12) נעלמו לגמרי בלי
+// אזהרה. תאריך שכבר ISO (כמו מה ש-kesherSyncActions.js's safeDate
+// כבר ממיר לפני הקריאה לכאן) עובר ללא שינוי - הרג'קס לא תופס אותו.
+function toIsoDate(raw) {
+  const s = (raw || '').toString().trim();
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return s;
+  const [, day, month, year] = m;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
 // מוסיף תנועת תרומה בודדת להיסטוריה (donation_transactions, מיגרציה
 // 0031) - לא "תמונת מצב" יחידה אלא רשומה מצטברת, כדי שאפשר יהיה לשמור
 // היסטוריה מלאה מכמה מקורות (מערכות הנהלת חשבונות שונות + בעתיד קשר
@@ -212,7 +231,7 @@ const FIELD_LABELS = {
 export async function insertDonationTransaction(supabase, contactId, workspaceId, sourceSystem, donationTransaction) {
   if (!donationTransaction) return null;
   const amount = Number(donationTransaction.amount);
-  const date = (donationTransaction.date || '').toString().trim();
+  const date = toIsoDate(donationTransaction.date);
   if (!amount || !date) return null;
 
   const { data, error } = await supabase
@@ -262,8 +281,8 @@ export async function resolveCommitment(supabase, contactId, workspace, commitme
   const patch = {
     total_amount: totalAmount,
     installments_count: Number(commitment.installmentsCount) > 0 ? Number(commitment.installmentsCount) : 1,
-    start_date: (commitment.startDate || '').toString().trim() || null,
-    end_date: (commitment.endDate || '').toString().trim() || null,
+    start_date: commitment.startDate ? toIsoDate(commitment.startDate) : null,
+    end_date: commitment.endDate ? toIsoDate(commitment.endDate) : null,
     designation: (commitment.designation || '').toString().trim() || null,
     payment_method: (commitment.paymentMethod || '').toString().trim() || null,
     status,
