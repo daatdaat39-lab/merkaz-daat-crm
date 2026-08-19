@@ -43,9 +43,12 @@ export default async function DuplicatesPage() {
     return all;
   }
 
-  const [contactRows, { data: dismissedPairs }] = await Promise.all([
+  const [contactRows, { data: dismissedPairs }, { data: namePairs }] = await Promise.all([
     fetchAllContactRows(),
     supabase.from('dismissed_duplicate_pairs').select('contact_id_a, contact_id_b'),
+    // דמיון-שמות מחושב ב-DB (מיגרציה 0066, אינדקס טריגרם) - לא בקוד -
+    // כדי שזה יישאר סקיילבילי בכל כמות אנשי קשר, לא רק מתחת לסף קבוע.
+    supabase.rpc('find_similar_contact_name_pairs'),
   ]);
 
   const contacts = (contactRows || []).map((c) => ({
@@ -53,7 +56,7 @@ export default async function DuplicatesPage() {
     departments: (c.contact_departments || []).map((d) => ({ stage: d.stage, workspaceName: d.workspaces?.name || 'מחלקה' })),
   }));
 
-  const { candidates, nameMatchSkipped } = findDuplicateCandidates(contacts, dismissedPairs || []);
+  const { candidates } = findDuplicateCandidates(contacts, dismissedPairs || [], namePairs || []);
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 24px' }}>
@@ -62,11 +65,6 @@ export default async function DuplicatesPage() {
       <p style={{ margin: '0 0 4px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
         סריקה של כל אנשי הקשר במערכת — זוגות עם ת"ז/טלפון/מייל זהים, או שם דומה מאוד. עברו זוג-זוג ומזגו, או סמנו "לא כפילות".
       </p>
-      {nameMatchSkipped && (
-        <p style={{ margin: '0 0 16px', fontSize: 12, color: '#c2760f' }}>
-          ⚠ יש יותר מדי אנשי קשר לבדיקת דמיון שמות מלאה — הוצגו רק התאמות מדויקות (ת"ז/טלפון/מייל).
-        </p>
-      )}
       <DuplicateQueueClient initialCandidates={candidates} />
     </div>
   );

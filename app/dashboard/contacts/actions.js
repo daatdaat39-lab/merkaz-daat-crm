@@ -450,18 +450,45 @@ export async function mergeContacts(keepId, duplicateId, resolvedFields) {
 
   // מעביר שיוכי מחלקה של הכפול לכרטיס הנשאר, כולל היסטוריית הפניות שלהם:
   // אם למחלקה הזו כבר יש שיוך אצל הנשאר - מעבירים רק את היסטוריית הפניות
-  // לשורה הקיימת שלו; אחרת מעבירים את השורה עצמה (כדי לא לאבד את ההיסטוריה)
-  const { data: dupDepartments } = await supabase.from('contact_departments').select('id, workspace_id').eq('contact_id', duplicateId);
-  const { data: keepDepartments } = await supabase.from('contact_departments').select('id, workspace_id').eq('contact_id', keepId);
-  const keepByWorkspace = new Map((keepDepartments || []).map((d) => [d.workspace_id, d.id]));
+  // לשורה הקיימת שלו (ומאחדים extra_fields, הקיים תמיד מנצח); אחרת מעבירים
+  // את השורה עצמה (כדי לא לאבד את ההיסטוריה)
+  const { data: dupDepartments } = await supabase.from('contact_departments').select('id, workspace_id, extra_fields').eq('contact_id', duplicateId);
+  const { data: keepDepartments } = await supabase.from('contact_departments').select('id, workspace_id, extra_fields').eq('contact_id', keepId);
+  const keepByWorkspace = new Map((keepDepartments || []).map((d) => [d.workspace_id, d]));
   for (const d of dupDepartments || []) {
-    const keepRowId = keepByWorkspace.get(d.workspace_id);
-    if (keepRowId) {
-      await supabase.from('lead_inquiries').update({ contact_department_id: keepRowId }).eq('contact_department_id', d.id);
+    const keepDept = keepByWorkspace.get(d.workspace_id);
+    if (keepDept) {
+      await supabase.from('lead_inquiries').update({ contact_department_id: keepDept.id }).eq('contact_department_id', d.id);
+      const mergedExtra = { ...(d.extra_fields || {}), ...(keepDept.extra_fields || {}) };
+      await supabase.from('contact_departments').update({ extra_fields: mergedExtra }).eq('id', keepDept.id);
     } else {
       await supabase.from('contact_departments').update({ contact_id: keepId }).eq('id', d.id);
     }
   }
+
+  // מעביר תנועות/התחייבויות/טלפונים-נוספים/מזהים-חיצוניים/שיוכי-קמפיין
+  // של הכפול לנשאר - מדלג על מה שכבר קיים אצל הנשאר לפי המפתח הייחודי
+  // הרלוונטי (לא דורס), בדיוק אותה שיטה כמו סקריפטי המיזוג הידניים
+  // שהורצו על הנתונים האמיתיים (donation_transactions/commitments וכו') -
+  // בלי זה, ה-delete בסוף היה מוחק נתונים כספיים אמיתיים בשקט (cascade).
+  async function moveRowsSkippingConflicts(table, matchColumns, requiredColumn) {
+    const selectCols = ['id', ...matchColumns].join(', ');
+    const { data: dupRows } = await supabase.from(table).select(selectCols).eq('contact_id', duplicateId);
+    const { data: keepRows } = await supabase.from(table).select(matchColumns.join(', ')).eq('contact_id', keepId);
+    const keyOf = (row) => matchColumns.map((k) => row[k] ?? '').join('|');
+    const keepKeys = new Set((keepRows || []).map(keyOf));
+    for (const row of dupRows || []) {
+      if (row[requiredColumn] && keepKeys.has(keyOf(row))) continue;
+      await supabase.from(table).update({ contact_id: keepId }).eq('id', row.id);
+    }
+  }
+  await moveRowsSkippingConflicts('donation_transactions', ['source_system', 'external_doc_number'], 'external_doc_number');
+  await moveRowsSkippingConflicts('commitments', ['external_reference'], 'external_reference');
+  await moveRowsSkippingConflicts('contact_phones', ['phone'], 'phone');
+  await moveRowsSkippingConflicts('contact_external_ids', ['source_system', 'external_id'], 'external_id');
+  await moveRowsSkippingConflicts('campaign_contacts', ['campaign_id'], 'campaign_id');
+  // import_conflicts - בלי אילוץ ייחודיות, מעבירים ישירות
+  await supabase.from('import_conflicts').update({ contact_id: keepId }).eq('contact_id', duplicateId);
 
   if (resolvedFields) {
     // המשתמש בחר שדה-שדה מה להשאיר (כולל אפשרות "שניהם" לטלפון/מייל) -

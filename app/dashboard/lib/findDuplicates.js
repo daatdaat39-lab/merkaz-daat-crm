@@ -2,9 +2,10 @@
 // כדי שיהיה קל לבדוק/לשנות בנפרד מהעמוד שקורא לה
 // (app/dashboard/settings/duplicates/page.js). קריטריון: כל התאמה
 // חלקית - ת"ז/טלפון/מייל זהים (קיבוץ, מהיר גם בכמויות גדולות), או שם
-// דומה מספיק (השוואת זוגות, לכן מוגבלת בכמות למניעת תקיעה).
+// דומה (namePairs - מגיע מוכן מ-find_similar_contact_name_pairs, פונקציית
+// DB עם אינדקס טריגרם - לא מחושב כאן, כדי שזה יישאר סקיילבילי בכל כמות).
+import { normalizePhoneDigits } from '../contacts/phoneRouting';
 
-const MAX_CONTACTS_FOR_NAME_MATCH = 2000;
 const NAME_SIMILARITY_THRESHOLD = 0.8;
 
 export function normalize(str) {
@@ -35,18 +36,20 @@ export function nameSimilarity(a, b) {
 }
 
 // מוצא לאיזה איש קשר קיים מתאימה שורה נכנסת (למשל שורה מקובץ היסטוריית
-// שיחות שיש בה רק שם, ולפעמים טלפון). מחזיר:
+// שיחות שיש בה רק שם, ולפעמים טלפון) - נשארת O(שורות בקובץ × אנשי קשר),
+// לא O(אנשי קשר²), אז דמיון-שמות בהשוואת-זוגות עדיין סביר כאן (בשונה
+// ממסך "בדיקת כפליות" שמשווה את כל אנשי הקשר מול עצמם). מחזיר:
 //   { certain: contact }        - התאמה ודאית (טלפון/מייל זהים, או שם יחיד ומדויק)
 //   { candidates: [{contact, score}] } - מועמדים שדורשים אישור ידני
 //   {}                          - לא נמצאה שום התאמה סבירה
 // ההפרדה הזו היא מה שמאפשר למסך הייבוא להכניס אוטומטית רק את מה שברור,
 // ולהעלות לאישור המנהל כל מקרה של ספק.
 export function findMatchesForName(row, contacts) {
-  const phone = normalize(row.phone);
+  const phoneDigits = normalizePhoneDigits(row.phone);
   const email = normalize(row.email);
 
-  if (phone) {
-    const byPhone = contacts.filter((c) => normalize(c.phone) === phone || normalize(c.phone2) === phone);
+  if (phoneDigits) {
+    const byPhone = contacts.filter((c) => normalizePhoneDigits(c.phone) === phoneDigits || normalizePhoneDigits(c.phone2) === phoneDigits);
     if (byPhone.length === 1) return { certain: byPhone[0] };
     if (byPhone.length > 1) return { candidates: byPhone.map((c) => ({ contact: c, score: 1 })) };
   }
@@ -85,13 +88,15 @@ function addToGroup(map, key, contact) {
 }
 
 // dismissedPairs: מערך {contact_id_a, contact_id_b} - זוגות שכבר סומנו
-// "לא כפילות" ולכן מודחקים מהתוצאה
-export function findDuplicateCandidates(contacts, dismissedPairs = []) {
+// "לא כפילות" ולכן מודחקים מהתוצאה. namePairs: מערך {id_a, id_b, sim}
+// שכבר חושב ב-DB (find_similar_contact_name_pairs, מיגרציה 0066) - לא
+// מחושב כאן, כדי שהבדיקה תישאר סקיילבילית בכל כמות אנשי קשר.
+export function findDuplicateCandidates(contacts, dismissedPairs = [], namePairs = []) {
   const dismissedSet = new Set(dismissedPairs.map((p) => pairKey(p.contact_id_a, p.contact_id_b)));
   const pairs = new Map(); // pairKey -> { contactA, contactB, matchedOn: Set }
 
   function addCandidate(c1, c2, reason) {
-    if (c1.id === c2.id) return;
+    if (!c1 || !c2 || c1.id === c2.id) return;
     const key = pairKey(c1.id, c2.id);
     if (dismissedSet.has(key)) return;
     if (!pairs.has(key)) pairs.set(key, { contactA: c1, contactB: c2, matchedOn: new Set() });
@@ -113,8 +118,8 @@ export function findDuplicateCandidates(contacts, dismissedPairs = []) {
   const byEmail = new Map();
   for (const c of contacts) {
     addToGroup(byIdnum, normalize(c.idnum), c);
-    addToGroup(byPhone, normalize(c.phone), c);
-    addToGroup(byPhone, normalize(c.phone2), c);
+    addToGroup(byPhone, normalizePhoneDigits(c.phone), c);
+    addToGroup(byPhone, normalizePhoneDigits(c.phone2), c);
     addToGroup(byEmail, normalize(c.email), c);
     addToGroup(byEmail, normalize(c.email2), c);
   }
@@ -122,34 +127,15 @@ export function findDuplicateCandidates(contacts, dismissedPairs = []) {
   flagGroups(byPhone, 'טלפון זהה');
   flagGroups(byEmail, 'מייל זהה');
 
-  // שם דומה - דורש השוואת זוגות, לכן מוגבל בכמות ומקוצר בבדיקת אורך
-  // מקדימה (מרחק Levenshtein תמיד >= |הפרש האורכים|, אז אם ההפרש כבר
-  // חוסם את הסף - מדלגים בלי לחשב בכלל)
-  let nameMatchSkipped = false;
-  if (contacts.length <= MAX_CONTACTS_FOR_NAME_MATCH) {
-    const named = contacts
-      .map((c) => ({ c, name: normalize(`${c.first || ''} ${c.last || ''}`) }))
-      .filter((x) => x.name);
-    const maxLenDiffRatio = 1 - NAME_SIMILARITY_THRESHOLD;
-    for (let i = 0; i < named.length; i++) {
-      for (let j = i + 1; j < named.length; j++) {
-        const { name: nameA } = named[i];
-        const { name: nameB } = named[j];
-        const maxLen = Math.max(nameA.length, nameB.length, 1);
-        if (Math.abs(nameA.length - nameB.length) / maxLen > maxLenDiffRatio) continue;
-        const sim = nameSimilarity(nameA, nameB);
-        if (sim >= NAME_SIMILARITY_THRESHOLD) {
-          addCandidate(named[i].c, named[j].c, `שם דומה (${Math.round(sim * 100)}%)`);
-        }
-      }
-    }
-  } else {
-    nameMatchSkipped = true;
+  // שם דומה - מגיע מוכן מ-DB (RPC עם אינדקס טריגרם), לא מחושב כאן
+  const byId = new Map(contacts.map((c) => [c.id, c]));
+  for (const { id_a, id_b, sim } of namePairs) {
+    addCandidate(byId.get(id_a), byId.get(id_b), `שם דומה (${Math.round(sim * 100)}%)`);
   }
 
   const candidates = Array.from(pairs.values())
     .map((p) => ({ contactA: p.contactA, contactB: p.contactB, matchedOn: Array.from(p.matchedOn) }))
     .sort((a, b) => b.matchedOn.length - a.matchedOn.length); // כמה סיבות התאמה = חשוד יותר, קודם בתור
 
-  return { candidates, nameMatchSkipped };
+  return { candidates };
 }
