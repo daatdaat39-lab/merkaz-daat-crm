@@ -135,6 +135,11 @@ export default function PersonalInfoCard({
               <Link href={`/dashboard/contacts/${relatedContact.id}`} style={{ fontSize: 13, color: '#1f4d3d' }}>
                 {relatedContact.first} {relatedContact.last} →
               </Link>
+              {relatedContact.donationsCount > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                  🔗 {relatedContact.donationsCount} תרומות · ₪{relatedContact.donationsTotal.toLocaleString('he-IL')} אצל {relatedContact.first}
+                </div>
+              )}
             </div>
           )}
 

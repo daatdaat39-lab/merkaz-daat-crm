@@ -240,8 +240,18 @@ export async function loadContactCardData(contactId) {
 
   let relatedContact = null;
   if (contact.related_contact_id) {
-    const { data: rc } = await supabase.from('contacts').select('id, first, last').eq('id', contact.related_contact_id).single();
-    relatedContact = rc;
+    // סכום תרומות זול (רק amount, מסונן לאיש-קשר בודד) - כדי להציג
+    // "יש גם תרומות אצל X" בכרטיס בלי לשכפל/להעביר שום נתון כספי בפועל
+    // (ר' תוכנית "זיהוי כרטיסי-זוג לפיצול").
+    const [{ data: rc }, { data: relatedTxns }] = await Promise.all([
+      supabase.from('contacts').select('id, first, last').eq('id', contact.related_contact_id).single(),
+      supabase.from('donation_transactions').select('amount').eq('contact_id', contact.related_contact_id),
+    ]);
+    relatedContact = rc ? {
+      ...rc,
+      donationsTotal: (relatedTxns || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0),
+      donationsCount: (relatedTxns || []).length,
+    } : null;
   }
 
   return {

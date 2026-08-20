@@ -91,7 +91,10 @@ function addToGroup(map, key, contact) {
 // "לא כפילות" ולכן מודחקים מהתוצאה. namePairs: מערך {id_a, id_b, sim}
 // שכבר חושב ב-DB (find_similar_contact_name_pairs, מיגרציה 0066) - לא
 // מחושב כאן, כדי שהבדיקה תישאר סקיילבילית בכל כמות אנשי קשר.
-export function findDuplicateCandidates(contacts, dismissedPairs = [], namePairs = []) {
+// exactTokenPairs: מערך {id_a, id_b} מ-find_same_tokens_contact_pairs
+// (מיגרציה 0067) - אותם רכיבי שם בדיוק, סדר לא משנה (למשל "יוסף חיים
+// ערד" מול "ערד יוסף חיים") - סיבת התאמה מדויקת, לא מטושטשת.
+export function findDuplicateCandidates(contacts, dismissedPairs = [], namePairs = [], exactTokenPairs = []) {
   const dismissedSet = new Set(dismissedPairs.map((p) => pairKey(p.contact_id_a, p.contact_id_b)));
   const pairs = new Map(); // pairKey -> { contactA, contactB, matchedOn: Set }
 
@@ -127,15 +130,49 @@ export function findDuplicateCandidates(contacts, dismissedPairs = [], namePairs
   flagGroups(byPhone, 'טלפון זהה');
   flagGroups(byEmail, 'מייל זהה');
 
-  // שם דומה - מגיע מוכן מ-DB (RPC עם אינדקס טריגרם), לא מחושב כאן
+  // אותם רכיבי שם, סדר שונה - מדויק, לא מטושטש (ר' הערה למעלה) - נוסף
+  // לפני "שם דומה" המטושטש כדי שזוג שמותאם בשתי הדרכים יקבל את שתי
+  // הסיבות (matchedOn הוא Set, לא משנה סדר ההוספה).
   const byId = new Map(contacts.map((c) => [c.id, c]));
+  for (const { id_a, id_b } of exactTokenPairs) {
+    addCandidate(byId.get(id_a), byId.get(id_b), 'אותם רכיבי שם, סדר שונה');
+  }
+
+  // שם דומה - מגיע מוכן מ-DB (RPC עם אינדקס טריגרם), לא מחושב כאן
   for (const { id_a, id_b, sim } of namePairs) {
     addCandidate(byId.get(id_a), byId.get(id_b), `שם דומה (${Math.round(sim * 100)}%)`);
   }
 
+  // ודאות לפני כמות: זוג עם סיבת-התאמה מדויקת אחת (ת"ז/טלפון/מייל/אותם
+  // רכיבי שם) עדיף בתור על זוג עם כמה סיבות "שם דומה" מטושטש בלבד -
+  // כך שהעבודה הוודאית והמהירה נגמרת קודם, ושיקול-הדעת נשאר לסוף התור.
+  const hasExactReason = (matchedOn) => matchedOn.some((r) => !r.startsWith('שם דומה ('));
   const candidates = Array.from(pairs.values())
     .map((p) => ({ contactA: p.contactA, contactB: p.contactB, matchedOn: Array.from(p.matchedOn) }))
-    .sort((a, b) => b.matchedOn.length - a.matchedOn.length); // כמה סיבות התאמה = חשוד יותר, קודם בתור
+    .sort((a, b) => {
+      const exactDiff = (hasExactReason(b.matchedOn) ? 1 : 0) - (hasExactReason(a.matchedOn) ? 1 : 0);
+      if (exactDiff !== 0) return exactDiff;
+      return b.matchedOn.length - a.matchedOn.length; // כמה סיבות התאמה = חשוד יותר, קודם בתור
+    });
 
   return { candidates };
+}
+
+// תבנית "X ו-Y שם-משפחה" (חיבור עברי - ה"ו" צמוד למילה הבאה, בלי רווח,
+// למשל "שמואל ומושקא ערד") - כרטיס שכנראה מייצג שני אנשים (למשל תרומה
+// משותפת של זוג) ולא כפילות של אדם אחד. מגבלה ידועה: תופס רק את הסדר
+// "שם קודם, משפחה בסוף" - תבנית הפוכה (משפחה קודם) לא נתפסת אוטומטית.
+const COUPLE_NAME_PATTERN = /^(\S{2,})\s+ו(\S{2,})\s+(\S.{1,30})$/;
+
+// coupleDismissedIds: Set של contact_id שכבר סומנו "לא זוג" - מודחקים.
+export function detectCoupleCandidates(contacts, coupleDismissedIds = new Set()) {
+  const results = [];
+  for (const c of contacts) {
+    if (coupleDismissedIds.has(c.id)) continue;
+    const combined = normalize(`${c.first || ''} ${c.last || ''}`);
+    const m = combined.match(COUPLE_NAME_PATTERN);
+    if (!m) continue;
+    results.push({ contact: c, nameA: m[1], nameB: m[2], surname: m[3].trim() });
+  }
+  return results;
 }

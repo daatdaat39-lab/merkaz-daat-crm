@@ -734,6 +734,57 @@ export async function dismissDuplicatePair(contactIdA, contactIdB) {
   return { success: true };
 }
 
+// מפצל כרטיס-זוג (למשל "שמואל ומושקא ערד" - תרומה משותפת שנכנסה כאיש
+// קשר אחד) לשני אנשי קשר. הכרטיס הקיים ממשיך להחזיק את כל ההיסטוריה
+// (תרומות/התחייבויות/שיוכי מחלקה) בלי לזוז - רק שמו מתוקן לאדם א'
+// בלבד; נוצר כרטיס חדש וריק לאדם ב'. השניים מקושרים דו-כיווני דרך
+// related_contact_id/relation_label הקיימים (מיגרציה 0023, אותו מנגנון
+// שכבר משמש "קשרים משפחתיים" בכרטיס) - אין שום העברת נתון כספי, ולכן
+// אין סיכון לאבד/לשכפל כסף.
+export async function splitCoupleContact(contactId, nameA, nameB, surname) {
+  const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfAnyDepartment(supabase, user.id, contactId);
+  if (!allowed) return { error: 'רק מנהל מחלקה יכול לפצל איש קשר' };
+
+  const first = (nameA || '').toString().trim();
+  const second = (nameB || '').toString().trim();
+  const last = (surname || '').toString().trim();
+  if (!first || !second) return { error: 'יש למלא את שני השמות' };
+
+  const { data: original } = await supabase.from('contacts').select('source, tags').eq('id', contactId).maybeSingle();
+  if (!original) return { error: 'איש הקשר לא נמצא' };
+
+  const { data: created, error: createErr } = await supabase
+    .from('contacts')
+    .insert({ first: second, last, source: original.source, tags: original.tags || [] })
+    .select('id').single();
+  if (createErr || !created) return { error: createErr?.message || 'יצירת איש הקשר החדש נכשלה' };
+
+  const relationLabel = 'בן/בת זוג';
+  await supabase.from('contacts').update({
+    first, last, related_contact_id: created.id, relation_label: relationLabel,
+  }).eq('id', contactId);
+  await supabase.from('contacts').update({
+    related_contact_id: contactId, relation_label: relationLabel,
+  }).eq('id', created.id);
+
+  return { success: true, newContactId: created.id };
+}
+
+// מסמן כרטיס כ"לא זוג" מתוך סקשן "אולי זוגות" - כדי שלא יוצע שוב.
+export async function dismissCoupleCandidate(contactId) {
+  const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
+  if (!allowed) return { error: 'רק בעלים/מנהל יכול לסמן' };
+  if (!contactId) return { error: 'איש קשר לא תקין' };
+
+  const { error } = await supabase
+    .from('dismissed_couple_candidates')
+    .upsert({ contact_id: contactId, dismissed_by: user.id }, { onConflict: 'contact_id', ignoreDuplicates: true });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 // ---------- ייבוא היסטוריית שיחות ----------
 // מחזיר את כל אנשי הקשר בשדות הדרושים להתאמה - נקרא מאשף ייבוא השיחות
 // כדי שההתאמה (כולל שם דומה) תיעשה בצד הלקוח לפני הכתיבה, ורק מה

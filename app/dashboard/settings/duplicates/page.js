@@ -1,8 +1,9 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { isManagerOfAnyWorkspace } from '../../lib/contactGuards';
-import { findDuplicateCandidates } from '../../lib/findDuplicates';
+import { findDuplicateCandidates, detectCoupleCandidates } from '../../lib/findDuplicates';
 import DuplicateQueueClient from './DuplicateQueueClient';
+import CoupleCandidatesSection from './CoupleCandidatesSection';
 
 // תור בדיקת כפליות - סורק את כל אנשי הקשר במערכת (לא רק מחלקה אחת),
 // מאתר זוגות עם ת"ז/טלפון/מייל זהים או שם דומה מאוד (ר' findDuplicates.js),
@@ -43,12 +44,15 @@ export default async function DuplicatesPage() {
     return all;
   }
 
-  const [contactRows, { data: dismissedPairs }, { data: namePairs }] = await Promise.all([
+  const [contactRows, { data: dismissedPairs }, { data: namePairs }, { data: exactTokenPairs }, { data: dismissedCoupleRows }] = await Promise.all([
     fetchAllContactRows(),
     supabase.from('dismissed_duplicate_pairs').select('contact_id_a, contact_id_b'),
     // דמיון-שמות מחושב ב-DB (מיגרציה 0066, אינדקס טריגרם) - לא בקוד -
     // כדי שזה יישאר סקיילבילי בכל כמות אנשי קשר, לא רק מתחת לסף קבוע.
     supabase.rpc('find_similar_contact_name_pairs'),
+    // אותם רכיבי שם, סדר שונה - מדויק, לא מטושטש (מיגרציה 0067).
+    supabase.rpc('find_same_tokens_contact_pairs'),
+    supabase.from('dismissed_couple_candidates').select('contact_id'),
   ]);
 
   const contacts = (contactRows || []).map((c) => ({
@@ -56,7 +60,8 @@ export default async function DuplicatesPage() {
     departments: (c.contact_departments || []).map((d) => ({ stage: d.stage, workspaceName: d.workspaces?.name || 'מחלקה' })),
   }));
 
-  const { candidates } = findDuplicateCandidates(contacts, dismissedPairs || [], namePairs || []);
+  const { candidates } = findDuplicateCandidates(contacts, dismissedPairs || [], namePairs || [], exactTokenPairs || []);
+  const coupleCandidates = detectCoupleCandidates(contacts, new Set((dismissedCoupleRows || []).map((r) => r.contact_id)));
 
   // כמה תרומות/התחייבויות יש לכל צד בכל זוג - כדי שהמנהל יראה *לפני*
   // שהוא לוחץ "מיזוג" אם יש נתונים כספיים בסיכון (בדיוק כמו שקרה בפועל
@@ -87,6 +92,7 @@ export default async function DuplicatesPage() {
       <p style={{ margin: '0 0 4px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
         סריקה של כל אנשי הקשר במערכת — זוגות עם ת"ז/טלפון/מייל זהים, או שם דומה מאוד. עברו זוג-זוג ומזגו, או סמנו "לא כפילות".
       </p>
+      <CoupleCandidatesSection initialCandidates={coupleCandidates} />
       <DuplicateQueueClient initialCandidates={candidatesWithCounts} />
     </div>
   );
