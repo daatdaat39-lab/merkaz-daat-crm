@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Tag } from '../../components/ui';
 import { updateContact, searchContacts, assignAgent, addContactTag } from '../actions';
 import TagPicker from '../TagPicker';
+import FamilyRelationsPanel from './FamilyRelationsPanel';
 
 const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 8px', fontSize: 12.5 };
 const categoryLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', letterSpacing: '.03em', margin: '14px 0 8px' };
@@ -15,7 +16,7 @@ const categoryLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTra
 // ✎ הופכת את שורות הזהות/פרטי הקשר לשדות קלט במקום, עם שמירה/ביטול.
 export default function PersonalInfoCard({
   contact, existingTags, tagGroups = null, age, hebrewDate, nextMeeting, openTasksCount, agentId, agentName, agents, activeWorkspaceId,
-  lastActivityAt, relatedContact, externalIds = [],
+  lastActivityAt, relatedContact, relatedContacts = { forward: [], reverse: [] }, externalIds = [],
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState(null);
@@ -129,6 +130,7 @@ export default function PersonalInfoCard({
               </div>
             </div>
           )}
+          <FamilyRelationsPanel relatedContacts={relatedContacts} />
           {relatedContact && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 10.5, color: '#9b9b9b' }}>{contact.relation_label || 'איש קשר קשור'}</div>

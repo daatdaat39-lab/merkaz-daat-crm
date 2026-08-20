@@ -348,6 +348,24 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
               <label style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', marginBottom: 4 }}>{f.label}</label>
               {f.type === 'computed' ? (
                 <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '7px 0' }}>{computeFieldValue(f, extraValues, fieldDefs, deptTransactions) || '—'}</div>
+              ) : f.type === 'select' && f.allowMultiple ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', padding: '4px 0' }}>
+                  {(f.options || []).map((o) => {
+                    const selected = Array.isArray(extraValues[f.key]) ? extraValues[f.key] : [];
+                    const checked = selected.includes(o);
+                    return (
+                      <label key={o} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12.5, cursor: frozen ? 'default' : 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={frozen}
+                          onChange={() => handleExtraFieldChange(f.key, checked ? selected.filter((v) => v !== o) : [...selected, o])}
+                        />
+                        {o}
+                      </label>
+                    );
+                  })}
+                </div>
               ) : f.type === 'select' ? (
                 <select
                   value={extraValues[f.key] || ''}

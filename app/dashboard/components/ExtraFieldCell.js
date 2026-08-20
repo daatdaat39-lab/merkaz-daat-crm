@@ -10,6 +10,12 @@
 export default function ExtraFieldCell({ field, value, onCommit, disabled, style }) {
   const commonStyle = { border: '1px solid var(--border)', borderRadius: 6, padding: '4px 6px', fontSize: 12, ...style };
 
+  // ריבוי-ערכים (allow_multiple) - אין מקום לרשימת-צ'קבוקסים בתא טבלה צר,
+  // מוצג קריא-בלבד; עריכה אמיתית קיימת רק בכרטיס איש הקשר (ContactTabs.js).
+  if (field.type === 'select' && field.allowMultiple) {
+    return <span style={{ fontSize: 12 }}>{(Array.isArray(value) ? value : []).join(', ') || '—'}</span>;
+  }
+
   if (field.type === 'select') {
     return (
       <select value={value || ''} onChange={(e) => onCommit(e.target.value)} disabled={disabled} style={commonStyle}>

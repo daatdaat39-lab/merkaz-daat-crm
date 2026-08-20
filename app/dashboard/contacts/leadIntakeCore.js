@@ -105,6 +105,18 @@ export async function upsertContactExternalId(supabase, contactId, sourceSystem,
 // שדות נוספים למחלקה (extra_fields jsonb) - תמיד ממוזגים כך שערך קיים
 // אף פעם לא נדרס, רק מפתחות חדשים/חסרים מתווספים.
 export async function upsertDepartmentMembership(supabase, contactId, workspace, reason, note, source, extraFields, options = {}) {
+  // שדות "ריבוי-ערכים" (allow_multiple, ר' options.multiValueFieldDefs) -
+  // מנרמל ערך גולמי שמגיע כמחרוזת-מופרדת-פסיק (כמו tags) למערך, כדי
+  // ששני הענפים למטה (שיוך קיים/חדש) תמיד יכתבו מערך ל-extra_fields,
+  // לא מחרוזת - זה מה שתצוגת-הצ'קבוקסים בכרטיס (ContactTabs.js) מצפה לו.
+  if (extraFields && options.multiValueFieldDefs) {
+    for (const key of options.multiValueFieldDefs.keys()) {
+      if (extraFields[key] !== undefined && !Array.isArray(extraFields[key])) {
+        extraFields = { ...extraFields, [key]: (extraFields[key] ?? '').toString().split(',').map((s) => s.trim()).filter(Boolean) };
+      }
+    }
+  }
+
   const { data: existingRow } = await supabase
     .from('contact_departments')
     .select('id, stage, extra_fields')
@@ -124,13 +136,28 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
     }
     if (extraFields) {
       const existingExtra = existingRow.extra_fields || {};
-      update.extra_fields = { ...extraFields, ...existingExtra };
+      const merged = { ...extraFields, ...existingExtra };
+      // שדות ריבוי-ערכים לא "קיים מנצח, אחרת קונפליקט" - הם מאוחדים
+      // (union) עם הקיים, בדיוק כמו tags כבר עובד היום (leadIntakeCore.js
+      // בענף "existing" של bulkImportContactRows) - אדם עם עוד ערך חדש
+      // (למשל עוד שנת-לימוד) לא אמור לפתוח קונפליקט, רק להצטרף לרשימה.
+      if (options.multiValueFieldDefs) {
+        for (const [key, incoming] of Object.entries(extraFields)) {
+          if (!options.multiValueFieldDefs.has(key)) continue;
+          const incomingArr = Array.isArray(incoming) ? incoming : [];
+          if (incomingArr.length === 0) continue;
+          const existingArr = Array.isArray(existingExtra[key]) ? existingExtra[key] : (existingExtra[key] ? [existingExtra[key]] : []);
+          merged[key] = Array.from(new Set([...existingArr, ...incomingArr]));
+        }
+      }
+      update.extra_fields = merged;
       // ייבוא בכמות בלבד (recordConflicts): ערך חדש שמתנגש עם ערך קיים
       // לא נדרס בשקט (ר' מיזוג למעלה - הקיים תמיד מנצח) - הוא נשמר לתור
       // בדיקה ידנית (import_conflicts) כדי שאף נתון מהקובץ לא "ייעלם".
       if (options.recordConflicts) {
         const conflictRows = [];
         for (const [key, incoming] of Object.entries(extraFields)) {
+          if (options.multiValueFieldDefs?.has(key)) continue; // מאוחד למעלה - לעולם לא קונפליקט
           const incomingStr = String(incoming ?? '').trim();
           if (!incomingStr) continue;
           const existingVal = existingExtra[key];
@@ -329,6 +356,44 @@ export async function resolveCourseEnrollment(supabase, contactId, workspace, en
   return !error;
 }
 
+// מקשר איש-קשר לאיש-קשר קשור (contact_relations, one-to-many אמיתי -
+// למשל תלמיד→הורה) - מתאים-או-יוצר, בדיוק כמו findExistingMatch/יצירת
+// כרטיס חדש שכבר קיימים ב-bulkImportContactRows, אבל מצומצם בכוונה
+// להתאמה **רק** לפי טלפון (לא שם) - אושר במפורש (לקח מפרויקט צ'ריידי:
+// דדופ לפי שם לא אמין). איש-הקשר הקשור לא מקבל שיוך-מחלקה - נשאר
+// עצמאי, נגיש רק דרך הקישור מהכרטיס השני (contact_relations תומכת
+// בשני כיווני-שאילתה: contact_id ו-related_contact_id).
+export async function resolveContactRelation(supabase, contactId, sourceSystem, relation) {
+  const phone = (relation.phone || '').toString().trim();
+  const first = (relation.first || '').toString().trim();
+  if (!phone && !first) return false;
+
+  let relatedId = null;
+  const digits = normalizePhoneDigits(phone);
+  if (digits) {
+    const { data } = await supabase.from('contacts').select('id')
+      .or(`phone_digits.eq.${digits},phone2_digits.eq.${digits}`).limit(1);
+    relatedId = data?.[0]?.id || null;
+  }
+  if (!relatedId && first) {
+    const { data: created } = await supabase.from('contacts').insert({
+      first,
+      last: (relation.last || '').toString().trim(),
+      phone: phone || null,
+      email: (relation.email || '').toString().trim() || null,
+      source: sourceSystem || 'ייבוא אקסל',
+    }).select('id').single();
+    relatedId = created?.id || null;
+  }
+  if (!relatedId) return false;
+
+  await supabase.from('contact_relations').upsert(
+    { contact_id: contactId, related_contact_id: relatedId, relation_label: relation.label },
+    { onConflict: 'contact_id,related_contact_id,relation_label', ignoreDuplicates: true }
+  );
+  return true;
+}
+
 // ייבוא בכמות ממערכת חיצונית (למשל דוח אקסל ממערכת "קשר" למחלקת
 // תרומות) - מיועד לשימוש גם מאשף הייבוא הידני וגם (בעתיד) מחיבור חי
 // לאותה מערכת, ולכן חי כאן ולא ב-actions.js. עקרון-העל: שום נתיב כאן
@@ -368,6 +433,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
   let bouncedOrphanCommitmentsCreated = 0;
   let additionalPhonesCreated = 0;
   let courseEnrollmentsCreated = 0;
+  let relationsCreated = 0;
 
   function trackTransactionResult(added) {
     if (added === null) return;
@@ -391,6 +457,13 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
     if (!row.courseEnrollment) return;
     const ok = await resolveCourseEnrollment(supabase, contactId, ws, row.courseEnrollment);
     if (ok) courseEnrollmentsCreated++;
+  }
+
+  async function attachRelations(contactId, row) {
+    for (const rel of row.relations || []) {
+      const ok = await resolveContactRelation(supabase, contactId, sourceSystem, rel);
+      if (ok) relationsCreated++;
+    }
   }
 
   // מנתב טלפונים "נוספים" (row.additionalPhones, ממופים מ-phone3/phone4
@@ -464,6 +537,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       await attachCommitment(existing.id, row);
       trackTransactionResult(await insertDonationTransaction(supabase, existing.id, ws.id, sourceSystem, row.donationTransaction));
       await attachCourseEnrollment(existing.id, row);
+      await attachRelations(existing.id, row);
       await upsertContactExternalId(supabase, existing.id, sourceSystem, externalId);
       if (campaignName) await enrollInCampaign(supabase, ws.id, existing.id, userId, campaignName);
       enriched++;
@@ -505,6 +579,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       await attachCommitment(createdContact.id, row);
       trackTransactionResult(await insertDonationTransaction(supabase, createdContact.id, ws.id, sourceSystem, row.donationTransaction));
       await attachCourseEnrollment(createdContact.id, row);
+      await attachRelations(createdContact.id, row);
       await upsertContactExternalId(supabase, createdContact.id, sourceSystem, externalId);
       if (campaignName) await enrollInCampaign(supabase, ws.id, createdContact.id, userId, campaignName);
       created++;
@@ -521,7 +596,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
     success: true, created, enriched, transactionsAdded, transactionsSkipped, conflictsFound, count: created + enriched,
     commitmentsCreated, commitmentsUpdated,
     commitmentsAutoDetected, bouncedAttached, bouncedOrphanCommitmentsCreated, bouncedRowsSkippedNoCommitment,
-    additionalPhonesCreated, courseEnrollmentsCreated,
+    additionalPhonesCreated, courseEnrollmentsCreated, relationsCreated,
     multiValueFieldConflicts: Array.from(multiValueByField.values()),
   };
 }

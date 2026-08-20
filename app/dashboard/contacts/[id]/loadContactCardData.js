@@ -26,7 +26,7 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: relationRowsForward }, { data: relationRowsReverse }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -102,6 +102,14 @@ export async function loadContactCardData(contactId) {
       .select('id, workspace_id, year_label, course_name, course_code, confidence')
       .eq('contact_id', contact.id)
       .order('course_code', { ascending: false }),
+    supabase
+      .from('contact_relations')
+      .select('id, relation_label, related_contact_id, related:related_contact_id (id, first, last)')
+      .eq('contact_id', contact.id),
+    supabase
+      .from('contact_relations')
+      .select('id, relation_label, contact_id, owner:contact_id (id, first, last)')
+      .eq('related_contact_id', contact.id),
   ]);
 
   // "שולם/נותר" לכל התחייבות - מחושב כאן מהתנועות שכבר נטענו למעלה
@@ -292,6 +300,10 @@ export async function loadContactCardData(contactId) {
       pipelinesByWorkspace,
       additionalPhones: additionalPhoneRows || [],
       courseEnrollments: courseEnrollmentRows || [],
+      relatedContacts: {
+        forward: (relationRowsForward || []).map((r) => ({ id: r.id, label: r.relation_label, contact: r.related })),
+        reverse: (relationRowsReverse || []).map((r) => ({ id: r.id, label: r.relation_label, contact: r.owner })),
+      },
     },
   };
 }

@@ -37,7 +37,7 @@ export default function ContactDetailClient({
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
   dedications, dedicationCampaignId, callHistory, externalIds, closeReasons, isManager, phoneCalls, pipelinesByWorkspace,
-  commitments, additionalPhones, courseEnrollments,
+  commitments, additionalPhones, courseEnrollments, relatedContacts,
 }) {
   const FALLBACK_PIPELINE = { order: [], leadStages: [], wonStage: null, sideStages: [], labels: {}, colors: {} };
   const byWorkspace = pipelinesByWorkspace || {};
@@ -413,6 +413,7 @@ export default function ContactDetailClient({
             activeWorkspaceId={active?.workspaceId}
             lastActivityAt={active?.lastActivityAt}
             relatedContact={relatedContact}
+            relatedContacts={relatedContacts}
             externalIds={externalIds}
           />
           <CalendarDedicationsCard

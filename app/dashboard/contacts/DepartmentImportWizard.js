@@ -94,6 +94,21 @@ const COURSE_FIELDS = [
   { key: 'course:confidence', label: 'רמת ודאות זיהוי (high/low)' },
 ];
 
+// שדות קשרי-משפחה (הורים) - כשעמודות father/mother ממופות, נוצר/מתאים
+// (לפי טלפון בלבד - ר' resolveContactRelation ב-leadIntakeCore.js)
+// איש-קשר נפרד לכל הורה עם ערך שהוזן, ומקושר מהתלמיד דרך contact_relations
+// (one-to-many אמיתי) - בלי מיפוי, שום דבר כאן לא משפיע.
+const RELATION_FIELDS = [
+  { key: 'relation:father_first', label: 'שם פרטי - אב' },
+  { key: 'relation:father_last', label: 'שם משפחה - אב' },
+  { key: 'relation:father_phone', label: 'טלפון - אב' },
+  { key: 'relation:father_email', label: 'מייל - אב' },
+  { key: 'relation:mother_first', label: 'שם פרטי - אם' },
+  { key: 'relation:mother_last', label: 'שם משפחה - אם' },
+  { key: 'relation:mother_phone', label: 'טלפון - אם' },
+  { key: 'relation:mother_email', label: 'מייל - אם' },
+];
+
 function mappingStorageKey(systemName) {
   return `crm-import-mapping::${systemName.trim().toLowerCase()}`;
 }
@@ -245,6 +260,8 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       let paymentMethodType = '';
       let paymentCardLast4 = '';
       let paymentBankAccount = '';
+      const father = {};
+      const mother = {};
       headers.forEach((h, idx) => {
         const target = mapping[h];
         if (!target || target === 'ignore') return;
@@ -283,6 +300,14 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
         else if (target === 'course:name') row.courseEnrollment.courseName = value;
         else if (target === 'course:code') row.courseEnrollment.courseCode = value;
         else if (target === 'course:confidence') row.courseEnrollment.confidence = value;
+        else if (target === 'relation:father_first') father.first = value;
+        else if (target === 'relation:father_last') father.last = value;
+        else if (target === 'relation:father_phone') father.phone = value;
+        else if (target === 'relation:father_email') father.email = value;
+        else if (target === 'relation:mother_first') mother.first = value;
+        else if (target === 'relation:mother_last') mother.last = value;
+        else if (target === 'relation:mother_phone') mother.phone = value;
+        else if (target === 'relation:mother_email') mother.email = value;
         else if (target === 'note') noteParts.push(`${h}: ${value}`);
         else if (target === 'stage') row.stage = stageValueMaps[h]?.[value] || defaultStageForValue(value);
         else row[target] = value;
@@ -303,6 +328,10 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       if (!row.donationTransaction.amount || !row.donationTransaction.date) delete row.donationTransaction;
       if (!row.commitment.externalReference) delete row.commitment;
       if (!row.courseEnrollment.yearLabel) delete row.courseEnrollment;
+      row.relations = [];
+      if (father.first || father.phone) row.relations.push({ label: 'אב', ...father });
+      if (mother.first || mother.phone) row.relations.push({ label: 'אם', ...mother });
+      if (row.relations.length === 0) delete row.relations;
       if (noteParts.length > 0) row.note = noteParts.join('\n');
       return row;
     });
@@ -348,7 +377,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       commitmentsCreated: 0, commitmentsUpdated: 0,
       commitmentsAutoDetected: clustersFound, bouncedAttached: 0, bouncedOrphanCommitmentsCreated: 0,
       bouncedRowsSkippedNoCommitment: skippedNoCommitment,
-      additionalPhonesCreated: 0, courseEnrollmentsCreated: 0, multiValueFieldConflicts: [],
+      additionalPhonesCreated: 0, courseEnrollmentsCreated: 0, relationsCreated: 0, multiValueFieldConflicts: [],
     };
 
     for (const chunk of chunks) {
@@ -370,6 +399,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       merged.bouncedOrphanCommitmentsCreated += res.bouncedOrphanCommitmentsCreated || 0;
       merged.additionalPhonesCreated += res.additionalPhonesCreated || 0;
       merged.courseEnrollmentsCreated += res.courseEnrollmentsCreated || 0;
+      merged.relationsCreated += res.relationsCreated || 0;
       if (res.multiValueFieldConflicts?.length) merged.multiValueFieldConflicts.push(...res.multiValueFieldConflicts);
       setImportProgress((p) => ({ done: Math.min((p?.done || 0) + chunk.length, rows.length), total: rows.length }));
     }
@@ -504,6 +534,11 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                       </optgroup>
                     )}
                     {workspace && (
+                      <optgroup label="קשרי משפחה (הורים)">
+                        {RELATION_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                      </optgroup>
+                    )}
+                    {workspace && (
                       <optgroup label="שיוך לפעילות/סטטוס">
                         <option value="note">הערה ראשונית (לטאב פעילות)</option>
                         {stages.length > 0 && <option value="stage">שלב בפייפליין (סטטוס)</option>}
@@ -588,6 +623,9 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
               )}
               {result.courseEnrollmentsCreated > 0 && (
                 <li>{result.courseEnrollmentsCreated} הרשמות לקורס נשמרו</li>
+              )}
+              {result.relationsCreated > 0 && (
+                <li>{result.relationsCreated} קשרי משפחה נוצרו/עודכנו (הורים)</li>
               )}
             </ul>
             {result.multiValueFieldConflicts?.length > 0 && (
