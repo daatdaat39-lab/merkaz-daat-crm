@@ -82,6 +82,18 @@ const COMMIT_FIELDS = [
   { key: 'commit:frozen_flag', label: 'דגל הקפאה (כל ערך שאינו ריק/0 = מוקפאת)' },
 ];
 
+// שדות ברמת "הרשמה לקורס" - כשעמודה ממופה ל-course:year, כל שורה
+// הופכת לרשומה נפרדת ב-contact_course_enrollments (one-to-many אמיתי,
+// ר' resolveCourseEnrollment ב-leadIntakeCore.js) - לא ערך יחיד באיש-קשר
+// כמו workspace_extra_fields. בלי מיפוי course:year, שום דבר כאן לא
+// משפיע - אותו עיקרון בדיוק כמו COMMIT_FIELDS.
+const COURSE_FIELDS = [
+  { key: 'course:year', label: 'שנה (הרשמה לקורס)' },
+  { key: 'course:name', label: 'שם קורס' },
+  { key: 'course:code', label: 'קוד קורס/מחזור' },
+  { key: 'course:confidence', label: 'רמת ודאות זיהוי (high/low)' },
+];
+
 function mappingStorageKey(systemName) {
   return `crm-import-mapping::${systemName.trim().toLowerCase()}`;
 }
@@ -228,7 +240,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
     endOfToday.setHours(23, 59, 59, 999);
 
     const rows = dataRows.map((cells) => {
-      const row = { extraFields: {}, donationTransaction: {}, commitment: {} };
+      const row = { extraFields: {}, donationTransaction: {}, commitment: {}, courseEnrollment: {} };
       const noteParts = [];
       let paymentMethodType = '';
       let paymentCardLast4 = '';
@@ -267,6 +279,10 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
         else if (target === 'commit:designation') row.commitment.designation = value;
         else if (target === 'commit:cancelled_flag') row.commitment.cancelled = value !== '0';
         else if (target === 'commit:frozen_flag') row.commitment.frozen = value !== '0';
+        else if (target === 'course:year') row.courseEnrollment.yearLabel = value;
+        else if (target === 'course:name') row.courseEnrollment.courseName = value;
+        else if (target === 'course:code') row.courseEnrollment.courseCode = value;
+        else if (target === 'course:confidence') row.courseEnrollment.confidence = value;
         else if (target === 'note') noteParts.push(`${h}: ${value}`);
         else if (target === 'stage') row.stage = stageValueMaps[h]?.[value] || defaultStageForValue(value);
         else row[target] = value;
@@ -286,6 +302,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
 
       if (!row.donationTransaction.amount || !row.donationTransaction.date) delete row.donationTransaction;
       if (!row.commitment.externalReference) delete row.commitment;
+      if (!row.courseEnrollment.yearLabel) delete row.courseEnrollment;
       if (noteParts.length > 0) row.note = noteParts.join('\n');
       return row;
     });
@@ -331,7 +348,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       commitmentsCreated: 0, commitmentsUpdated: 0,
       commitmentsAutoDetected: clustersFound, bouncedAttached: 0, bouncedOrphanCommitmentsCreated: 0,
       bouncedRowsSkippedNoCommitment: skippedNoCommitment,
-      additionalPhonesCreated: 0, multiValueFieldConflicts: [],
+      additionalPhonesCreated: 0, courseEnrollmentsCreated: 0, multiValueFieldConflicts: [],
     };
 
     for (const chunk of chunks) {
@@ -352,6 +369,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       merged.bouncedAttached += res.bouncedAttached || 0;
       merged.bouncedOrphanCommitmentsCreated += res.bouncedOrphanCommitmentsCreated || 0;
       merged.additionalPhonesCreated += res.additionalPhonesCreated || 0;
+      merged.courseEnrollmentsCreated += res.courseEnrollmentsCreated || 0;
       if (res.multiValueFieldConflicts?.length) merged.multiValueFieldConflicts.push(...res.multiValueFieldConflicts);
       setImportProgress((p) => ({ done: Math.min((p?.done || 0) + chunk.length, rows.length), total: rows.length }));
     }
@@ -481,6 +499,11 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                       </optgroup>
                     )}
                     {workspace && (
+                      <optgroup label="הרשמה לקורס (רשומה נפרדת לכל שורה)">
+                        {COURSE_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                      </optgroup>
+                    )}
+                    {workspace && (
                       <optgroup label="שיוך לפעילות/סטטוס">
                         <option value="note">הערה ראשונית (לטאב פעילות)</option>
                         {stages.length > 0 && <option value="stage">שלב בפייפליין (סטטוס)</option>}
@@ -562,6 +585,9 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
               )}
               {result.additionalPhonesCreated > 0 && (
                 <li>{result.additionalPhonesCreated} מספרי טלפון נוספים נשמרו (מעבר לשני שדות הטלפון הרגילים - זמינים בלשונית "טלפונים נוספים" בכרטיס)</li>
+              )}
+              {result.courseEnrollmentsCreated > 0 && (
+                <li>{result.courseEnrollmentsCreated} הרשמות לקורס נשמרו</li>
               )}
             </ul>
             {result.multiValueFieldConflicts?.length > 0 && (

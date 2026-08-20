@@ -308,6 +308,27 @@ export async function resolveCommitment(supabase, contactId, workspace, commitme
   return created ? { id: created.id, created: true } : null;
 }
 
+// רושם הרשמה בודדת לקורס (contact_course_enrollments) - טבלת-ילד
+// one-to-many אמיתית (בשונה מ-workspace_extra_fields, ערך יחיד לאיש-קשר),
+// לשימוש ראשון בייבוא היסטוריית קורסים מ"אורביט" (מחלקת דעת ותבונה),
+// אבל גנרית לכל מחלקה. מפתח דה-דופ טבעי (contact_id, year_label,
+// course_code) - ignoreDuplicates כדי שריצה חוזרת של אותו ייבוא תישאר
+// אידמפוטנטית בלי לשכפל שורות.
+export async function resolveCourseEnrollment(supabase, contactId, workspace, enrollment) {
+  const yearLabel = (enrollment.yearLabel || '').toString().trim();
+  const courseCode = (enrollment.courseCode || '').toString().trim();
+  if (!yearLabel || !courseCode) return false;
+  const { error } = await supabase.from('contact_course_enrollments').upsert({
+    contact_id: contactId,
+    workspace_id: workspace.id,
+    year_label: yearLabel,
+    course_name: (enrollment.courseName || '').toString().trim() || null,
+    course_code: courseCode,
+    confidence: enrollment.confidence === 'low' ? 'low' : 'high',
+  }, { onConflict: 'contact_id,year_label,course_code', ignoreDuplicates: true });
+  return !error;
+}
+
 // ייבוא בכמות ממערכת חיצונית (למשל דוח אקסל ממערכת "קשר" למחלקת
 // תרומות) - מיועד לשימוש גם מאשף הייבוא הידני וגם (בעתיד) מחיבור חי
 // לאותה מערכת, ולכן חי כאן ולא ב-actions.js. עקרון-העל: שום נתיב כאן
@@ -346,6 +367,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
   let bouncedAttached = 0;
   let bouncedOrphanCommitmentsCreated = 0;
   let additionalPhonesCreated = 0;
+  let courseEnrollmentsCreated = 0;
 
   function trackTransactionResult(added) {
     if (added === null) return;
@@ -363,6 +385,12 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       if (resolved.created && row.commitment.__isOrphanRun) bouncedOrphanCommitmentsCreated++;
       else bouncedAttached++;
     }
+  }
+
+  async function attachCourseEnrollment(contactId, row) {
+    if (!row.courseEnrollment) return;
+    const ok = await resolveCourseEnrollment(supabase, contactId, ws, row.courseEnrollment);
+    if (ok) courseEnrollmentsCreated++;
   }
 
   // מנתב טלפונים "נוספים" (row.additionalPhones, ממופים מ-phone3/phone4
@@ -435,6 +463,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       conflictsFound += await upsertDepartmentMembership(supabase, existing.id, ws, reason, row.note || null, sourceSystem, row.extraFields, { ...membershipOptions, stage: row.stage || null });
       await attachCommitment(existing.id, row);
       trackTransactionResult(await insertDonationTransaction(supabase, existing.id, ws.id, sourceSystem, row.donationTransaction));
+      await attachCourseEnrollment(existing.id, row);
       await upsertContactExternalId(supabase, existing.id, sourceSystem, externalId);
       if (campaignName) await enrollInCampaign(supabase, ws.id, existing.id, userId, campaignName);
       enriched++;
@@ -475,6 +504,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       await upsertDepartmentMembership(supabase, createdContact.id, ws, reason, row.note || null, sourceSystem, row.extraFields, { ...membershipOptions, stage: row.stage || null });
       await attachCommitment(createdContact.id, row);
       trackTransactionResult(await insertDonationTransaction(supabase, createdContact.id, ws.id, sourceSystem, row.donationTransaction));
+      await attachCourseEnrollment(createdContact.id, row);
       await upsertContactExternalId(supabase, createdContact.id, sourceSystem, externalId);
       if (campaignName) await enrollInCampaign(supabase, ws.id, createdContact.id, userId, campaignName);
       created++;
@@ -491,7 +521,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
     success: true, created, enriched, transactionsAdded, transactionsSkipped, conflictsFound, count: created + enriched,
     commitmentsCreated, commitmentsUpdated,
     commitmentsAutoDetected, bouncedAttached, bouncedOrphanCommitmentsCreated, bouncedRowsSkippedNoCommitment,
-    additionalPhonesCreated,
+    additionalPhonesCreated, courseEnrollmentsCreated,
     multiValueFieldConflicts: Array.from(multiValueByField.values()),
   };
 }

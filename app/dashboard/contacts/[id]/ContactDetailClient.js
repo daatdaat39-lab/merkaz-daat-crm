@@ -37,7 +37,7 @@ export default function ContactDetailClient({
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
   dedications, dedicationCampaignId, callHistory, externalIds, closeReasons, isManager, phoneCalls, pipelinesByWorkspace,
-  commitments, additionalPhones,
+  commitments, additionalPhones, courseEnrollments,
 }) {
   const FALLBACK_PIPELINE = { order: [], leadStages: [], wonStage: null, sideStages: [], labels: {}, colors: {} };
   const byWorkspace = pipelinesByWorkspace || {};
@@ -437,6 +437,7 @@ export default function ContactDetailClient({
             donationTransactions={donationTransactions || []}
             commitments={commitments || []}
             additionalPhones={additionalPhones || []}
+            courseEnrollments={courseEnrollments || []}
             callHistory={callHistory || []}
             phoneCalls={phoneCalls || []}
             workspaceNameById={workspaceNameById || {}}
