@@ -44,16 +44,20 @@ export default async function DuplicatesPage() {
     return all;
   }
 
-  const [contactRows, { data: dismissedPairs }, { data: namePairs }, { data: exactTokenPairs }, { data: dismissedCoupleRows }] = await Promise.all([
+  const [contactRows, { data: dismissedPairs }, { data: namePairs, error: namePairsError }, { data: exactTokenPairs }, { data: dismissedCoupleRows }] = await Promise.all([
     fetchAllContactRows(),
     supabase.from('dismissed_duplicate_pairs').select('contact_id_a, contact_id_b'),
-    // דמיון-שמות מחושב ב-DB (מיגרציה 0066, אינדקס טריגרם) - לא בקוד -
+    // דמיון-שמות מחושב ב-DB (מיגרציה 0066/0068, אינדקס טריגרם) - לא בקוד -
     // כדי שזה יישאר סקיילבילי בכל כמות אנשי קשר, לא רק מתחת לסף קבוע.
     supabase.rpc('find_similar_contact_name_pairs'),
     // אותם רכיבי שם, סדר שונה - מדויק, לא מטושטש (מיגרציה 0067).
     supabase.rpc('find_same_tokens_contact_pairs'),
     supabase.from('dismissed_couple_candidates').select('contact_id'),
   ]);
+  // בדיקת שגיאה מפורשת - קרה בפועל (0066 לא ניצל את אינדקס ה-GIN, נפל
+  // ב-timeout על כמות גדולה) והוחזר בשקט כ"0 תוצאות" בלי שום סימן -
+  // עדיף אזהרה גלויה על "אין כפילויות" שקרי.
+  if (namePairsError) console.error('find_similar_contact_name_pairs RPC failed:', namePairsError);
 
   const contacts = (contactRows || []).map((c) => ({
     ...c,
@@ -92,6 +96,11 @@ export default async function DuplicatesPage() {
       <p style={{ margin: '0 0 4px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
         סריקה של כל אנשי הקשר במערכת — זוגות עם ת"ז/טלפון/מייל זהים, או שם דומה מאוד. עברו זוג-זוג ומזגו, או סמנו "לא כפילות".
       </p>
+      {namePairsError && (
+        <div style={{ margin: '10px 0', background: 'var(--amber-bg, #fffbeb)', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: '#92400e' }}>
+          ⚠ בדיקת "שם דומה" נכשלה זמנית (שגיאת שרת) - התור למטה מציג רק התאמות מדויקות (ת"ז/טלפון/מייל/אותם רכיבי שם). רעננו את העמוד כדי לנסות שוב.
+        </div>
+      )}
       <CoupleCandidatesSection initialCandidates={coupleCandidates} />
       <DuplicateQueueClient initialCandidates={candidatesWithCounts} />
     </div>
