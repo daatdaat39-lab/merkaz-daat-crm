@@ -99,7 +99,6 @@ export default async function DuplicatesPage() {
       {namePairsError && (
         <div style={{ margin: '10px 0', background: 'var(--amber-bg, #fffbeb)', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: '#92400e' }}>
           ⚠ בדיקת "שם דומה" נכשלה זמנית (שגיאת שרת) - התור למטה מציג רק התאמות מדויקות (ת"ז/טלפון/מייל/אותם רכיבי שם). רעננו את העמוד כדי לנסות שוב.
-          <div style={{ marginTop: 4, fontFamily: 'monospace', fontSize: 11, opacity: 0.8 }}>{namePairsError.code}: {namePairsError.message} {namePairsError.hint || ''} {namePairsError.details || ''}</div>
         </div>
       )}
       <CoupleCandidatesSection initialCandidates={coupleCandidates} />
