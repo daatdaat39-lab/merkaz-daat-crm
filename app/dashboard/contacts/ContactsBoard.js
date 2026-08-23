@@ -198,7 +198,20 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
                   {c.departments.map((d) => (
                     <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{d.name}</span>
-                      <StageBadge stage={d.stage} labels={stageLabels} colors={stageColors} />
+                      {d.openedProcess ? (
+                        <StageBadge stage={d.stage} labels={stageLabels} colors={stageColors} />
+                      ) : (
+                        // אין תהליך פתוח (ייבוא היסטורי - opened_process=false) -
+                        // תג אפור נייטרלי במקום ה-StageBadge הצבעוני, כדי שלא
+                        // ייראה כמו ליד פעיל שמישהו אמור לטפל בו. שם השלב עדיין
+                        // מוצג (מידע שימושי), רק בלי הצבע/הנקודה שמרמזים "פעיל".
+                        <span
+                          title="שיוך היסטורי - לא נפתח לו תהליך/ליד"
+                          style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-secondary, #f4f4f5)', padding: '3px 9px', borderRadius: 4 }}
+                        >
+                          {stageLabels[d.stage] || d.stage} · היסטורי
+                        </span>
+                      )}
                     </div>
                   ))}
                   {c.departments.length === 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>}

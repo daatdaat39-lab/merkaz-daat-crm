@@ -19,7 +19,7 @@ export default async function ContactsPage() {
   // שולפים בדפים של 1000 (מגבלת ברירת המחדל של PostgREST/Supabase לכל
   // קריאה בודדת) עד שמגיעים לדף לא-מלא - כדי לקבל את כל אנשי הקשר בפועל,
   // לא רק את ה-1000 הראשונים לפי created_at.
-  const contactsSelect = 'id, first, last, idnum, phone, phone2, email, dept, tags, source, frozen, created_at, contact_departments (workspace_id, stage, extra_fields, workspaces:workspace_id (name))';
+  const contactsSelect = 'id, first, last, idnum, phone, phone2, email, dept, tags, source, frozen, created_at, contact_departments (workspace_id, stage, extra_fields, opened_process, workspaces:workspace_id (name))';
   async function fetchAllContacts() {
     const pageSize = 1000;
     let page = 0;
@@ -48,7 +48,7 @@ export default async function ContactsPage() {
   ]);
   const allContacts = (data || []).map((c) => ({
     ...c,
-    departments: (c.contact_departments || []).map((d) => ({ workspaceId: d.workspace_id, name: d.workspaces?.name || 'מחלקה', stage: d.stage, extraFields: d.extra_fields || {} })),
+    departments: (c.contact_departments || []).map((d) => ({ workspaceId: d.workspace_id, name: d.workspaces?.name || 'מחלקה', stage: d.stage, extraFields: d.extra_fields || {}, openedProcess: d.opened_process !== false })),
   }));
 
   const allTags = Array.from(new Set(allContacts.flatMap((c) => c.tags || []))).sort();
