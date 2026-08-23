@@ -34,15 +34,24 @@ export async function findExistingMatch(supabase, { idnum, phone, email, sourceS
     }
   }
 
-  const filters = [];
-  if (idnum) filters.push(['idnum', idnum]);
-  if (email) filters.push(['email', email]);
-  if (filters.length > 0) {
-    const results = await Promise.all(
-      filters.map(([column, value]) => supabase.from('contacts').select(select).eq(column, value).limit(1))
-    );
-    for (const { data } of results) {
-      if (data?.[0]) return data[0];
+  // ת"ז נבדק לפני מייל ומיידית מחזיר תוצאה (לא Promise.all מקביל) - כי
+  // מייל הוא סימן חלש בהרבה מת"ז: משפחות רבות (ר' ייבוא ישיבת דעת) חולקות
+  // מייל אחד לכמה בני משפחה (הורה+ילד, אח+אח), אז התאמת-מייל בלבד עלולה
+  // "לבלוע" אדם חדש לגמרי לתוך כרטיס קיים של קרוב משפחה שלו. נמצא בפועל:
+  // 7 תלמידים נכתבו בטעות על כרטיס ההורה/האח שלהם כי חלקו איתו מייל, אף
+  // שהת"ז שבשורה שונה לגמרי מהת"ז שכבר שמור בכרטיס הקיים.
+  if (idnum) {
+    const { data: byIdnum } = await supabase.from('contacts').select(select).eq('idnum', idnum).limit(1);
+    if (byIdnum?.[0]) return byIdnum[0];
+  }
+  if (email) {
+    const { data: byEmail } = await supabase.from('contacts').select(select).eq('email', email).limit(1);
+    const candidate = byEmail?.[0];
+    // אם לשורה יש ת"ז ולכרטיס שנמצא לפי המייל כבר יש ת"ז שונה - זו הוכחה
+    // שזה אדם אחר בפועל (רק חולק מייל משפחתי), לא התאמה - מדלגים הלאה
+    // לבדיקת טלפון/יצירת כרטיס חדש, במקום לדרוס/להעשיר את הקרוב-משפחה.
+    if (candidate && !(idnum && candidate.idnum && candidate.idnum.trim() !== idnum)) {
+      return candidate;
     }
   }
 
