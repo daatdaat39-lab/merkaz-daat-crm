@@ -38,6 +38,9 @@ export default async function SalesPipelinePage() {
         ...row.contacts, departmentRowId: row.id, stage: row.stage, closed_reason: row.closed_reason, created_at: row.created_at,
       }));
   }
+  // מחלקה יחידה כבר (workspaceId) - בלי צורך בקיבוץ-לפי-מחלקה כמו
+  // groupTagsByDepartment בעמודי אנשי-קשר/לידים, רק רשימה שטוחה.
+  const allTags = Array.from(new Set(contacts.flatMap((c) => c.tags || []))).sort();
 
   async function moveStage(departmentRowId, stage, closedReason) {
     'use server';
@@ -59,7 +62,7 @@ export default async function SalesPipelinePage() {
   return (
     <div style={{ padding: '28px 24px' }}>
       <h1 style={{ fontFamily: 'var(--font-heading)', margin: '0 0 20px', fontSize: 20 }}>תהליכים</h1>
-      <PipelineBoard contacts={contacts} moveStageAction={moveStage} stages={pipeline.order} sideStages={pipeline.sideStages} labels={pipeline.labels} colors={pipeline.colors} closeReasons={closeReasons} />
+      <PipelineBoard contacts={contacts} moveStageAction={moveStage} stages={pipeline.order} sideStages={pipeline.sideStages} labels={pipeline.labels} colors={pipeline.colors} closeReasons={closeReasons} allTags={allTags} />
     </div>
   );
 }

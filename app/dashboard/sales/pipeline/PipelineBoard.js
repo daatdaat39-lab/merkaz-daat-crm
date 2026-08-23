@@ -3,25 +3,40 @@
 import { useState, useTransition, useMemo } from 'react';
 import Link from 'next/link';
 import { CLOSE_REASONS } from '../../components/pipelines';
+import TagFilterMultiSelect from '../../components/TagFilterMultiSelect';
 
-export default function PipelineBoard({ contacts, moveStageAction, stages, sideStages = ['closed'], labels = {}, colors = {}, closeReasons }) {
+export default function PipelineBoard({ contacts, moveStageAction, stages, sideStages = ['closed'], labels = {}, colors = {}, closeReasons, allTags = [] }) {
   const label = (key) => labels[key] || key;
   const color = (key) => colors[key] || { bg: '#fef2f2', color: '#a3392f' };
   const [view, setView] = useState('kanban'); // 'kanban' | 'table'
   const [search, setSearch] = useState('');
+  const [tagFilters, setTagFilters] = useState([]);
+  const [sortBy, setSortBy] = useState('created_desc');
   const [dragOverStage, setDragOverStage] = useState(null);
   const [isPending, startTransition] = useTransition();
   const [localContacts, setLocalContacts] = useState(contacts);
   const [closingId, setClosingId] = useState(null);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return localContacts;
-    const q = search.trim().toLowerCase();
-    return localContacts.filter((c) =>
-      `${c.first} ${c.last}`.toLowerCase().includes(q) ||
-      (c.source || '').toLowerCase().includes(q)
-    );
-  }, [localContacts, search]);
+    let result = localContacts;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter((c) =>
+        `${c.first} ${c.last}`.toLowerCase().includes(q) ||
+        (c.source || '').toLowerCase().includes(q)
+      );
+    }
+    if (tagFilters.length > 0) result = result.filter((c) => (c.tags || []).some((t) => tagFilters.includes(t)));
+
+    return [...result].sort((a, b) => {
+      switch (sortBy) {
+        case 'name': return `${a.first} ${a.last}`.localeCompare(`${b.first} ${b.last}`, 'he');
+        case 'created_asc': return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+        case 'created_desc':
+        default: return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      }
+    });
+  }, [localContacts, search, tagFilters, sortBy]);
 
   function moveContact(departmentRowId, newStage, closedReason) {
     setLocalContacts((prev) => prev.map((c) => (c.departmentRowId === departmentRowId ? { ...c, stage: newStage, closed_reason: closedReason || null } : c)));
@@ -53,6 +68,15 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
           placeholder="חיפוש לפי שם או מקור..."
           style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '7px 12px', fontSize: 13, width: 220 }}
         />
+        <TagFilterMultiSelect value={tagFilters} onChange={setTagFilters} tags={allTags} placeholder="כל התגיות" />
+        <select
+          value={sortBy} onChange={(e) => setSortBy(e.target.value)}
+          style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 }}
+        >
+          <option value="created_desc">מיון: נוספו לאחרונה</option>
+          <option value="created_asc">מיון: הכי ותיקים</option>
+          <option value="name">מיון: שם (א-ת)</option>
+        </select>
         <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
           <button
             onClick={() => setView('kanban')}

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { StageBadge, Tag, initials } from '../components/ui';
 import ContactQuickActions from '../components/ContactQuickActions';
 import AdvancedFilterPanel from '../components/AdvancedFilterPanel';
+import TagFilterMultiSelect from '../components/TagFilterMultiSelect';
 import { contactMatchesAdvancedFilter } from '../components/advancedFilter';
 import { addContactTag } from './actions';
 
@@ -16,7 +17,7 @@ const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding
 // כשיש מאות רשומות, לא רק סינון לפי תגית כמו שהיה.
 export default function ContactsBoard({ contacts, allTags, tagGroups = null, allDepartments, sendConnections, whatsappTemplates, emailTemplates, stageLabels = {}, stageColors = {}, extraFieldsByDept = {}, pipelinesByWorkspace = {} }) {
   const [search, setSearch] = useState('');
-  const [tagFilter, setTagFilter] = useState('');
+  const [tagFilters, setTagFilters] = useState([]);
   const [deptFilter, setDeptFilter] = useState('');
   const [sortBy, setSortBy] = useState('created_desc');
   const [selected, setSelected] = useState(() => new Set());
@@ -50,7 +51,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
         (c.source || '').toLowerCase().includes(q)
       );
     }
-    if (tagFilter) result = result.filter((c) => (c.tags || []).includes(tagFilter));
+    if (tagFilters.length > 0) result = result.filter((c) => (c.tags || []).some((t) => tagFilters.includes(t)));
     if (deptFilter) result = result.filter((c) => c.departments.some((d) => d.name === deptFilter));
 
     const activeFieldFilterEntries = Object.entries(fieldFilters).filter(([, v]) => v);
@@ -80,9 +81,9 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
       }
     });
     return sorted;
-  }, [contacts, search, tagFilter, deptFilter, sortBy, fieldFilters, activeExtraFields, advancedFilters, extraFieldsByDept]);
+  }, [contacts, search, tagFilters, deptFilter, sortBy, fieldFilters, activeExtraFields, advancedFilters, extraFieldsByDept]);
 
-  const activeFilterCount = [tagFilter, deptFilter].filter(Boolean).length;
+  const activeFilterCount = [tagFilters.length > 0, deptFilter].filter(Boolean).length;
 
   return (
     <div>
@@ -97,14 +98,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
           <option value="">כל המחלקות</option>
           {allDepartments.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
-        <select value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} style={inputStyle}>
-          <option value="">כל התגיות</option>
-          {tagGroups ? tagGroups.map((g) => (
-            <optgroup key={g.department || '__general__'} label={g.department || 'כלליות'}>
-              {g.tags.map((t) => <option key={t} value={t}>{t}</option>)}
-            </optgroup>
-          )) : allTags.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+        <TagFilterMultiSelect value={tagFilters} onChange={setTagFilters} tags={allTags} groups={tagGroups} placeholder="כל התגיות" />
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inputStyle, marginInlineStart: 'auto' }}>
           <option value="created_desc">מיון: נוספו לאחרונה</option>
           <option value="created_asc">מיון: הכי ותיקים</option>
@@ -112,7 +106,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
         </select>
         {(activeFilterCount > 0 || search) && (
           <button
-            onClick={() => { setSearch(''); setTagFilter(''); setDeptFilter(''); }}
+            onClick={() => { setSearch(''); setTagFilters([]); setDeptFilter(''); }}
             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}
           >
             ניקוי סינון

@@ -3,11 +3,12 @@
 import { useEffect, useState, useTransition } from 'react';
 import * as XLSX from 'xlsx';
 import DataGridRow from './DataGridRow';
-import { fetchGridRows, fetchAllContactIds, exportGridContacts } from './actions';
+import { fetchGridRows, fetchAllContactIds, exportGridContacts, fetchGridDistinctTags } from './actions';
 import { createField } from '../fields/actions';
 import { COMPUTED_FORMULAS } from '../../lib/computedFields';
 import { generateFieldKey } from '../../lib/fieldKey';
 import AiFieldWizard from '../../components/AiFieldWizard';
+import TagFilterMultiSelect from '../../components/TagFilterMultiSelect';
 
 const PAGE_SIZE = 100;
 const COLUMN_TYPES = [
@@ -30,11 +31,27 @@ export default function DataGridClient({ workspaces = [] }) {
   const [isExporting, setIsExporting] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [stageFilter, setStageFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState([]);
+  const [extraFieldFilters, setExtraFieldFilters] = useState({});
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortDir, setSortDir] = useState('desc');
+  const [distinctTags, setDistinctTags] = useState([]);
+
+  // דבאונס לחיפוש - לא כל הקשה שולחת בקשת-שרת
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
   function loadRows() {
     if (!workspaceId) return;
     setError(null);
     startTransition(async () => {
-      const opts = mode === 'all' ? { all: true } : { page, pageSize: PAGE_SIZE };
+      const filterOpts = { search: debouncedSearch, stage: stageFilter, tags: tagFilter, extraFieldFilters, sortBy, sortDir };
+      const opts = mode === 'all' ? { all: true, ...filterOpts } : { page, pageSize: PAGE_SIZE, ...filterOpts };
       const res = await fetchGridRows(workspaceId, opts);
       if (res?.error) { setError(res.error); setData(null); return; }
       setData(res);
@@ -44,18 +61,30 @@ export default function DataGridClient({ workspaces = [] }) {
   useEffect(() => {
     loadRows();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceId, mode, page]);
+  }, [workspaceId, mode, page, debouncedSearch, stageFilter, tagFilter, extraFieldFilters, sortBy, sortDir]);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    fetchGridDistinctTags(workspaceId).then((res) => { if (!res?.error) setDistinctTags(res.tags); });
+  }, [workspaceId]);
 
   function handleWorkspaceChange(id) {
     setWorkspaceId(id);
     setPage(1);
     setSelectedIds(new Set());
+    setSearch(''); setDebouncedSearch(''); setStageFilter(''); setTagFilter([]); setExtraFieldFilters({});
   }
 
   function handleModeChange(newMode) {
     setMode(newMode);
     setPage(1);
   }
+
+  function clearFilters() {
+    setSearch(''); setDebouncedSearch(''); setStageFilter(''); setTagFilter([]); setExtraFieldFilters({});
+    setPage(1);
+  }
+  const activeFilterCount = [search, stageFilter, tagFilter.length > 0 ? 'x' : '', ...Object.values(extraFieldFilters)].filter(Boolean).length;
 
   function toggleSelected(contactId) {
     setSelectedIds((prev) => {
@@ -131,6 +160,64 @@ export default function DataGridClient({ workspaces = [] }) {
           {aiWizardOpen ? 'ביטול' : '🤖 עם AI'}
         </button>
       </div>
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+        <input
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          placeholder="חיפוש לפי שם, טלפון, מייל, ת&quot;ז..."
+          style={{ ...selectStyle(), flex: '1 1 220px', minWidth: 160 }}
+        />
+        {data && data.pipeline.order.length > 0 && (
+          <select value={stageFilter} onChange={(e) => { setStageFilter(e.target.value); setPage(1); }} style={selectStyle()}>
+            <option value="">כל השלבים</option>
+            {data.pipeline.order.map((s) => <option key={s} value={s}>{data.pipeline.labels?.[s] || s}</option>)}
+          </select>
+        )}
+        <TagFilterMultiSelect value={tagFilter} onChange={(v) => { setTagFilter(v); setPage(1); }} tags={distinctTags} placeholder="כל התגיות" />
+        <select
+          value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+          style={{ ...selectStyle(), marginInlineStart: 'auto' }}
+        >
+          <option value="created_at">מיון: נוספו לאחרונה</option>
+          <option value="first">מיון: שם פרטי</option>
+          <option value="last">מיון: שם משפחה</option>
+        </select>
+        <select value={sortDir} onChange={(e) => { setSortDir(e.target.value); setPage(1); }} style={selectStyle()}>
+          <option value="desc">יורד</option>
+          <option value="asc">עולה</option>
+        </select>
+        {activeFilterCount > 0 && (
+          <button type="button" onClick={clearFilters} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}>
+            ניקוי סינון
+          </button>
+        )}
+      </div>
+
+      {data && data.extraFields.filter((f) => f.type !== 'computed').length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: 10 }}>
+          <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>סינון לפי שדות נוספים:</span>
+          {data.extraFields.filter((f) => f.type !== 'computed').map((f) => (
+            f.type === 'select' ? (
+              <select
+                key={f.key} value={extraFieldFilters[f.key] || ''}
+                onChange={(e) => { setExtraFieldFilters((prev) => ({ ...prev, [f.key]: e.target.value })); setPage(1); }}
+                style={selectStyle()}
+              >
+                <option value="">{f.label}</option>
+                {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ) : (
+              <input
+                key={f.key} value={extraFieldFilters[f.key] || ''}
+                onChange={(e) => { setExtraFieldFilters((prev) => ({ ...prev, [f.key]: e.target.value })); setPage(1); }}
+                placeholder={f.label}
+                style={selectStyle()}
+              />
+            )
+          ))}
+        </div>
+      )}
 
       {aiWizardOpen && data && (
         <AiFieldWizard

@@ -227,6 +227,8 @@ export default async function SalesLeadsPage() {
           extraFields={isManager ? extraFields : extraFields.filter((f) => f.visibleToAgents !== false)}
           closeReasons={closeReasons}
           campaignLeadGroups={campaignLeadGroups}
+          allTags={existingTags}
+          tagGroups={tagGroups}
         />
       )}
     </div>

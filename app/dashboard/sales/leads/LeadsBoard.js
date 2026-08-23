@@ -3,6 +3,7 @@
 import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEPT_KEYWORDS, contactMatchesDept } from '../../components/ui';
+import TagFilterMultiSelect from '../../components/TagFilterMultiSelect';
 import { addContactTag, assignAgent } from '../../contacts/actions';
 import { updateCampaignContact } from '../campaigns/actions';
 import LeadRow from './LeadRow';
@@ -34,12 +35,13 @@ function tabOf(lead, leadStages, wonStage, leadTabByStage) {
   return 'closed';
 }
 
-export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sideStages = [], stageLabels = {}, stageColors = {}, leadStages = [], wonStage = null, leadTabByStage = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], extraFields = [], closeReasons, campaignLeadGroups = [] }) {
+export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sideStages = [], stageLabels = {}, stageColors = {}, leadStages = [], wonStage = null, leadTabByStage = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], extraFields = [], closeReasons, campaignLeadGroups = [], allTags = [], tagGroups = null }) {
   const [activeTab, setActiveTab] = useState('new');
   const [search, setSearch] = useState('');
   const [agentFilter, setAgentFilter] = useState('');
   const [stageFilter, setStageFilter] = useState('');
   const [reasonFilter, setReasonFilter] = useState('');
+  const [tagFilters, setTagFilters] = useState([]);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [overdueHours, setOverdueHours] = useState(24);
   const [sortBy, setSortBy] = useState('activity_desc');
@@ -95,6 +97,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
     else if (agentFilter) result = result.filter((c) => c.agent_id === agentFilter);
     if (stageFilter) result = result.filter((c) => c.stage === stageFilter);
     if (reasonFilter) result = result.filter((c) => c.latestReason === reasonFilter);
+    if (tagFilters.length > 0) result = result.filter((c) => (c.tags || []).some((t) => tagFilters.includes(t)));
     if (overdueOnly) {
       const threshold = Number(overdueHours) > 0 ? Number(overdueHours) : 24;
       result = result.filter((c) => c.last_activity_at && (Date.now() - new Date(c.last_activity_at).getTime()) / 3600000 >= threshold);
@@ -112,7 +115,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       }
     });
     return sorted;
-  }, [tabLeads, search, agentFilter, stageFilter, reasonFilter, overdueOnly, overdueHours, sortBy, agents]);
+  }, [tabLeads, search, agentFilter, stageFilter, reasonFilter, tagFilters, overdueOnly, overdueHours, sortBy, agents]);
 
   // אותו סרגל סינון (חיפוש/נציג/שלב) חל גם על שורות הקמפיינים למטה -
   // "מהות פנייה" ו"לא טופל מעל X שעות" לא רלוונטיים לשורת קמפיין (אין
@@ -150,7 +153,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
   const categorizedIds = new Set(categorized.flatMap((g) => g.leads.map((l) => l.id)));
   const uncategorized = filtered.filter((l) => !categorizedIds.has(l.id));
 
-  const activeFilterCount = [agentFilter, stageFilter, reasonFilter, overdueOnly ? 'x' : ''].filter(Boolean).length;
+  const activeFilterCount = [agentFilter, stageFilter, reasonFilter, overdueOnly ? 'x' : '', tagFilters.length > 0 ? 'x' : ''].filter(Boolean).length;
 
   return (
     <div>
@@ -184,6 +187,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
           <option value="">כל הנושאים</option>
           {reasonOptions.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
+        <TagFilterMultiSelect value={tagFilters} onChange={setTagFilters} tags={allTags} groups={tagGroups} placeholder="כל התגיות" />
         <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
           <input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} />
           רק ליד שלא טופל מעל
@@ -206,7 +210,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         </select>
         {activeFilterCount > 0 && (
           <button
-            onClick={() => { setAgentFilter(''); setStageFilter(''); setReasonFilter(''); setOverdueOnly(false); setOverdueHours(24); setSearch(''); }}
+            onClick={() => { setAgentFilter(''); setStageFilter(''); setReasonFilter(''); setTagFilters([]); setOverdueOnly(false); setOverdueHours(24); setSearch(''); }}
             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}
           >
             ניקוי סינון

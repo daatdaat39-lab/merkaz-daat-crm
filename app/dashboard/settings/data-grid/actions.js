@@ -35,9 +35,24 @@ async function requireGridManager(workspaceId) {
   return { supabase, user };
 }
 
+// PostgREST reserved chars for .or() filter values: , . ( ) : - בלי
+// escaping, מייל בחיפוש (שתמיד מכיל נקודה) היה שובר את התחביר. אותו
+// עיקרון-זהירות שכבר קיים בקוד (contacts/actions.js, leadIntakeCore.js
+// נמנעים במפורש מ-.or() גולמי לא-מסונן).
+function escapeOrValue(v) {
+  return /[,.():]/.test(v) ? `"${v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"` : v;
+}
+
 // שולף שורות (איש קשר + שיוך למחלקה) לגריד, יחד עם מטא-דאטה של עמודות
 // (שדות נוספים + שלבי pipeline) לאותה מחלקה. מצב עימוד ({page,pageSize})
 // לעומת "טען הכל" ({all:true}) - אותה שאילתה בדיוק, עם/בלי .range().
+// opts תומך גם בפילטרים אופציונליים: search/stage/tags/extraFieldFilters/
+// sortBy/sortDir - כולם כשאילתת-שרת אמיתית (לא fetch-then-filter בצד
+// לקוח, שהיה שובר את העימוד). contacts:contact_id!inner נדרש רק כש
+// יש פילטר/מיון בפועל על עמודה מוטמעת (חיפוש/תגיות/שם) - בלי פילטר,
+// נשאר ה-left-join הרגיל, בלי שינוי התנהגות ברירת המחדל (אומת מול
+// תיעוד @supabase/postgrest-js המותקן בפועל - "!inner" קובע רק את
+// סוג ה-join, לא את צורת התשובה).
 export async function fetchGridRows(workspaceId, opts = {}) {
   const ctx = await requireGridManager(workspaceId);
   if (ctx.error) return ctx;
@@ -46,11 +61,47 @@ export async function fetchGridRows(workspaceId, opts = {}) {
   const { data: workspace } = await supabase.from('workspaces').select('id, name').eq('id', workspaceId).single();
   if (!workspace) return { error: 'המחלקה לא נמצאה' };
 
+  // נטען לפני בניית ה-query כדי לוודא ש-extraFieldFilters מכיל רק
+  // מפתחות אמיתיים מסוג לא-computed (ערך של שדה מחושב לעולם לא נשמר
+  // ב-extra_fields בפועל - ר' computedFields.js - סינון/מיון לפיו
+  // חסר-משמעות, לא רק לא-נתמך).
+  const extraFields = await getExtraFields(supabase, workspace.name);
+  const validExtraKeys = new Set(extraFields.filter((f) => f.type !== 'computed').map((f) => f.key));
+
+  const search = (opts.search || '').toString().trim();
+  const tags = Array.isArray(opts.tags) ? opts.tags.filter(Boolean) : [];
+  const needsContactsEmbed = Boolean(search) || tags.length > 0 || opts.sortBy === 'first' || opts.sortBy === 'last';
+  const contactsSelect = needsContactsEmbed
+    ? 'contacts:contact_id!inner (id, first, last, phone, phone2, email, email2, idnum, birth_date, gender, frozen, tags)'
+    : 'contacts:contact_id (id, first, last, phone, phone2, email, email2, idnum, birth_date, gender, frozen)';
+
   let query = supabase
     .from('contact_departments')
-    .select('id, stage, closed_reason, extra_fields, contacts:contact_id (id, first, last, phone, phone2, email, email2, idnum, birth_date, gender, frozen)', { count: 'exact' })
-    .eq('workspace_id', workspaceId)
-    .order('created_at', { ascending: false });
+    .select(`id, stage, closed_reason, extra_fields, ${contactsSelect}`, { count: 'exact' })
+    .eq('workspace_id', workspaceId);
+
+  if (search) {
+    const pattern = escapeOrValue(`%${search}%`);
+    query = query.or(
+      `first.ilike.${pattern},last.ilike.${pattern},phone.ilike.${pattern},phone2.ilike.${pattern},email.ilike.${pattern},email2.ilike.${pattern},idnum.ilike.${pattern}`,
+      { referencedTable: 'contacts' }
+    );
+  }
+  if (opts.stage) query = query.eq('stage', opts.stage);
+  if (tags.length > 0) query = query.overlaps('contacts.tags', tags);
+  if (opts.extraFieldFilters) {
+    for (const [key, value] of Object.entries(opts.extraFieldFilters)) {
+      if (!value || !validExtraKeys.has(key)) continue;
+      const fieldDef = extraFields.find((f) => f.key === key);
+      const path = `extra_fields->>${key}`;
+      query = fieldDef?.type === 'select' ? query.eq(path, value) : query.ilike(path, `%${value}%`);
+    }
+  }
+
+  if (opts.sortBy === 'first' || opts.sortBy === 'last') {
+    query = query.order(opts.sortBy, { referencedTable: 'contacts', ascending: opts.sortDir === 'asc' });
+  }
+  query = query.order('created_at', { ascending: opts.sortBy ? opts.sortDir === 'asc' : false });
 
   if (!opts.all) {
     const page = Math.max(1, Number(opts.page) || 1);
@@ -61,7 +112,6 @@ export async function fetchGridRows(workspaceId, opts = {}) {
   const { data: rows, count, error } = await query;
   if (error) return { error: error.message };
 
-  const extraFields = await getExtraFields(supabase, workspace.name);
   const pipeline = await getPipeline(supabase, workspace.name);
 
   const gridRows = (rows || [])
@@ -83,6 +133,26 @@ export async function fetchGridRows(workspaceId, opts = {}) {
     extraFields,
     pipeline: { order: pipeline.order, sideStages: pipeline.sideStages, labels: pipeline.labels, colors: pipeline.colors },
   };
+}
+
+// תגיות ייחודיות של אנשי הקשר במחלקה הזו - לתפריט סינון-התגיות ב-
+// DataGridClient.js. שאילתה נפרדת (לא חלק מ-fetchGridRows) כי נקראת
+// רק כש-workspaceId משתנה, לא בכל שינוי פילטר/עמוד. בלי !inner - כאן
+// רק קוראים, לא מסננים לפי זה.
+export async function fetchGridDistinctTags(workspaceId) {
+  const ctx = await requireGridManager(workspaceId);
+  if (ctx.error) return ctx;
+  const { supabase } = ctx;
+
+  const { data, error } = await supabase
+    .from('contact_departments')
+    .select('contacts:contact_id (tags)')
+    .eq('workspace_id', workspaceId);
+  if (error) return { error: error.message };
+
+  const set = new Set();
+  (data || []).forEach((r) => (r.contacts?.tags || []).forEach((t) => set.add(t)));
+  return { tags: Array.from(set).sort() };
 }
 
 export async function updateGridBaseField(contactId, workspaceId, field, value) {
