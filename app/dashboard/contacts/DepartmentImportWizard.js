@@ -109,6 +109,21 @@ const RELATION_FIELDS = [
   { key: 'relation:mother_email', label: 'מייל - אם' },
 ];
 
+// שדות ברמת "השתתפות באירוע" (סמינרים/אירועי חג) - כשעמודה ממופה ל-
+// seminar:event_type, כל שורה הופכת לרשומה נפרדת ב-
+// contact_seminar_participations (one-to-many אמיתי, ר.
+// resolveSeminarParticipation ב-leadIntakeCore.js). בלי מיפוי
+// seminar:event_type, שום דבר כאן לא משפיע - אותו עיקרון כמו COURSE_FIELDS.
+const SEMINAR_FIELDS = [
+  { key: 'seminar:event_type', label: 'סוג אירוע (פסח/שבועות/ראש השנה)' },
+  { key: 'seminar:year', label: 'שנה (למשל תשפ"ג)' },
+  { key: 'seminar:kind', label: 'סוג רשומה (participation/pledge - נדבה)' },
+  { key: 'seminar:status', label: 'סטטוס (attended/interested)' },
+  { key: 'seminar:confidence', label: 'רמת ודאות זיהוי (high/low)' },
+  { key: 'seminar:note', label: 'הערה חופשית (השתתפות/נדבה)' },
+  { key: 'coupleGroup', label: 'מזהה זוג (לקישור שני כרטיסים כבני זוג)' },
+];
+
 function mappingStorageKey(systemName) {
   return `crm-import-mapping::${systemName.trim().toLowerCase()}`;
 }
@@ -255,7 +270,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
     endOfToday.setHours(23, 59, 59, 999);
 
     const rows = dataRows.map((cells) => {
-      const row = { extraFields: {}, donationTransaction: {}, commitment: {}, courseEnrollment: {} };
+      const row = { extraFields: {}, donationTransaction: {}, commitment: {}, courseEnrollment: {}, seminarParticipation: {} };
       const noteParts = [];
       let paymentMethodType = '';
       let paymentCardLast4 = '';
@@ -300,6 +315,12 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
         else if (target === 'course:name') row.courseEnrollment.courseName = value;
         else if (target === 'course:code') row.courseEnrollment.courseCode = value;
         else if (target === 'course:confidence') row.courseEnrollment.confidence = value;
+        else if (target === 'seminar:event_type') row.seminarParticipation.eventType = value;
+        else if (target === 'seminar:year') row.seminarParticipation.year = value;
+        else if (target === 'seminar:kind') row.seminarParticipation.kind = value;
+        else if (target === 'seminar:status') row.seminarParticipation.status = value;
+        else if (target === 'seminar:confidence') row.seminarParticipation.confidence = value;
+        else if (target === 'seminar:note') row.seminarParticipation.note = value;
         else if (target === 'relation:father_first') father.first = value;
         else if (target === 'relation:father_last') father.last = value;
         else if (target === 'relation:father_phone') father.phone = value;
@@ -328,6 +349,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       if (!row.donationTransaction.amount || !row.donationTransaction.date) delete row.donationTransaction;
       if (!row.commitment.externalReference) delete row.commitment;
       if (!row.courseEnrollment.yearLabel) delete row.courseEnrollment;
+      if (!row.seminarParticipation.eventType) delete row.seminarParticipation;
       row.relations = [];
       if (father.first || father.phone) row.relations.push({ label: 'אב', ...father });
       if (mother.first || mother.phone) row.relations.push({ label: 'אם', ...mother });
@@ -379,6 +401,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       bouncedRowsSkippedNoCommitment: skippedNoCommitment,
       additionalPhonesCreated: 0, courseEnrollmentsCreated: 0, relationsCreated: 0, multiValueFieldConflicts: [],
       rowsFailed: 0, failedRowDetails: [],
+      seminarParticipationsCreated: 0, couplesLinked: 0,
     };
 
     for (const chunk of chunks) {
@@ -401,6 +424,8 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       merged.additionalPhonesCreated += res.additionalPhonesCreated || 0;
       merged.courseEnrollmentsCreated += res.courseEnrollmentsCreated || 0;
       merged.relationsCreated += res.relationsCreated || 0;
+      merged.seminarParticipationsCreated += res.seminarParticipationsCreated || 0;
+      merged.couplesLinked += res.couplesLinked || 0;
       merged.rowsFailed += res.rowsFailed || 0;
       if (res.failedRowDetails?.length) merged.failedRowDetails.push(...res.failedRowDetails);
       if (res.multiValueFieldConflicts?.length) merged.multiValueFieldConflicts.push(...res.multiValueFieldConflicts);
@@ -542,6 +567,11 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                       </optgroup>
                     )}
                     {workspace && (
+                      <optgroup label="השתתפות באירוע (רשומה נפרדת לכל שורה)">
+                        {SEMINAR_FIELDS.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                      </optgroup>
+                    )}
+                    {workspace && (
                       <optgroup label="שיוך לפעילות/סטטוס">
                         <option value="note">הערה ראשונית (לטאב פעילות)</option>
                         {stages.length > 0 && <option value="stage">שלב בפייפליין (סטטוס)</option>}
@@ -629,6 +659,12 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
               )}
               {result.relationsCreated > 0 && (
                 <li>{result.relationsCreated} קשרי משפחה נוצרו/עודכנו (הורים)</li>
+              )}
+              {result.seminarParticipationsCreated > 0 && (
+                <li>{result.seminarParticipationsCreated} רשומות השתתפות/נדבה נשמרו</li>
+              )}
+              {result.couplesLinked > 0 && (
+                <li>{result.couplesLinked} זוגות קושרו כבני זוג</li>
               )}
             </ul>
             {result.multiValueFieldConflicts?.length > 0 && (

@@ -365,6 +365,28 @@ export async function resolveCourseEnrollment(supabase, contactId, workspace, en
   return !error;
 }
 
+// רושם השתתפות/התעניינות באירוע-חג (contact_seminar_participations,
+// one-to-many אמיתי - אותו דפוס בדיוק כמו resolveCourseEnrollment). kind
+// ('participation'/'pledge') מבדיל רשומת השתתפות רגילה מרשומת-נדבה
+// נפרדת (רק בראש השנה תשפ"ד) - מותר לאותו אדם לקבל שתי שורות לאותו
+// event_type+year (אחת מכל kind) - הוחלט במפורש לא למזג להערה אחת.
+export async function resolveSeminarParticipation(supabase, contactId, workspace, participation) {
+  const eventType = (participation.eventType || '').toString().trim();
+  const year = (participation.year || '').toString().trim();
+  if (!eventType || !year) return false;
+  const { error } = await supabase.from('contact_seminar_participations').upsert({
+    contact_id: contactId,
+    workspace_id: workspace.id,
+    event_type: eventType,
+    year,
+    kind: participation.kind === 'pledge' ? 'pledge' : 'participation',
+    status: participation.status === 'attended' ? 'attended' : 'interested',
+    confidence: participation.confidence === 'low' ? 'low' : 'high',
+    note: (participation.note || '').toString().trim() || null,
+  }, { onConflict: 'contact_id,event_type,year,kind', ignoreDuplicates: true });
+  return !error;
+}
+
 // מקשר איש-קשר לאיש-קשר קשור (contact_relations, one-to-many אמיתי -
 // למשל תלמיד→הורה) - מתאים-או-יוצר, בדיוק כמו findExistingMatch/יצירת
 // כרטיס חדש שכבר קיימים ב-bulkImportContactRows, אבל מצומצם בכוונה
@@ -443,8 +465,16 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
   let additionalPhonesCreated = 0;
   let courseEnrollmentsCreated = 0;
   let relationsCreated = 0;
+  let seminarParticipationsCreated = 0;
+  let couplesLinked = 0;
   let rowsFailed = 0;
   const failedRowDetails = [];
+  // מקשר בני-זוג שפוצלו לשתי שורות נפרדות (row.coupleGroup, ר'
+  // DepartmentImportWizard.js) - Map בתוך-ריצה בלבד (לא persisted), כי
+  // הקישור צריך לקרות רק פעם אחת, כששני "החצאים" של הזוג כבר נוצרו/
+  // אותרו. מניח ששני חברי הזוג נמצאים באותו chunk (500 שורות) - נכון
+  // לכל קבצי סמינרים (הכי גדול ~380 שורות).
+  const coupleGroupTracker = new Map();
 
   function trackTransactionResult(added) {
     if (added === null) return;
@@ -475,6 +505,32 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       const ok = await resolveContactRelation(supabase, contactId, sourceSystem, rel);
       if (ok) relationsCreated++;
     }
+  }
+
+  async function attachSeminarParticipation(contactId, row) {
+    if (!row.seminarParticipation) return;
+    const ok = await resolveSeminarParticipation(supabase, contactId, ws, row.seminarParticipation);
+    if (ok) seminarParticipationsCreated++;
+  }
+
+  // מקשר שני כרטיסים כבני-זוג (contacts.related_contact_id/relation_label,
+  // אותו מנגנון בדיוק כמו splitCoupleContact ב-actions.js:744-772) - רק
+  // כש-row.coupleGroup קיים (סומן ע"י הממיר בפייתון לזוגות שפוצלו לפי
+  // "ו", ר' DepartmentImportWizard.js). הקבוצה נראית פעמיים לאורך
+  // הריצה (חצי-א' וחצי-ב') - בפעם הראשונה רק שומרים contactId בזיכרון,
+  // בפעם השנייה מעדכנים את שני הכרטיסים בבת אחת.
+  async function attachCoupleLink(contactId, row) {
+    const group = (row.coupleGroup || '').toString().trim();
+    if (!group) return;
+    const otherId = coupleGroupTracker.get(group);
+    if (!otherId) {
+      coupleGroupTracker.set(group, contactId);
+      return;
+    }
+    if (otherId === contactId) return; // אותו כרטיס הותאם פעמיים - לא קורה בפועל, הגנה
+    await supabase.from('contacts').update({ related_contact_id: otherId, relation_label: 'בן/בת זוג' }).eq('id', contactId);
+    await supabase.from('contacts').update({ related_contact_id: contactId, relation_label: 'בן/בת זוג' }).eq('id', otherId);
+    couplesLinked++;
   }
 
   // מנתב טלפונים "נוספים" (row.additionalPhones, ממופים מ-phone3/phone4
@@ -558,6 +614,8 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       trackTransactionResult(await insertDonationTransaction(supabase, existing.id, ws.id, sourceSystem, row.donationTransaction));
       await attachCourseEnrollment(existing.id, row);
       await attachRelations(existing.id, row);
+      await attachSeminarParticipation(existing.id, row);
+      await attachCoupleLink(existing.id, row);
       await upsertContactExternalId(supabase, existing.id, sourceSystem, externalId);
       if (campaignName) await enrollInCampaign(supabase, ws.id, existing.id, userId, campaignName);
       enriched++;
@@ -600,6 +658,8 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       trackTransactionResult(await insertDonationTransaction(supabase, createdContact.id, ws.id, sourceSystem, row.donationTransaction));
       await attachCourseEnrollment(createdContact.id, row);
       await attachRelations(createdContact.id, row);
+      await attachSeminarParticipation(createdContact.id, row);
+      await attachCoupleLink(createdContact.id, row);
       await upsertContactExternalId(supabase, createdContact.id, sourceSystem, externalId);
       if (campaignName) await enrollInCampaign(supabase, ws.id, createdContact.id, userId, campaignName);
       created++;
@@ -625,6 +685,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
     commitmentsCreated, commitmentsUpdated,
     commitmentsAutoDetected, bouncedAttached, bouncedOrphanCommitmentsCreated, bouncedRowsSkippedNoCommitment,
     additionalPhonesCreated, courseEnrollmentsCreated, relationsCreated, rowsFailed, failedRowDetails,
+    seminarParticipationsCreated, couplesLinked,
     multiValueFieldConflicts: Array.from(multiValueByField.values()),
   };
 }

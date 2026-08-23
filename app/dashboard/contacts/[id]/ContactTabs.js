@@ -10,8 +10,9 @@ import { isProcessConcluded } from '../../lib/pipelineVisibility';
 import { computeFieldValue } from '../../lib/computedFields';
 import KesherProjectPanel from './KesherProjectPanel';
 import CourseEnrollmentsPanel from './CourseEnrollmentsPanel';
+import SeminarParticipationsPanel from './SeminarParticipationsPanel';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, isManager = false }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, isManager = false }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -74,6 +75,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
   const deptTransactions = activeDepartment ? donationTransactions.filter((t) => t.workspace_id === activeDepartment.workspaceId) : [];
   const deptCommitments = activeDepartment ? commitments.filter((c) => c.workspace_id === activeDepartment.workspaceId) : [];
   const deptCourseEnrollments = activeDepartment ? courseEnrollments.filter((e) => e.workspace_id === activeDepartment.workspaceId) : [];
+  const deptSeminarParticipations = activeDepartment ? seminarParticipations.filter((p) => p.workspace_id === activeDepartment.workspaceId) : [];
   const tabs = [
     { id: 'activity', label: 'פעילות' },
     { id: 'tasks', label: `משימות${tasks.length ? ` (${tasks.length})` : ''}` },
@@ -343,6 +345,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             extraValues={extraValues}
           />
           <CourseEnrollmentsPanel enrollments={deptCourseEnrollments} />
+          <SeminarParticipationsPanel participations={deptSeminarParticipations} />
           {visibleFieldDefs.map((f) => (
             <div key={f.key}>
               <label style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', marginBottom: 4 }}>{f.label}</label>
