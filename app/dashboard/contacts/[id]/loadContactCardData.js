@@ -26,7 +26,7 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -115,6 +115,15 @@ export async function loadContactCardData(contactId) {
       .from('contact_relations')
       .select('id, relation_label, contact_id, owner:contact_id (id, first, last)')
       .eq('related_contact_id', contact.id),
+    // קונפליקטים לא-פתורים על הכרטיס הזה עצמו - עד עכשיו נראו רק בתור
+    // הגלובלי (settings/import-conflicts), בלי שום אינדיקציה על הכרטיס
+    // הספציפי שהם נוגעים אליו.
+    supabase
+      .from('import_conflicts')
+      .select('id, workspace_id, field_key, field_label, existing_value, new_value, source_system, batch_label, created_at, workspaces:workspace_id (name)')
+      .eq('contact_id', contact.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false }),
   ]);
 
   // "שולם/נותר" לכל התחייבות - מחושב כאן מהתנועות שכבר נטענו למעלה
@@ -310,6 +319,7 @@ export async function loadContactCardData(contactId) {
         forward: (relationRowsForward || []).map((r) => ({ id: r.id, label: r.relation_label, contact: r.related })),
         reverse: (relationRowsReverse || []).map((r) => ({ id: r.id, label: r.relation_label, contact: r.owner })),
       },
+      importConflicts: importConflictRows || [],
     },
   };
 }

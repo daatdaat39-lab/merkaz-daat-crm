@@ -71,6 +71,9 @@ export default function KesherProjectPanel({ workspaceName, commitments = [], on
       {commitments.map((c) => {
         const pill = statusPill(c.status);
         const progress = commitmentProgress(c, linkedTransactions);
+        const myLinked = linkedTransactions
+          .filter((t) => t.commitment_id === c.id)
+          .sort((a, b) => new Date(b.transaction_date || 0) - new Date(a.transaction_date || 0));
         return (
           <div key={`c-${c.id}`} style={{ border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '8px 10px', marginBottom: 8, fontSize: 12.5 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -107,6 +110,23 @@ export default function KesherProjectPanel({ workspaceName, commitments = [], on
               {c.source_channel && <span>ערוץ מקור: {c.source_channel}</span>}
             </div>
             {c.note && <div style={{ marginTop: 4, color: 'var(--text-secondary)' }}>{c.note}</div>}
+            {myLinked.length > 0 && (
+              <details style={{ marginTop: 6 }}>
+                <summary style={{ cursor: 'pointer', color: 'var(--text-muted, #9b9b9b)', fontSize: 11.5 }}>
+                  {myLinked.length} תשלומים מקושרים
+                </summary>
+                <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {myLinked.map((t) => (
+                    <div key={t.id} style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 10px', fontSize: 11.5, color: 'var(--text-secondary)', borderTop: '1px solid var(--border, #eee)', paddingTop: 4 }}>
+                      <span>{t.transaction_date ? new Date(t.transaction_date).toLocaleDateString('he-IL') : '—'}</span>
+                      <span>₪{Number(t.amount).toLocaleString('he-IL')}</span>
+                      {t.external_doc_number && <span>אסמכתא: {t.external_doc_number}</span>}
+                      {t.receipt_url && <a href={t.receipt_url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent, #1f4d3d)' }}>📄</a>}
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
         );
       })}
@@ -132,6 +152,8 @@ export default function KesherProjectPanel({ workspaceName, commitments = [], on
             <span>סכום: <b style={{ color: 'var(--text)' }}>₪{Number(t.amount).toLocaleString('he-IL')}</b></span>
             {t.designation && <span>ייעוד: {t.designation}</span>}
             {(t.payment_method || paymentMethod) && <span>אמצעי תשלום: {t.payment_method || paymentMethod}</span>}
+            {t.transaction_type && <span>סוג: {t.transaction_type}</span>}
+            {t.campaign_reference && <span>קמפיין: {t.campaign_reference}</span>}
             {t.external_doc_number && <span>אסמכתא: {t.external_doc_number}</span>}
             {t.fundraiser_name && <span>סוכן: {t.fundraiser_name}</span>}
             {t.receipt_url && (

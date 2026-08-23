@@ -24,6 +24,7 @@ import EmailComposeModal from './EmailComposeModal';
 import WhatsAppSendModal from './WhatsAppSendModal';
 import NotConnectedButton from '../../components/NotConnectedButton';
 import AiSummaryButton from './AiSummaryButton';
+import ImportConflictsBanner from './ImportConflictsBanner';
 import { celebrate } from '../../components/celebrate';
 import { useFloatingWindows } from '../../components/FloatingWindows';
 
@@ -37,7 +38,7 @@ export default function ContactDetailClient({
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
   dedications, dedicationCampaignId, callHistory, externalIds, closeReasons, isManager, phoneCalls, pipelinesByWorkspace,
-  commitments, additionalPhones, courseEnrollments, seminarParticipations, relatedContacts,
+  commitments, additionalPhones, courseEnrollments, seminarParticipations, relatedContacts, importConflicts = [],
 }) {
   const FALLBACK_PIPELINE = { order: [], leadStages: [], wonStage: null, sideStages: [], labels: {}, colors: {} };
   const byWorkspace = pipelinesByWorkspace || {};
@@ -150,6 +151,8 @@ export default function ContactDetailClient({
           ❄ איש הקשר מוקפא — לא ניתן לערוך, לשנות שלב, או להוסיף משימות עד הפשרה.
         </div>
       )}
+
+      {importConflicts.length > 0 && <ImportConflictsBanner conflicts={importConflicts} isManager={isManager} />}
 
       {/* כותרת: אווטאר + שם + לשוניות מחלקה (לחיצה מחליפה מחלקה פעילה) */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, margin: '16px 0 10px' }}>
