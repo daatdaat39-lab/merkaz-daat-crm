@@ -172,8 +172,14 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
           const existingVal = existingExtra[key];
           const existingStr = existingVal === undefined || existingVal === null ? '' : String(existingVal).trim();
           if (existingStr && existingStr !== incomingStr) {
+            const fieldKey = `extra:${key}`;
+            const dedupKey = `${contactId}|${fieldKey}|${existingStr}|${incomingStr}`;
+            // ר' seenConflictKeys ב-bulkImportContactRows - קונפליקט זהה
+            // כבר ממתין (מהרצה הזו או קודמת), לא יוצרים עוד עותק
+            if (options.seenConflictKeys?.has(dedupKey)) continue;
+            options.seenConflictKeys?.add(dedupKey);
             conflictRows.push({
-              contact_id: contactId, workspace_id: workspace.id, field_key: `extra:${key}`, field_label: key,
+              contact_id: contactId, workspace_id: workspace.id, field_key: fieldKey, field_label: key,
               existing_value: existingStr, new_value: incomingStr,
               source_system: options.sourceSystem || null, batch_label: options.batchLabel || null,
             });
@@ -452,7 +458,24 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
   const multiValueFieldDefs = new Map((multiValueFields || []).map((f) => [f.field_key, f.label]));
   const multiValueTracker = [];
 
-  const membershipOptions = { requiresApproval, recordConflicts: true, sourceSystem, batchLabel, openProcess, multiValueFieldDefs, multiValueTracker };
+  // מונע הישנות של הבאג שגרם ל-48,139 שורות ב-import_conflicts (רובן
+  // שכפול מדויק): שאילתה בודדת (לא לכל שורה) טוענת את כל הקונפליקטים
+  // ה-pending הקיימים של המחלקה הזו ל-Set בזיכרון - לפני שכל אחד
+  // ממקומות-היצירה (למטה, וב-upsertDepartmentMembership) דוחף קונפליקט
+  // חדש, בודקים אם כבר קיים אחד זהה (אותו contact_id+field_key+
+  // existing_value+new_value) ומדלגים אם כן. ה-Set גם מתעדכן מיד בכל
+  // דחיפה, כדי לתפוס גם כפילות תוך-ריצה (אלפי שורות של אותו קובץ) לא
+  // רק כפילות מול הרצות קודמות. DepartmentImportWizard.js שולח ב-
+  // CHUNK_SIZE=500, אז זו שאילתה אחת לכל נתח (~41 ל-20,521 שורות), לא
+  // אחת לכל שורה.
+  const { data: existingPendingConflicts } = await supabase
+    .from('import_conflicts').select('contact_id, field_key, existing_value, new_value')
+    .eq('workspace_id', ws.id).eq('status', 'pending');
+  const seenConflictKeys = new Set(
+    (existingPendingConflicts || []).map((r) => `${r.contact_id}|${r.field_key}|${r.existing_value}|${r.new_value}`)
+  );
+
+  const membershipOptions = { requiresApproval, recordConflicts: true, sourceSystem, batchLabel, openProcess, multiValueFieldDefs, multiValueTracker, seenConflictKeys };
   let created = 0;
   let enriched = 0;
   let transactionsAdded = 0;
@@ -584,11 +607,18 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
         if (!existing[field]) {
           fill[field] = incoming;
         } else if (String(existing[field]).trim() !== incomingStr) {
-          conflictRows.push({
-            contact_id: existing.id, workspace_id: ws.id, field_key: field, field_label: FIELD_LABELS[field] || field,
-            existing_value: String(existing[field]).trim(), new_value: incomingStr,
-            source_system: sourceSystem || null, batch_label: batchLabel || null,
-          });
+          const existingStr = String(existing[field]).trim();
+          const dedupKey = `${existing.id}|${field}|${existingStr}|${incomingStr}`;
+          // ר' seenConflictKeys ב-בניית membershipOptions למעלה - קונפליקט
+          // זהה כבר ממתין (מהרצה הזו או קודמת), לא יוצרים עוד עותק
+          if (!seenConflictKeys.has(dedupKey)) {
+            seenConflictKeys.add(dedupKey);
+            conflictRows.push({
+              contact_id: existing.id, workspace_id: ws.id, field_key: field, field_label: FIELD_LABELS[field] || field,
+              existing_value: existingStr, new_value: incomingStr,
+              source_system: sourceSystem || null, batch_label: batchLabel || null,
+            });
+          }
         }
       }
       if (rowTags.length > 0) {

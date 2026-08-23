@@ -29,6 +29,26 @@ function levenshtein(a, b) {
   return dp[m][n];
 }
 
+// כמה "מלא" כרטיס איש-קשר - נקודות לכל שדה-בסיס ממולא + מחלקות +
+// תגיות + תרומות/התחייבויות. משמש להכריע מי משני צדי זוג-כפילות
+// "נשאר" (הניקוד הגבוה) ומי "מתמזג לתוכו" - גם ב-UI הידני
+// (DuplicateQueueClient.js) וגם במיזוג-אוטומטי בכמות (contacts/actions.js).
+export function richnessScore(c) {
+  const fields = ['first', 'last', 'phone', 'phone2', 'email', 'email2', 'idnum'];
+  let score = fields.filter((f) => (c[f] || '').toString().trim()).length;
+  score += (c.departments || []).length;
+  score += (c.tags || []).length > 0 ? 1 : 0;
+  score += (c.transactionsCount || 0) + (c.commitmentsCount || 0);
+  return score;
+}
+
+// האם לזוג יש לפחות סיבת-התאמה אחת "ודאית" (לא רק "שם דומה" מטושטש) -
+// ת"ז/טלפון/מייל זהים, או אותם רכיבי שם בסדר שונה. משמש גם למיון התור
+// וגם כתנאי-סף למיזוג-אוטומטי בכמות.
+export function hasExactReason(matchedOn) {
+  return matchedOn.some((r) => !r.startsWith('שם דומה ('));
+}
+
 export function nameSimilarity(a, b) {
   const maxLen = Math.max(a.length, b.length);
   if (maxLen === 0) return 1;
@@ -146,7 +166,6 @@ export function findDuplicateCandidates(contacts, dismissedPairs = [], namePairs
   // ודאות לפני כמות: זוג עם סיבת-התאמה מדויקת אחת (ת"ז/טלפון/מייל/אותם
   // רכיבי שם) עדיף בתור על זוג עם כמה סיבות "שם דומה" מטושטש בלבד -
   // כך שהעבודה הוודאית והמהירה נגמרת קודם, ושיקול-הדעת נשאר לסוף התור.
-  const hasExactReason = (matchedOn) => matchedOn.some((r) => !r.startsWith('שם דומה ('));
   const candidates = Array.from(pairs.values())
     .map((p) => ({ contactA: p.contactA, contactB: p.contactB, matchedOn: Array.from(p.matchedOn) }))
     .sort((a, b) => {

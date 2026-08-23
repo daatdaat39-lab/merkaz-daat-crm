@@ -7,15 +7,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { mergeContacts, dismissDuplicatePair } from '../../contacts/actions';
 import MergeFieldsPicker from '../../contacts/MergeFieldsPicker';
-
-function richnessScore(c) {
-  const fields = ['first', 'last', 'phone', 'phone2', 'email', 'email2', 'idnum'];
-  let score = fields.filter((f) => (c[f] || '').toString().trim()).length;
-  score += (c.departments || []).length;
-  score += (c.tags || []).length > 0 ? 1 : 0;
-  score += (c.transactionsCount || 0) + (c.commitmentsCount || 0);
-  return score;
-}
+import { richnessScore } from '../../lib/findDuplicates';
 
 function Row({ label, value }) {
   if (!value) return null;

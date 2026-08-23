@@ -12,6 +12,8 @@ import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/what
 import { summarizeContact } from '../../../lib/ai/summarizeContact';
 import { generateAndSendOtp, verifyOtp } from '../lib/otp';
 import { applyStageAutomations } from '../lib/stageAutomations';
+import { richnessScore, hasExactReason } from '../lib/findDuplicates';
+import { loadDuplicateCandidatesWithMoneyCounts } from '../lib/duplicateCandidates';
 
 const EDITABLE_FIELDS = [
   'first', 'last', 'phone', 'phone2', 'email', 'email2', 'dept', 'source', 'idnum', 'birth_date', 'gender', 'related_contact_id', 'relation_label',
@@ -536,6 +538,60 @@ export async function mergeContacts(keepId, duplicateId, resolvedFields) {
   return { success: true };
 }
 
+// שלב 1 של מיזוג-אוטומטי-בכמות (settings/duplicates/BulkAutoMergeSection.js) -
+// read-only, מחשב בצד שרת (לא סומך על זוגות שהלקוח שולח לצורך ההחלטה
+// עצמה) אילו זוגות "ודאיים" (matchedOn עם סיבה מדויקת - ת"ז/טלפון/מייל/
+// אותם רכיבי שם, לא רק "שם דומה" מטושטש) ובלי נתונים כספיים (תרומות/
+// התחייבויות) אצל אף אחד משני הצדדים - אלה מוחרגים במפורש מהמיזוג
+// האוטומטי ונשארים לבדיקה ידנית, כפי שהוחלט. "מי נשאר" נקבע לפי
+// richnessScore בדיוק כמו ה-UI הידני (DuplicateQueueClient.js).
+export async function getEligibleAutoMergePairs() {
+  const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
+  if (!allowed) return { error: 'רק owner/admin יכול למזג כפילויות בכמות' };
+
+  const { candidatesWithCounts } = await loadDuplicateCandidatesWithMoneyCounts(supabase);
+  const eligible = [];
+  let skippedFinancialCount = 0;
+  let skippedFuzzyOnlyCount = 0;
+  for (const c of candidatesWithCounts) {
+    if (!hasExactReason(c.matchedOn)) { skippedFuzzyOnlyCount++; continue; }
+    if (c.contactA.transactionsCount || c.contactA.commitmentsCount || c.contactB.transactionsCount || c.contactB.commitmentsCount) {
+      skippedFinancialCount++; continue;
+    }
+    const [keep, dup] = richnessScore(c.contactB) > richnessScore(c.contactA) ? [c.contactB, c.contactA] : [c.contactA, c.contactB];
+    eligible.push({
+      keepId: keep.id, dupId: dup.id,
+      keepName: `${keep.first || ''} ${keep.last || ''}`.trim(),
+      dupName: `${dup.first || ''} ${dup.last || ''}`.trim(),
+    });
+  }
+  return { success: true, eligible, skippedFinancialCount, skippedFuzzyOnlyCount };
+}
+
+// שלב 2 - מבצע נתח קטן (עד 25) מזוגות שכבר אושרו ע"י getEligibleAutoMergePairs
+// (הלקוח מחלק לנתחים ומתקדם - ר' BulkAutoMergeSection.js), ברצף (לא
+// concurrent - mergeContacts עצמה לא בטוחה מקבילית על contacts חופפים).
+// קוראת ל-mergeContacts הקיימת בלי שינוי, תמיד עם resolvedFields=null
+// (לעולם לא דורסת שדות בסיס אוטומטית - רק תגיות מתאחדות, ברירת המחדל
+// הבטוחה הקיימת).
+export async function bulkAutoMergePairs(pairs) {
+  const { supabase, user } = await requireUser();
+  const allowed = await isManagerOfAnyWorkspace(supabase, user.id);
+  if (!allowed) return { error: 'רק owner/admin יכול למזג כפילויות בכמות' };
+  if (!Array.isArray(pairs) || pairs.length === 0) return { error: 'לא נשלחו זוגות' };
+  if (pairs.length > 25) return { error: 'עד 25 זוגות בבקשה אחת' };
+
+  let merged = 0;
+  const errors = [];
+  for (const { keepId, dupId, keepName, dupName } of pairs) {
+    const res = await mergeContacts(keepId, dupId, null);
+    if (res?.error) errors.push({ keepName, dupName, error: res.error });
+    else merged++;
+  }
+  return { success: true, merged, errors };
+}
+
 // ייבוא אנשי קשר בכמות (מקובץ CSV/אקסל) - משויכים למחלקה שנבחרה.
 // כמו ביצירה ידנית: לכל שורה נבדקת התאמה קיימת (ת"ז/טלפון/מייל) לפני יצירה,
 // כדי למנוע כרטיסים כפולים - למי שכבר קיים רק מתווסף שיוך למחלקה הזו.
@@ -620,17 +676,11 @@ export async function importDepartmentBatch(rows, workspaceId, sourceSystem, bat
 // תפוס בלי בחירה מפורשת של המשתמש - אותו עיקרון-על כמו הייבוא עצמו.
 const TWIN_FIELD = { phone: 'phone2', email: 'email2' };
 
-export async function resolveImportConflict(conflictId, resolution) {
-  const { supabase, user } = await requireUser();
-  if (!['kept_existing', 'used_new', 'kept_both'].includes(resolution)) return { error: 'פתרון לא תקין' };
-
-  const { data: conflict } = await supabase.from('import_conflicts').select('*').eq('id', conflictId).single();
-  if (!conflict) return { error: 'הקונפליקט לא נמצא' };
-  if (conflict.status !== 'pending') return { error: 'הקונפליקט הזה כבר טופל' };
-
-  const allowed = conflict.workspace_id ? await isManagerOfWorkspace(supabase, user.id, conflict.workspace_id) : false;
-  if (!allowed) return { error: 'רק בעלים/מנהל של המחלקה יכול לפתור קונפליקטים שלה' };
-
+// לוגיקת המוטציה בפועל (used_new/kept_both) - מופרדת כדי ששני הקוראים
+// (resolveImportConflict - פריט בודד, bulkResolveImportConflicts - כמות)
+// ישתפו בדיוק את אותה סמנטיקה, בלי לשכפל אותה. לא בודקת הרשאות/סטטוס -
+// זה באחריות הקורא.
+async function applyImportConflictResolution(supabase, conflict, resolution) {
   if (resolution === 'used_new') {
     if (conflict.field_key.startsWith('extra:')) {
       const key = conflict.field_key.slice(6);
@@ -651,12 +701,108 @@ export async function resolveImportConflict(conflictId, resolution) {
     await supabase.from('contacts').update({ [twinField]: conflict.new_value }).eq('id', conflict.contact_id);
   }
   // kept_existing - לא נוגעים בכלום
+  return { success: true };
+}
+
+export async function resolveImportConflict(conflictId, resolution) {
+  const { supabase, user } = await requireUser();
+  if (!['kept_existing', 'used_new', 'kept_both'].includes(resolution)) return { error: 'פתרון לא תקין' };
+
+  const { data: conflict } = await supabase.from('import_conflicts').select('*').eq('id', conflictId).single();
+  if (!conflict) return { error: 'הקונפליקט לא נמצא' };
+  if (conflict.status !== 'pending') return { error: 'הקונפליקט הזה כבר טופל' };
+
+  const allowed = conflict.workspace_id ? await isManagerOfWorkspace(supabase, user.id, conflict.workspace_id) : false;
+  if (!allowed) return { error: 'רק בעלים/מנהל של המחלקה יכול לפתור קונפליקטים שלה' };
+
+  const applied = await applyImportConflictResolution(supabase, conflict, resolution);
+  if (applied?.error) return applied;
 
   const { error } = await supabase.from('import_conflicts')
     .update({ status: 'resolved', resolution, resolved_at: new Date().toISOString(), resolved_by: user.id })
     .eq('id', conflictId);
   if (error) return { error: error.message };
   return { success: true };
+}
+
+// פתרון-בכמות של קונפליקטי-ייבוא - אותה סמנטיקה בדיוק כמו
+// resolveImportConflict (חולקת את applyImportConflictResolution), רק
+// שמטפלת בקבוצה שלמה (עד 100) בקריאה אחת במקום קליק לכל שורה - ר'
+// "תוכנית: ניקוי תור קונפליקטי-ייבוא..." בתוכנית שאושרה. kept_both
+// מדולג בשקט לכל שורה שבה שדה-התאום כבר תפוס (לא עוצר את שאר הקבוצה).
+export async function bulkResolveImportConflicts(conflictIds, resolution) {
+  const { supabase, user } = await requireUser();
+  if (!['kept_existing', 'used_new', 'kept_both'].includes(resolution)) return { error: 'פתרון לא תקין' };
+  if (!Array.isArray(conflictIds) || conflictIds.length === 0) return { error: 'לא נבחרו קונפליקטים' };
+  if (conflictIds.length > 100) return { error: 'עד 100 קונפליקטים בבקשה אחת' };
+
+  const { data: conflicts } = await supabase.from('import_conflicts').select('*').in('id', conflictIds).eq('status', 'pending');
+  if (!conflicts || conflicts.length === 0) return { success: true, resolved: 0 };
+
+  const workspaceIds = Array.from(new Set(conflicts.map((c) => c.workspace_id).filter(Boolean)));
+  for (const wsId of workspaceIds) {
+    if (!(await isManagerOfWorkspace(supabase, user.id, wsId))) return { error: 'רק בעלים/מנהל של המחלקה יכול לפתור קונפליקטים שלה' };
+  }
+
+  let resolved = 0;
+  const nowIso = new Date().toISOString();
+  for (let i = 0; i < conflicts.length; i += 25) {
+    const batch = conflicts.slice(i, i + 25);
+    const results = await Promise.all(batch.map(async (c) => {
+      const applied = await applyImportConflictResolution(supabase, c, resolution);
+      if (applied?.error) return false;
+      const { error } = await supabase.from('import_conflicts')
+        .update({ status: 'resolved', resolution, resolved_at: nowIso, resolved_by: user.id })
+        .eq('id', c.id);
+      return !error;
+    }));
+    resolved += results.filter(Boolean).length;
+  }
+  return { success: true, resolved, attempted: conflicts.length };
+}
+
+// פתרון קבוצה שלמה של קונפליקטים (כל ה-pending שתואמים field_key+
+// workspace, לא רק עמוד אחד) בקריאה אחת - זה מה שכפתור "בצע לכל
+// הקבוצה" ב-ImportConflictsClient.js קורא לו. שולף את כל ה-id-ים
+// התואמים בדפדוף (PostgREST מגביל תשובה ל-1000 בלי .range()), ואז
+// משתמש באותה לוגיקה כמו bulkResolveImportConflicts (batches של 25) -
+// בלי מגבלת ה-100 של הפונקציה הזו, כי כאן השרת בוחר את ה-id-ים לפי
+// קריטריון, לא הקליינט שולח רשימה שרירותית.
+export async function bulkResolveGroupConflicts(fieldKey, workspaceId, resolution) {
+  const { supabase, user } = await requireUser();
+  if (!['kept_existing', 'used_new', 'kept_both'].includes(resolution)) return { error: 'פתרון לא תקין' };
+  if (!fieldKey) return { error: 'לא צוין שדה' };
+  if (!workspaceId) return { error: 'לא צוינה מחלקה' };
+  if (!(await isManagerOfWorkspace(supabase, user.id, workspaceId))) return { error: 'רק בעלים/מנהל של המחלקה יכול לפתור קונפליקטים שלה' };
+
+  let all = [];
+  let from = 0;
+  while (true) {
+    const { data } = await supabase.from('import_conflicts').select('*')
+      .eq('status', 'pending').eq('field_key', fieldKey).eq('workspace_id', workspaceId)
+      .range(from, from + 999);
+    if (!data || data.length === 0) break;
+    all = all.concat(data);
+    if (data.length < 1000) break;
+    from += 1000;
+  }
+  if (all.length === 0) return { success: true, resolved: 0, attempted: 0 };
+
+  let resolved = 0;
+  const nowIso = new Date().toISOString();
+  for (let i = 0; i < all.length; i += 25) {
+    const batch = all.slice(i, i + 25);
+    const results = await Promise.all(batch.map(async (c) => {
+      const applied = await applyImportConflictResolution(supabase, c, resolution);
+      if (applied?.error) return false;
+      const { error } = await supabase.from('import_conflicts')
+        .update({ status: 'resolved', resolution, resolved_at: nowIso, resolved_by: user.id })
+        .eq('id', c.id);
+      return !error;
+    }));
+    resolved += results.filter(Boolean).length;
+  }
+  return { success: true, resolved, attempted: all.length };
 }
 
 // אישור ליד ממתין ושיגורו לנציג - מתוך תיבת ההמתנה של המנהל
