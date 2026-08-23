@@ -128,15 +128,23 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
 
   const { data: existingRow } = await supabase
     .from('contact_departments')
-    .select('id, stage, extra_fields')
+    .select('id, stage, extra_fields, opened_process')
     .eq('contact_id', contactId)
     .eq('workspace_id', workspace.id)
     .single();
 
   let rowId;
   let extraConflictCount = 0;
+  // אם השיוך (קיים או חדש) לא "פותח תהליך" (אנשי קשר היסטוריים - סמינרים,
+  // בוגרי ישיבה וכו') - לא נרשמת "פנייה" בהיסטוריית הפעילות בכלל. לפני
+  // התיקון הזה, כל ריצת-ייבוא נוספת שנוגעת באותו איש קשר יצרה עוד רשומת
+  // "ייבוא" ריקה בכרטיס שלו, כאילו הוא ליד פעיל שמטופל - בעוד שההיסטוריה
+  // האמיתית שהמשתמש ביקש (למשל אילו סמינרים השתתף/התעניין) כבר נשמרת
+  // במקום הייעודי (contact_seminar_participations וכו'), לא כאן.
+  let effectiveOpenedProcess;
   if (existingRow) {
     rowId = existingRow.id;
+    effectiveOpenedProcess = existingRow.opened_process !== false;
     const update = { last_activity_at: new Date().toISOString() };
     if (existingRow.stage === 'closed') {
       const pipeline = await getPipeline(supabase, workspace.name);
@@ -221,9 +229,10 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
       opened_process: options.openProcess === false ? false : true,
     }).select('id').single();
     rowId = created?.id;
+    effectiveOpenedProcess = options.openProcess !== false;
   }
 
-  if (rowId && reason) {
+  if (rowId && reason && effectiveOpenedProcess) {
     await supabase.from('lead_inquiries').insert({ contact_department_id: rowId, reason, note: note || null, source: source || null });
   }
 

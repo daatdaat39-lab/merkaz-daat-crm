@@ -83,7 +83,15 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
     { id: 'documents', label: 'מסמכים' },
     { id: 'recordings', label: 'הקלטות שיחה' },
     ...(activeDepartment ? [{ id: 'processes', label: 'תהליכים' }] : []),
-    ...(visibleFieldDefs.length > 0 ? [{ id: 'fields', label: `שדות נוספים — ${activeDepartment.workspaceName}` }] : []),
+    // הטאב מוצג אם יש בו משהו להראות - לא רק שדות נוספים מוגדרים
+    // (workspace_extra_fields), אלא גם פאנלים ייעודיים (KesherProjectPanel/
+    // CourseEnrollmentsPanel/SeminarParticipationsPanel) שיכולים להכיל מידע
+    // אמיתי גם במחלקה בלי שום שדה נוסף מוגדר (כמו "סמינרים" - אין לה
+    // extra fields בכלל, כל המידע שלה ב-contact_seminar_participations).
+    ...(activeDepartment && (
+      visibleFieldDefs.length > 0 || deptCourseEnrollments.length > 0 || deptSeminarParticipations.length > 0 ||
+      deptCommitments.length > 0 || deptTransactions.length > 0
+    ) ? [{ id: 'fields', label: `שדות נוספים — ${activeDepartment.workspaceName}` }] : []),
     ...(additionalPhones.length > 0 ? [{ id: 'phones', label: `טלפונים נוספים (${additionalPhones.length})` }] : []),
   ];
 
