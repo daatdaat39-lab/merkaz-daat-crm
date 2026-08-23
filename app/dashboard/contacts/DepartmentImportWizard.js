@@ -378,6 +378,7 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       commitmentsAutoDetected: clustersFound, bouncedAttached: 0, bouncedOrphanCommitmentsCreated: 0,
       bouncedRowsSkippedNoCommitment: skippedNoCommitment,
       additionalPhonesCreated: 0, courseEnrollmentsCreated: 0, relationsCreated: 0, multiValueFieldConflicts: [],
+      rowsFailed: 0, failedRowDetails: [],
     };
 
     for (const chunk of chunks) {
@@ -400,6 +401,8 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
       merged.additionalPhonesCreated += res.additionalPhonesCreated || 0;
       merged.courseEnrollmentsCreated += res.courseEnrollmentsCreated || 0;
       merged.relationsCreated += res.relationsCreated || 0;
+      merged.rowsFailed += res.rowsFailed || 0;
+      if (res.failedRowDetails?.length) merged.failedRowDetails.push(...res.failedRowDetails);
       if (res.multiValueFieldConflicts?.length) merged.multiValueFieldConflicts.push(...res.multiValueFieldConflicts);
       setImportProgress((p) => ({ done: Math.min((p?.done || 0) + chunk.length, rows.length), total: rows.length }));
     }
@@ -640,6 +643,16 @@ export default function DepartmentImportWizard({ workspaces = [], defaultWorkspa
                 ⚠ {result.conflictsFound} ערכים בקובץ התנגשו עם נתון קיים ולא נדרסו - הם ממתינים לבדיקה שלכם (אפשר עכשיו או בכל זמן מאוחר יותר דרך "קונפליקטים בייבוא" בהגדרות).
                 {' '}
                 <a href="/dashboard/settings/import-conflicts" style={{ color: 'inherit', fontWeight: 600 }}>בדיקה עכשיו →</a>
+              </div>
+            )}
+            {result.rowsFailed > 0 && (
+              <div style={{ ...note(), background: '#fef2f2', color: '#991b1b' }}>
+                ✗ {result.rowsFailed} שורות נכשלו לגמרי (לא נוצרו ולא עודכנו) עקב שגיאה - לא נכתב שום דבר עבורן, שום נתון לא נדרס. יש לתקן את הבעיה בקובץ ולייבא את השורות האלה שוב:
+                <ul style={{ margin: '6px 0 0', paddingRight: 18 }}>
+                  {result.failedRowDetails.map((f, i) => (
+                    <li key={i}>{f.first} {f.last} — {f.error}</li>
+                  ))}
+                </ul>
               </div>
             )}
             <button type="button" onClick={resetAll} style={{ ...primaryBtn(), marginTop: 14 }}>סגירה</button>

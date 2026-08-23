@@ -434,6 +434,8 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
   let additionalPhonesCreated = 0;
   let courseEnrollmentsCreated = 0;
   let relationsCreated = 0;
+  let rowsFailed = 0;
+  const failedRowDetails = [];
 
   function trackTransactionResult(added) {
     if (added === null) return;
@@ -501,10 +503,19 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       const fill = {};
       const conflictRows = [];
       for (const field of FILLABLE_CONTACT_FIELDS) {
-        const incoming = row[field];
+        let incoming = row[field];
         if (incoming === undefined || incoming === null) continue;
-        const incomingStr = String(incoming).trim();
+        let incomingStr = String(incoming).trim();
         if (!incomingStr) continue;
+        // birth_date חייב ISO לפני כתיבה ל-Postgres (עמודת date) - ר'
+        // toIsoDate למעלה. בלי ההמרה: DD>12 זורק שגיאה שנבלעת בשקט
+        // (fill לא נכתב, כלום לא נזרק/נספר), DD<=12 "מצליח" עם יום/חודש
+        // מוחלפים - אותו באג בדיוק שכבר תוקן ב-insertDonationTransaction.
+        if (field === 'birth_date') {
+          incoming = toIsoDate(incoming);
+          incomingStr = String(incoming).trim();
+          if (!incomingStr) continue;
+        }
         if (!existing[field]) {
           fill[field] = incoming;
         } else if (String(existing[field]).trim() !== incomingStr) {
@@ -549,13 +560,13 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       ? planAdditionalPhones(phone, phone2Value, [], row.additionalPhones)
       : null;
 
-    const { data: createdContact } = await supabase.from('contacts').insert({
+    const { data: createdContact, error: createError } = await supabase.from('contacts').insert({
       first,
       last: (row.last || '').toString().trim(), // contacts.last היא NOT NULL
       phone: initialPhonePlan?.patch.phone || phone, idnum, email,
       phone2: initialPhonePlan?.patch.phone2 || phone2Value,
       email2: (row.email2 || '').toString().trim() || null,
-      birth_date: (row.birth_date || '').toString().trim() || null,
+      birth_date: toIsoDate(row.birth_date) || null,
       gender: (row.gender || '').toString().trim() || null,
       city: (row.city || '').toString().trim() || null,
       street: (row.street || '').toString().trim() || null,
@@ -583,6 +594,14 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
       await upsertContactExternalId(supabase, createdContact.id, sourceSystem, externalId);
       if (campaignName) await enrollInCampaign(supabase, ws.id, createdContact.id, userId, campaignName);
       created++;
+    } else {
+      // כותב-הכרטיס נכשל (למשל אילוץ DB) - במקום להיבלע בשקט (כמו
+      // שקרה עם birth_date לפני התיקון - ר' toIsoDate למעלה) נספר
+      // ומדווח בפירוט, כדי שאף שורה לא "תיעלם" מבלי שהמשתמש ידע.
+      rowsFailed++;
+      if (failedRowDetails.length < 30) {
+        failedRowDetails.push({ first, last: (row.last || '').toString().trim(), error: createError?.message || 'שגיאה לא ידועה' });
+      }
     }
   }
 
@@ -596,7 +615,7 @@ export async function bulkImportContactRows(supabase, { rows, workspaceId, works
     success: true, created, enriched, transactionsAdded, transactionsSkipped, conflictsFound, count: created + enriched,
     commitmentsCreated, commitmentsUpdated,
     commitmentsAutoDetected, bouncedAttached, bouncedOrphanCommitmentsCreated, bouncedRowsSkippedNoCommitment,
-    additionalPhonesCreated, courseEnrollmentsCreated, relationsCreated,
+    additionalPhonesCreated, courseEnrollmentsCreated, relationsCreated, rowsFailed, failedRowDetails,
     multiValueFieldConflicts: Array.from(multiValueByField.values()),
   };
 }
