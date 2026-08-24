@@ -219,7 +219,7 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
     // גובר על שלב ברירת המחדל, אבל רק ביצירת שיוך חדש; לשיוך קיים אף
     // פעם לא "מזיזים אחורה" ליד שכבר בתהליך (ר' טיפול ב-
     // existingRow.stage === 'closed' למעלה).
-    const { data: created } = await supabase.from('contact_departments').insert({
+    const { data: created, error: createError } = await supabase.from('contact_departments').insert({
       contact_id: contactId, workspace_id: workspace.id, stage: options.stage || pipeline.order[0], last_activity_at: new Date().toISOString(),
       extra_fields: extraFields || {},
       approval_status: options.requiresApproval ? 'pending' : 'approved',
@@ -228,6 +228,14 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
       // שלו (אותו עיקרון כמו stage: לא "מורידים" ליד פעיל בשקט בייבוא חוזר).
       opened_process: options.openProcess === false ? false : true,
     }).select('id').single();
+    // אם ה-insert נכשל (למשל pipeline.order[0]===undefined כי למחלקה אין
+    // אף pipeline_stage מוגדר) - בלי הבדיקה הזו הכשלון היה נבלע בשקט:
+    // איש הקשר נוצר, התרומה/התנועה שלו נרשמת כרגיל בהמשך, אבל בלי אף
+    // שיוך-מחלקה - "נעלם" מכל מסך מחלקתי (לידים/פייפליין/ניהול נתונים)
+    // למרות שיש לו כסף אמיתי במערכת. נמצא בפועל: 68 אנשי קשר כאלה.
+    if (createError) {
+      console.error(`upsertDepartmentMembership: contact_departments insert failed for contact ${contactId}, workspace ${workspace.id}:`, createError.message);
+    }
     rowId = created?.id;
     effectiveOpenedProcess = options.openProcess !== false;
   }

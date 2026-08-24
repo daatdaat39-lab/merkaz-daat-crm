@@ -14,8 +14,29 @@ export default async function ImportDataPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: contacts }, { data: workspaces }, { data: profile }, { count: pendingConflicts }, { data: stages }] = await Promise.all([
-    supabase.from('contacts').select('id, first, last, idnum, phone, phone2, email, dept, source, tags'),
+  // שולפים בדפים של 1000 - זו הרשימה שאשף הייבוא משתמש בה לזיהוי כפילויות
+  // בזמן העלאת קובץ; בלי הפאג'ינציה, מגבלת ברירת המחדל של PostgREST
+  // חותכת בשקט ל-1000 מתוך 6500+ אנשי קשר, כך שהתאמה אמיתית שנמצאת מחוץ
+  // ל-1000 הראשונות (לפי created_at) לא הייתה מתגלה - סיכון ליצירת כפילות.
+  async function fetchAllContactsForMatching() {
+    const pageSize = 1000;
+    let from = 0;
+    let all = [];
+    while (true) {
+      const { data: pageData } = await supabase
+        .from('contacts')
+        .select('id, first, last, idnum, phone, phone2, email, dept, source, tags')
+        .range(from, from + pageSize - 1);
+      if (!pageData || pageData.length === 0) break;
+      all = all.concat(pageData);
+      if (pageData.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  }
+
+  const [contacts, { data: workspaces }, { data: profile }, { count: pendingConflicts }, { data: stages }] = await Promise.all([
+    fetchAllContactsForMatching(),
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
     supabase.from('import_conflicts').select('id', { count: 'exact', head: true }).eq('status', 'pending'),

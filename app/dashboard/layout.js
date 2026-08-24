@@ -74,10 +74,29 @@ export default async function DashboardLayout({ children, modal }) {
   const hasAccessToCurrent = workspaces.some((w) => w.id === currentWorkspaceId && !w.restricted);
 
   // לכפתור "איש קשר חדש" הגלובלי בסרגל העליון - כל המחלקות (לא רק אלה
-  // שהמשתמש חבר בהן, כמו במסך אנשי הקשר) והתגיות הקיימות במערכת
-  const [{ data: allWorkspaces }, { data: tagRows }, { data: waRows }] = await Promise.all([
+  // שהמשתמש חבר בהן, כמו במסך אנשי הקשר) והתגיות הקיימות במערכת. שולפים
+  // בדפים של 1000 (מגבלת ברירת המחדל של PostgREST) - בלי זה, עם 6500+
+  // אנשי קשר, רק שישית מהתגיות האמיתיות היו מוצגות (נמצא בפועל בסריקה).
+  async function fetchAllContactTags() {
+    const pageSize = 1000;
+    let from = 0;
+    let all = [];
+    while (true) {
+      const { data: pageData } = await supabase
+        .from('contacts')
+        .select('tags, contact_departments (workspaces:workspace_id (name))')
+        .range(from, from + pageSize - 1);
+      if (!pageData || pageData.length === 0) break;
+      all = all.concat(pageData);
+      if (pageData.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  }
+
+  const [{ data: allWorkspaces }, tagRows, { data: waRows }] = await Promise.all([
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
-    supabase.from('contacts').select('tags, contact_departments (workspaces:workspace_id (name))'),
+    fetchAllContactTags(),
     supabase.from('sent_whatsapp').select('phone, direction').order('sent_at', { ascending: false }).limit(500),
   ]);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();

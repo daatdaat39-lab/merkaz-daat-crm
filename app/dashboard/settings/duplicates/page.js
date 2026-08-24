@@ -38,7 +38,23 @@ export default async function DuplicatesPage() {
   // detectCoupleCandidates צריך את רשימת אנשי-הקשר עצמה, לא את זוגות-
   // הכפילות - loadDuplicateCandidatesWithMoneyCounts לא מחזיר אותה (רק
   // את הזוגות), אז שולפים כאן בנפרד (זולה, בלי הצטרפות מחלקות/כסף).
-  const { data: contactRowsForCouples } = await supabase.from('contacts').select('id, first, last');
+  // שולפים בדפים של 1000 - בלי זה, מגבלת ברירת המחדל של PostgREST חותכת
+  // בשקט ל-1000 מתוך 6500+ אנשי קשר (בניגוד לכתוב למעלה: "סריקה של כל
+  // אנשי הקשר במערכת").
+  async function fetchAllContactsForCouples() {
+    const pageSize = 1000;
+    let from = 0;
+    let all = [];
+    while (true) {
+      const { data: pageData } = await supabase.from('contacts').select('id, first, last').range(from, from + pageSize - 1);
+      if (!pageData || pageData.length === 0) break;
+      all = all.concat(pageData);
+      if (pageData.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  }
+  const contactRowsForCouples = await fetchAllContactsForCouples();
 
   const coupleCandidates = detectCoupleCandidates(contactRowsForCouples || [], new Set((dismissedCoupleRows || []).map((r) => r.contact_id)));
 

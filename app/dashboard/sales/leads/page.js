@@ -109,9 +109,28 @@ export default async function SalesLeadsPage() {
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }
 
-  const [{ data: workspaces }, { data: tagRows }, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
+  // שולפים בדפים של 1000 - בלי זה, מגבלת ברירת המחדל של PostgREST חותכת
+  // בשקט את רשימת התגיות (עם 6500+ אנשי קשר, רק שישית מהתגיות מוצגות).
+  async function fetchAllContactTags() {
+    const pageSize = 1000;
+    let from = 0;
+    let all = [];
+    while (true) {
+      const { data: pageData } = await supabase
+        .from('contacts')
+        .select('tags, contact_departments (workspaces:workspace_id (name))')
+        .range(from, from + pageSize - 1);
+      if (!pageData || pageData.length === 0) break;
+      all = all.concat(pageData);
+      if (pageData.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  }
+
+  const [{ data: workspaces }, tagRows, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
-    supabase.from('contacts').select('tags, contact_departments (workspaces:workspace_id (name))'),
+    fetchAllContactTags(),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
