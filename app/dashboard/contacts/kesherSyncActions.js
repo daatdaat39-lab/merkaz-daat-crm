@@ -38,8 +38,10 @@ const PROJECT_TO_WORKSPACE = [
 // שבונה מיפוי אסמכתא->PaymentPageName מהתנועות כדי שגם התחייבויות
 // (שאין להן PaymentPageName ישיר) יידעו להיכנס למחלקה הנכונה.
 const YESHIVA_PAGE_TO_ROUTING = [
-  { match: 'רישום', workspaceName: 'מרכז דעת — ראשי', tag: 'הורי תלמידים' },
-  { match: 'שכר לימוד', workspaceName: 'מרכז דעת — ראשי', tag: 'הורי תלמידים' },
+  // מנותב למחלקת "ישיבת דעת" (נפתחה לאחר ניתוב זה במקור) בשלב 'הורה'
+  // (parent_of_student) - מייצג הורה ששילם שכר לימוד/רישום, לא תלמיד.
+  { match: 'רישום', workspaceName: 'ישיבת דעת', tag: 'הורי תלמידים', stage: 'parent_of_student' },
+  { match: 'שכר לימוד', workspaceName: 'ישיבת דעת', tag: 'הורי תלמידים', stage: 'parent_of_student' },
   { match: 'קורס', workspaceName: 'דעת ותבונה' },
 ];
 
@@ -56,7 +58,7 @@ function resolveRouting(projectField, pageName) {
   if (p.includes('ישיבה')) {
     const page = (pageName || '').toString();
     const found = YESHIVA_PAGE_TO_ROUTING.find((m) => page.includes(m.match));
-    return found ? { workspaceName: found.workspaceName, tag: found.tag || null } : null;
+    return found ? { workspaceName: found.workspaceName, tag: found.tag || null, stage: found.stage || null } : null;
   }
 
   // "קמפיין צרידי ידידי דעת" - נכנס למחלקת תרומות כרגיל (תרומה/התחייבות
@@ -144,7 +146,7 @@ async function autoFillPaymentRef(supabase, contact, workspace, o) {
 // מזהה. הערה: לא מאומת מריצה חיה אם קשר בפועל מחזירה שדה Name בתשובת
 // GetTrans/GetObligations - אם לא, הפונקציה פשוט לא יוצרת כלום (בלי
 // שגיאה) וההתנהגות נשארת זהה למה שהיה לפני השינוי הזה.
-async function createContactFromKesher(supabase, { name, idnum, phone, email }, workspace, userId) {
+async function createContactFromKesher(supabase, { name, idnum, phone, email }, workspace, userId, stage = null) {
   const trimmedName = (name || '').toString().trim();
   if (!trimmedName) return null;
   // בלי אף פרט מזהה (לא ת.ז, לא טלפון, לא מייל) - אין שום דרך לזהות
@@ -162,7 +164,7 @@ async function createContactFromKesher(supabase, { name, idnum, phone, email }, 
   if (!created) return null;
 
   const reason = workspace.name === 'תרומות' ? 'תרומה/התחייבות מקשר' : 'תשלום/התחייבות מקשר';
-  await upsertDepartmentMembership(supabase, created.id, workspace, reason, null, 'קשר', null, { openProcess: false, requiresApproval: false });
+  await upsertDepartmentMembership(supabase, created.id, workspace, reason, null, 'קשר', null, { openProcess: false, requiresApproval: false, stage });
   await enrollInKesherCampaign(supabase, workspace.id, created.id, userId);
   return created;
 }
@@ -255,8 +257,15 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
       const idnum = (o.ClientId || '').toString().trim() || null;
       const phone = (o.Phone || '').toString().trim() || null;
       let contact = await findExistingMatch(supabase, { idnum, phone });
-      if (!contact && createNewContacts) {
-        contact = await createContactFromKesher(supabase, { name: o.Name, idnum, phone }, workspace, user.id);
+      // איש קשר שהותאם (לא נוצר כרגע) - צריך לוודא שיש לו שיוך למחלקה הזו,
+      // גם אם זו הפעם הראשונה שהוא נוגע בה. בלי זה: ההתחייבות נרשמת עם
+      // workspace_id תקין, אבל בלי contact_departments - "נעלמת" מכל מסך
+      // מחלקתי למרות שיש לו כסף אמיתי (נמצא בפועל - 68 מקרים בסריקה).
+      if (contact) {
+        const reason = workspace.name === 'תרומות' ? 'תרומה/התחייבות מקשר' : 'תשלום/התחייבות מקשר';
+        await upsertDepartmentMembership(supabase, contact.id, workspace, reason, null, 'קשר', null, { openProcess: false, requiresApproval: false, stage: routing.stage || null });
+      } else if (createNewContacts) {
+        contact = await createContactFromKesher(supabase, { name: o.Name, idnum, phone }, workspace, user.id, routing.stage || null);
       }
       if (!contact) {
         logIssue(o, 'לא הותאם לאיש קשר');
@@ -357,8 +366,13 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
       const phone = (t.Phone || '').toString().trim() || null;
       const email = (t.Mail || '').toString().trim() || null;
       let contact = await findExistingMatch(supabase, { idnum, phone, email });
-      if (!contact && createNewContacts) {
-        contact = await createContactFromKesher(supabase, { name: t.Name, idnum, phone, email }, workspace, user.id);
+      // ר' הערה מקבילה בלולאת ההתחייבויות למעלה - איש קשר שהותאם צריך
+      // שיוך-מחלקה מפורש גם אם זו הפעם הראשונה שהוא נוגע במחלקה הזו.
+      if (contact) {
+        const reason = workspace.name === 'תרומות' ? 'תרומה/התחייבות מקשר' : 'תשלום/התחייבות מקשר';
+        await upsertDepartmentMembership(supabase, contact.id, workspace, reason, null, 'קשר', null, { openProcess: false, requiresApproval: false, stage: routing.stage || null });
+      } else if (createNewContacts) {
+        contact = await createContactFromKesher(supabase, { name: t.Name, idnum, phone, email }, workspace, user.id, routing.stage || null);
       }
       if (!contact) { result.transactionsUnmatched++; continue; }
 
