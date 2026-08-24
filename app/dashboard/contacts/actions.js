@@ -489,6 +489,13 @@ export async function mergeContacts(keepId, duplicateId, resolvedFields) {
   await moveRowsSkippingConflicts('contact_phones', ['phone'], 'phone');
   await moveRowsSkippingConflicts('contact_external_ids', ['source_system', 'external_id'], 'external_id');
   await moveRowsSkippingConflicts('campaign_contacts', ['campaign_id'], 'campaign_id');
+  // נוספו אחרי גילוי בפועל: contact_course_enrollments/contact_seminar_participations
+  // (טבלאות one-to-many שנוספו בסבבי ייבוא מאוחרים יותר) לא היו ברשימה
+  // הזו - כשכפול נמחק בסוף הפונקציה, ההיסטוריה שלו נמחקה איתו (cascade)
+  // בלי שאף פעם עברה לנשאר. נמצא בפועל: 58 אנשים במחלקת "סמינרים" ועוד
+  // כמה עשרות ב"דעת ותבונה" עם שיוך-מחלקה אבל בלי אף רשומת היסטוריה.
+  await moveRowsSkippingConflicts('contact_course_enrollments', ['year_label', 'course_code'], 'course_code');
+  await moveRowsSkippingConflicts('contact_seminar_participations', ['event_type', 'year', 'kind'], 'event_type');
   // import_conflicts - בלי אילוץ ייחודיות, מעבירים ישירות
   await supabase.from('import_conflicts').update({ contact_id: keepId }).eq('contact_id', duplicateId);
 
