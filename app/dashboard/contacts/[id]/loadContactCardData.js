@@ -8,6 +8,7 @@ import { getAllPipelines } from '../../lib/pipelines';
 import { getCampaignStages } from '../../lib/campaignStages';
 import { isManagerOfAnyWorkspace } from '../../lib/contactGuards';
 import { getAllExtraFields } from '../../lib/extraFields';
+import { getAllContactTagRows } from '../../lib/allContactTags';
 
 // טוען את כל הנתונים של כרטיס איש קשר - מופרד מ-ContactDetailContent.js
 // כדי שאותה לוגיקה תהיה קריאה גם משם (עמוד/מודל רגיל, ניתוב של Next)
@@ -26,7 +27,7 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, { data: tagRows }, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, tagRows, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -42,7 +43,9 @@ export async function loadContactCardData(contactId) {
       .select('id, title, due_date, done, workspace_id')
       .eq('contact_id', contact.id)
       .order('created_at', { ascending: false }),
-    supabase.from('contacts').select('tags, contact_departments (workspaces:workspace_id (name))'),
+    // רשימת התגיות נשלפת ממטמון משותף (5 דקות, ר' lib/allContactTags.js)
+    // במקום לסרוק מחדש את כל 6,500+ אנשי הקשר בכל פתיחת כרטיס איש קשר.
+    getAllContactTagRows(),
     supabase.from('workspace_members').select('workspace_id').eq('user_id', user.id),
     supabase
       .from('sent_emails')

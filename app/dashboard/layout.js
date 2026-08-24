@@ -11,6 +11,7 @@ import { FloatingWindowsProvider } from './components/FloatingWindows';
 import FloatingWindowsHost from './components/FloatingWindowsHost';
 import { groupTagsByDepartment } from './lib/tagGroups';
 import { getAllPipelines } from './lib/pipelines';
+import { getAllContactTagRows } from './lib/allContactTags';
 
 export default async function DashboardLayout({ children, modal }) {
   const supabase = createClient();
@@ -74,29 +75,13 @@ export default async function DashboardLayout({ children, modal }) {
   const hasAccessToCurrent = workspaces.some((w) => w.id === currentWorkspaceId && !w.restricted);
 
   // לכפתור "איש קשר חדש" הגלובלי בסרגל העליון - כל המחלקות (לא רק אלה
-  // שהמשתמש חבר בהן, כמו במסך אנשי הקשר) והתגיות הקיימות במערכת. שולפים
-  // בדפים של 1000 (מגבלת ברירת המחדל של PostgREST) - בלי זה, עם 6500+
-  // אנשי קשר, רק שישית מהתגיות האמיתיות היו מוצגות (נמצא בפועל בסריקה).
-  async function fetchAllContactTags() {
-    const pageSize = 1000;
-    let from = 0;
-    let all = [];
-    while (true) {
-      const { data: pageData } = await supabase
-        .from('contacts')
-        .select('tags, contact_departments (workspaces:workspace_id (name))')
-        .range(from, from + pageSize - 1);
-      if (!pageData || pageData.length === 0) break;
-      all = all.concat(pageData);
-      if (pageData.length < pageSize) break;
-      from += pageSize;
-    }
-    return all;
-  }
-
+  // שהמשתמש חבר בהן, כמו במסך אנשי הקשר) והתגיות הקיימות במערכת - נשלפות
+  // ממטמון משותף (5 דקות, ר' lib/allContactTags.js) במקום לסרוק מחדש את
+  // כל 6,500+ אנשי הקשר בכל טעינת עמוד בדשבורד - זה רץ פה, ממש בשלד, כך
+  // שזו הייתה השאילתה היקרה ביותר שרצה על כל ניווט במערכת.
   const [{ data: allWorkspaces }, tagRows, { data: waRows }] = await Promise.all([
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
-    fetchAllContactTags(),
+    getAllContactTagRows(),
     supabase.from('sent_whatsapp').select('phone, direction').order('sent_at', { ascending: false }).limit(500),
   ]);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
