@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useTransition } from 'react';
+import { useState, useMemo, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { StageBadge, Tag, initials } from '../components/ui';
@@ -24,6 +24,14 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
   const [fieldFilters, setFieldFilters] = useState({});
   const [advancedFilters, setAdvancedFilters] = useState({});
   const router = useRouter();
+
+  // הרשימה מציגה DOM-row אמיתי לכל שורה (עם ContactQuickActions מקונן
+  // בכל אחת) - עם 6,500+ אנשי קשר בלי הגבלה, זה מייצר עשרות-אלפי צמתי-DOM
+  // בטעינה אחת, מה שהופך את כל המסך (וכל הקלדה בחיפוש) לאיטי. החיפוש/
+  // הסינון/המיון עצמם ממשיכים לרוץ על כל הרשימה המלאה (בלי שינוי) - רק
+  // מה שמוצג בפועל מוגבל ל-100 בכל פעם, עם "טען עוד" להמשיך.
+  const PAGE_SIZE = 100;
+  const [displayLimit, setDisplayLimit] = useState(PAGE_SIZE);
 
   const activeExtraFields = deptFilter ? (extraFieldsByDept[deptFilter] || []) : [];
 
@@ -81,7 +89,15 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
       }
     });
     return sorted;
-  }, [contacts, search, tagFilters, deptFilter, sortBy, fieldFilters, activeExtraFields, advancedFilters, extraFieldsByDept]);
+  }, [contacts, search, tagFilters, deptFilter, fieldFilters, advancedFilters, sortBy, activeExtraFields, extraFieldsByDept]);
+
+  // בכל שינוי סינון/חיפוש/מיון - חוזרים לעמוד הראשון של התצוגה, אחרת
+  // "טען עוד" שכבר נלחץ קודם היה משאיר displayLimit גבוה על תוצאה חדשה.
+  useEffect(() => {
+    setDisplayLimit(PAGE_SIZE);
+  }, [search, tagFilters, deptFilter, fieldFilters, advancedFilters, sortBy]);
+
+  const visible = useMemo(() => filtered.slice(0, displayLimit), [filtered, displayLimit]);
 
   const activeFilterCount = [tagFilters.length > 0, deptFilter].filter(Boolean).length;
 
@@ -143,11 +159,11 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
         </div>
       )}
 
-      {filtered.length !== contacts.length && (
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
-          מציג {filtered.length} מתוך {contacts.length} אנשי קשר
-        </div>
-      )}
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+        {filtered.length !== contacts.length
+          ? <>מציג {visible.length} מתוך {filtered.length} תוצאות (מסונן מתוך {contacts.length} אנשי קשר)</>
+          : <>מציג {visible.length} מתוך {contacts.length} אנשי קשר</>}
+      </div>
 
       <BulkActionBar selected={selected} setSelected={setSelected} router={router} />
 
@@ -177,7 +193,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
           </tr>
         </thead>
         <tbody>
-          {filtered.map((c) => (
+          {visible.map((c) => (
             <tr key={c.id} style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
               <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                 <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} />
@@ -241,6 +257,18 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
           )}
         </tbody>
       </table>
+
+      {visible.length < filtered.length && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+          <button
+            type="button"
+            onClick={() => setDisplayLimit((n) => n + PAGE_SIZE)}
+            style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '8px 20px', fontSize: 13, background: 'var(--bg)', cursor: 'pointer' }}
+          >
+            טען עוד ({filtered.length - visible.length} נוספים)
+          </button>
+        </div>
+      )}
     </div>
   );
 }
