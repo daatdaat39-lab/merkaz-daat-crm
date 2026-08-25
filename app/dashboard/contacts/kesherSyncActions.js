@@ -9,7 +9,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { isManagerOfAnyWorkspace } from '../lib/contactGuards';
-import { findExistingMatch, insertDonationTransaction, upsertContactExternalId, upsertDepartmentMembership } from './leadIntakeCore';
+import { findExistingMatch, insertDonationTransaction, upsertContactExternalId, upsertDepartmentMembership, linkContinuedFromEsakim } from './leadIntakeCore';
 import { isKesherConfigured, getKesherTransactions, getKesherObligations } from '../../../lib/kesher/client';
 import { enrollInKesherCampaign, enrollInCampaign } from '../sales/campaigns/kesherCampaign';
 
@@ -292,7 +292,7 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
 
       const { data: existing } = await supabase
         .from('commitments')
-        .select('id')
+        .select('id, continued_from_commitment_id')
         .eq('workspace_id', workspace.id)
         .eq('external_reference', reference)
         .maybeSingle();
@@ -323,18 +323,20 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
         await supabase.from('commitments').update(patch).eq('id', existing.id);
         result.obligationsUpdated++;
         if (isWatched) debugOutcomes.push({ reference, outcome: 'עודכן', existingId: existing.id, patch });
+        if (!existing.continued_from_commitment_id) await linkContinuedFromEsakim(supabase, existing.id, contact.id, patch.start_date);
       } else {
-        const { error: insertError } = await supabase.from('commitments').insert({
+        const { data: createdCommitment, error: insertError } = await supabase.from('commitments').insert({
           contact_id: contact.id, workspace_id: workspace.id,
           total_amount: totalAmount, installments_count: Number(o.NumPayments) || 1,
           external_reference: reference, created_by: user.id,
           ...patch,
-        });
+        }).select('id').single();
         if (insertError) {
           if (isWatched) debugOutcomes.push({ reference, outcome: 'שגיאת הכנסה ל-DB', error: insertError.message, totalAmount, workspaceId: workspace.id });
         } else {
           result.obligationsCreated++;
           if (isWatched) debugOutcomes.push({ reference, outcome: 'נוצר', totalAmount, workspaceId: workspace.id });
+          if (createdCommitment) await linkContinuedFromEsakim(supabase, createdCommitment.id, contact.id, patch.start_date);
         }
       }
 

@@ -74,6 +74,10 @@ export default function KesherProjectPanel({ workspaceName, commitments = [], on
         const myLinked = linkedTransactions
           .filter((t) => t.commitment_id === c.id)
           .sort((a, b) => new Date(b.transaction_date || 0) - new Date(a.transaction_date || 0));
+        // "נעצר במקור אחד, המשיך במקור אחר" (למשל מערכת עסקים→קשר) -
+        // מחושב מתוך אותו מערך commitments שכבר נטען, בלי שאילתה נוספת.
+        const continuedFrom = c.continued_from_commitment_id ? commitments.find((x) => x.id === c.continued_from_commitment_id) : null;
+        const continuedInto = commitments.find((x) => x.continued_from_commitment_id === c.id);
         return (
           <div key={`c-${c.id}`} style={{ border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '8px 10px', marginBottom: 8, fontSize: 12.5 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -110,6 +114,16 @@ export default function KesherProjectPanel({ workspaceName, commitments = [], on
               {c.source_channel && <span>ערוץ מקור: {c.source_channel}</span>}
             </div>
             {c.note && <div style={{ marginTop: 4, color: 'var(--text-secondary)' }}>{c.note}</div>}
+            {continuedFrom && (
+              <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--accent, #1f4d3d)' }}>
+                ↳ המשך של הוראת קבע קודמת ({continuedFrom.source_system || '—'} · ₪{Number(continuedFrom.total_amount).toLocaleString('he-IL')})
+              </div>
+            )}
+            {continuedInto && (
+              <div style={{ marginTop: 4, fontSize: 11.5, color: 'var(--accent, #1f4d3d)' }}>
+                ↳ המשיך ב{continuedInto.source_system || 'מקור אחר'} (₪{Number(continuedInto.total_amount).toLocaleString('he-IL')})
+              </div>
+            )}
             {myLinked.length > 0 && (
               <details style={{ marginTop: 6 }}>
                 <summary style={{ cursor: 'pointer', color: 'var(--text-muted, #9b9b9b)', fontSize: 11.5 }}>

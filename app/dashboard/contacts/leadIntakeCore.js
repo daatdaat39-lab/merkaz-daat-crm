@@ -368,6 +368,33 @@ export async function resolveCommitment(supabase, contactId, workspace, commitme
   return created ? { id: created.id, created: true } : null;
 }
 
+// מקשר הוראת-קבע חדשה (newCommitmentId, בדרך כלל מ"קשר") להוראת-קבע
+// קודמת של אותו איש קשר ממערכת עסקים שהסתיימה (end_date) בטווח קבוע
+// (40 יום, אושר עם המשתמש) לפני שהחדשה התחילה - "נעצר בעסקים, המשיך
+// בקשר". לא דורס קישור קיים (נקרא רק כש-continued_from_commitment_id
+// עדיין ריק) ולא יוצר שיוך אם אין מועמד בטווח.
+export async function linkContinuedFromEsakim(supabase, newCommitmentId, contactId, newStartDate) {
+  if (!newStartDate) return;
+  const start = new Date(newStartDate);
+  if (Number.isNaN(start.getTime())) return;
+  const startIso = start.toISOString().slice(0, 10);
+  const gapStartIso = new Date(start.getTime() - 40 * 86400000).toISOString().slice(0, 10);
+
+  const { data: candidate } = await supabase
+    .from('commitments')
+    .select('id')
+    .eq('contact_id', contactId)
+    .eq('source_system', 'מערכת עסקים')
+    .not('end_date', 'is', null)
+    .lte('end_date', startIso)
+    .gte('end_date', gapStartIso)
+    .order('end_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!candidate) return;
+  await supabase.from('commitments').update({ continued_from_commitment_id: candidate.id }).eq('id', newCommitmentId);
+}
+
 // רושם הרשמה בודדת לקורס (contact_course_enrollments) - טבלת-ילד
 // one-to-many אמיתית (בשונה מ-workspace_extra_fields, ערך יחיד לאיש-קשר),
 // לשימוש ראשון בייבוא היסטוריית קורסים מ"אורביט" (מחלקת דעת ותבונה),
