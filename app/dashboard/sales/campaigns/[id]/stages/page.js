@@ -14,21 +14,10 @@ export default async function CampaignStagesPage({ params }) {
 
   const { data: campaign } = await supabase
     .from('campaigns')
-    .select('id, name, kind, workspace_id, workspaces:workspace_id (name)')
+    .select('id, name, workspace_id, workspaces:workspace_id (name)')
     .eq('id', params.id)
     .single();
   if (!campaign) notFound();
-
-  if (campaign.kind === 'dedication') {
-    return (
-      <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 24px' }}>
-        <a href={`/dashboard/sales/campaigns/${campaign.id}`} style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה לקמפיין</a>
-        <div style={{ marginTop: 20, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: '#92400e' }}>
-          לקמפיין הקדשות אין שלבים - הוא לא עובד עם תהליך/סטטוס.
-        </div>
-      </div>
-    );
-  }
 
   const allowed = await isManagerOfWorkspace(supabase, user.id, campaign.workspace_id);
   if (!allowed) {

@@ -3,8 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, markContactsEligibleForCalendar, addDedication, removeDedication, unlockDedication } from '../actions';
-import { DEDICATION_TEMPLATES } from '../../../components/pipelines';
+import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign } from '../actions';
 import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
 import { contactMatchesAdvancedFilter } from '../../../components/advancedFilter';
 
@@ -14,7 +13,7 @@ const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'ת�
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
 
-export default function CampaignDetailClient({ campaignId, campaignKind, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} }, extraFields = [], extraFieldsByWorkspace = {}, pipelinesByWorkspace = {} }) {
+export default function CampaignDetailClient({ campaignId, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} }, extraFields = [], extraFieldsByWorkspace = {}, pipelinesByWorkspace = {} }) {
   const CATEGORIES = categories.length ? categories : DEFAULT_CATEGORIES;
   const [rows, setRows] = useState(initialRows);
   const [adding, setAdding] = useState(false);
@@ -124,7 +123,7 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
 
   return (
     <div>
-      {campaignKind !== 'dedication' && rows.length > 0 && (
+      {rows.length > 0 && (
         <CampaignOverviewDashboard rows={rows} agents={agents} campaignStages={campaignStages} />
       )}
 
@@ -225,14 +224,9 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
 
       {error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>שגיאה: {error}</div>}
 
-      {campaignKind !== 'dedication' && (
-        <BulkAssignBar selected={selectedRows} setSelected={setSelectedRows} agents={agents} onApply={handleChange} rows={rows} workspaceId={workspaceId} isDonationsWorkspace={isDonationsWorkspace} />
-      )}
+      <BulkAssignBar selected={selectedRows} setSelected={setSelectedRows} agents={agents} onApply={handleChange} rows={rows} workspaceId={workspaceId} isDonationsWorkspace={isDonationsWorkspace} />
 
-      {campaignKind === 'dedication' ? (
-        <DedicationCampaignTable rows={rows} workspaceId={workspaceId} onRemoveFromCampaign={handleRemove} isPending={isPending} />
-      ) : (
-        <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflowX: 'auto' }}>
+      <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
@@ -295,7 +289,6 @@ export default function CampaignDetailClient({ campaignId, campaignKind, workspa
             </tbody>
           </table>
         </div>
-      )}
     </div>
   );
 }
@@ -358,146 +351,6 @@ function CampaignOverviewDashboard({ rows, agents, campaignStages }) {
   );
 }
 
-// טבלה ייעודית לקמפיין ההקדשות (kind='dedication') - לכל איש קשר, רשימת
-// תאריכי ההקדשה שלו (כמה שירצה, למשל שני יארצייטים) עם הוספה/הסרה/נעילה,
-// במקום עמודות קטגוריה/נציג/סטטוס שלא רלוונטיות כאן.
-function DedicationCampaignTable({ rows, workspaceId, onRemoveFromCampaign, isPending: parentPending }) {
-  const router = useRouter();
-  const [rowsState, setRowsState] = useState(rows);
-  const [openRowId, setOpenRowId] = useState(null);
-
-  function refreshRow(rowId, dedications) {
-    setRowsState((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, dedications } : r)));
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {rowsState.length === 0 && (
-        <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: 14, fontSize: 13, color: '#9b9b9b' }}>
-          עדיין לא נוספו אנשי קשר לקמפיין
-        </div>
-      )}
-      {rowsState.map((r) => (
-        <div key={r.rowId} style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '12px 14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: r.dedications.length || openRowId === r.rowId ? 10 : 0 }}>
-            <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none', flex: 1 }}>
-              {r.name || '—'}
-            </Link>
-            <span style={{ fontSize: 12, color: '#9b9b9b' }}>{r.phone || ''}</span>
-            <button type="button" onClick={() => setOpenRowId(openRowId === r.rowId ? null : r.rowId)} style={ghostBtn()}>
-              {openRowId === r.rowId ? 'סגירה' : '+ הוספת תאריך'}
-            </button>
-            <button type="button" onClick={() => onRemoveFromCampaign(r.rowId)} disabled={parentPending} title="הסרה מהקמפיין"
-              style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 13 }}>✕</button>
-          </div>
-
-          {r.dedications.map((d) => (
-            <DedicationEntryRow key={d.id} entry={d} onRemoved={() => refreshRow(r.rowId, r.dedications.filter((e) => e.id !== d.id))} onUnlocked={() => { refreshRow(r.rowId, r.dedications.map((e) => (e.id === d.id ? { ...e, locked_at: null } : e))); router.refresh(); }} />
-          ))}
-
-          {openRowId === r.rowId && (
-            <DedicationAddForm
-              contactId={r.contactId}
-              workspaceId={workspaceId}
-              onAdded={(entry) => { refreshRow(r.rowId, [...r.dedications, entry].sort((a, b) => new Date(a.dedication_date) - new Date(b.dedication_date))); setOpenRowId(null); router.refresh(); }}
-            />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function DedicationEntryRow({ entry, onRemoved, onUnlocked }) {
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState(null);
-
-  function handleRemove() {
-    setError(null);
-    startTransition(async () => {
-      const res = await removeDedication(entry.id);
-      if (res?.error) { setError(res.error); return; }
-      onRemoved();
-    });
-  }
-
-  function handleUnlock() {
-    startTransition(async () => {
-      const res = await unlockDedication(entry.id);
-      if (res?.error) { setError(res.error); return; }
-      onUnlocked();
-    });
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, borderTop: '1px solid #f5f5f5', padding: '6px 0', fontSize: 12.5 }}>
-      <span style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{new Date(entry.dedication_date).toLocaleDateString('he-IL')}</span>
-      <span style={{ flex: 1 }}>
-        {entry.dedication_text}
-        {(entry.names || []).length > 0 && <span> — {entry.names.join(', ')}</span>}
-        {entry.note && <span style={{ color: '#9b9b9b' }}> · {entry.note}</span>}
-        {entry.locked_at && (
-          <span style={{ marginInlineStart: 6, fontSize: 10.5, color: '#a4691f', background: '#f6ead9', borderRadius: 4, padding: '1px 6px' }}>🔒 נעול להדפסה</span>
-        )}
-        {error && <div style={{ color: '#b23b2f', fontSize: 11 }}>{error}</div>}
-      </span>
-      {!entry.locked_at && (
-        <button type="button" onClick={handleRemove} disabled={isPending} title="הסרה" style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 12 }}>✕</button>
-      )}
-      {entry.locked_at && (
-        <button type="button" onClick={handleUnlock} disabled={isPending} title="שחרור נעילה" style={{ background: 'none', border: 'none', color: '#a4691f', cursor: 'pointer', fontSize: 11 }}>🔓 שחרור</button>
-      )}
-    </div>
-  );
-}
-
-function DedicationAddForm({ contactId, workspaceId, onAdded }) {
-  const [date, setDate] = useState('');
-  const [template, setTemplate] = useState(DEDICATION_TEMPLATES[0]);
-  const [customText, setCustomText] = useState('');
-  const [note, setNote] = useState('');
-  const [names, setNames] = useState(['']);
-  const [error, setError] = useState(null);
-  const [isPending, startTransition] = useTransition();
-  const isCustom = template === 'נוסח חופשי';
-
-  function handleAdd() {
-    setError(null);
-    const text = isCustom ? customText.trim() : `${template} ${customText}`.trim();
-    if (!date || !text) { setError('יש למלא תאריך ונוסח'); return; }
-    startTransition(async () => {
-      const res = await addDedication(contactId, workspaceId, date, text, note, names);
-      if (res?.error) { setError(res.error); return; }
-      onAdded({ id: `tmp-${Date.now()}`, dedication_date: date, dedication_text: text, note: note.trim() || null, names: names.map((n) => n.trim()).filter(Boolean), locked_at: null });
-    });
-  }
-
-  return (
-    <div style={{ marginTop: 8, borderTop: '1px solid #f5f5f5', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inputStyle} />
-      <select value={template} onChange={(e) => setTemplate(e.target.value)} style={inputStyle}>
-        {DEDICATION_TEMPLATES.map((t) => <option key={t} value={t}>{t}</option>)}
-      </select>
-      <input type="text" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder={isCustom ? 'נוסח ההקדשה המלא...' : 'שם / המשך הנוסח...'} style={inputStyle} />
-      <div style={{ fontSize: 11, color: '#9b9b9b' }}>שמות נוספים תחת אותה הקדשה (הקדשה משפחתית, אופציונלי):</div>
-      {names.map((n, i) => (
-        <div key={i} style={{ display: 'flex', gap: 6 }}>
-          <input type="text" value={n} onChange={(e) => setNames((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))} placeholder="שם נוסף..." style={{ ...inputStyle, flex: 1 }} />
-          {names.length > 1 && (
-            <button type="button" onClick={() => setNames((prev) => prev.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer' }}>✕</button>
-          )}
-        </div>
-      ))}
-      <button type="button" onClick={() => setNames((prev) => [...prev, ''])} style={{ alignSelf: 'flex-start', background: 'none', border: '1px dashed #d0d0d0', borderRadius: 4, padding: '2px 8px', fontSize: 11.5, color: '#666', cursor: 'pointer' }}>
-        + הוספת שם
-      </button>
-      <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="הערה (אופציונלי)" style={inputStyle} />
-      {error && <div style={{ color: '#b23b2f', fontSize: 11.5 }}>{error}</div>}
-      <button type="button" onClick={handleAdd} disabled={isPending} style={primaryBtn()}>הוספה</button>
-    </div>
-  );
-}
-
 // סרגל שליחה לנציג - מופיע רק כשנבחרו שורות (איש קשר אחד, כמה, או כולם
 // דרך תיבת "בחירת הכל" בכותרת הטבלה), ומשייך את כולם לנציג הנבחר בבת
 // אחת דרך אותה updateCampaignContact הקיימת (לולאת Promise.all, בדיוק
@@ -505,8 +358,6 @@ function DedicationAddForm({ contactId, workspaceId, onAdded }) {
 function BulkAssignBar({ selected, setSelected, agents, onApply, rows, workspaceId, isDonationsWorkspace }) {
   const [isPending, startTransition] = useTransition();
   const [agentId, setAgentId] = useState('');
-  const [tagDone, setTagDone] = useState(false);
-  const [tagError, setTagError] = useState(null);
 
   if (selected.size === 0) return null;
 
@@ -516,20 +367,6 @@ function BulkAssignBar({ selected, setSelected, agents, onApply, rows, workspace
       await Promise.all(ids.map((rowId) => onApply(rowId, { assignedTo: agentId })));
       setAgentId('');
       setSelected(new Set());
-    });
-  }
-
-  // סימון כזכאים ליום בלוח שנה - משייך את כל אנשי הקשר הנבחרים (בכמות,
-  // מכל קמפיין תרומות - לא רק מקמפיין ההקדשות עצמו) לקמפיין ההקדשות של
-  // המחלקה, במקום תגית (מוחלף לגמרי - ר' campaigns/actions.js)
-  function applyCalendarEligible() {
-    const contactIds = rows.filter((r) => selected.has(r.rowId)).map((r) => r.contactId);
-    setTagDone(false);
-    setTagError(null);
-    startTransition(async () => {
-      const res = await markContactsEligibleForCalendar(workspaceId, contactIds);
-      if (res?.error) { setTagError(res.error); return; }
-      setTagDone(true);
     });
   }
 
@@ -549,14 +386,6 @@ function BulkAssignBar({ selected, setSelected, agents, onApply, rows, workspace
           שליחה לנציג
         </button>
       </div>
-
-      {isDonationsWorkspace && (
-        <button type="button" onClick={applyCalendarEligible} disabled={isPending} style={{ background: 'var(--bg)', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}>
-          📅 סימון כזכאים ליום בלוח שנה
-        </button>
-      )}
-      {tagDone && <span style={{ fontSize: 11.5, color: '#1f7a3d' }}>✓ סומנו</span>}
-      {tagError && <span style={{ fontSize: 11.5, color: '#b23b2f' }}>{tagError}</span>}
 
       <button
         type="button"

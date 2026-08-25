@@ -79,14 +79,3 @@ export function filterHiddenExtraFields(extraFields, workspaceName, hiddenKeys) 
   return result;
 }
 
-// נוסחי הקדשה ללוח השנה - איש קשר "זכאי ליום בלוח שנה" (חבר בקמפיין
-// ההקדשות, ר' sales/campaigns/actions.js) בוחר תאריך ואחד מהנוסחים האלה
-// (או נוסח חופשי). מוגדרים כאן כדי שקל יהיה להוסיף/לשנות בלי לגעת
-// בקומפוננטה - ר' CampaignDetailClient.js.
-export const DEDICATION_TEMPLATES = [
-  'לזכות',
-  'לעילוי נשמת',
-  'לרפואה שלמה',
-  'להצלחת',
-  'נוסח חופשי',
-];

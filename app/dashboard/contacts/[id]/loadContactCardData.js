@@ -27,7 +27,7 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, tagRows, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: dedicationMembershipRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, tagRows, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
@@ -65,11 +65,6 @@ export async function loadContactCardData(contactId) {
       .select('id, workspace_id, source_system, amount, transaction_date, commitment_id, receipt_url, designation, payment_method, transaction_type, campaign_reference, fundraiser_name, external_doc_number')
       .eq('contact_id', contact.id)
       .order('transaction_date', { ascending: false }),
-    supabase
-      .from('campaign_contacts')
-      .select('id, campaign_id, campaigns:campaign_id!inner (kind), campaign_dedication_entries (id, dedication_date, dedication_text, note, names, locked_at)')
-      .eq('contact_id', contact.id)
-      .eq('campaigns.kind', 'dedication'),
     supabase
       .from('contact_call_history')
       .select('id, call_date, response_text, source_system')
@@ -150,15 +145,6 @@ export async function loadContactCardData(contactId) {
   const hiddenExtraFieldsByWorkspace = viewerProfile?.hidden_extra_fields || {};
   const hiddenWidgetsByWorkspace = viewerProfile?.hidden_widgets || {};
   const extraFieldDefsByWorkspaceName = await getAllExtraFields(supabase);
-
-  // חברות בקמפיין ההקדשות (אם יש) - נקודת האמת היחידה ל"זכאי ליום בלוח
-  // שנה" מאז שהתגית "לוח שנה" הוחלפה לגמרי בחברות-קמפיין (ר' PR4 בתוכנית
-  // הארכיטקטורה). ר' campaign_contacts:campaign_id!inner (kind) בשאילתה
-  // למעלה - מסנן כבר בשרת רק חברות בקמפיין מסוג 'dedication'.
-  const dedicationMembership = (dedicationMembershipRows || [])[0] || null;
-  const dedications = [...(dedicationMembership?.campaign_dedication_entries || [])]
-    .sort((a, b) => new Date(a.dedication_date) - new Date(b.dedication_date));
-  const dedicationCampaignId = dedicationMembership?.campaign_id || null;
 
   const admin = createAdminClient();
   const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
@@ -307,8 +293,6 @@ export async function loadContactCardData(contactId) {
       workspaceNameById,
       donationTransactions: donationTransactionRows || [],
       commitments,
-      dedications,
-      dedicationCampaignId,
       callHistory: callHistoryRows || [],
       externalIds: externalIdRows || [],
       closeReasons,

@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getPipeline } from './lib/pipelines';
 import { randomPraise } from './components/celebrate';
-import DedicationsWidget from './DedicationsWidget';
 import QuickAssignSelect from './QuickAssignSelect';
 import { isManagerOfWorkspace } from './lib/contactGuards';
 import { kpiTile, sectionLabel } from './components/designTokens';
@@ -61,33 +60,6 @@ export default async function DashboardHome() {
   let attentionAgents = [];
   let isDonationsManager = false;
   const isDonationsWorkspace = profile?.workspaces?.name === 'תרומות';
-
-  // תאריכי לוח שנה/הקדשות בטווח אתמול..שבוע קדימה - לא מסונן לפי מחלקה,
-  // כי ההקדשה שייכת לאיש הקשר עצמו ולא לשיוך מחלקתי מסוים. כל שורה
-  // ב-campaign_dedication_entries שייכת בהכרח לקמפיין ההקדשות (kind=
-  // 'dedication') כי רק addDedication יוצר אותן, דרך אותו קמפיין - אין
-  // צורך לסנן לפי kind בנפרד.
-  const dayMs = 86400000;
-  const isoDay = (offset) => new Date(Date.now() + offset * dayMs).toISOString().slice(0, 10);
-  const { data: dedicationRows } = await supabase
-    .from('campaign_dedication_entries')
-    .select('id, dedication_date, dedication_text, note, names, locked_at, campaign_contacts:campaign_contact_id (contact_id, contacts:contact_id (first, last))')
-    .gte('dedication_date', isoDay(-1))
-    .lte('dedication_date', isoDay(7))
-    .order('dedication_date', { ascending: true });
-
-  const yesterdayStr = isoDay(-1);
-  const todayDateStr = isoDay(0);
-  const tomorrowStr = isoDay(1);
-  const dedicationGroups = { אתמול: [], היום: [], מחר: [], 'השבוע הקרוב': [] };
-  for (const row of dedicationRows || []) {
-    const contact = row.campaign_contacts?.contacts;
-    const item = { ...row, contact_id: row.campaign_contacts?.contact_id, contactName: `${contact?.first || ''} ${contact?.last || ''}`.trim() };
-    if (row.dedication_date === yesterdayStr) dedicationGroups['אתמול'].push(item);
-    else if (row.dedication_date === todayDateStr) dedicationGroups['היום'].push(item);
-    else if (row.dedication_date === tomorrowStr) dedicationGroups['מחר'].push(item);
-    else dedicationGroups['השבוע הקרוב'].push(item);
-  }
 
   if (workspaceId) {
     const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -372,8 +344,6 @@ export default async function DashboardHome() {
           <div style={{ fontSize: 12, color: '#9b9b9b' }}>{openPledgesCount} הבטחות תרומה שטרם מומשו</div>
         </div>
       )}
-
-      <DedicationsWidget groups={dedicationGroups} />
 
       {isDonationsWorkspace && (
         <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>

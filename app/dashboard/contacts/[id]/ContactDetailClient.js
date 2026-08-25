@@ -14,7 +14,6 @@ import ReferrerPicker from './ReferrerPicker';
 import GenericStatsTile from './GenericStatsTile';
 import WidgetVisibilityToggle from './WidgetVisibilityToggle';
 import ExtraFieldVisibilityToggle from './ExtraFieldVisibilityToggle';
-import CalendarDedicationsCard from './CalendarDedicationsCard';
 import PersonalInfoCard from './PersonalInfoCard';
 import ContactSettingsMenu from './ContactSettingsMenu';
 import ShareContactButton from './ShareContactButton';
@@ -37,7 +36,7 @@ export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups,
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
-  dedications, dedicationCampaignId, callHistory, externalIds, closeReasons, isManager, phoneCalls, pipelinesByWorkspace,
+  callHistory, externalIds, closeReasons, isManager, phoneCalls, pipelinesByWorkspace,
   commitments, additionalPhones, courseEnrollments, seminarParticipations, relatedContacts, importConflicts = [],
 }) {
   const FALLBACK_PIPELINE = { order: [], leadStages: [], wonStage: null, sideStages: [], labels: {}, colors: {} };
@@ -418,10 +417,6 @@ export default function ContactDetailClient({
             relatedContact={relatedContact}
             relatedContacts={relatedContacts}
             externalIds={externalIds}
-          />
-          <CalendarDedicationsCard
-            dedications={dedications || []}
-            dedicationCampaignId={dedicationCampaignId}
           />
         </div>
 

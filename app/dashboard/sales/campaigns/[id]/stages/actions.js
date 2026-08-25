@@ -7,16 +7,14 @@ import { isManagerOfWorkspace } from '../../../../lib/contactGuards';
 // שלבי קמפיין הם נתון משותף לכל מי שעובד על הקמפיין (בניגוד להעדפות
 // שדות אישיות ב-lib/fieldPreferences.js) - לכן דורשים owner/admin של
 // המחלקה, אותו דפוס requireManager בדיוק כמו settings/pipelines/actions.js
-// וגם campaigns/actions.js. בנוסף: קמפיין הקדשות (kind='dedication')
-// לא משתמש בשלבים בכלל - נדחה כאן גם אם מישהו יגיע ישירות ל-URL.
+// וגם campaigns/actions.js.
 async function requireManager(campaignId) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: campaign } = await supabase.from('campaigns').select('workspace_id, kind').eq('id', campaignId).single();
+  const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
   if (!campaign) return { error: 'הקמפיין לא נמצא' };
-  if (campaign.kind === 'dedication') return { error: 'לקמפיין הקדשות אין שלבים - הוא לא עובד עם תהליך' };
 
   const allowed = await isManagerOfWorkspace(supabase, user.id, campaign.workspace_id);
   if (!allowed) return { error: 'רק owner/admin של המחלקה יכול לערוך שלבי קמפיין' };
