@@ -1,0 +1,19 @@
+name: Sync Kesher reports (rate-limited by in-app setting)
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      # התדירות בפועל נשלטת מתוך המערכת (הגדרות > ייבוא נתונים > "סנכרון
+      # קשר אוטומטי") - ה-endpoint עצמו בודק אם עבר מספיק זמן מהריצה
+      # האחרונה ומדלג (no-op) אם לא. 5 דקות כאן הוא רק תקרת-התדירות
+      # המקסימלית שניתן לבחור במסך ההגדרות.
+      - name: Trigger Kesher sync (endpoint decides if it actually runs)
+        run: |
+          curl -sf -X GET "https://merkaz-daat-crm-8ubv.vercel.app/api/cron/sync-kesher" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

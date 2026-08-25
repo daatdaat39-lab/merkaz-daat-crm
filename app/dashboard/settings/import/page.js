@@ -4,6 +4,7 @@ import { DownloadTemplateButton, ExportContactsButton, ImportContactsButton } fr
 import DepartmentImportWizard from '../../contacts/DepartmentImportWizard';
 import CallHistoryImportWizard from '../../contacts/CallHistoryImportWizard';
 import KesherSyncButton from '../../contacts/KesherSyncButton';
+import KesherSyncScheduleSettings from '../../contacts/KesherSyncScheduleSettings';
 import { getAllExtraFields } from '../../lib/extraFields';
 import { isKesherConfigured } from '../../../../lib/kesher/client';
 
@@ -69,6 +70,7 @@ export default async function ImportDataPage() {
         <DepartmentImportWizard workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} extraFieldsByWorkspaceName={extraFieldsByWorkspaceName} stagesByWorkspaceName={stagesByWorkspaceName} />
         <CallHistoryImportWizard />
         <KesherSyncButton kesherConfigured={isKesherConfigured()} lastSyncDate={lastKesherSyncDate} />
+        <KesherSyncScheduleSettings kesherConfigured={isKesherConfigured()} />
         <ExportContactsButton contacts={contacts || []} />
         {pendingConflicts > 0 && (
           <a href="/dashboard/settings/import-conflicts" style={{
