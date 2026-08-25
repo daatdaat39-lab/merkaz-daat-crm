@@ -339,6 +339,7 @@ export async function searchCampaignSegment(campaignId, params) {
     p_has_active_commitment: params.hasActiveCommitment ?? null,
     p_has_course_enrollment: params.hasCourseEnrollment ?? null,
     p_has_seminar_participation: params.hasSeminarParticipation ?? null,
+    p_exclude_donated_within_days: params.excludeDonatedWithinDays ?? null,
     p_exclude_campaign_id: campaignId,
     p_sort_by: params.sortBy || 'name',
     p_sort_dir: params.sortDir || 'asc',

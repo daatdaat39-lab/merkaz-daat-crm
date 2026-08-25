@@ -43,6 +43,7 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
   const [hasCommitment, setHasCommitment] = useState(null);
   const [hasCourse, setHasCourse] = useState(null);
   const [hasSeminar, setHasSeminar] = useState(null);
+  const [excludeDonatedWithinDays, setExcludeDonatedWithinDays] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortDir, setSortDir] = useState('desc');
 
@@ -84,6 +85,7 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
         hasActiveCommitment: hasCommitment,
         hasCourseEnrollment: hasCourse,
         hasSeminarParticipation: hasSeminar,
+        excludeDonatedWithinDays: excludeDonatedWithinDays !== '' ? Number(excludeDonatedWithinDays) : null,
         sortBy, sortDir, limit: 500, offset: 0,
       });
       if (res?.error) { setError(res.error); return; }
@@ -186,7 +188,19 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
           <TriState value={hasCommitment} onChange={setHasCommitment} label="הוראת קבע פעילה" />
           <TriState value={hasCourse} onChange={setHasCourse} label="השתתף בקורסים" />
           <TriState value={hasSeminar} onChange={setHasSeminar} label="השתתף בסמינרים" />
+          <div>
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-secondary, #6b6b6b)', marginBottom: 4 }}>
+              הוצא: תרם ב-X הימים האחרונים
+            </div>
+            <input
+              type="number" value={excludeDonatedWithinDays} onChange={(e) => setExcludeDonatedWithinDays(e.target.value)}
+              placeholder="למשל: 30" style={{ ...inputStyle, width: '100%' }}
+            />
+          </div>
         </div>
+        <p style={{ fontSize: 11.5, color: 'var(--text-muted, #9b9b9b)', margin: '0 0 12px' }}>
+          "הוצא: תרם ב-X הימים האחרונים" ו"הוראת קבע פעילה = לא" משולבים אוטומטית ("וגם") - אפשר לסמן את שניהם יחד כדי להוציא תורם שנחשב פעיל לפי אחת ההגדרות.
+        </p>
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div>
