@@ -119,3 +119,165 @@ export async function removeContactFromCampaign(rowId) {
   if (error) return { error: error.message };
   return { success: true };
 }
+
+// ============================================================
+// מיפוי אנושי - צוות/מתנדבים עוברים על מי שכבר בקמפיין ומסמנים ידע-
+// יחסים שהמערכת לא יכולה לדעת לבד (מכיר/לא רלוונטי, קבוצת-אב, הערות,
+// הצפי). "גישה מלאה למערכת, בלי בעיה" הוחלט במפורש למיפוי - לכן רק
+// requireUser (לא requireManager) על שמירת-החלטה; דף הקמפיין עצמו עדיין
+// manager-only ברמת ה-page (page.js) - אם ירצו ממפים שאינם מנהלים,
+// זה ידרוש בנפרד לפתוח מסלול-גישה נפרד לטאב המיפוי.
+//
+// כרטיס-מיפוי אחד בכל פעם: התור הוא כל שורת campaign_contacts עם
+// mapping_decision ריק - זו גם מנגנון-מניעת-כפילות בין כמה ממפים
+// שעובדים בו-זמנית (ברגע שמישהו שומר החלטה, השורה לא ריקה יותר ונעלמת
+// מהתור של האחרים - בלי צורך בנעילה מפורשת).
+// ============================================================
+
+export async function getMappingDecisionOptions(workspaceId) {
+  const { supabase } = await requireUser();
+  const { data } = await supabase.from('picklists').select('id, value, sort_order')
+    .eq('list_key', 'mapping_decision').eq('workspace_id', workspaceId).order('sort_order');
+  return data || [];
+}
+
+// בונה משפט-סיכום חוצה-מחלקות לאיש קשר - לא רק ההקשר הצר של הקטגוריה
+// שהוא נכנס דרכה, אלא תמונה כוללת: "השתתף ב-2 קורסים והשתתף בסמינר".
+// שאילתות זולות (רק ספירה), מספיק להקשר-מהיר בכרטיסון-המיפוי.
+async function buildContactSummarySentence(supabase, contactId) {
+  const [{ count: courseCount }, { count: seminarCount }, { count: activeCommitments }, { data: txns }] = await Promise.all([
+    supabase.from('contact_course_enrollments').select('id', { count: 'exact', head: true }).eq('contact_id', contactId),
+    supabase.from('contact_seminar_participations').select('id', { count: 'exact', head: true }).eq('contact_id', contactId),
+    supabase.from('commitments').select('id', { count: 'exact', head: true }).eq('contact_id', contactId).eq('status', 'active'),
+    supabase.from('donation_transactions').select('amount, transaction_date').eq('contact_id', contactId),
+  ]);
+
+  const parts = [];
+  if (courseCount > 0) parts.push(`השתתף ב-${courseCount} קורס${courseCount > 1 ? 'ים' : ''}`);
+  if (seminarCount > 0) parts.push(`השתתף בסמינר${seminarCount > 1 ? 'ים' : ''}`);
+  if (activeCommitments > 0) parts.push('הוראת קבע פעילה');
+  const rows = txns || [];
+  if (rows.length > 0) {
+    const total = rows.reduce((s, t) => s + Number(t.amount || 0), 0);
+    const lastDate = rows.map((t) => t.transaction_date).filter(Boolean).sort().slice(-1)[0];
+    parts.push(`${rows.length} תרומות (סה"כ ₪${Math.round(total).toLocaleString('he-IL')}${lastDate ? `, אחרונה ${new Date(lastDate).toLocaleDateString('he-IL')}` : ''})`);
+  }
+  return parts.length ? parts.join(' · ') : 'אין היסטוריה נוספת רשומה';
+}
+
+// כמה אנשי-קשר דומים (שם-משפחה זהה + טלפון/כתובת זהים) שעדיין לא
+// מקושרים כבני-זוג - אותו עיקרון-זיהוי שכבר קיים למשפחות ששיתפו טלפון
+// (ר' findDuplicates.js), כאן ממוקד לצורך הצעת-קישור בזמן-אמת בתוך המיפוי.
+async function findPossibleSpouseMatches(supabase, contact) {
+  if (!contact.last) return [];
+  const phoneDigits = (contact.phone || '').replace(/\D/g, '').slice(-9);
+  const { data: sameLastName } = await supabase
+    .from('contacts').select('id, first, last, phone, city, street, related_contact_id')
+    .eq('last', contact.last).neq('id', contact.id).is('related_contact_id', null).limit(10);
+
+  return (sameLastName || []).filter((c) => {
+    const cDigits = (c.phone || '').replace(/\D/g, '').slice(-9);
+    const samePhone = phoneDigits && cDigits && cDigits === phoneDigits;
+    const sameAddress = contact.street && c.street && contact.city === c.city && contact.street === c.street;
+    return samePhone || sameAddress;
+  });
+}
+
+// שולף כרטיסון-מיפוי אחד - השורה הראשונה (לפי סדר-קטגוריות שכבר בקמפיין)
+// עם mapping_decision ריק. מחזיר null כשאין יותר מה למפות.
+export async function getNextMappingCard(campaignId) {
+  const { supabase } = await requireUser();
+
+  const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
+  if (!campaign) return null;
+
+  const { data: row } = await supabase
+    .from('campaign_contacts')
+    .select('id, category, contacts:contact_id (id, first, last, phone, email, city, street, related_contact_id)')
+    .eq('campaign_id', campaignId)
+    .is('mapping_decision', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!row || !row.contacts) return null;
+
+  const contact = row.contacts;
+  const [summary, spouseMatches, decisionOptions] = await Promise.all([
+    buildContactSummarySentence(supabase, contact.id),
+    findPossibleSpouseMatches(supabase, contact),
+    getMappingDecisionOptions(campaign.workspace_id),
+  ]);
+
+  let linkedSpouse = null;
+  let spouseAlsoInCampaign = false;
+  let spouseRowId = null;
+  if (contact.related_contact_id) {
+    const { data: spouse } = await supabase.from('contacts').select('id, first, last').eq('id', contact.related_contact_id).maybeSingle();
+    linkedSpouse = spouse;
+    if (spouse) {
+      const { data: spouseRow } = await supabase.from('campaign_contacts').select('id')
+        .eq('campaign_id', campaignId).eq('contact_id', spouse.id).maybeSingle();
+      spouseAlsoInCampaign = !!spouseRow;
+      spouseRowId = spouseRow?.id || null;
+    }
+  }
+
+  return {
+    rowId: row.id,
+    category: row.category,
+    contact,
+    summary,
+    linkedSpouse,
+    spouseAlsoInCampaign,
+    spouseRowId,
+    possibleSpouses: spouseMatches,
+    decisionOptions,
+  };
+}
+
+export async function saveMappingDecision(rowId, fields) {
+  const { supabase, user } = await requireUser();
+  if (!rowId) return { error: 'לא נבחרה שורה' };
+
+  const update = { mapped_by: user.id, mapped_at: new Date().toISOString() };
+  if (fields.decision !== undefined) update.mapping_decision = fields.decision || null;
+  if (fields.category !== undefined) update.category = fields.category || null;
+  if (fields.parentGroup !== undefined) update.mapping_parent_group = fields.parentGroup || null;
+  if (fields.noteOwner !== undefined) update.mapping_note_owner = fields.noteOwner || null;
+  if (fields.noteRep !== undefined) update.mapping_note_rep = fields.noteRep || null;
+  if (fields.expectationBucket !== undefined) update.mapping_expectation_bucket = fields.expectationBucket || null;
+  if (fields.expectationNote !== undefined) update.mapping_expectation_note = fields.expectationNote || null;
+
+  const { error } = await supabase.from('campaign_contacts').update(update).eq('id', rowId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// מקשר שני אנשי-קשר כבני-זוג (related_contact_id דו-כיווני) - אותו
+// מנגנון-קישור שכבר קיים ("פיצול כרטיסי-זוג"), כאן עבור זוגות שזוהו
+// כדומים אבל מעולם לא קושרו. לא יוצר/מוחק שום כרטיס - רק מקשר קיימים.
+export async function linkContactsAsCouple(contactIdA, contactIdB) {
+  const { supabase } = await requireUser();
+  if (!contactIdA || !contactIdB) return { error: 'חסר איש קשר' };
+
+  const [r1, r2] = await Promise.all([
+    supabase.from('contacts').update({ related_contact_id: contactIdB, relation_label: 'בן/בת זוג' }).eq('id', contactIdA),
+    supabase.from('contacts').update({ related_contact_id: contactIdA, relation_label: 'בן/בת זוג' }).eq('id', contactIdB),
+  ]);
+  if (r1.error || r2.error) return { error: (r1.error || r2.error).message };
+  return { success: true };
+}
+
+// "טיפול משותף" לזוג מקושר - לקמפיין הזה בלבד (לא נוגע בכרטיסים עצמם).
+// דו-כיווני: שתי שורות ה-campaign_contacts מצביעות זו על זו, עם אותה הערה.
+export async function setJointHandling(rowIdA, rowIdB, note) {
+  const { supabase } = await requireUser();
+  if (!rowIdA || !rowIdB) return { error: 'חסרה שורת קמפיין' };
+
+  const [r1, r2] = await Promise.all([
+    supabase.from('campaign_contacts').update({ joint_handling_with: rowIdB, joint_handling_note: note || null }).eq('id', rowIdA),
+    supabase.from('campaign_contacts').update({ joint_handling_with: rowIdA, joint_handling_note: note || null }).eq('id', rowIdB),
+  ]);
+  if (r1.error || r2.error) return { error: (r1.error || r2.error).message };
+  return { success: true };
+}

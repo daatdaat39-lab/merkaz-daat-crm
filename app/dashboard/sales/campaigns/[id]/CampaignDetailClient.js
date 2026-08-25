@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign } from '../actions';
 import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
 import { contactMatchesAdvancedFilter } from '../../../components/advancedFilter';
+import MappingQueue from './MappingQueue';
 
 // קטגוריות ברירת מחדל - משמשות רק אם רשימת הבחירה הדינמית (הגדרות ← רשימות
 // בחירה) ריקה, כדי שהמסך לעולם לא יישאר בלי אף קטגוריה לבחור
@@ -15,6 +16,7 @@ const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6
 
 export default function CampaignDetailClient({ campaignId, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} }, extraFields = [], extraFieldsByWorkspace = {}, pipelinesByWorkspace = {} }) {
   const CATEGORIES = categories.length ? categories : DEFAULT_CATEGORIES;
+  const [viewMode, setViewMode] = useState('table');
   const [rows, setRows] = useState(initialRows);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState('');
@@ -123,6 +125,27 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
 
   return (
     <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+        <button type="button" onClick={() => setViewMode('table')} style={{
+          padding: '7px 16px', borderRadius: 999, fontSize: 12.5, cursor: 'pointer',
+          border: viewMode === 'table' ? '1px solid #0a0a0a' : '1px solid var(--border, #e5e5e5)',
+          background: viewMode === 'table' ? '#0a0a0a' : 'var(--bg)', color: viewMode === 'table' ? '#fff' : 'inherit',
+        }}>
+          טבלה
+        </button>
+        <button type="button" onClick={() => setViewMode('mapping')} style={{
+          padding: '7px 16px', borderRadius: 999, fontSize: 12.5, cursor: 'pointer',
+          border: viewMode === 'mapping' ? '1px solid #0a0a0a' : '1px solid var(--border, #e5e5e5)',
+          background: viewMode === 'mapping' ? '#0a0a0a' : 'var(--bg)', color: viewMode === 'mapping' ? '#fff' : 'inherit',
+        }}>
+          🗺 מיפוי
+        </button>
+      </div>
+
+      {viewMode === 'mapping' ? (
+        <MappingQueue campaignId={campaignId} categories={CATEGORIES} />
+      ) : (
+        <>
       {rows.length > 0 && (
         <CampaignOverviewDashboard rows={rows} agents={agents} campaignStages={campaignStages} />
       )}
@@ -289,6 +312,8 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
             </tbody>
           </table>
         </div>
+        </>
+      )}
     </div>
   );
 }

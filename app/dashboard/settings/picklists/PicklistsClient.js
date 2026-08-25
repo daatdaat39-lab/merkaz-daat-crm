@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { addPicklistValue, removePicklistValue } from './actions';
 
-export default function PicklistsClient({ closeReasons, campaignCategories, donationsWorkspaceId }) {
+export default function PicklistsClient({ closeReasons, campaignCategories, mappingDecisions, donationsWorkspaceId }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PicklistSection
@@ -20,6 +20,13 @@ export default function PicklistsClient({ closeReasons, campaignCategories, dona
         listKey="campaign_category"
         workspaceId={donationsWorkspaceId}
         initialValues={campaignCategories}
+      />
+      <PicklistSection
+        title="החלטות מיפוי"
+        subtitle="מחלקת תרומות - האפשרויות שממפה יכול לבחור מהן במסך המיפוי של קמפיין"
+        listKey="mapping_decision"
+        workspaceId={donationsWorkspaceId}
+        initialValues={mappingDecisions}
       />
     </div>
   );
