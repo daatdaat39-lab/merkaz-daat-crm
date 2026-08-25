@@ -12,9 +12,9 @@ function defaultDate(daysAgo) {
   return d.toISOString().slice(0, 10);
 }
 
-export default function KesherSyncButton({ kesherConfigured = false }) {
+export default function KesherSyncButton({ kesherConfigured = false, lastSyncDate = null }) {
   const [open, setOpen] = useState(false);
-  const [fromDate, setFromDate] = useState(defaultDate(30));
+  const [fromDate, setFromDate] = useState(lastSyncDate || defaultDate(30));
   const [toDate, setToDate] = useState(defaultDate(0));
   const [createNewContacts, setCreateNewContacts] = useState(true);
   const [result, setResult] = useState(null);
@@ -62,6 +62,11 @@ export default function KesherSyncButton({ kesherConfigured = false }) {
           <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} style={inputStyle()} />
         </div>
       </div>
+      {lastSyncDate && (
+        <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '-4px 0 10px' }}>
+          "מתאריך" מולא אוטומטית מהסנכרון האחרון ({lastSyncDate})
+        </p>
+      )}
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginBottom: 10, cursor: 'pointer' }}>
         <input type="checkbox" checked={createNewContacts} onChange={(e) => setCreateNewContacts(e.target.checked)} />
         ליצור איש קשר חדש לתורם שלא נמצא במערכת (נרשם לקמפיין "נכנס ממערכת קשר", לא ללוח הלידים)

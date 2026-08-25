@@ -459,5 +459,23 @@ export async function syncKesherReports(fromDate, toDate, createNewContacts = tr
   result.debugMatches = debugMatches;
   result.debugOutcomes = debugOutcomes;
   result.debugTransactionMatches = debugTransactionMatches;
+
+  // לוג הריצה - משמש למילוי אוטומטי של "מתאריך" בפעם הבאה (ר' getLastKesherSyncDate)
+  await supabase.from('kesher_sync_runs').insert({
+    from_date: fromDate, to_date: toDate, created_by: user.id,
+    transactions_created: result.transactionsCreated, transactions_skipped: result.transactionsSkipped, transactions_unmatched: result.transactionsUnmatched,
+    obligations_created: result.obligationsCreated, obligations_updated: result.obligationsUpdated, obligations_unmatched: result.obligationsUnmatched,
+  });
+
   return result;
+}
+
+// התאריך האחרון שסונכרן בהצלחה (to_date של הריצה האחרונה) - למילוי
+// אוטומטי של "מתאריך" ב-KesherSyncButton, כדי שלא יצטרכו לזכור/לחשב
+// ידנית מאיפה להמשיך. null אם אף פעם לא סונכרן.
+export async function getLastKesherSyncDate() {
+  const { supabase } = await requireUser();
+  const { data } = await supabase
+    .from('kesher_sync_runs').select('to_date').order('run_at', { ascending: false }).limit(1).maybeSingle();
+  return data?.to_date || null;
 }

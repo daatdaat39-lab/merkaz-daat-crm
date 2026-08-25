@@ -35,13 +35,15 @@ export default async function ImportDataPage() {
     return all;
   }
 
-  const [contacts, { data: workspaces }, { data: profile }, { count: pendingConflicts }, { data: stages }] = await Promise.all([
+  const [contacts, { data: workspaces }, { data: profile }, { count: pendingConflicts }, { data: stages }, { data: lastKesherSync }] = await Promise.all([
     fetchAllContactsForMatching(),
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
     supabase.from('import_conflicts').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     supabase.from('pipeline_stages').select('workspace_id, stage_key, label, sort_order'),
+    supabase.from('kesher_sync_runs').select('to_date').order('run_at', { ascending: false }).limit(1).maybeSingle(),
   ]);
+  const lastKesherSyncDate = lastKesherSync?.to_date || null;
   const extraFieldsByWorkspaceName = await getAllExtraFields(supabase);
 
   // מיפוי שלבי הפייפליין לפי שם מחלקה - משמש את אשף הייבוא כדי לתרגם
@@ -66,7 +68,7 @@ export default async function ImportDataPage() {
         <ImportContactsButton workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} />
         <DepartmentImportWizard workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} extraFieldsByWorkspaceName={extraFieldsByWorkspaceName} stagesByWorkspaceName={stagesByWorkspaceName} />
         <CallHistoryImportWizard />
-        <KesherSyncButton kesherConfigured={isKesherConfigured()} />
+        <KesherSyncButton kesherConfigured={isKesherConfigured()} lastSyncDate={lastKesherSyncDate} />
         <ExportContactsButton contacts={contacts || []} />
         {pendingConflicts > 0 && (
           <a href="/dashboard/settings/import-conflicts" style={{
