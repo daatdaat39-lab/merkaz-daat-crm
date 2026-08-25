@@ -37,7 +37,7 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
   const [workspaces, setWorkspaces] = useState([]);
   const [source, setSource] = useState('');
   const [stageWorkspaceId, setStageWorkspaceId] = useState('');
-  const [stage, setStage] = useState('');
+  const [stages, setStages] = useState([]);
   const [minPeak, setMinPeak] = useState('');
   const [maxPeak, setMaxPeak] = useState('');
   const [hasCommitment, setHasCommitment] = useState(null);
@@ -67,6 +67,10 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
     ? [...selectedWorkspaceStages.order, ...(selectedWorkspaceStages.sideStages || [])]
     : [];
 
+  function toggleStage(s) {
+    setStages((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  }
+
   function handleSearch() {
     setError(null);
     setAddedMsg(null);
@@ -74,7 +78,7 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
       const res = await searchCampaignSegment(campaignId, {
         source: source.trim() || null,
         stageWorkspaceId: stageWorkspaceId || null,
-        stage: stage || null,
+        stages: stages.length ? stages : null,
         minPeakDonation: minPeak !== '' ? Number(minPeak) : null,
         maxPeakDonation: maxPeak !== '' ? Number(maxPeak) : null,
         hasActiveCommitment: hasCommitment,
@@ -140,17 +144,33 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
           </div>
           <div>
             <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-secondary, #6b6b6b)', marginBottom: 4 }}>מחלקה (לשלב)</div>
-            <select value={stageWorkspaceId} onChange={(e) => { setStageWorkspaceId(e.target.value); setStage(''); }} style={{ ...inputStyle, width: '100%' }}>
+            <select value={stageWorkspaceId} onChange={(e) => { setStageWorkspaceId(e.target.value); setStages([]); }} style={{ ...inputStyle, width: '100%' }}>
               <option value="">— ללא —</option>
               {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
           </div>
           <div>
-            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-secondary, #6b6b6b)', marginBottom: 4 }}>שלב</div>
-            <select value={stage} onChange={(e) => setStage(e.target.value)} disabled={!stageWorkspaceId} style={{ ...inputStyle, width: '100%' }}>
-              <option value="">— כל השלבים —</option>
-              {stageOptions.map((s) => <option key={s} value={s}>{selectedWorkspaceStages.labels[s] || s}</option>)}
-            </select>
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-secondary, #6b6b6b)', marginBottom: 4 }}>
+              שלב {stages.length > 0 ? `(${stages.length} נבחרו)` : '(כל השלבים)'}
+            </div>
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', gap: 4, opacity: stageWorkspaceId ? 1 : 0.5,
+              pointerEvents: stageWorkspaceId ? 'auto' : 'none',
+            }}>
+              {stageOptions.map((s) => (
+                <button
+                  key={s} type="button" onClick={() => toggleStage(s)}
+                  style={{
+                    fontSize: 11.5, padding: '5px 10px', borderRadius: 6, cursor: 'pointer',
+                    border: stages.includes(s) ? '1px solid var(--accent, #1f4d3d)' : '1px solid var(--border, #e5e5e5)',
+                    background: stages.includes(s) ? 'var(--accent-soft, #e4ede8)' : 'var(--bg)',
+                  }}
+                >{selectedWorkspaceStages?.labels[s] || s}</button>
+              ))}
+              {stageWorkspaceId && stageOptions.length === 0 && (
+                <span style={{ fontSize: 11.5, color: 'var(--text-muted, #9b9b9b)' }}>אין שלבים במחלקה זו</span>
+              )}
+            </div>
           </div>
         </div>
 

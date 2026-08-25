@@ -333,7 +333,7 @@ export async function searchCampaignSegment(campaignId, params) {
   const { data, error } = await supabase.rpc('find_campaign_segment_candidates', {
     p_source: params.source || null,
     p_stage_workspace_id: params.stageWorkspaceId || null,
-    p_stage: params.stage || null,
+    p_stages: Array.isArray(params.stages) && params.stages.length ? params.stages : null,
     p_min_peak_donation: params.minPeakDonation ?? null,
     p_max_peak_donation: params.maxPeakDonation ?? null,
     p_has_active_commitment: params.hasActiveCommitment ?? null,
