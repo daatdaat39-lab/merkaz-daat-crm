@@ -55,7 +55,10 @@ export default function MappingQueue({ campaignId, categories = [] }) {
 
   function handleSkip() {
     if (!card) return;
-    const next = [...skippedIds, card.rowId];
+    // מסירים הופעה קודמת (אם דילגו על אותו אדם כבר בסבב הזה) ומוסיפים
+    // בסוף - כדי שדילוג חוזר יזיז אותו שוב לסוף התור, לא ישאיר אותו
+    // "תקוע" במקום שכבר עבר.
+    const next = [...skippedIds.filter((id) => id !== card.rowId), card.rowId];
     setSkippedIds(next);
     loadNext(next);
   }
