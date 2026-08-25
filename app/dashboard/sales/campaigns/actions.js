@@ -185,20 +185,28 @@ async function findPossibleSpouseMatches(supabase, contact) {
 
 // שולף כרטיסון-מיפוי אחד - השורה הראשונה (לפי סדר-קטגוריות שכבר בקמפיין)
 // עם mapping_decision ריק. מחזיר null כשאין יותר מה למפות.
-export async function getNextMappingCard(campaignId) {
+// skipIds - שורות שהממפה כבר "דילג" עליהן בסבב הנוכחי (בצד-לקוח, ר'
+// MappingQueue.js). דילוג לא שומר שום החלטה ב-DB (בכוונה - זה ההבדל
+// בין "דלג" ל"לא רלוונטי"), אז בלי הרשימה הזו getNextMappingCard היה
+// מחזיר את אותה שורה שוב ושוב - היא עדיין "הראשונה עם mapping_decision
+// ריק". ברגע שרוענן העמוד/נפתח מחדש, הדילוגים "נשכחים" והשורות חוזרות
+// לתחילת התור - תואם בדיוק את מה שסוכם ("חוזר לתור לסבב הבא").
+export async function getNextMappingCard(campaignId, skipIds = []) {
   const { supabase } = await requireUser();
 
   const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
   if (!campaign) return null;
 
-  const { data: row } = await supabase
+  let query = supabase
     .from('campaign_contacts')
     .select('id, category, contacts:contact_id (id, first, last, phone, email, city, street, related_contact_id)')
     .eq('campaign_id', campaignId)
     .is('mapping_decision', null)
     .order('created_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+  if (skipIds.length > 0) query = query.not('id', 'in', `(${skipIds.join(',')})`);
+
+  const { data: row } = await query.maybeSingle();
   if (!row || !row.contacts) return null;
 
   const contact = row.contacts;

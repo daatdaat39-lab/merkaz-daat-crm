@@ -21,6 +21,7 @@ export default function MappingQueue({ campaignId, categories = [] }) {
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mappedCount, setMappedCount] = useState(0);
+  const [skippedIds, setSkippedIds] = useState([]);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
 
@@ -41,20 +42,22 @@ export default function MappingQueue({ campaignId, categories = [] }) {
     setExpectationBucket(''); setExpectationNote(''); setJointWithSpouse(false); setJointNote('');
   }
 
-  async function loadNext() {
+  async function loadNext(skipIds) {
     setLoading(true);
     setError(null);
-    const next = await getNextMappingCard(campaignId);
+    const next = await getNextMappingCard(campaignId, skipIds ?? skippedIds);
     setCard(next);
     resetForm();
     setLoading(false);
   }
 
-  useEffect(() => { loadNext(); }, [campaignId]);
+  useEffect(() => { loadNext([]); }, [campaignId]);
 
   function handleSkip() {
-    setMappedCount((n) => n); // דילוג לא נספר כ"מופה"
-    loadNext();
+    if (!card) return;
+    const next = [...skippedIds, card.rowId];
+    setSkippedIds(next);
+    loadNext(next);
   }
 
   function handleSave() {
