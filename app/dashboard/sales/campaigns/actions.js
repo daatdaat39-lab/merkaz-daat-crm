@@ -372,3 +372,36 @@ export async function addContactsToCampaignWithCategory(campaignId, contactIds, 
   if (error) return { error: error.message };
   return { success: true };
 }
+
+// עדכון-בכמות אחרי מיפוי ידני חיצוני (ייצוא ל-CSV, עריכה ביד/באקסל,
+// חזרה לכאן) - כל updates[i] הוא {rowId, category?, assignedTo?, status?}
+// (rowId הוא המפתח היחיד שסומכים עליו, לא שם/טלפון - נשלף מתוך הקובץ
+// שכבר יוצא ממערכת זו). בדיקת הרשאה אחת בתחילת הפעולה (לא לכל שורה,
+// בשונה מ-updateCampaignContact שנקראת מהטבלה האינטראקטיבית שורה-שורה).
+export async function bulkUpdateCampaignContactsFromImport(campaignId, updates) {
+  const { supabase, user } = await requireUser();
+  if (!campaignId || !Array.isArray(updates) || updates.length === 0) return { error: 'אין נתונים לעדכון' };
+
+  const { data: campaign } = await supabase.from('campaigns').select('id, workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const { data: validStages } = await supabase.from('campaign_stages').select('stage_key').eq('campaign_id', campaignId);
+  const validStageKeys = new Set((validStages || []).map((s) => s.stage_key));
+
+  let updated = 0;
+  let skipped = 0;
+  for (const u of updates) {
+    if (!u || !u.rowId) { skipped++; continue; }
+    const patch = {};
+    if (u.category !== undefined) patch.category = u.category || null;
+    if (u.assignedTo !== undefined) patch.assigned_to = u.assignedTo || null;
+    if (u.status !== undefined && validStageKeys.has(u.status)) patch.status = u.status;
+    if (Object.keys(patch).length === 0) { skipped++; continue; }
+    const { error } = await supabase.from('campaign_contacts').update(patch).eq('id', u.rowId).eq('campaign_id', campaignId);
+    if (error) { skipped++; continue; }
+    updated++;
+  }
+  return { success: true, updated, skipped };
+}

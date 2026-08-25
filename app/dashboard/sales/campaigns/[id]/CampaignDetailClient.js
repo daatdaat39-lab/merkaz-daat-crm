@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign } from '../actions';
+import * as XLSX from 'xlsx';
+import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, bulkUpdateCampaignContactsFromImport } from '../actions';
 import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
 import { contactMatchesAdvancedFilter } from '../../../components/advancedFilter';
 import MappingQueue from './MappingQueue';
@@ -12,8 +13,47 @@ import SegmentFinder from './SegmentFinder';
 // קטגוריות ברירת מחדל - משמשות רק אם רשימת הבחירה הדינמית (הגדרות ← רשימות
 // בחירה) ריקה, כדי שהמסך לעולם לא יישאר בלי אף קטגוריה לבחור
 const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'תורם חוזר', 'לא רלוונטי'];
+const ROW_ID_HEADER = 'מזהה שורה (לא לשנות)';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
+
+// מקבץ שורות לפי קטגוריה - סדר: קודם הקטגוריות מרשימת-הבחירה (רק אלה
+// שיש להן בפועל שורות), אחר-כך ערכי-קטגוריה חופשיים שהגיעו מייבוא-מיפוי
+// חיצוני ואינם ברשימה, ולבסוף "ללא קטגוריה" - תמיד אחרון.
+function buildCategoryGroups(rows, CATEGORIES) {
+  const map = new Map();
+  for (const r of rows) {
+    const key = r.category || '';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(r);
+  }
+  const orderedKeys = [
+    ...CATEGORIES.filter((c) => map.has(c)),
+    ...Array.from(map.keys()).filter((k) => k && !CATEGORIES.includes(k)),
+  ];
+  if (map.has('')) orderedKeys.push('');
+  return orderedKeys.map((key) => ({
+    key,
+    label: key || 'ללא קטגוריה',
+    rows: (map.get(key) || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he')),
+  }));
+}
+
+function downloadBlob(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(v) {
+  return `"${String(v ?? '').replace(/"/g, '""')}"`;
+}
 
 export default function CampaignDetailClient({ campaignId, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} }, extraFields = [], extraFieldsByWorkspace = {}, pipelinesByWorkspace = {} }) {
   const CATEGORIES = categories.length ? categories : DEFAULT_CATEGORIES;
@@ -31,9 +71,13 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   }
   const [pickIds, setPickIds] = useState(new Set());
   const [selectedRows, setSelectedRows] = useState(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [pendingImport, setPendingImport] = useState(null);
+  const [importResult, setImportResult] = useState(null);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const importInputRef = useRef(null);
 
   const deptOptions = useMemo(
     () => Array.from(new Set(availableContacts.flatMap((c) => c.departments || []))).sort((a, b) => a.localeCompare(b, 'he')),
@@ -70,6 +114,8 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     return result.slice(0, 100);
   }, [availableContacts, search, deptFilter, tagFilter, fieldFilters, extraFields, showPickerList, hasAdvancedFilter, advancedFilters, extraFieldsByWorkspace]);
 
+  const groups = useMemo(() => buildCategoryGroups(rows, CATEGORIES), [rows, CATEGORIES]);
+
   function togglePick(id) {
     setPickIds((prev) => {
       const next = new Set(prev);
@@ -86,12 +132,25 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     });
   }
 
-  const allRowsSelected = rows.length > 0 && rows.every((r) => selectedRows.has(r.rowId));
-  function toggleSelectAllRows() {
-    setSelectedRows((prev) => {
-      if (allRowsSelected) return new Set();
-      return new Set(rows.map((r) => r.rowId));
+  function toggleGroupCollapsed(key) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
     });
+  }
+
+  function toggleSelectGroup(groupRows) {
+    const allSelected = groupRows.length > 0 && groupRows.every((r) => selectedRows.has(r.rowId));
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      groupRows.forEach((r) => (allSelected ? next.delete(r.rowId) : next.add(r.rowId)));
+      return next;
+    });
+  }
+
+  function selectAllRows() {
+    setSelectedRows(new Set(rows.map((r) => r.rowId)));
   }
 
   function handleAdd() {
@@ -120,6 +179,109 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
       if (res?.error) { setError(res.error); return; }
       setRows((prev) => prev.filter((r) => r.rowId !== rowId));
       setSelectedRows((prev) => { const next = new Set(prev); next.delete(rowId); return next; });
+      router.refresh();
+    });
+  }
+
+  function handleExport() {
+    const agentNameById = Object.fromEntries(agents.map((a) => [a.id, a.name]));
+    const headerRow = [ROW_ID_HEADER, 'שם', 'טלפון', 'מייל', 'קטגוריה', 'נציג מטפל', 'סטטוס'];
+    const dataRows = rows.map((r) => [
+      r.rowId, r.name || '', r.phone || '', r.email || '', r.category || '',
+      r.assignedTo ? (agentNameById[r.assignedTo] || '') : '', campaignStages.labels[r.status] || r.status || '',
+    ].map(csvCell).join(','));
+    const csv = '﻿' + [headerRow.join(','), ...dataRows].join('\n');
+    downloadBlob(csv, `קבוצות-קמפיין-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8;');
+  }
+
+  function handleImportFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportResult(null);
+    setPendingImport(null);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      let sheetRows;
+      try {
+        const wb = XLSX.read(ev.target.result, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        sheetRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+      } catch {
+        setImportResult({ error: 'לא הצלחתי לקרוא את הקובץ - ודאו שזהו קובץ Excel/CSV תקין' });
+        return;
+      }
+      const nonEmpty = sheetRows.filter((r) => Array.isArray(r) && r.some((c) => String(c || '').trim()));
+      if (nonEmpty.length < 2) { setImportResult({ error: 'לא נמצאו שורות נתונים בקובץ' }); return; }
+
+      const headerCells = nonEmpty[0].map((h) => String(h || '').trim());
+      const idx = {
+        rowId: headerCells.indexOf(ROW_ID_HEADER),
+        category: headerCells.indexOf('קטגוריה'),
+        assignedTo: headerCells.indexOf('נציג מטפל'),
+        status: headerCells.indexOf('סטטוס'),
+      };
+      if (idx.rowId === -1) {
+        setImportResult({ error: 'לא נמצאה עמודת "מזהה שורה" בקובץ - יש להשתמש בקובץ שיוצא מכפתור "ייצוא למיפוי ידני" באותו קמפיין' });
+        return;
+      }
+
+      const rowById = Object.fromEntries(rows.map((r) => [r.rowId, r]));
+      const agentIdByName = Object.fromEntries(agents.map((a) => [a.name, a.id]));
+      const stageKeyByLabel = Object.fromEntries(campaignStages.order.map((s) => [campaignStages.labels[s] || s, s]));
+
+      const updates = [];
+      let unmatched = 0;
+      for (const cells of nonEmpty.slice(1)) {
+        const rowId = String(cells[idx.rowId] || '').trim();
+        const existing = rowById[rowId];
+        if (!existing) { unmatched++; continue; }
+        const patch = { rowId };
+        let changed = false;
+        if (idx.category !== -1) {
+          const val = String(cells[idx.category] || '').trim();
+          if (val !== (existing.category || '')) { patch.category = val; changed = true; }
+        }
+        if (idx.assignedTo !== -1) {
+          const nameVal = String(cells[idx.assignedTo] || '').trim();
+          const currentName = existing.assignedTo ? (agents.find((a) => a.id === existing.assignedTo)?.name || '') : '';
+          if (nameVal !== currentName) { patch.assignedTo = nameVal ? (agentIdByName[nameVal] || null) : null; changed = true; }
+        }
+        if (idx.status !== -1) {
+          const labelVal = String(cells[idx.status] || '').trim();
+          const stageKey = stageKeyByLabel[labelVal];
+          const currentLabel = campaignStages.labels[existing.status] || existing.status || '';
+          if (stageKey && labelVal !== currentLabel) { patch.status = stageKey; changed = true; }
+        }
+        if (changed) updates.push(patch);
+      }
+      if (updates.length === 0) {
+        setImportResult({ error: unmatched > 0 ? `לא נמצאו שינויים לעדכון (${unmatched} שורות לא זוהו - ודאו שהקובץ מהקמפיין הנכון)` : 'לא נמצאו שינויים לעדכון בקובץ' });
+        return;
+      }
+      setPendingImport({ updates, unmatched });
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  }
+
+  function confirmImport() {
+    if (!pendingImport) return;
+    setError(null);
+    startTransition(async () => {
+      const res = await bulkUpdateCampaignContactsFromImport(campaignId, pendingImport.updates);
+      if (res?.error) { setImportResult({ error: res.error }); setPendingImport(null); return; }
+      setRows((prev) => prev.map((r) => {
+        const u = pendingImport.updates.find((x) => x.rowId === r.rowId);
+        if (!u) return r;
+        return {
+          ...r,
+          ...(u.category !== undefined ? { category: u.category } : {}),
+          ...(u.assignedTo !== undefined ? { assignedTo: u.assignedTo || '' } : {}),
+          ...(u.status !== undefined ? { status: u.status } : {}),
+        };
+      }));
+      setImportResult({ success: true, updated: res.updated, skipped: res.skipped });
+      setPendingImport(null);
       router.refresh();
     });
   }
@@ -157,7 +319,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
       ) : (
         <>
       {rows.length > 0 && (
-        <CampaignOverviewDashboard rows={rows} agents={agents} campaignStages={campaignStages} />
+        <CampaignOverviewDashboard rows={rows} agents={agents} campaignStages={campaignStages} groups={groups} />
       )}
 
       <div style={{ marginBottom: 14 }}>
@@ -251,88 +413,167 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
             </div>
           </div>
         ) : (
-          <button type="button" onClick={() => setAdding(true)} style={primaryBtn()}>+ הוספת אנשי קשר לקמפיין</button>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            <button type="button" onClick={() => setAdding(true)} style={primaryBtn()}>+ הוספת אנשי קשר לקמפיין</button>
+            {rows.length > 0 && (
+              <>
+                <button type="button" onClick={handleExport} style={ghostBtn()}>⬇ ייצוא למיפוי ידני</button>
+                <button type="button" onClick={() => importInputRef.current?.click()} style={ghostBtn()}>⬆ ייבוא עדכוני מיפוי</button>
+                <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleImportFile} style={{ display: 'none' }} />
+                {selectedRows.size === 0 && (
+                  <button type="button" onClick={selectAllRows} style={{ ...ghostBtn(), fontSize: 12 }}>בחר את כל השורות ({rows.length})</button>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
 
+      {importResult?.error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>{importResult.error}</div>}
+      {importResult?.success && (
+        <div style={{ color: '#1f7a3d', fontSize: 12.5, marginBottom: 10 }}>
+          ✓ עודכנו {importResult.updated} שורות{importResult.skipped > 0 ? `, דולגו ${importResult.skipped}` : ''}
+        </div>
+      )}
+      {pendingImport && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', background: '#eef2f7', border: '1px solid #c9d6e3', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
+          <span style={{ fontSize: 12.5, color: '#3b5878' }}>
+            נמצאו {pendingImport.updates.length} שינויים לעדכון מהקובץ
+            {pendingImport.unmatched > 0 ? ` (${pendingImport.unmatched} שורות בקובץ לא זוהו ודולגו)` : ''} - לאשר?
+          </span>
+          <button type="button" onClick={confirmImport} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+            אישור עדכון
+          </button>
+          <button type="button" onClick={() => setPendingImport(null)} style={{ background: 'none', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}>
+            ביטול
+          </button>
+        </div>
+      )}
+
       {error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>שגיאה: {error}</div>}
 
-      <BulkAssignBar selected={selectedRows} setSelected={setSelectedRows} agents={agents} onApply={handleChange} rows={rows} workspaceId={workspaceId} isDonationsWorkspace={isDonationsWorkspace} />
+      <BulkAssignBar selected={selectedRows} setSelected={setSelectedRows} agents={agents} categories={CATEGORIES} onApply={handleChange} rows={rows} workspaceId={workspaceId} isDonationsWorkspace={isDonationsWorkspace} />
 
-      <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
-                <th style={{ padding: '10px 8px', textAlign: 'center' }}>
-                  <input type="checkbox" checked={allRowsSelected} onChange={toggleSelectAllRows} disabled={rows.length === 0} />
-                </th>
-                {['שם', 'טלפון', 'קטגוריה', 'נציג מטפל', 'סטטוס', ''].map((h) => (
-                  <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted, #9b9b9b)', padding: '10px 14px', textTransform: 'uppercase' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.length === 0 && (
-                <tr><td colSpan={7} style={{ padding: '14px', fontSize: 13, color: '#9b9b9b' }}>עדיין לא נוספו אנשי קשר לקמפיין</td></tr>
-              )}
-              {rows.map((r) => (
-                <tr key={r.rowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
-                  <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-                    <input type="checkbox" checked={selectedRows.has(r.rowId)} onChange={() => toggleRowSelect(r.rowId)} />
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
-                      {r.name || '—'}
-                    </Link>
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>{r.phone || '—'}</td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <select value={r.category} onChange={(e) => handleChange(r.rowId, { category: e.target.value })} disabled={isPending} style={cellSelect()}>
-                      <option value="">—</option>
-                      {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <select value={r.assignedTo} onChange={(e) => handleChange(r.rowId, { assignedTo: e.target.value })} disabled={isPending} style={cellSelect()}>
-                      <option value="">— ללא —</option>
-                      {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <select
-                      value={r.status}
-                      onChange={(e) => handleChange(r.rowId, { status: e.target.value })}
-                      disabled={isPending}
-                      style={{
-                        ...cellSelect(),
-                        background: (campaignStages.colors[r.status] || {}).bg || '#f4f4f5',
-                        color: (campaignStages.colors[r.status] || {}).color || '#52525b',
-                        border: 'none', fontWeight: 500,
-                      }}
-                    >
-                      {campaignStages.order.map((s) => <option key={s} value={s}>{campaignStages.labels[s] || s}</option>)}
-                    </select>
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <button type="button" onClick={() => handleRemove(r.rowId)} disabled={isPending} title="הסרה מהקמפיין"
-                      style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 13 }}>✕</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {rows.length === 0 && (
+        <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px', fontSize: 13, color: '#9b9b9b' }}>
+          עדיין לא נוספו אנשי קשר לקמפיין
         </div>
+      )}
+
+      {groups.map((group) => {
+        const collapsed = collapsedGroups.has(group.key);
+        const groupSelected = group.rows.length > 0 && group.rows.every((r) => selectedRows.has(r.rowId));
+        return (
+          <div key={group.key || '__none__'} style={{ marginBottom: 12 }}>
+            <div
+              onClick={() => toggleGroupCollapsed(group.key)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none',
+                background: 'var(--bg-secondary, #fafafa)', border: '1px solid var(--border, #e5e5e5)',
+                borderRadius: collapsed ? 8 : '8px 8px 0 0', padding: '9px 14px',
+              }}
+            >
+              <span style={{ fontSize: 11, color: 'var(--text-muted, #9b9b9b)' }}>{collapsed ? '▸' : '▾'}</span>
+              <strong style={{ fontSize: 13 }}>{group.label}</strong>
+              <span style={{ fontSize: 11.5, color: 'var(--text-muted, #9b9b9b)', background: 'var(--bg)', borderRadius: 999, padding: '1px 9px' }}>
+                {group.rows.length}
+              </span>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#3b5878', marginInlineStart: 'auto', cursor: 'pointer' }} onClick={(e) => e.stopPropagation()}>
+                <input type="checkbox" checked={groupSelected} onChange={() => toggleSelectGroup(group.rows)} />
+                בחר קבוצה
+              </label>
+            </div>
+            {!collapsed && (
+              <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderTop: 'none', borderRadius: '0 0 8px 8px', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
+                      <th style={{ padding: '8px 8px' }}></th>
+                      {['שם', 'טלפון', 'קטגוריה', 'נציג מטפל', 'סטטוס', ''].map((h) => (
+                        <th key={h} style={{ textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '8px 14px', textTransform: 'uppercase' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.rows.map((r) => (
+                      <CampaignRow
+                        key={r.rowId}
+                        r={r}
+                        CATEGORIES={CATEGORIES}
+                        agents={agents}
+                        campaignStages={campaignStages}
+                        isPending={isPending}
+                        isSelected={selectedRows.has(r.rowId)}
+                        onToggleSelect={() => toggleRowSelect(r.rowId)}
+                        onChange={handleChange}
+                        onRemove={() => handleRemove(r.rowId)}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
         </>
       )}
     </div>
   );
 }
 
-// דאשבורד ניהולי לקמפיין - מחושב כליינט-קומפוננטה טהורה מתוך rows/agents
-// שכבר נטענו לעמוד, בלי שאילתת DB נוספת. העמוד עצמו כבר manager-only
-// בגישה (isManagerOfWorkspace guard ב-page.js) אז אין צורך בבדיקת הרשאה
-// נוספת כאן.
-function CampaignOverviewDashboard({ rows, agents, campaignStages }) {
+function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelected, onToggleSelect, onChange, onRemove }) {
+  return (
+    <tr style={{ borderBottom: '1px solid #f2f2f2' }}>
+      <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+        <input type="checkbox" checked={isSelected} onChange={onToggleSelect} />
+      </td>
+      <td style={{ padding: '10px 14px' }}>
+        <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
+          {r.name || '—'}
+        </Link>
+      </td>
+      <td style={{ padding: '10px 14px' }}>{r.phone || '—'}</td>
+      <td style={{ padding: '10px 14px' }}>
+        <select value={r.category} onChange={(e) => onChange(r.rowId, { category: e.target.value })} disabled={isPending} style={cellSelect()}>
+          <option value="">—</option>
+          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </td>
+      <td style={{ padding: '10px 14px' }}>
+        <select value={r.assignedTo} onChange={(e) => onChange(r.rowId, { assignedTo: e.target.value })} disabled={isPending} style={cellSelect()}>
+          <option value="">— ללא —</option>
+          {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+        </select>
+      </td>
+      <td style={{ padding: '10px 14px' }}>
+        <select
+          value={r.status}
+          onChange={(e) => onChange(r.rowId, { status: e.target.value })}
+          disabled={isPending}
+          style={{
+            ...cellSelect(),
+            background: (campaignStages.colors[r.status] || {}).bg || '#f4f4f5',
+            color: (campaignStages.colors[r.status] || {}).color || '#52525b',
+            border: 'none', fontWeight: 500,
+          }}
+        >
+          {campaignStages.order.map((s) => <option key={s} value={s}>{campaignStages.labels[s] || s}</option>)}
+        </select>
+      </td>
+      <td style={{ padding: '10px 14px' }}>
+        <button type="button" onClick={onRemove} disabled={isPending} title="הסרה מהקמפיין"
+          style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 13 }}>✕</button>
+      </td>
+    </tr>
+  );
+}
+
+// דאשבורד ניהולי לקמפיין - מחושב כליינט-קומפוננטה טהורה מתוך rows/agents/
+// groups שכבר נטענו/חושבו בעמוד, בלי שאילתת DB נוספת. העמוד עצמו כבר
+// manager-only בגישה (isManagerOfWorkspace guard ב-page.js) אז אין צורך
+// בבדיקת הרשאה נוספת כאן.
+function CampaignOverviewDashboard({ rows, agents, campaignStages, groups }) {
   const total = rows.length;
   const wonCount = campaignStages.wonStage ? rows.filter((r) => r.status === campaignStages.wonStage).length : 0;
   const byStatus = campaignStages.order.map((s) => ({
@@ -344,12 +585,19 @@ function CampaignOverviewDashboard({ rows, agents, campaignStages }) {
     .sort((a, b) => b.count - a.count);
   const unassignedCount = rows.filter((r) => !r.assignedTo).length;
 
+  const namedGroups = groups.filter((g) => g.key);
+  const uncategorizedGroup = groups.find((g) => !g.key);
+
   return (
     <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: 16, marginBottom: 16 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
         <div style={{ flex: '1 1 120px', background: 'var(--bg-secondary, #fafafa)', borderRadius: 8, padding: '10px 14px' }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{total}</div>
           <div style={{ fontSize: 11, color: '#9b9b9b' }}>סה"כ אנשי קשר</div>
+        </div>
+        <div style={{ flex: '1 1 120px', background: 'var(--bg-secondary, #fafafa)', borderRadius: 8, padding: '10px 14px' }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{namedGroups.length}</div>
+          <div style={{ fontSize: 11, color: '#9b9b9b' }}>קבוצות מסווגות</div>
         </div>
         {byStatus.map((s) => (
           <div key={s.key} style={{ flex: '1 1 120px', background: 'var(--bg-secondary, #fafafa)', borderRadius: 8, padding: '10px 14px' }}>
@@ -362,6 +610,26 @@ function CampaignOverviewDashboard({ rows, agents, campaignStages }) {
           <div style={{ fontSize: 11, color: '#16a34a' }}>אחוז הצלחה</div>
         </div>
       </div>
+
+      {namedGroups.length > 0 && (
+        <div style={{ marginBottom: byAgent.length > 0 ? 14 : 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 6 }}>פילוח לפי קבוצה</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {namedGroups.map((g) => (
+              <div key={g.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+                <span style={{ width: 140, flexShrink: 0 }}>{g.label}</span>
+                <div style={{ flex: 1, height: 8, background: '#f2f2f2', borderRadius: 999, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${(g.rows.length / total) * 100}%`, background: '#1f4d3d', borderRadius: 999 }} />
+                </div>
+                <span style={{ width: 60, textAlign: 'left', color: '#6b6b6b' }}>{g.rows.length} ({Math.round((g.rows.length / total) * 100)}%)</span>
+              </div>
+            ))}
+            {uncategorizedGroup && (
+              <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>{uncategorizedGroup.rows.length} ללא קטגוריה</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {byAgent.length > 0 && (
         <div>
@@ -386,13 +654,14 @@ function CampaignOverviewDashboard({ rows, agents, campaignStages }) {
   );
 }
 
-// סרגל שליחה לנציג - מופיע רק כשנבחרו שורות (איש קשר אחד, כמה, או כולם
-// דרך תיבת "בחירת הכל" בכותרת הטבלה), ומשייך את כולם לנציג הנבחר בבת
-// אחת דרך אותה updateCampaignContact הקיימת (לולאת Promise.all, בדיוק
-// כמו BulkActionBar בלוח הלידים).
-function BulkAssignBar({ selected, setSelected, agents, onApply, rows, workspaceId, isDonationsWorkspace }) {
+// סרגל פעולה-בכמות - מופיע רק כשנבחרו שורות (איש קשר אחד, כמה, או קבוצה
+// שלמה דרך "בחר קבוצה" בכותרת כל קבוצה), ומאפשר להעביר את כולם לנציג
+// ו/או לקטגוריה אחרת בבת אחת דרך אותה updateCampaignContact הקיימת
+// (לולאת Promise.all, בדיוק כמו BulkActionBar בלוח הלידים).
+function BulkAssignBar({ selected, setSelected, agents, categories, onApply, rows, workspaceId, isDonationsWorkspace }) {
   const [isPending, startTransition] = useTransition();
   const [agentId, setAgentId] = useState('');
+  const [categoryValue, setCategoryValue] = useState('');
 
   if (selected.size === 0) return null;
 
@@ -405,12 +674,31 @@ function BulkAssignBar({ selected, setSelected, agents, onApply, rows, workspace
     });
   }
 
+  function applyCategory() {
+    const ids = Array.from(selected);
+    startTransition(async () => {
+      await Promise.all(ids.map((rowId) => onApply(rowId, { category: categoryValue })));
+      setCategoryValue('');
+      setSelected(new Set());
+    });
+  }
+
   return (
     <div style={{
       display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 14,
       background: '#eef2f7', border: '1px solid #c9d6e3', borderRadius: 8, padding: '10px 14px',
     }}>
       <span style={{ fontSize: 12.5, fontWeight: 600, color: '#3b5878' }}>נבחרו {selected.size} אנשי קשר</span>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <select value={categoryValue} onChange={(e) => setCategoryValue(e.target.value)} style={{ ...inputStyle, fontSize: 12 }}>
+          <option value="">— בחרו קבוצה —</option>
+          {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <button type="button" onClick={applyCategory} disabled={isPending || !categoryValue} style={{ background: '#1f4d3d', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+          העברה לקבוצה
+        </button>
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <select value={agentId} onChange={(e) => setAgentId(e.target.value)} style={{ ...inputStyle, fontSize: 12 }}>
