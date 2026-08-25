@@ -332,6 +332,7 @@ export async function resolveCommitment(supabase, contactId, workspace, commitme
 
   let status = 'active';
   if (commitment.cancelled || commitment.frozen) status = 'cancelled'; // אין ערך "מוקפא" נפרד בקונסטריינט - מטופל כבטל, ר' last_payment_status
+  else if (commitment.fulfilled) status = 'fulfilled'; // "לא נגבה יותר" בלי כישלון בפועל = הסתיימה, לא בוטלה (commitmentClustering.js)
   let lastPaymentStatus = commitment.frozen ? 'מוקפא (מקור)' : (commitment.cancelled ? 'בוטל (מקור)' : null);
   // דריסה מפורשת מזיהוי אוטומטי של תשלום כושל (commitmentClustering.js) -
   // סיבת הכישלון האמיתית מהמקור (למשל "כרטיס חסום") גוברת על מוקפא/בוטל.

@@ -91,14 +91,18 @@ export function detectCommitments(rows, { successStatusValues, billingSourceValu
     const externalReference = `עסקים:${account}:${amount}:${firstDateRaw}`;
     clustersFound++;
 
-    // ריצה נחשבת "לא פעילה עוד" (status='cancelled' דרך resolveCommitment,
-    // לא 'active') אם התשלום האחרון הידוע בה נכשל, או שעברו יותר מ-
-    // RUN_GAP_DAYS יום מהתשלום האחרון עד "עכשיו" (זמן הייבוא) - כלומר
-    // לאורך כל שאר הקובץ (שמכיל היסטוריה מלאה, לא רק חלון זמן חלקי) לא
-    // נמצא שום המשך. בלי הבדיקה הזו כל הוראת-קבע מזוהה מסומנת 'active'
-    // ללא תנאי (resolveCommitment's ברירת המחדל) - אושר מריצה חיה: 781
-    // הוראות קבע ממערכת עסקים סומנו כך בטעות, 689 מהן עם תאריך סיום
-    // שכבר עבר (חלקן עד 2015), 154 עם תשלום אחרון כושל.
+    // ריצה נחשבת "לא פעילה עוד" אם התשלום האחרון הידוע בה נכשל, או שעברו
+    // יותר מ-RUN_GAP_DAYS יום מהתשלום האחרון עד "עכשיו" (זמן הייבוא) -
+    // כלומר לאורך כל שאר הקובץ (שמכיל היסטוריה מלאה, לא רק חלון זמן חלקי)
+    // לא נמצא שום המשך. אבל "לא פעילה עוד" לא שווה "בוטלה" - קובץ של 10
+    // שנות היסטוריה שמיובא היום יראה כמעט כל הוראת-קבע כ"לא פעילה" סתם כי
+    // הזמן עבר, גם אם היא רצה עד הסוף בדיוק כמתוכנן. רק תשלום אחרון שנכשל
+    // בפועל (lastEntry.isFailure) הוא סימן אמיתי ל"נעצרה באמצע" (cancelled)
+    // - "לא פעילה סתם כי נגמר הזמן" (stale, בלי כישלון) מסומנת 'fulfilled'
+    // (הסתיימה) דרך resolveCommitment, לא 'cancelled'. אושר מריצה חיה:
+    // 723 הוראות קבע ממערכת עסקים סומנו 'cancelled' בטעות, 558 מהן stale-
+    // only (עכשיו 'fulfilled'), 164 עם תשלום אחרון כושל אמיתי (נשארות
+    // 'cancelled').
     const lastEntry = run[run.length - 1];
     const daysSinceLastPayment = (Date.now() - lastEntry.date.getTime()) / 86400000;
     const isStale = lastEntry.isFailure || daysSinceLastPayment > RUN_GAP_DAYS;
@@ -114,7 +118,8 @@ export function detectCommitments(rows, { successStatusValues, billingSourceValu
         bouncedCount,
         designation: row.donationTransaction?.designation,
         paymentMethod: row.donationTransaction?.paymentMethod,
-        cancelled: isStale,
+        cancelled: lastEntry.isFailure,
+        fulfilled: isStale && !lastEntry.isFailure,
       };
       if (entry.isFailure) {
         commitment.lastPaymentStatus = entry.status;
@@ -122,7 +127,7 @@ export function detectCommitments(rows, { successStatusValues, billingSourceValu
         commitment.__isBounceRow = true;
         delete row.donationTransaction; // מוחקים אחרי שכבר קראנו designation/paymentMethod ממנו למעלה
       } else if (isStale) {
-        commitment.lastPaymentStatus = 'לא זוהה תשלום נוסף לאורך יתרת הקובץ - כנראה לא נגבה יותר';
+        commitment.lastPaymentStatus = 'לא זוהה תשלום נוסף לאורך יתרת הקובץ - כנראה הסתיימה';
       }
       row.commitment = commitment;
     }
