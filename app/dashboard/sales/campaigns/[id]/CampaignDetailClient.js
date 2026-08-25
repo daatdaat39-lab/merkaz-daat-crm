@@ -7,6 +7,7 @@ import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign
 import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
 import { contactMatchesAdvancedFilter } from '../../../components/advancedFilter';
 import MappingQueue from './MappingQueue';
+import SegmentFinder from './SegmentFinder';
 
 // קטגוריות ברירת מחדל - משמשות רק אם רשימת הבחירה הדינמית (הגדרות ← רשימות
 // בחירה) ריקה, כדי שהמסך לעולם לא יישאר בלי אף קטגוריה לבחור
@@ -140,10 +141,19 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
         }}>
           🗺 מיפוי
         </button>
+        <button type="button" onClick={() => setViewMode('segment')} style={{
+          padding: '7px 16px', borderRadius: 999, fontSize: 12.5, cursor: 'pointer',
+          border: viewMode === 'segment' ? '1px solid #0a0a0a' : '1px solid var(--border, #e5e5e5)',
+          background: viewMode === 'segment' ? '#0a0a0a' : 'var(--bg)', color: viewMode === 'segment' ? '#fff' : 'inherit',
+        }}>
+          🔍 בניית קבוצה
+        </button>
       </div>
 
       {viewMode === 'mapping' ? (
         <MappingQueue campaignId={campaignId} categories={CATEGORIES} />
+      ) : viewMode === 'segment' ? (
+        <SegmentFinder campaignId={campaignId} pipelinesByWorkspace={pipelinesByWorkspace} />
       ) : (
         <>
       {rows.length > 0 && (

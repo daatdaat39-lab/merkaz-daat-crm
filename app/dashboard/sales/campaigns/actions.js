@@ -308,3 +308,67 @@ export async function setJointHandling(rowIdA, rowIdB, note) {
   if (r1.error || r2.error) return { error: (r1.error || r2.error).message };
   return { success: true };
 }
+
+// ============================================================
+// בניית קבוצה - מוצא מועמדים לפי הקריטריונים שסוכמו (7 הקבוצות + מיון +
+// חיתוך-לפי-כמות), מחריג אוטומטית כל מי שכבר בקמפיין (מנגנון מניעת-
+// כפילות), ומוסיף בבחירה-מרובה עם קטגוריה. כל הלוגיקה הכבדה (שנת-שיא,
+// הוראת קבע, קורסים/סמינרים) חיה ב-RPC (migration 0083) - PostgREST לא
+// יודע לעשות GROUP BY/HAVING מהסוג הזה דרך query builder רגיל.
+// ============================================================
+
+export async function getWorkspacesForSegmentFilter() {
+  const { supabase } = await requireUser();
+  const { data } = await supabase.from('workspaces').select('id, name').order('name');
+  return data || [];
+}
+
+export async function searchCampaignSegment(campaignId, params) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const { data, error } = await supabase.rpc('find_campaign_segment_candidates', {
+    p_source: params.source || null,
+    p_stage_workspace_id: params.stageWorkspaceId || null,
+    p_stage: params.stage || null,
+    p_min_peak_donation: params.minPeakDonation ?? null,
+    p_max_peak_donation: params.maxPeakDonation ?? null,
+    p_has_active_commitment: params.hasActiveCommitment ?? null,
+    p_has_course_enrollment: params.hasCourseEnrollment ?? null,
+    p_has_seminar_participation: params.hasSeminarParticipation ?? null,
+    p_exclude_campaign_id: campaignId,
+    p_sort_by: params.sortBy || 'name',
+    p_sort_dir: params.sortDir || 'asc',
+    p_limit: params.limit || 100,
+    p_offset: params.offset || 0,
+  });
+  if (error) return { error: error.message };
+  return { success: true, rows: data || [], total: data?.[0]?.total_row_count || 0 };
+}
+
+export async function getContactDonationsByYear(contactId) {
+  const { supabase } = await requireUser();
+  const { data } = await supabase.rpc('contact_donations_by_year', { p_contact_id: contactId });
+  return data || [];
+}
+
+export async function addContactsToCampaignWithCategory(campaignId, contactIds, category) {
+  const { supabase, user } = await requireUser();
+  if (!campaignId || !Array.isArray(contactIds) || contactIds.length === 0) {
+    return { error: 'לא נבחרו אנשי קשר' };
+  }
+  const { data: campaign } = await supabase.from('campaigns').select('id, workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const { error } = await supabase.from('campaign_contacts').upsert(
+    contactIds.map((contactId) => ({ campaign_id: campaignId, contact_id: contactId, category: category || null })),
+    { onConflict: 'campaign_id,contact_id', ignoreDuplicates: true },
+  );
+  if (error) return { error: error.message };
+  return { success: true };
+}
