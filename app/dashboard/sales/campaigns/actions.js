@@ -159,28 +159,89 @@ export async function getMappingDecisionOptions(workspaceId) {
   return data || [];
 }
 
-// בונה משפט-סיכום חוצה-מחלקות לאיש קשר - לא רק ההקשר הצר של הקטגוריה
-// שהוא נכנס דרכה, אלא תמונה כוללת: "השתתף ב-2 קורסים והשתתף בסמינר".
-// שאילתות זולות (רק ספירה), מספיק להקשר-מהיר בכרטיסון-המיפוי.
-async function buildContactSummarySentence(supabase, contactId) {
-  const [{ count: courseCount }, { count: seminarCount }, { count: activeCommitments }, { data: txns }] = await Promise.all([
-    supabase.from('contact_course_enrollments').select('id', { count: 'exact', head: true }).eq('contact_id', contactId),
-    supabase.from('contact_seminar_participations').select('id', { count: 'exact', head: true }).eq('contact_id', contactId),
+// המרה גסה של תווית שנה עברית (כמו תשפ"ה) לתאריך-קצה גרגוריאני משוער -
+// לצורך "מתי הייתה האינטראקציה האחרונה" כשכל מה שיש זו שנה עברית טקסטואלית
+// (contact_seminar_participations.year / contact_course_enrollments.year_label,
+// לא תאריך אמיתי). מנורמל בלי גרש/גרשיים (כל וריאציות הפיסוק) כדי לא
+// להיות תלוי באיזה תו-גרש בדיוק נשמר במקור. טווח מכוסה: כל מה שהופיע
+// בפועל בייבוא הקורסים/סמינרים עד כה (תשע"ו–תשפ"ח) + שוליים.
+const HEBREW_YEAR_APPROX_END = {
+  'תשעד': 2014, 'תשעה': 2015, 'תשעו': 2016, 'תשעז': 2017, 'תשעח': 2018, 'תשעט': 2019,
+  'תשף': 2020, 'תשפא': 2021, 'תשפב': 2022, 'תשפג': 2023, 'תשפד': 2024, 'תשפה': 2025,
+  'תשפו': 2026, 'תשפז': 2027, 'תשפח': 2028, 'תשפט': 2029, 'תשץ': 2030,
+};
+function approxDateFromHebrewYear(label) {
+  const normalized = (label || '').replace(/[""'׳״]/g, '');
+  const year = HEBREW_YEAR_APPROX_END[normalized];
+  return year ? `${year}-01-01` : null;
+}
+
+// אוסף תמונה מלאה חוצת-מחלקות לאיש קשר לצורך כרטיסון-המיפוי - לא משפט
+// מכווץ, אלא נתונים גולמיים שהעמוד מציג כשורות נפרדות: מאיזה מחלקות
+// הוא מוכר לנו, שנת-השיא שלו (השנה עם סכום התרומה הגבוה ביותר, לא ממוצע -
+// אותה הגדרה בדיוק כמו find_campaign_segment_candidates), תאריך תרומה
+// אחרונה, וה"אינטראקציה האחרונה" מכל סוג (תרומה/פגישה/פנייה בתאריך
+// מדויק, או קורס/סמינר בתאריך משוער משנה עברית - כי אין תאריך מדויק
+// לשני אלה במקור).
+async function buildContactInsights(supabase, contactId) {
+  const [
+    { data: deptRows }, { data: seminarRows }, { data: courseRows },
+    { count: activeCommitments }, { data: txns }, { data: meetingRows },
+  ] = await Promise.all([
+    supabase.from('contact_departments').select('workspace_id, workspaces:workspace_id (name)').eq('contact_id', contactId),
+    supabase.from('contact_seminar_participations').select('event_type, year').eq('contact_id', contactId),
+    supabase.from('contact_course_enrollments').select('course_name, year_label').eq('contact_id', contactId),
     supabase.from('commitments').select('id', { count: 'exact', head: true }).eq('contact_id', contactId).eq('status', 'active'),
     supabase.from('donation_transactions').select('amount, transaction_date').eq('contact_id', contactId),
+    supabase.from('meetings').select('meeting_date').eq('contact_id', contactId),
   ]);
 
-  const parts = [];
-  if (courseCount > 0) parts.push(`השתתף ב-${courseCount} קורס${courseCount > 1 ? 'ים' : ''}`);
-  if (seminarCount > 0) parts.push(`השתתף בסמינר${seminarCount > 1 ? 'ים' : ''}`);
-  if (activeCommitments > 0) parts.push('הוראת קבע פעילה');
+  const departments = Array.from(new Set((deptRows || []).map((d) => d.workspaces?.name).filter(Boolean)));
+
   const rows = txns || [];
-  if (rows.length > 0) {
-    const total = rows.reduce((s, t) => s + Number(t.amount || 0), 0);
-    const lastDate = rows.map((t) => t.transaction_date).filter(Boolean).sort().slice(-1)[0];
-    parts.push(`${rows.length} תרומות (סה"כ ₪${Math.round(total).toLocaleString('he-IL')}${lastDate ? `, אחרונה ${new Date(lastDate).toLocaleDateString('he-IL')}` : ''})`);
+  const totalDonations = { count: rows.length, total: rows.reduce((s, t) => s + Number(t.amount || 0), 0) };
+  const lastDonationDate = rows.map((t) => t.transaction_date).filter(Boolean).sort().slice(-1)[0] || null;
+
+  // שנת-שיא - מקבצים סכום לפי שנה קלנדרית, לוקחים את השנה עם הסכום
+  // הגבוה ביותר (לא ממוצע-כל-השנים) - עקבי עם ההגדרה שכבר אושרה בבניית-קבוצה.
+  const byYear = new Map();
+  for (const t of rows) {
+    if (!t.transaction_date || !(Number(t.amount) > 0)) continue;
+    const year = t.transaction_date.slice(0, 4);
+    byYear.set(year, (byYear.get(year) || 0) + Number(t.amount));
   }
-  return parts.length ? parts.join(' · ') : 'אין היסטוריה נוספת רשומה';
+  let peakDonation = null;
+  for (const [year, amount] of byYear.entries()) {
+    if (!peakDonation || amount > peakDonation.amount) peakDonation = { year, amount };
+  }
+
+  // כל מועמדי "אינטראקציה" - כל אחד עם תאריך (מדויק או משוער) ותווית.
+  const candidates = [];
+  if (lastDonationDate) candidates.push({ date: lastDonationDate, label: 'תרומה', exact: true });
+  for (const m of meetingRows || []) {
+    if (m.meeting_date) candidates.push({ date: m.meeting_date, label: 'פגישה', exact: true });
+  }
+  for (const s of seminarRows || []) {
+    const approx = approxDateFromHebrewYear(s.year);
+    if (approx) candidates.push({ date: approx, label: `סמינר (${s.year})`, exact: false });
+  }
+  for (const c of courseRows || []) {
+    const approx = approxDateFromHebrewYear(c.year_label);
+    if (approx) candidates.push({ date: approx, label: `קורס${c.course_name ? ` - ${c.course_name}` : ''} (${c.year_label})`, exact: false });
+  }
+  candidates.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const lastInteraction = candidates[0] || null;
+
+  return {
+    departments,
+    peakDonation,
+    lastDonationDate,
+    totalDonations,
+    hasActiveCommitment: (activeCommitments || 0) > 0,
+    coursesCount: (courseRows || []).length,
+    seminarsCount: (seminarRows || []).length,
+    lastInteraction,
+  };
 }
 
 // כמה אנשי-קשר דומים (שם-משפחה זהה + טלפון/כתובת זהים) שעדיין לא
@@ -247,8 +308,8 @@ export async function getNextMappingCard(campaignId, skipIds = []) {
   if (!row || !row.contacts) return null;
 
   const contact = row.contacts;
-  const [summary, spouseMatches, decisionOptions] = await Promise.all([
-    buildContactSummarySentence(supabase, contact.id),
+  const [insights, spouseMatches, decisionOptions] = await Promise.all([
+    buildContactInsights(supabase, contact.id),
     findPossibleSpouseMatches(supabase, contact),
     getMappingDecisionOptions(campaign.workspace_id),
   ]);
@@ -271,7 +332,7 @@ export async function getNextMappingCard(campaignId, skipIds = []) {
     rowId: row.id,
     category: row.category,
     contact,
-    summary,
+    insights,
     linkedSpouse,
     spouseAlsoInCampaign,
     spouseRowId,
@@ -358,6 +419,8 @@ export async function searchCampaignSegment(campaignId, params) {
     p_has_course_enrollment: params.hasCourseEnrollment ?? null,
     p_has_seminar_participation: params.hasSeminarParticipation ?? null,
     p_exclude_donated_within_days: params.excludeDonatedWithinDays ?? null,
+    p_donation_date_from: params.donationDateFrom || null,
+    p_donation_date_to: params.donationDateTo || null,
     p_exclude_campaign_id: campaignId,
     p_sort_by: params.sortBy || 'name',
     p_sort_dir: params.sortDir || 'asc',
