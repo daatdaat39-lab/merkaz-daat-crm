@@ -9,6 +9,9 @@ import { createAdminClient } from '../../../lib/supabase/admin';
 // הצעות-אוטומטיות) - נשמרת במטמון ל-5 דקות במקום להישלף מחדש בכל טעינה.
 // שולפת בדפים של 1000 (מגבלת ברירת המחדל של PostgREST) כדי לא לפספס
 // תגיות שקיימות רק מעבר ל-1000 אנשי הקשר הראשונים.
+// מכיל גם source (מקור) - נוצל בנוסף להצעות SourceMultiPicker (בורר-
+// מקור מרובה-ערכים בכרטיס איש קשר), כדי לא לשכפל את כל לולאת-הפאג'ינציה
+// בשביל עוד עמודה יחידה.
 //
 // משתמשת ב-service-role client (לא בלקוח המבוסס-cookies של הבקשה) - כי
 // unstable_cache אוסר להשתמש ב-cookies()/headers() בתוך פונקציה שנשמרת
@@ -23,7 +26,7 @@ async function fetchAllContactTagsUncached() {
   while (true) {
     const { data: pageData } = await admin
       .from('contacts')
-      .select('tags, contact_departments (workspaces:workspace_id (name))')
+      .select('tags, source, contact_departments (workspaces:workspace_id (name))')
       .range(from, from + pageSize - 1);
     if (!pageData || pageData.length === 0) break;
     all = all.concat(pageData);

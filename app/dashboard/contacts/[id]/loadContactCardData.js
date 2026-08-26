@@ -243,6 +243,13 @@ export async function loadContactCardData(contactId) {
 
   const viewerWorkspaceIds = (viewerMemberships || []).map((m) => m.workspace_id);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
+  // מקורות ידועים (לצורך הצעות ב-SourceMultiPicker) - contacts.source
+  // הוא טקסט חופשי (לא מערך), לפעמים כבר מכיל כמה ערכים מופרדים-פסיק
+  // (ר' אופציית "שניהם" במיזוג כפילויות) - מפרקים כל ערך לרכיבים בודדים
+  // כדי שההצעות יהיו נקיות (למשל "צ'רידי", לא "צ'רידי, אורביט" כמכלול).
+  const existingSources = Array.from(new Set(
+    (tagRows || []).flatMap((c) => (c.source || '').split(',').map((s) => s.trim()).filter(Boolean))
+  )).sort();
   const tagGroups = groupTagsByDepartment(
     (tagRows || []).map((c) => ({ tags: c.tags, departments: (c.contact_departments || []).map((d) => ({ name: d.workspaces?.name })) }))
   );
@@ -279,6 +286,7 @@ export async function loadContactCardData(contactId) {
       meetings: meetings || [],
       tasks: tasks || [],
       existingTags,
+      existingSources,
       tagGroups,
       sentEmails: sentEmailRows || [],
       emailConnections: connections,

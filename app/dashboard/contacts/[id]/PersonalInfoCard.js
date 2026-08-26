@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Tag } from '../../components/ui';
 import { updateContact, searchContacts, assignAgent, addContactTag } from '../actions';
 import TagPicker from '../TagPicker';
+import SourceMultiPicker from '../SourceMultiPicker';
 import FamilyRelationsPanel from './FamilyRelationsPanel';
 
 const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 8px', fontSize: 12.5 };
@@ -15,7 +16,7 @@ const categoryLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTra
 // ומעקב), עם עריכה ישירה של השדות עצמם (לא טופס נפרד למטה). לחיצה על
 // ✎ הופכת את שורות הזהות/פרטי הקשר לשדות קלט במקום, עם שמירה/ביטול.
 export default function PersonalInfoCard({
-  contact, existingTags, tagGroups = null, age, hebrewDate, nextMeeting, openTasksCount, agentId, agentName, agents, activeWorkspaceId,
+  contact, existingTags, tagGroups = null, existingSources = [], age, hebrewDate, nextMeeting, openTasksCount, agentId, agentName, agents, activeWorkspaceId,
   lastActivityAt, relatedContact, relatedContacts = { forward: [], reverse: [] }, externalIds = [],
 }) {
   const [editing, setEditing] = useState(false);
@@ -79,7 +80,10 @@ export default function PersonalInfoCard({
           <Field label="תאריך לידה" name="birth_date" type="date" defaultValue={contact.birth_date} />
           <SelectField label="מגדר" name="gender" defaultValue={contact.gender} options={[{ value: '', label: '—' }, { value: 'זכר', label: 'זכר' }, { value: 'נקבה', label: 'נקבה' }]} />
           <Field label="מספר ילדים" name="children_count" type="number" defaultValue={contact.children_count} />
-          <Field label="מקור" name="source" defaultValue={contact.source} />
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10.5, color: '#9b9b9b', marginBottom: 2 }}>מקור</div>
+            <SourceMultiPicker existingSources={existingSources} defaultValue={contact.source} />
+          </div>
 
           <div style={categoryLabel}>פרטי קשר</div>
           <Field label="טלפון" name="phone" defaultValue={contact.phone} />

@@ -33,7 +33,7 @@ const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px
 // להישלט משותף בין הלשוניות שמתחת לשם, שורת השלבים, וטאב "פעילות"
 // (היסטוריית הפניות שם תלויה במחלקה הפעילה) - state אחד משותף למעלה.
 export default function ContactDetailClient({
-  contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups,
+  contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups, existingSources = [],
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
   callHistory, externalIds, closeReasons, isManager, phoneCalls, pipelinesByWorkspace,
@@ -405,6 +405,7 @@ export default function ContactDetailClient({
             contact={contact}
             existingTags={existingTags}
             tagGroups={tagGroups}
+            existingSources={existingSources}
             age={age}
             hebrewDate={hebrewDate}
             nextMeeting={nextMeeting}
