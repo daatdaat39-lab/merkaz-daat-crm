@@ -133,7 +133,7 @@ export default function DuplicateQueueClient({ initialCandidates }) {
           onClick={() => setMerging(false)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
         >
-          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg)', borderRadius: 10, padding: 22, width: 480, maxWidth: '92vw' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg)', borderRadius: 10, padding: 22, width: 720, maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto' }}>
             <MergeFieldsPicker existing={existing} newValues={dup} onConfirm={handleMergeConfirm} onCancel={() => setMerging(false)} />
           </div>
         </div>

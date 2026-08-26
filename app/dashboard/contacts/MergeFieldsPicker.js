@@ -75,8 +75,14 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
         לכל שדה בחר איזה ערך להשאיר — הקיים במערכת, או החדש שהקלדת.
       </p>
 
-      <div style={{ maxHeight: 320, overflowY: 'auto', marginBottom: 14 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+      <div style={{ maxHeight: '55vh', overflowY: 'auto', marginBottom: 14 }}>
+        <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 12 }}>
+          <colgroup>
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '29%' }} />
+            <col style={{ width: '29%' }} />
+            <col style={{ width: '28%' }} />
+          </colgroup>
           <thead>
             <tr>
               <th style={{ textAlign: 'right', padding: '4px 6px', fontSize: 11, color: 'var(--text-secondary)' }}>שדה</th>
@@ -93,34 +99,34 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
               const showBoth = dual && existingVal !== '—' && newVal !== '—' && existingVal !== newVal;
               return (
                 <tr key={key} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                  <td style={{ padding: '6px', fontWeight: 500 }}>{label}</td>
+                  <td style={{ padding: '6px', fontWeight: 500, wordBreak: 'break-word' }}>{label}</td>
                   <td style={{ padding: '6px', textAlign: 'center' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', cursor: 'pointer' }}>
-                      <input type="radio" name={`field-${key}`} checked={choices[key] === 'existing'} onChange={() => pick(key, 'existing')} />
-                      <span>{existingVal}</span>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 4, justifyContent: 'center', cursor: 'pointer' }}>
+                      <input type="radio" name={`field-${key}`} checked={choices[key] === 'existing'} onChange={() => pick(key, 'existing')} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <span style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{existingVal}</span>
                     </label>
                   </td>
                   <td style={{ padding: '6px', textAlign: 'center' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', cursor: 'pointer' }}>
-                      <input type="radio" name={`field-${key}`} checked={choices[key] === 'new'} onChange={() => pick(key, 'new')} />
-                      <span>{newVal}</span>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 4, justifyContent: 'center', cursor: 'pointer' }}>
+                      <input type="radio" name={`field-${key}`} checked={choices[key] === 'new'} onChange={() => pick(key, 'new')} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <span style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{newVal}</span>
                     </label>
                   </td>
                   <td style={{ padding: '6px', textAlign: 'center' }}>
                     {showBoth && (
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', cursor: 'pointer' }}>
-                        <input type="radio" name={`field-${key}`} checked={choices[key] === 'both'} onChange={() => pick(key, 'both')} />
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', cursor: 'pointer', marginBottom: customEditable ? 4 : 0 }}>
+                        <input type="radio" name={`field-${key}`} checked={choices[key] === 'both'} onChange={() => pick(key, 'both')} style={{ flexShrink: 0 }} />
                         <span style={{ color: 'var(--text-secondary)' }}>שניהם</span>
                       </label>
                     )}
                     {customEditable && (
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', cursor: 'pointer' }}>
-                        <input type="radio" name={`field-${key}`} checked={choices[key] === 'custom'} onChange={() => pick(key, 'custom')} />
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', cursor: 'pointer', minWidth: 0 }}>
+                        <input type="radio" name={`field-${key}`} checked={choices[key] === 'custom'} onChange={() => pick(key, 'custom')} style={{ flexShrink: 0 }} />
                         <input
                           value={customValues[key] ?? ''}
                           onChange={(e) => setCustom(key, e.target.value)}
                           placeholder="ערך אחר..."
-                          style={{ width: 90, border: '1px solid var(--border, #e5e5e5)', borderRadius: 4, padding: '2px 6px', fontSize: 12 }}
+                          style={{ width: '100%', minWidth: 0, border: '1px solid var(--border, #e5e5e5)', borderRadius: 4, padding: '2px 6px', fontSize: 12 }}
                         />
                       </label>
                     )}
