@@ -34,16 +34,50 @@ export default async function CampaignDetailPage({ params }) {
     );
   }
 
-  const [{ data: memberRows }, { data: allContacts }, { data: members }] = await Promise.all([
-    supabase
-      .from('campaign_contacts')
-      .select('id, category, assigned_to, status, contacts:contact_id (id, first, last, phone, email)')
-      .eq('campaign_id', campaign.id)
-      .order('created_at', { ascending: true }),
-    supabase
-      .from('contacts')
-      .select('id, first, last, phone, email, tags, contact_departments (stage, workspace_id, extra_fields, workspaces:workspace_id (name))')
-      .order('first'),
+  // שתי השאילתות הבאות פאגינות ידנית ב-1000 (מגבלת ברירת המחדל של
+  // PostgREST) - אומת בפועל: קמפיין "דעת" עם 1443 אנשי קשר אמיתיים הציג
+  // רק 1000 בטבלה, ו-fetchAllContacts (רשימת "הוספת אנשי קשר") היה
+  // מוגבל ל-1000 מתוך 6575+ אנשי קשר במערכת (לא מוצא אף אחד מעבר לזה
+  // בחיפוש). מיון נעשה ב-JS אחרי איסוף כל הדפים, לא ב-SQL - כדי לא
+  // להסתמך על יציבות סדר בין קריאות range() נפרדות.
+  async function fetchAllCampaignMembers() {
+    const pageSize = 1000;
+    let from = 0;
+    let all = [];
+    while (true) {
+      const { data } = await supabase
+        .from('campaign_contacts')
+        .select('id, category, assigned_to, status, created_at, contacts:contact_id (id, first, last, phone, email)')
+        .eq('campaign_id', campaign.id)
+        .range(from, from + pageSize - 1);
+      if (!data || data.length === 0) break;
+      all = all.concat(data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    return all.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  }
+
+  async function fetchAllContactsForCampaign() {
+    const pageSize = 1000;
+    let from = 0;
+    let all = [];
+    while (true) {
+      const { data } = await supabase
+        .from('contacts')
+        .select('id, first, last, phone, email, tags, contact_departments (stage, workspace_id, extra_fields, workspaces:workspace_id (name))')
+        .range(from, from + pageSize - 1);
+      if (!data || data.length === 0) break;
+      all = all.concat(data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    return all.sort((a, b) => (a.first || '').localeCompare(b.first || '', 'he'));
+  }
+
+  const [memberRows, allContacts, { data: members }] = await Promise.all([
+    fetchAllCampaignMembers(),
+    fetchAllContactsForCampaign(),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', campaign.workspace_id),
   ]);
 

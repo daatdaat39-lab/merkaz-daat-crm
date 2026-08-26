@@ -47,6 +47,24 @@ export async function createCampaign(workspaceId, name, channel) {
   return { success: true, id: data.id };
 }
 
+// מחיקת קמפיין - מנהל/בעלים בלבד. campaign_contacts/campaign_stages/
+// email_connections.campaign_id כולן on delete cascade (מיגרציות 0032,
+// 0039, 0057) - מחיקת השורה היחידה כאן מנקה את הכל, בלי צורך במחיקות
+// ידניות נוספות. אנשי הקשר עצמם והתרומות/היסטוריה שלהם לא נוגעים בכלל -
+// זו רק הסרת מסגרת-הקמפיין.
+export async function deleteCampaign(campaignId) {
+  const { supabase, user } = await requireUser();
+  if (!campaignId) return { error: 'לא נבחר קמפיין' };
+  const { data: campaign } = await supabase.from('campaigns').select('id, workspace_id, name').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const { error } = await supabase.from('campaigns').delete().eq('id', campaignId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 export async function addContactsToCampaign(campaignId, contactIds) {
   const { supabase, user } = await requireUser();
   if (!campaignId || !Array.isArray(contactIds) || contactIds.length === 0) {
