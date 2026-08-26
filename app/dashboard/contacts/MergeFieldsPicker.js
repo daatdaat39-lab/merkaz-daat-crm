@@ -3,8 +3,8 @@
 import { useState } from 'react';
 
 const FIELDS = [
-  { key: 'first', label: 'שם פרטי' },
-  { key: 'last', label: 'שם משפחה' },
+  { key: 'first', label: 'שם פרטי', customEditable: true },
+  { key: 'last', label: 'שם משפחה', customEditable: true },
   { key: 'idnum', label: 'ת"ז' },
   { key: 'phone', label: 'טלפון', dual: 'phone2' },
   { key: 'phone2', label: 'טלפון נוסף' },
@@ -29,8 +29,19 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
   const allTags = Array.from(new Set([...(existing.tags || []), ...(newValues.tags || [])]));
   const [tagsSelected, setTagsSelected] = useState(() => new Set(allTags));
 
+  // ערכי-עריכה חופשית (כרגע רק שם פרטי/משפחה, ר' customEditable) - נועד
+  // לזוגות שבהם אף אחד מהערכים הגולמיים לא נכון בדיוק (למשל "ערד מושקא"
+  // בשם פרטי אחד ו-"מושקא"/"ערד" מפוצלים נכון אצל השני) - מאפשר להקליד
+  // את הצירוף הנכון במקום להיות כבול לבחירה בין שני ערכים לא-מושלמים.
+  const [customValues, setCustomValues] = useState({});
+
   function pick(key, which) {
     setChoices((prev) => ({ ...prev, [key]: which }));
+  }
+
+  function setCustom(key, value) {
+    setCustomValues((prev) => ({ ...prev, [key]: value }));
+    setChoices((prev) => ({ ...prev, [key]: 'custom' }));
   }
 
   function toggleTag(tag) {
@@ -44,7 +55,9 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
   function handleConfirm() {
     const resolved = {};
     FIELDS.forEach(({ key, dual }) => {
-      if (choices[key] === 'both' && dual) {
+      if (choices[key] === 'custom') {
+        resolved[key] = (customValues[key] || '').trim();
+      } else if (choices[key] === 'both' && dual) {
         resolved[key] = existing[key] || '';
         resolved[dual] = newValues[key] || '';
       } else {
@@ -73,7 +86,7 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
             </tr>
           </thead>
           <tbody>
-            {FIELDS.map(({ key, label, dual }) => {
+            {FIELDS.map(({ key, label, dual, customEditable }) => {
               const existingVal = existing[key] || '—';
               const newVal = newValues[key] || '—';
               if (existingVal === '—' && newVal === '—') return null;
@@ -98,6 +111,17 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
                       <label style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', cursor: 'pointer' }}>
                         <input type="radio" name={`field-${key}`} checked={choices[key] === 'both'} onChange={() => pick(key, 'both')} />
                         <span style={{ color: 'var(--text-secondary)' }}>שניהם</span>
+                      </label>
+                    )}
+                    {customEditable && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center', cursor: 'pointer' }}>
+                        <input type="radio" name={`field-${key}`} checked={choices[key] === 'custom'} onChange={() => pick(key, 'custom')} />
+                        <input
+                          value={customValues[key] ?? ''}
+                          onChange={(e) => setCustom(key, e.target.value)}
+                          placeholder="ערך אחר..."
+                          style={{ width: 90, border: '1px solid var(--border, #e5e5e5)', borderRadius: 4, padding: '2px 6px', fontSize: 12 }}
+                        />
                       </label>
                     )}
                   </td>
