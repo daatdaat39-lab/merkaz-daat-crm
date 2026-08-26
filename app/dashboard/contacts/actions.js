@@ -921,6 +921,35 @@ export async function splitCoupleContact(contactId, nameA, nameB, surname) {
     related_contact_id: contactId, relation_label: relationLabel,
   }).eq('id', created.id);
 
+  // אם לכרטיס המקורי (ששומר את כל הכסף/היסטוריית התרומות) יש תרומות
+  // בפועל - רושמים על הכרטיס החדש (הריק) רישום קבוע בהיסטוריה שהתרומה
+  // נמצאת אצל בן/בת הזוג. זו רק רשומת-פעילות טקסטואלית (lead_inquiries) -
+  // אין כאן שום donation_transactions חדשה, כך שזה לעולם לא נספר בשום
+  // סכום/דוח (התצוגה החיה תחת "שדות נוספים - תרומות" ב-ContactTabs.js
+  // ממשיכה להיות המקור-האמיתי-העדכני; זו רק "תמונת מצב" מרגע הפיצול).
+  const { data: originalTxns } = await supabase.from('donation_transactions').select('amount').eq('contact_id', contactId);
+  const originalTotal = (originalTxns || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+  if (originalTotal > 0) {
+    const { data: donationsWorkspace } = await supabase.from('workspaces').select('id, name').eq('name', 'תרומות').maybeSingle();
+    if (donationsWorkspace) {
+      // reason=null כדי ש-upsertDepartmentMembership לא תיצור בעצמה רשומת
+      // lead_inquiries גנרית - רק מבטיחה ששיוך-המחלקה קיים (openProcess:false,
+      // לא נכנס ללוח לידים), ואת ה-lead_inquiries עם הניסוח המדויק כותבים
+      // כאן ישירות.
+      await upsertDepartmentMembership(supabase, created.id, donationsWorkspace, null, null, null, null, { openProcess: false });
+      const { data: deptRow } = await supabase.from('contact_departments').select('id')
+        .eq('contact_id', created.id).eq('workspace_id', donationsWorkspace.id).maybeSingle();
+      if (deptRow) {
+        await supabase.from('lead_inquiries').insert({
+          contact_department_id: deptRow.id,
+          reason: 'תרומה אצל בן/בת זוג',
+          note: `נכנסה תרומה בסך ₪${originalTotal.toLocaleString('he-IL')} אצל ${first} ${last} (בן/בת הזוג) - לא נספר בכספי הכרטיס הזה`,
+          source: 'פיצול כרטיס-זוג',
+        });
+      }
+    }
+  }
+
   return { success: true, newContactId: created.id };
 }
 

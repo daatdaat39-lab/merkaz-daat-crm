@@ -441,6 +441,7 @@ export default function ContactDetailClient({
             callHistory={callHistory || []}
             phoneCalls={phoneCalls || []}
             workspaceNameById={workspaceNameById || {}}
+            relatedContact={relatedContact}
             agents={active ? (agentsByWorkspace?.[active.workspaceId] || []) : []}
             activeDepartment={active}
             pipeline={activePipeline}

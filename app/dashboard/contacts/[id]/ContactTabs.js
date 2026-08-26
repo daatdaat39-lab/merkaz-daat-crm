@@ -12,7 +12,7 @@ import KesherProjectPanel from './KesherProjectPanel';
 import CourseEnrollmentsPanel from './CourseEnrollmentsPanel';
 import SeminarParticipationsPanel from './SeminarParticipationsPanel';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, isManager = false }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, isManager = false, relatedContact = null }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -90,7 +90,8 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
     // extra fields בכלל, כל המידע שלה ב-contact_seminar_participations).
     ...(activeDepartment && (
       visibleFieldDefs.length > 0 || deptCourseEnrollments.length > 0 || deptSeminarParticipations.length > 0 ||
-      deptCommitments.length > 0 || deptTransactions.length > 0
+      deptCommitments.length > 0 || deptTransactions.length > 0 ||
+      (activeDepartment.workspaceName === 'תרומות' && relatedContact?.donationsCount > 0)
     ) ? [{ id: 'fields', label: `שדות נוספים — ${activeDepartment.workspaceName}` }] : []),
     ...(additionalPhones.length > 0 ? [{ id: 'phones', label: `טלפונים נוספים (${additionalPhones.length})` }] : []),
   ];
@@ -345,6 +346,14 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
       {tab === 'fields' && activeDepartment && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 420 }}>
+          {activeDepartment.workspaceName === 'תרומות' && relatedContact?.donationsCount > 0 && (
+            <div style={{
+              background: 'var(--accent-soft, #e4ede8)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8,
+              padding: '8px 10px', fontSize: 12.5, color: 'var(--accent, #1f4d3d)',
+            }}>
+              🔗 יש {relatedContact.donationsCount} תרומות בסך ₪{relatedContact.donationsTotal.toLocaleString('he-IL')} אצל {relatedContact.first} {relatedContact.last} - לא נספר בכספי הכרטיס הזה.
+            </div>
+          )}
           <KesherProjectPanel
             workspaceName={activeDepartment.workspaceName}
             commitments={deptCommitments}
