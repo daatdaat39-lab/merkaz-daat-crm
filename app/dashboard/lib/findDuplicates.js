@@ -114,7 +114,12 @@ function addToGroup(map, key, contact) {
 // exactTokenPairs: מערך {id_a, id_b} מ-find_same_tokens_contact_pairs
 // (מיגרציה 0067) - אותם רכיבי שם בדיוק, סדר לא משנה (למשל "יוסף חיים
 // ערד" מול "ערד יוסף חיים") - סיבת התאמה מדויקת, לא מטושטשת.
-export function findDuplicateCandidates(contacts, dismissedPairs = [], namePairs = [], exactTokenPairs = []) {
+// externalIdPairs: מערך {id_a, id_b} - שני כרטיסים שונים ששניהם מקושרים
+// לאותו (source_system, external_id) ב-contact_external_ids. זו כמעט
+// תמיד כפילות ודאית (אותה רשומה במקור החיצוני "התפצלה" אצלנו לשני
+// כרטיסים, למשל ייבוא כפול עם ניקוד/רווחים שונים בשם) - סיבת התאמה
+// מדויקת, לא מטושטשת (ר' hasExactReason).
+export function findDuplicateCandidates(contacts, dismissedPairs = [], namePairs = [], exactTokenPairs = [], externalIdPairs = []) {
   const dismissedSet = new Set(dismissedPairs.map((p) => pairKey(p.contact_id_a, p.contact_id_b)));
   const pairs = new Map(); // pairKey -> { contactA, contactB, matchedOn: Set }
 
@@ -156,6 +161,9 @@ export function findDuplicateCandidates(contacts, dismissedPairs = [], namePairs
   const byId = new Map(contacts.map((c) => [c.id, c]));
   for (const { id_a, id_b } of exactTokenPairs) {
     addCandidate(byId.get(id_a), byId.get(id_b), 'אותם רכיבי שם, סדר שונה');
+  }
+  for (const { id_a, id_b } of externalIdPairs) {
+    addCandidate(byId.get(id_a), byId.get(id_b), 'אותו מזהה במערכת חיצונית');
   }
 
   // שם דומה - מגיע מוכן מ-DB (RPC עם אינדקס טריגרם), לא מחושב כאן

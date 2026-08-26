@@ -24,7 +24,19 @@ export async function loadDuplicateCandidatesWithMoneyCounts(supabase) {
     return all;
   }
 
-  const [contactRows, { data: dismissedPairs }, { data: namePairs, error: namePairsError }, { data: exactTokenPairs }] = await Promise.all([
+  async function fetchAllExternalIds() {
+    const pageSize = 1000; let from = 0; let all = [];
+    while (true) {
+      const { data } = await supabase.from('contact_external_ids').select('contact_id, source_system, external_id').range(from, from + pageSize - 1);
+      if (!data || data.length === 0) break;
+      all = all.concat(data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  }
+
+  const [contactRows, { data: dismissedPairs }, { data: namePairs, error: namePairsError }, { data: exactTokenPairs }, externalIdRows] = await Promise.all([
     fetchAllContactRows(),
     supabase.from('dismissed_duplicate_pairs').select('contact_id_a, contact_id_b'),
     // דמיון-שמות מחושב ב-DB (מיגרציה 0066/0068, אינדקס טריגרם) - לא בקוד -
@@ -32,6 +44,7 @@ export async function loadDuplicateCandidatesWithMoneyCounts(supabase) {
     supabase.rpc('find_similar_contact_name_pairs'),
     // אותם רכיבי שם, סדר שונה - מדויק, לא מטושטש (מיגרציה 0067).
     supabase.rpc('find_same_tokens_contact_pairs'),
+    fetchAllExternalIds(),
   ]);
   // בדיקת שגיאה מפורשת - קרה בפועל (0066 לא ניצל את אינדקס ה-GIN, נפל
   // ב-timeout על כמות גדולה) והוחזר בשקט כ"0 תוצאות" בלי שום סימן -
@@ -43,7 +56,25 @@ export async function loadDuplicateCandidatesWithMoneyCounts(supabase) {
     departments: (c.contact_departments || []).map((d) => ({ stage: d.stage, workspaceName: d.workspaces?.name || 'מחלקה' })),
   }));
 
-  const { candidates } = findDuplicateCandidates(contacts, dismissedPairs || [], namePairs || [], exactTokenPairs || []);
+  // אותו (source_system, external_id) על 2+ contact_id שונים - כמעט
+  // תמיד כפילות ודאית (ר' הערה ב-findDuplicates.js). מחושב כאן (לא ב-DB)
+  // כי זו טבלה קטנה יחסית ולוגיקת-קיבוץ פשוטה, לא דורשת RPC ייעודי.
+  const byExternalId = new Map();
+  for (const r of externalIdRows || []) {
+    const key = `${r.source_system}::${r.external_id}`;
+    if (!byExternalId.has(key)) byExternalId.set(key, new Set());
+    byExternalId.get(key).add(r.contact_id);
+  }
+  const externalIdPairs = [];
+  for (const ids of byExternalId.values()) {
+    if (ids.size < 2) continue;
+    const arr = Array.from(ids);
+    for (let i = 0; i < arr.length; i++) {
+      for (let j = i + 1; j < arr.length; j++) externalIdPairs.push({ id_a: arr[i], id_b: arr[j] });
+    }
+  }
+
+  const { candidates } = findDuplicateCandidates(contacts, dismissedPairs || [], namePairs || [], exactTokenPairs || [], externalIdPairs);
 
   // כמה תרומות/התחייבויות יש לכל צד בכל זוג - כדי שהמנהל יראה *לפני*
   // שהוא לוחץ "מיזוג" אם יש נתונים כספיים בסיכון (בדיוק כמו שקרה בפועל
