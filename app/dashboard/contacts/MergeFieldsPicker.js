@@ -10,7 +10,7 @@ const FIELDS = [
   { key: 'phone2', label: 'טלפון נוסף' },
   { key: 'email', label: 'מייל', dual: 'email2' },
   { key: 'email2', label: 'מייל נוסף' },
-  { key: 'source', label: 'מקור' },
+  { key: 'source', label: 'מקור', combinable: true },
   { key: 'dept', label: 'תחום/מחלקה' },
 ];
 
@@ -54,12 +54,18 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
 
   function handleConfirm() {
     const resolved = {};
-    FIELDS.forEach(({ key, dual }) => {
+    FIELDS.forEach(({ key, dual, combinable }) => {
       if (choices[key] === 'custom') {
         resolved[key] = (customValues[key] || '').trim();
       } else if (choices[key] === 'both' && dual) {
         resolved[key] = existing[key] || '';
         resolved[dual] = newValues[key] || '';
+      } else if (choices[key] === 'both' && combinable) {
+        // אין "עמודה שנייה" לשדות כמו מקור (בשונה מטלפון/מייל עם dual) -
+        // "שניהם" כאן פירושו למזג את שני הערכים למחרוזת אחת מופרדת-פסיק,
+        // כדי לא לאבד מידע על שני המקורות שהאדם הגיע מהם.
+        const parts = Array.from(new Set([existing[key], newValues[key]].map((v) => (v || '').trim()).filter(Boolean)));
+        resolved[key] = parts.join(', ');
       } else {
         resolved[key] = choices[key] === 'new' ? (newValues[key] || '') : (existing[key] || '');
       }
@@ -92,11 +98,11 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
             </tr>
           </thead>
           <tbody>
-            {FIELDS.map(({ key, label, dual, customEditable }) => {
+            {FIELDS.map(({ key, label, dual, customEditable, combinable }) => {
               const existingVal = existing[key] || '—';
               const newVal = newValues[key] || '—';
               if (existingVal === '—' && newVal === '—') return null;
-              const showBoth = dual && existingVal !== '—' && newVal !== '—' && existingVal !== newVal;
+              const showBoth = (dual || combinable) && existingVal !== '—' && newVal !== '—' && existingVal !== newVal;
               return (
                 <tr key={key} style={{ borderBottom: '1px solid #f0f0f0' }}>
                   <td style={{ padding: '6px', fontWeight: 500, wordBreak: 'break-word' }}>{label}</td>
