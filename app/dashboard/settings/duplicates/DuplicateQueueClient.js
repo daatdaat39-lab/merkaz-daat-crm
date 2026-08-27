@@ -95,10 +95,21 @@ function FieldRow({ def, existing, dup, choice, customValue, onChoose, onCustom 
   const resolvedChoice = choice || defaultChoice(existingVal, newVal);
 
   if (!showInteractive) {
+    // גם כשאין התנגשות (זהים, או רק צד אחד מלא) - עדיין מציגים בנפרד מה
+    // יש אצל כל כרטיס, לא רק ערך-סופי אחד ממוזג - כדי שאפשר יהיה לוודא
+    // בעין שלא הולך לאיבוד שום דבר לפני שממזגים בפועל.
+    const same = existingVal && newVal && existingVal === newVal;
     return (
       <div style={{ fontSize: 11, marginBottom: 3 }}>
         <span style={{ color: 'var(--text-secondary)' }}>{def.label}: </span>
-        <span>{existingVal || newVal}</span>
+        {same ? (
+          <span>{existingVal} <span style={{ color: 'var(--text-secondary)' }}>(זהה בשני הכרטיסים)</span></span>
+        ) : (
+          <span>
+            <span style={{ color: 'var(--text-secondary)' }}>קיים: </span>{existingVal || '—'}
+            {'  '}<span style={{ color: 'var(--text-secondary)' }}>· חדש: </span>{newVal || '—'}
+          </span>
+        )}
       </div>
     );
   }
