@@ -157,6 +157,8 @@ export default function DuplicateQueueClient({ initialCandidates }) {
   const [errors, setErrors] = useState({});
   const [rowChoices, setRowChoices] = useState({}); // { [pairKey]: { [field]: choice } }
   const [rowCustoms, setRowCustoms] = useState({}); // { [pairKey]: { [field]: text } }
+  const [selectedKeys, setSelectedKeys] = useState(() => new Set());
+  const [bulkProgress, setBulkProgress] = useState(null); // { done, total, action }
   const [, startTransition] = useTransition();
   const router = useRouter();
 
@@ -206,13 +208,47 @@ export default function DuplicateQueueClient({ initialCandidates }) {
     });
   }
 
-  function doMerge(candidate) {
+  function toggleSelect(candidate) {
+    const key = pairKey(candidate);
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  function togglePageSelectAll() {
+    const pageKeys = pageItems.map(pairKey);
+    const allSelected = pageKeys.every((k) => selectedKeys.has(k));
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      pageKeys.forEach((k) => (allSelected ? next.delete(k) : next.add(k)));
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedKeys(new Set());
+  }
+
+  // הפעולה עצמה (בלי ניהול state של pending/הסרה-מהתור) - משמשת גם
+  // כפתור בודד וגם ריצה-בכמות, כדי לא לשכפל לוגיקה.
+  async function mergeOne(candidate) {
     const key = pairKey(candidate);
     const { existing, dup } = sidesFor(candidate);
     const resolvedFields = resolveRowFields(existing, dup, rowChoices[key] || {}, rowCustoms[key] || {});
+    return mergeContacts(existing.id, dup.id, resolvedFields);
+  }
+
+  async function dismissOne(candidate) {
+    return dismissDuplicatePair(candidate.contactA.id, candidate.contactB.id);
+  }
+
+  function doMerge(candidate) {
+    const key = pairKey(candidate);
     setPending(key, true);
     startTransition(async () => {
-      const res = await mergeContacts(existing.id, dup.id, resolvedFields);
+      const res = await mergeOne(candidate);
       setPending(key, false);
       if (res?.error) { setErrors((prev) => ({ ...prev, [key]: res.error })); return; }
       router.refresh();
@@ -224,11 +260,39 @@ export default function DuplicateQueueClient({ initialCandidates }) {
     const key = pairKey(candidate);
     setPending(key, true);
     startTransition(async () => {
-      const res = await dismissDuplicatePair(candidate.contactA.id, candidate.contactB.id);
+      const res = await dismissOne(candidate);
       setPending(key, false);
       if (res?.error) { setErrors((prev) => ({ ...prev, [key]: res.error })); return; }
       router.refresh();
       removeFromQueue(candidate);
+    });
+  }
+
+  // מריץ פעולה (מיזוג/דחייה) על כל הזוגות המסומנים, אחד-אחרי-השני
+  // (לא מקבילי - מיזוג לא בטוח-במקביל על אנשי-קשר שעלולים להצטלב), ומעדכן
+  // התקדמות תוך כדי. זוג שנכשל נשאר מסומן ומציג שגיאה בשורה שלו, ולא עוצר
+  // את שאר הריצה - כדי שכשל בודד לא יחסום עשרות זוגות אחרים שכן תקינים.
+  function runBulk(actionFn, label) {
+    const candidates = queue.filter((c) => selectedKeys.has(pairKey(c)));
+    if (candidates.length === 0) return;
+    startTransition(async () => {
+      setBulkProgress({ done: 0, total: candidates.length, action: label });
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        const key = pairKey(candidate);
+        setPending(key, true);
+        const res = await actionFn(candidate);
+        setPending(key, false);
+        if (res?.error) {
+          setErrors((prev) => ({ ...prev, [key]: res.error }));
+        } else {
+          removeFromQueue(candidate);
+          setSelectedKeys((prev) => { const next = new Set(prev); next.delete(key); return next; });
+        }
+        setBulkProgress({ done: i + 1, total: candidates.length, action: label });
+      }
+      router.refresh();
+      setBulkProgress(null);
     });
   }
 
@@ -242,7 +306,7 @@ export default function DuplicateQueueClient({ initialCandidates }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
         <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
           {queue.length} זוגות ממתינים — עמוד {page + 1} מתוך {totalPages} (עד {PAGE_SIZE} בעמוד)
         </span>
@@ -252,10 +316,28 @@ export default function DuplicateQueueClient({ initialCandidates }) {
         </div>
       </div>
 
+      {selectedKeys.size > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, background: 'var(--bg-secondary, #f7f7f7)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>{selectedKeys.size} נבחרו</span>
+          {bulkProgress ? (
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>מבצע {bulkProgress.action}… {bulkProgress.done}/{bulkProgress.total}</span>
+          ) : (
+            <>
+              <button type="button" onClick={() => runBulk(mergeOne, 'מיזוג')} style={primaryBtn()}>🔗 מיזוג לכל הנבחרים</button>
+              <button type="button" onClick={() => runBulk(dismissOne, 'לא כפילות')} style={ghostBtn()}>✕ לא כפילות לכל הנבחרים</button>
+              <button type="button" onClick={clearSelection} style={ghostBtn()}>בטל בחירה</button>
+            </>
+          )}
+        </div>
+      )}
+
       <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ background: 'var(--bg-secondary, #f7f7f7)' }}>
+              <th style={{ ...th(), width: 30 }}>
+                <input type="checkbox" checked={pageItems.length > 0 && pageItems.every((c) => selectedKeys.has(pairKey(c)))} onChange={togglePageSelectAll} />
+              </th>
               <th style={th()}>התאמה</th>
               <th style={{ ...th(), width: 34 }}></th>
               <th style={th()}>השוואת שדות (לחצו לבחור)</th>
@@ -272,6 +354,9 @@ export default function DuplicateQueueClient({ initialCandidates }) {
               const customs = rowCustoms[key] || {};
               return (
                 <tr key={key} style={{ borderTop: '1px solid var(--border)', opacity: isPending ? 0.5 : 1 }}>
+                  <td style={td()}>
+                    <input type="checkbox" checked={selectedKeys.has(key)} onChange={() => toggleSelect(candidate)} disabled={isPending} />
+                  </td>
                   <td style={td()}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                       {candidate.matchedOn.map((reason) => (
