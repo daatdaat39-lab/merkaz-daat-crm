@@ -1,10 +1,13 @@
 'use client';
 
-import { useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
-import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, bulkUpdateCampaignContactsFromImport, getBulkContactInsightsForExport } from '../actions';
+import {
+  addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, bulkUpdateCampaignContactsFromImport, getBulkContactInsightsForExport,
+  getCampaignSheetConnection, pushCampaignRowsToSheet, pullCampaignUpdatesFromSheet, disconnectCampaignSheet,
+} from '../actions';
 import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
 import { contactMatchesAdvancedFilter } from '../../../components/advancedFilter';
 import MappingQueue from './MappingQueue';
@@ -113,6 +116,50 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [pendingImport, setPendingImport] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [exporting, setExporting] = useState(false);
+  const [sheetConfigured, setSheetConfigured] = useState(false);
+  const [sheetConnection, setSheetConnection] = useState(null);
+  const [sheetBusy, setSheetBusy] = useState(false);
+  const [sheetMessage, setSheetMessage] = useState(null);
+
+  useEffect(() => {
+    getCampaignSheetConnection(campaignId).then((res) => {
+      setSheetConfigured(res.configured);
+      setSheetConnection(res.connection);
+    });
+  }, [campaignId]);
+
+  function handlePushToSheet() {
+    setSheetBusy(true);
+    setSheetMessage(null);
+    pushCampaignRowsToSheet(campaignId).then((res) => {
+      setSheetBusy(false);
+      if (res?.error) { setSheetMessage({ error: res.error }); return; }
+      setSheetMessage({ success: `נדחפו ${res.pushed} שורות חדשות לגיליון` });
+      getCampaignSheetConnection(campaignId).then((r) => setSheetConnection(r.connection));
+    });
+  }
+
+  function handlePullFromSheet() {
+    setSheetBusy(true);
+    setSheetMessage(null);
+    pullCampaignUpdatesFromSheet(campaignId).then((res) => {
+      setSheetBusy(false);
+      if (res?.error) { setSheetMessage({ error: res.error }); return; }
+      setSheetMessage({ success: `עודכנו ${res.updated} אנשי קשר מהגיליון${res.skipped ? `, דולגו ${res.skipped}` : ''}` });
+      getCampaignSheetConnection(campaignId).then((r) => setSheetConnection(r.connection));
+      router.refresh();
+    });
+  }
+
+  function handleDisconnectSheet() {
+    setSheetBusy(true);
+    disconnectCampaignSheet(campaignId).then((res) => {
+      setSheetBusy(false);
+      if (res?.error) { setSheetMessage({ error: res.error }); return; }
+      setSheetConnection(null);
+      setSheetMessage(null);
+    });
+  }
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -476,6 +523,32 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
           </div>
         )}
       </div>
+
+      {rows.length > 0 && sheetConfigured && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', background: 'var(--bg-secondary, #fafafa)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>📊 Google Sheets:</span>
+          {sheetConnection ? (
+            <>
+              <a href={sheetConnection.spreadsheet_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: 'var(--accent, #1f4d3d)' }}>פתיחת הגיליון ↗</a>
+              <button type="button" onClick={handlePushToSheet} disabled={sheetBusy} style={ghostBtn()}>⬆ דחוף לגיליון</button>
+              <button type="button" onClick={handlePullFromSheet} disabled={sheetBusy} style={ghostBtn()}>⬇ משוך עדכונים מהגיליון</button>
+              <button type="button" onClick={handleDisconnectSheet} disabled={sheetBusy} style={{ ...ghostBtn(), color: '#b23b2f' }}>נתק</button>
+              {sheetConnection.last_pushed_at && (
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>נדחף לאחרונה: {new Date(sheetConnection.last_pushed_at).toLocaleString('he-IL')}</span>
+              )}
+              {sheetConnection.last_pulled_at && (
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>נמשך לאחרונה: {new Date(sheetConnection.last_pulled_at).toLocaleString('he-IL')}</span>
+              )}
+            </>
+          ) : (
+            <a href={`/api/auth/google-sheets/start?campaign_id=${campaignId}`} target="_blank" rel="noreferrer" style={{ ...ghostBtn(), textDecoration: 'none', display: 'inline-block' }}>
+              🔗 חבר גיליון Google
+            </a>
+          )}
+          {sheetMessage?.error && <span style={{ fontSize: 12, color: '#b23b2f' }}>{sheetMessage.error}</span>}
+          {sheetMessage?.success && <span style={{ fontSize: 12, color: '#1f7a3d' }}>✓ {sheetMessage.success}</span>}
+        </div>
+      )}
 
       {importResult?.error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>{importResult.error}</div>}
       {importResult?.success && (

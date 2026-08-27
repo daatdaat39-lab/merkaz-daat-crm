@@ -1,8 +1,10 @@
 'use server';
 
 import { createClient } from '../../../../lib/supabase/server';
+import { createAdminClient } from '../../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../lib/contactGuards';
+import { isGoogleSheetsConfigured, getAccessToken as getSheetsAccessToken, appendRows, getSheetValues, CAMPAIGN_SHEET_HEADER_ROW } from '../../../../lib/sheets/client';
 
 // קמפיין תרומות: קבוצת אנשי קשר שמטופלת יחד, מחולקת לקטגוריות (חם/קר/
 // תורם גדול), משויכת לנציגים, עם ערוץ פעולה מוגדר (שיחה/וואטסאפ/מייל/
@@ -552,10 +554,179 @@ export async function bulkUpdateCampaignContactsFromImport(campaignId, updates) 
     if (u.category !== undefined) patch.category = u.category || null;
     if (u.assignedTo !== undefined) patch.assigned_to = u.assignedTo || null;
     if (u.status !== undefined && validStageKeys.has(u.status)) patch.status = u.status;
+    // עדכון-מיפוי (מגיע מסנכרון-גיליון, ר' pullCampaignUpdatesFromSheet) -
+    // אותם ערכים בדיוק שכבר נשמרים דרך saveMappingDecision.
+    if (u.mappingDecision !== undefined && u.mappingDecision) {
+      patch.mapping_decision = u.mappingDecision;
+      patch.mapped_by = user.id;
+      patch.mapped_at = new Date().toISOString();
+    }
     if (Object.keys(patch).length === 0) { skipped++; continue; }
     const { error } = await supabase.from('campaign_contacts').update(patch).eq('id', u.rowId).eq('campaign_id', campaignId);
     if (error) { skipped++; continue; }
     updated++;
   }
   return { success: true, updated, skipped };
+}
+
+// ============================================================
+// חיבור Google Sheet לקמפיין - שיתוף-חי דרך הגיליון עצמו (Google כבר
+// תומך בעריכה-משותפת-בזמן-אמת), בלי cron/webhook אוטומטי - שני כפתורים:
+// "דחוף" (מוסיף שורות חדשות לגיליון, לעולם לא דורס שורה קיימת - כדי לא
+// לאבד עריכות שכבר נעשו שם) ו-"משוך" (קורא את כל הגיליון ומעדכן את
+// הקמפיין, דרך אותה bulkUpdateCampaignContactsFromImport בדיוק כמו ייבוא-
+// CSV, רק עם מקור-נתונים שונה).
+// ============================================================
+
+async function loadAgentsForWorkspace(supabase, workspaceId) {
+  const { data: members } = await supabase.from('workspace_members').select('user_id').eq('workspace_id', workspaceId);
+  const ids = (members || []).map((m) => m.user_id);
+  if (ids.length === 0) return [];
+  const { data: profiles } = await supabase.from('profiles').select('id, name').in('id', ids);
+  return profiles || [];
+}
+
+export async function getCampaignSheetConnection(campaignId) {
+  const { supabase } = await requireUser();
+  const { data } = await supabase.from('campaign_sheet_connections')
+    .select('spreadsheet_url, last_pushed_at, last_pulled_at').eq('campaign_id', campaignId).maybeSingle();
+  return { configured: isGoogleSheetsConfigured(), connection: data || null };
+}
+
+export async function disconnectCampaignSheet(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+  await supabase.from('campaign_sheet_connections').delete().eq('campaign_id', campaignId);
+  return { success: true };
+}
+
+function insightsToSheetCells(insights) {
+  if (!insights) return ['', '', '', '', '', '', '', '', ''];
+  const { departments, peakDonation, lastDonationDate, totalDonations, hasActiveCommitment, coursesCount, seminarsCount, lastInteraction } = insights;
+  return [
+    departments.join(', '),
+    peakDonation ? peakDonation.year : '',
+    peakDonation ? Math.round(peakDonation.amount) : '',
+    totalDonations.count || 0,
+    totalDonations.total ? Math.round(totalDonations.total) : 0,
+    lastDonationDate ? new Date(lastDonationDate).toLocaleDateString('he-IL') : '',
+    lastInteraction ? `${lastInteraction.label}${lastInteraction.exact ? '' : ' (משוער)'} · ${new Date(lastInteraction.date).toLocaleDateString('he-IL')}` : '',
+    hasActiveCommitment ? 'כן' : 'לא',
+    `${coursesCount || 0} קורסים, ${seminarsCount || 0} סמינרים`,
+  ];
+}
+
+export async function pushCampaignRowsToSheet(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const admin = createAdminClient();
+  const { data: conn } = await admin.from('campaign_sheet_connections').select('*').eq('campaign_id', campaignId).maybeSingle();
+  if (!conn) return { error: 'אין גיליון מחובר לקמפיין הזה' };
+
+  let accessToken;
+  try { accessToken = await getSheetsAccessToken(conn.refresh_token); } catch (e) { return { error: e.message }; }
+
+  // שולף את כל השורות שכבר בגיליון (מזהה-שורה בעמודה הראשונה) - כדי
+  // לדעת מה לדלג עליו, ולא לשכפל שורות/לדרוס עריכות שכבר שם.
+  let existingIds;
+  try {
+    const values = await getSheetValues(accessToken, conn.spreadsheet_id, conn.sheet_title);
+    existingIds = new Set(values.slice(1).map((r) => r[0]).filter(Boolean));
+  } catch (e) { return { error: e.message }; }
+
+  const { data: rows } = await supabase.from('campaign_contacts')
+    .select('id, category, assigned_to, status, contacts:contact_id (id, first, last, phone, email)')
+    .eq('campaign_id', campaignId);
+  const newRows = (rows || []).filter((r) => r.contacts && !existingIds.has(r.id));
+  if (newRows.length === 0) return { success: true, pushed: 0 };
+
+  const [agents, { data: stages }, insightsByContact] = await Promise.all([
+    loadAgentsForWorkspace(supabase, campaign.workspace_id),
+    supabase.from('campaign_stages').select('stage_key, label').eq('campaign_id', campaignId),
+    buildBulkContactInsights(supabase, newRows.map((r) => r.contacts.id)),
+  ]);
+  const agentNameById = Object.fromEntries(agents.map((a) => [a.id, a.name]));
+  const stageLabelByKey = Object.fromEntries((stages || []).map((s) => [s.stage_key, s.label]));
+
+  const sheetRows = newRows.map((r) => [
+    r.id, `${r.contacts.first || ''} ${r.contacts.last || ''}`.trim(), r.contacts.phone || '', r.contacts.email || '',
+    r.category || '', r.assigned_to ? (agentNameById[r.assigned_to] || '') : '', stageLabelByKey[r.status] || r.status || '', '',
+    ...insightsToSheetCells(insightsByContact[r.contacts.id]),
+  ]);
+
+  try {
+    await appendRows(accessToken, conn.spreadsheet_id, conn.sheet_title, sheetRows);
+  } catch (e) { return { error: e.message }; }
+
+  await admin.from('campaign_sheet_connections').update({ last_pushed_at: new Date().toISOString() }).eq('id', conn.id);
+  return { success: true, pushed: sheetRows.length };
+}
+
+export async function pullCampaignUpdatesFromSheet(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const admin = createAdminClient();
+  const { data: conn } = await admin.from('campaign_sheet_connections').select('*').eq('campaign_id', campaignId).maybeSingle();
+  if (!conn) return { error: 'אין גיליון מחובר לקמפיין הזה' };
+
+  let accessToken;
+  try { accessToken = await getSheetsAccessToken(conn.refresh_token); } catch (e) { return { error: e.message }; }
+
+  let values;
+  try { values = await getSheetValues(accessToken, conn.spreadsheet_id, conn.sheet_title); } catch (e) { return { error: e.message }; }
+  if (values.length < 2) return { success: true, updated: 0, skipped: 0 };
+
+  const header = values[0];
+  const idx = {
+    rowId: header.indexOf(CAMPAIGN_SHEET_HEADER_ROW[0]),
+    category: header.indexOf('קטגוריה'),
+    assignedTo: header.indexOf('נציג מטפל'),
+    status: header.indexOf('סטטוס'),
+    mappingDecision: header.indexOf('החלטת מיפוי'),
+  };
+
+  const [agents, { data: stages }] = await Promise.all([
+    loadAgentsForWorkspace(supabase, campaign.workspace_id),
+    supabase.from('campaign_stages').select('stage_key, label').eq('campaign_id', campaignId),
+  ]);
+  const agentIdByName = Object.fromEntries(agents.map((a) => [a.name, a.id]));
+  const stageKeyByLabel = Object.fromEntries((stages || []).map((s) => [s.label, s.stage_key]));
+
+  const updates = values.slice(1).map((cells) => {
+    const rowId = (cells[idx.rowId] || '').trim();
+    if (!rowId) return null;
+    const patch = { rowId };
+    if (idx.category !== -1) patch.category = (cells[idx.category] || '').trim();
+    if (idx.assignedTo !== -1) {
+      const name = (cells[idx.assignedTo] || '').trim();
+      patch.assignedTo = name ? (agentIdByName[name] || null) : null;
+    }
+    if (idx.status !== -1) {
+      const label = (cells[idx.status] || '').trim();
+      const stageKey = stageKeyByLabel[label];
+      if (stageKey) patch.status = stageKey;
+    }
+    if (idx.mappingDecision !== -1) {
+      const decision = (cells[idx.mappingDecision] || '').trim();
+      if (decision) patch.mappingDecision = decision;
+    }
+    return patch;
+  }).filter(Boolean);
+
+  if (updates.length === 0) return { success: true, updated: 0, skipped: 0 };
+  const res = await bulkUpdateCampaignContactsFromImport(campaignId, updates);
+  if (res?.error) return res;
+  await admin.from('campaign_sheet_connections').update({ last_pulled_at: new Date().toISOString() }).eq('id', conn.id);
+  return res;
 }
