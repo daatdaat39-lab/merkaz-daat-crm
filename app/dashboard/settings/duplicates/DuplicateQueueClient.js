@@ -81,14 +81,17 @@ function Chip({ selected, onClick, children, title }) {
 function FieldRow({ def, existing, dup, choice, customValue, onChoose, onCustom }) {
   const existingVal = (existing[def.key] || '').trim();
   const newVal = (dup[def.key] || '').trim();
-  if (!existingVal && !newVal) return null;
+  // שדות עם עריכה חופשית (שם פרטי/משפחה) תמיד מוצגים, גם כששני הצדדים
+  // ריקים לגמרי - כדי שיהיה איפה להקליד שם משפחה בעצמכם כשהמערכת לא
+  // זיהתה אחד. שדות רגילים בלי ערך משום צד לא מוצגים בכלל (אין מה לבחור).
+  if (!existingVal && !newVal && !def.customEditable) return null;
 
   const conflict = existingVal && newVal && existingVal !== newVal;
-  // שדות עם עריכה חופשית (שם פרטי/משפחה) - תמיד מציגים אפשרות עריכה, גם
-  // כשאין "התנגשות" טכנית (למשל צד אחד ריק) - כי בדיוק המקרה הזה (שם
-  // מפוצל אחרת בין שני הכרטיסים, כמו "אברהם יצחק"+"" מול "אברהם"+"יצחק גל")
-  // הוא מה שדורש הקלדה חופשית כדי לתקן, לא רק בחירה בין שני ערכים.
-  const showInteractive = conflict || (def.customEditable && (existingVal || newVal));
+  // שדות עם עריכה חופשית תמיד מציגים אפשרות עריכה, גם כשאין "התנגשות"
+  // טכנית (צד אחד ריק, או ששני הצדדים ריקים) - כי בדיוק המקרה הזה (שם
+  // מפוצל אחרת בין שני הכרטיסים, או חסר לגמרי) הוא מה שדורש הקלדה חופשית
+  // כדי לתקן, לא רק בחירה בין שני ערכים קיימים.
+  const showInteractive = conflict || def.customEditable;
   const resolvedChoice = choice || defaultChoice(existingVal, newVal);
 
   if (!showInteractive) {
