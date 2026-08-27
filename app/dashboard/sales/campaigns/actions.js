@@ -262,83 +262,56 @@ async function findPossibleSpouseMatches(supabase, contact) {
   });
 }
 
-// שולף כרטיסון-מיפוי אחד - השורה הראשונה (לפי סדר-קטגוריות שכבר בקמפיין)
-// עם mapping_decision ריק. מחזיר null כשאין יותר מה למפות.
-// skipIds - שורות שהממפה כבר "דילג" עליהן בסבב הנוכחי (בצד-לקוח, ר'
-// MappingQueue.js). דילוג לא שומר שום החלטה ב-DB (בכוונה - זה ההבדל
-// בין "דלג" ל"לא רלוונטי") - הן "עוברות לסוף התור": קודם מציגים את כל
-// מי שעדיין לא נראה בכלל בסבב הזה, ורק אחרי שאלה נגמרים חוזרים למי
-// שדולג עליו (לפי הסדר שדולג בו). ברענון-עמוד/סשן חדש הדילוגים "נשכחים"
-// לגמרי והתור חוזר למצב המקורי.
-export async function getNextMappingCard(campaignId, skipIds = []) {
+// שולף עמוד שלם של כרטיסוני-מיפוי (עד limit, לפי created_at) - כל שורה
+// עם mapping_decision ריק, בדיוק כמו שהיה בגרסת "כרטיס אחד בכל פעם" (ר'
+// היסטוריית git) אבל בכמות, לטבלה. mapping_decision IS NULL הוא-עצמו
+// מנגנון מניעת-הכפילות בין ממפים: ברגע שמישהו שומר החלטה, השורה יוצאת
+// מהעמוד של כולם באיטרציה הבאה (עדיין אין נעילה בזמן-אמת בתוך אותו טעינה).
+export async function getMappingCards(campaignId, { limit = 30, offset = 0 } = {}) {
   const { supabase } = await requireUser();
 
   const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
-  if (!campaign) return null;
+  if (!campaign) return { cards: [], total: 0, decisionOptions: [] };
 
-  const baseQuery = () => supabase
+  const { data: rows, count } = await supabase
     .from('campaign_contacts')
-    .select('id, category, contacts:contact_id (id, first, last, phone, email, city, street, related_contact_id)')
+    .select('id, category, contacts:contact_id (id, first, last, phone, email, city, street, related_contact_id)', { count: 'exact' })
     .eq('campaign_id', campaignId)
     .is('mapping_decision', null)
     .order('created_at', { ascending: true })
-    .limit(1);
+    .range(offset, offset + limit - 1);
 
-  let row = null;
-  if (skipIds.length > 0) {
-    const { data: fresh } = await baseQuery().not('id', 'in', `(${skipIds.join(',')})`).maybeSingle();
-    row = fresh;
-    if (!row) {
-      // אין יותר "טריים" - חוזרים למי שדולג עליו, לפי סדר-הדילוג (סוף
-      // התור). PostgREST לא תומך במיון-לפי-סדר-מערך שרירותי, אז שולפים
-      // את כולם (רשימה קטנה, כבר מוגבלת ל-skipIds) וממיינים בג'אווהסקריפט
-      // לפי המיקום המקורי ב-skipIds.
-      const { data: skippedRows } = await supabase
-        .from('campaign_contacts')
-        .select('id, category, contacts:contact_id (id, first, last, phone, email, city, street, related_contact_id)')
-        .eq('campaign_id', campaignId)
-        .is('mapping_decision', null)
-        .in('id', skipIds);
-      row = (skippedRows || []).sort((a, b) => skipIds.indexOf(a.id) - skipIds.indexOf(b.id))[0] || null;
+  const validRows = (rows || []).filter((r) => r.contacts);
+  const decisionOptions = await getMappingDecisionOptions(campaign.workspace_id);
+
+  const cards = await Promise.all(validRows.map(async (row) => {
+    const contact = row.contacts;
+    const [insights, possibleSpouses] = await Promise.all([
+      buildContactInsights(supabase, contact.id),
+      findPossibleSpouseMatches(supabase, contact),
+    ]);
+
+    let linkedSpouse = null;
+    let spouseAlsoInCampaign = false;
+    let spouseRowId = null;
+    if (contact.related_contact_id) {
+      const { data: spouse } = await supabase.from('contacts').select('id, first, last').eq('id', contact.related_contact_id).maybeSingle();
+      linkedSpouse = spouse;
+      if (spouse) {
+        const { data: spouseRow } = await supabase.from('campaign_contacts').select('id')
+          .eq('campaign_id', campaignId).eq('contact_id', spouse.id).maybeSingle();
+        spouseAlsoInCampaign = !!spouseRow;
+        spouseRowId = spouseRow?.id || null;
+      }
     }
-  } else {
-    const { data } = await baseQuery().maybeSingle();
-    row = data;
-  }
-  if (!row || !row.contacts) return null;
 
-  const contact = row.contacts;
-  const [insights, spouseMatches, decisionOptions] = await Promise.all([
-    buildContactInsights(supabase, contact.id),
-    findPossibleSpouseMatches(supabase, contact),
-    getMappingDecisionOptions(campaign.workspace_id),
-  ]);
+    return {
+      rowId: row.id, category: row.category, contact, insights,
+      linkedSpouse, spouseAlsoInCampaign, spouseRowId, possibleSpouses,
+    };
+  }));
 
-  let linkedSpouse = null;
-  let spouseAlsoInCampaign = false;
-  let spouseRowId = null;
-  if (contact.related_contact_id) {
-    const { data: spouse } = await supabase.from('contacts').select('id, first, last').eq('id', contact.related_contact_id).maybeSingle();
-    linkedSpouse = spouse;
-    if (spouse) {
-      const { data: spouseRow } = await supabase.from('campaign_contacts').select('id')
-        .eq('campaign_id', campaignId).eq('contact_id', spouse.id).maybeSingle();
-      spouseAlsoInCampaign = !!spouseRow;
-      spouseRowId = spouseRow?.id || null;
-    }
-  }
-
-  return {
-    rowId: row.id,
-    category: row.category,
-    contact,
-    insights,
-    linkedSpouse,
-    spouseAlsoInCampaign,
-    spouseRowId,
-    possibleSpouses: spouseMatches,
-    decisionOptions,
-  };
+  return { cards, total: count || 0, decisionOptions };
 }
 
 export async function saveMappingDecision(rowId, fields) {
