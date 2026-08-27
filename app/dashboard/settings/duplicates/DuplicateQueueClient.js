@@ -84,9 +84,14 @@ function FieldRow({ def, existing, dup, choice, customValue, onChoose, onCustom 
   if (!existingVal && !newVal) return null;
 
   const conflict = existingVal && newVal && existingVal !== newVal;
+  // שדות עם עריכה חופשית (שם פרטי/משפחה) - תמיד מציגים אפשרות עריכה, גם
+  // כשאין "התנגשות" טכנית (למשל צד אחד ריק) - כי בדיוק המקרה הזה (שם
+  // מפוצל אחרת בין שני הכרטיסים, כמו "אברהם יצחק"+"" מול "אברהם"+"יצחק גל")
+  // הוא מה שדורש הקלדה חופשית כדי לתקן, לא רק בחירה בין שני ערכים.
+  const showInteractive = conflict || (def.customEditable && (existingVal || newVal));
   const resolvedChoice = choice || defaultChoice(existingVal, newVal);
 
-  if (!conflict) {
+  if (!showInteractive) {
     return (
       <div style={{ fontSize: 11, marginBottom: 3 }}>
         <span style={{ color: 'var(--text-secondary)' }}>{def.label}: </span>
@@ -99,8 +104,8 @@ function FieldRow({ def, existing, dup, choice, customValue, onChoose, onCustom 
     <div style={{ marginBottom: 4 }}>
       <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 2 }}>{def.label}</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-        <Chip selected={resolvedChoice === 'existing'} onClick={() => onChoose('existing')} title="השאר את הערך הקיים">{existingVal}</Chip>
-        <Chip selected={resolvedChoice === 'new'} onClick={() => onChoose('new')} title="קח את הערך החדש">{newVal}</Chip>
+        {existingVal && <Chip selected={resolvedChoice === 'existing'} onClick={() => onChoose('existing')} title="השאר את הערך הקיים">{existingVal}</Chip>}
+        {newVal && <Chip selected={resolvedChoice === 'new'} onClick={() => onChoose('new')} title="קח את הערך החדש">{newVal}</Chip>}
         {(def.dual || def.combinable) && (
           <Chip selected={resolvedChoice === 'both'} onClick={() => onChoose('both')} title={def.dual ? `קיים ב${def.label}, חדש ב${def.dual === 'phone2' ? 'טלפון נוסף' : 'מייל נוסף'}` : 'משלב את שני הערכים למחרוזת אחת'}>שניהם</Chip>
         )}
@@ -113,6 +118,19 @@ function FieldRow({ def, existing, dup, choice, customValue, onChoose, onCustom 
           />
         )}
       </div>
+    </div>
+  );
+}
+
+// המיזוג בפועל (mergeContacts) תמיד מעביר לכרטיס הנשאר כל שיוך-מחלקה
+// שיש לכפול ואין לו - אף מחלקה לא נמחקת. שורת "אחרי מיזוג" הזו רק
+// מציגה את זה במפורש, כדי שלא ייראה כאילו מחלקה של הצד שיימחק תיעלם.
+function MergedDepartmentsSummary({ existing, dup }) {
+  const merged = Array.from(new Set([...(existing.departments || []), ...(dup.departments || [])].map((d) => d.workspaceName)));
+  if (merged.length === 0) return null;
+  return (
+    <div style={{ fontSize: 10.5, color: '#15803d', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 4, padding: '3px 8px', marginBottom: 6 }}>
+      ✓ אחרי מיזוג יישארו כל המחלקות: {merged.join(', ')}
     </div>
   );
 }
@@ -272,6 +290,7 @@ export default function DuplicateQueueClient({ initialCandidates }) {
                       <ContactMeta contact={existing} roleLabel="יישאר" />
                       <ContactMeta contact={dup} roleLabel="יימחק" />
                     </div>
+                    <MergedDepartmentsSummary existing={existing} dup={dup} />
                     {FIELD_DEFS.map((def) => (
                       <FieldRow
                         key={def.key}
