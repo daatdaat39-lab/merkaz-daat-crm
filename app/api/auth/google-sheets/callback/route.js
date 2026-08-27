@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../../lib/supabase/admin';
-import { createSpreadsheet, CAMPAIGN_SHEET_HEADER_ROW } from '../../../../../lib/sheets/client';
+import { createSpreadsheet, formatCampaignSheet, CAMPAIGN_SHEET_HEADER_ROW } from '../../../../../lib/sheets/client';
+import { getPicklistValues } from '../../../../dashboard/lib/picklists';
+
+const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'תורם חוזר', 'לא רלוונטי'];
 
 // מקבל את התשובה מ-Google, מחליף קוד ב-refresh_token, יוצר גיליון חדש
 // עם כותרות מוכנות, ושומר את החיבור בקמפיין (state=campaignId, ר' /start).
@@ -62,6 +65,24 @@ export async function GET(request) {
     const created = await createSpreadsheet(tokenData.access_token, `מיפוי קמפיין - ${campaign.name}`, 'מיפוי', CAMPAIGN_SHEET_HEADER_ROW);
     spreadsheetId = created.spreadsheetId;
     spreadsheetUrl = created.spreadsheetUrl;
+
+    // עיצוב + רשימות נפתחות (קטגוריה/סטטוס/החלטת מיפוי) - לפי הערכים
+    // האמיתיים של המחלקה והקמפיין. לא קריטי להצלחת החיבור עצמו - כישלון
+    // כאן לא מבטל את החיבור, רק משאיר את הגיליון בלי עיצוב.
+    try {
+      const [categoryRows, decisionRows, { data: stageRows }] = await Promise.all([
+        getPicklistValues(supabase, 'campaign_category', campaign.workspace_id),
+        getPicklistValues(supabase, 'mapping_decision', campaign.workspace_id),
+        supabase.from('campaign_stages').select('label').eq('campaign_id', campaignId).order('sort_order'),
+      ]);
+      await formatCampaignSheet(tokenData.access_token, spreadsheetId, created.sheetId, {
+        categoryOptions: categoryRows.length ? categoryRows.map((r) => r.value) : DEFAULT_CATEGORIES,
+        statusOptions: (stageRows || []).map((s) => s.label),
+        decisionOptions: decisionRows.map((r) => r.value),
+      });
+    } catch (e) {
+      console.error('formatCampaignSheet failed:', e.message);
+    }
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
