@@ -244,6 +244,15 @@ async function buildContactInsights(supabase, contactId) {
   };
 }
 
+// עוטפת את buildContactInsights לקריאה ישירה מהלקוח (בניית-קבוצה,
+// SegmentFinder.js) - נטענת בעצלנות (lazy) רק כשמרחיבים שורה, בדיוק
+// כמו "פירוט שנתי" הקיים - כי בניית-קבוצה יכולה להחזיר עד 500 תוצאות
+// בבת אחת, ואי אפשר לחשב את זה (6 שאילתות) לכל השורות מראש.
+export async function getSegmentRowInsights(contactId) {
+  const { supabase } = await requireUser();
+  return buildContactInsights(supabase, contactId);
+}
+
 // כמה אנשי-קשר דומים (שם-משפחה זהה + טלפון/כתובת זהים) שעדיין לא
 // מקושרים כבני-זוג - אותו עיקרון-זיהוי שכבר קיים למשפחות ששיתפו טלפון
 // (ר' findDuplicates.js), כאן ממוקד לצורך הצעת-קישור בזמן-אמת בתוך המיפוי.

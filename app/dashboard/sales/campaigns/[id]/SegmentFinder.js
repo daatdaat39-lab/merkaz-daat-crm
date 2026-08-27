@@ -3,8 +3,9 @@
 import { useState, useEffect, useTransition, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  getWorkspacesForSegmentFilter, searchCampaignSegment, getContactDonationsByYear, addContactsToCampaignWithCategory,
+  getWorkspacesForSegmentFilter, searchCampaignSegment, getContactDonationsByYear, addContactsToCampaignWithCategory, getSegmentRowInsights,
 } from '../actions';
+import ContactInsightsPanel from './ContactInsightsPanel';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
 const TRI_STATE = [{ v: null, l: 'לא משנה' }, { v: true, l: 'כן' }, { v: false, l: 'לא' }];
@@ -54,6 +55,7 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
   const [selected, setSelected] = useState(new Set());
   const [expandedId, setExpandedId] = useState(null);
   const [yearBreakdown, setYearBreakdown] = useState({});
+  const [insightsByContact, setInsightsByContact] = useState({});
   const [category, setCategory] = useState('');
   const [quickCount, setQuickCount] = useState('50');
   const [error, setError] = useState(null);
@@ -121,10 +123,18 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
   async function toggleExpand(row) {
     if (expandedId === row.contact_id) { setExpandedId(null); return; }
     setExpandedId(row.contact_id);
-    if (!yearBreakdown[row.contact_id]) {
-      const years = await getContactDonationsByYear(row.contact_id);
-      setYearBreakdown((prev) => ({ ...prev, [row.contact_id]: years }));
+    const tasks = [];
+    if (row.peak_donation_amount && !yearBreakdown[row.contact_id]) {
+      tasks.push(getContactDonationsByYear(row.contact_id).then((years) => {
+        setYearBreakdown((prev) => ({ ...prev, [row.contact_id]: years }));
+      }));
     }
+    if (!insightsByContact[row.contact_id]) {
+      tasks.push(getSegmentRowInsights(row.contact_id).then((insights) => {
+        setInsightsByContact((prev) => ({ ...prev, [row.contact_id]: insights }));
+      }));
+    }
+    await Promise.all(tasks);
   }
 
   function handleAddToCampaign() {
@@ -282,21 +292,26 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
                       <td style={{ padding: '8px 12px' }}>{r.peak_donation_amount ? `₪${Number(r.peak_donation_amount).toLocaleString('he-IL')} (${r.peak_donation_year})` : '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{r.last_donation_date ? new Date(r.last_donation_date).toLocaleDateString('he-IL') : '—'}</td>
                       <td style={{ padding: '8px 12px' }}>
-                        {r.peak_donation_amount && (
-                          <button type="button" onClick={() => toggleExpand(r)} style={{ fontSize: 11, background: 'none', border: 'none', color: 'var(--accent, #1f4d3d)', cursor: 'pointer' }}>
-                            {expandedId === r.contact_id ? 'סגור' : 'פירוט שנתי'}
-                          </button>
-                        )}
+                        <button type="button" onClick={() => toggleExpand(r)} style={{ fontSize: 11, background: 'none', border: 'none', color: 'var(--accent, #1f4d3d)', cursor: 'pointer' }}>
+                          {expandedId === r.contact_id ? 'סגור' : 'פרטים נוספים'}
+                        </button>
                       </td>
                     </tr>
                     {expandedId === r.contact_id && (
                       <tr>
-                        <td colSpan={7} style={{ padding: '6px 20px 10px', background: 'var(--bg-secondary, #fafafa)' }}>
-                          {(yearBreakdown[r.contact_id] || []).map((y) => (
-                            <span key={y.donation_year} style={{ display: 'inline-block', marginInlineEnd: 14, fontSize: 11.5, color: 'var(--text-secondary)' }}>
-                              {y.donation_year}: ₪{Number(y.year_total).toLocaleString('he-IL')}
-                            </span>
-                          ))}
+                        <td colSpan={7} style={{ padding: '10px 20px 14px', background: 'var(--bg-secondary, #fafafa)' }}>
+                          {(yearBreakdown[r.contact_id] || []).length > 0 && (
+                            <div style={{ marginBottom: 8 }}>
+                              {yearBreakdown[r.contact_id].map((y) => (
+                                <span key={y.donation_year} style={{ display: 'inline-block', marginInlineEnd: 14, fontSize: 11.5, color: 'var(--text-secondary)' }}>
+                                  {y.donation_year}: ₪{Number(y.year_total).toLocaleString('he-IL')}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {insightsByContact[r.contact_id]
+                            ? <ContactInsightsPanel insights={insightsByContact[r.contact_id]} compact />
+                            : <span style={{ fontSize: 11.5, color: 'var(--text-muted, #9b9b9b)' }}>טוען פרטים...</span>}
                         </td>
                       </tr>
                     )}

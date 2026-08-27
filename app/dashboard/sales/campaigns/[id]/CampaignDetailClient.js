@@ -22,10 +22,12 @@ const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6
 // חיצוני ואינם ברשימה, ולבסוף "ללא קטגוריה" - תמיד אחרון.
 // כל קבוצה גם מחשבת פילוח-מיפוי (ממתין/רלוונטי/לא רלוונטי/מישהו אחר) לפי
 // mapping_decision הקיים כבר על כל שורה - בלי לגעת ב-status/campaign_stages
-// (שדה נפרד לגמרי, מייצג התקדמות-תהליך ולא תוצאת-מיפוי). "לא רלוונטי"
-// מוסתר כברירת מחדל מ-group.rows (מה שמוצג בפועל בטבלה), אבל עדיין נספר
-// ב-counts כדי שהמנהל יידע שהוא קיים בלי שהוא "נעלם" לגמרי.
-function buildCategoryGroups(rows, CATEGORIES, showIrrelevant) {
+// (שדה נפרד לגמרי, מייצג התקדמות-תהליך ולא תוצאת-מיפוי). mappingFilter
+// קובע מה בפועל מוצג ב-group.rows: 'all' (ברירת מחדל - הכל חוץ מ"לא
+// רלוונטי", כדי שלא "יישארו בקבוצה") או סינון-לפי-החלטה ספציפית (כדי
+// לראות בדיוק מי סומן "רלוונטי" אחרי מיפוי, למשל) - allCount/counts
+// תמיד מחושבים על הכל, ללא תלות בסינון, כדי שהמספרים בכותרת לא "יקפצו".
+function buildCategoryGroups(rows, CATEGORIES, mappingFilter) {
   const map = new Map();
   for (const r of rows) {
     const key = r.category || '';
@@ -45,13 +47,13 @@ function buildCategoryGroups(rows, CATEGORIES, showIrrelevant) {
       notRelevant: allRows.filter((r) => r.mappingDecision === 'לא רלוונטי').length,
       other: allRows.filter((r) => r.mappingDecision && r.mappingDecision !== 'רלוונטי' && r.mappingDecision !== 'לא רלוונטי').length,
     };
-    return {
-      key,
-      label: key || 'ללא קטגוריה',
-      allCount: allRows.length,
-      counts,
-      rows: showIrrelevant ? allRows : allRows.filter((r) => r.mappingDecision !== 'לא רלוונטי'),
-    };
+    let visibleRows = allRows;
+    if (mappingFilter === 'pending') visibleRows = allRows.filter((r) => !r.mappingDecision);
+    else if (mappingFilter === 'relevant') visibleRows = allRows.filter((r) => r.mappingDecision === 'רלוונטי');
+    else if (mappingFilter === 'notRelevant') visibleRows = allRows.filter((r) => r.mappingDecision === 'לא רלוונטי');
+    else if (mappingFilter === 'other') visibleRows = allRows.filter((r) => r.mappingDecision && r.mappingDecision !== 'רלוונטי' && r.mappingDecision !== 'לא רלוונטי');
+    else visibleRows = allRows.filter((r) => r.mappingDecision !== 'לא רלוונטי'); // 'all' - חוץ מלא-רלוונטי
+    return { key, label: key || 'ללא קטגוריה', allCount: allRows.length, counts, rows: visibleRows };
   });
 }
 
@@ -88,7 +90,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [pickIds, setPickIds] = useState(new Set());
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
-  const [showIrrelevant, setShowIrrelevant] = useState(false);
+  const [mappingFilter, setMappingFilter] = useState('all');
   const [pendingImport, setPendingImport] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [error, setError] = useState(null);
@@ -131,7 +133,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     return result.slice(0, 100);
   }, [availableContacts, search, deptFilter, tagFilter, fieldFilters, extraFields, showPickerList, hasAdvancedFilter, advancedFilters, extraFieldsByWorkspace]);
 
-  const groups = useMemo(() => buildCategoryGroups(rows, CATEGORIES, showIrrelevant), [rows, CATEGORIES, showIrrelevant]);
+  const groups = useMemo(() => buildCategoryGroups(rows, CATEGORIES, mappingFilter), [rows, CATEGORIES, mappingFilter]);
 
   function togglePick(id) {
     setPickIds((prev) => {
@@ -472,10 +474,16 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
       <BulkAssignBar selected={selectedRows} setSelected={setSelectedRows} agents={agents} categories={CATEGORIES} onApply={handleChange} rows={rows} workspaceId={workspaceId} isDonationsWorkspace={isDonationsWorkspace} />
 
       {rows.length > 0 && (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10, cursor: 'pointer' }}>
-          <input type="checkbox" checked={showIrrelevant} onChange={(e) => setShowIrrelevant(e.target.checked)} />
-          הצג גם "לא רלוונטי" (מוסתרים כברירת מחדל מהקבוצות)
-        </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>הצג בקבוצות:</span>
+          <select value={mappingFilter} onChange={(e) => setMappingFilter(e.target.value)} style={{ ...inputStyle, fontSize: 12 }}>
+            <option value="all">הכל (חוץ מ"לא רלוונטי")</option>
+            <option value="pending">ממתינים למיפוי בלבד</option>
+            <option value="relevant">רלוונטי בלבד</option>
+            <option value="other">מישהו אחר צריך לגשת בלבד</option>
+            <option value="notRelevant">לא רלוונטי בלבד</option>
+          </select>
+        </div>
       )}
 
       {rows.length === 0 && (
@@ -505,7 +513,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               <span style={{ fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)' }}>
                 {group.counts.pending} ממתינים למיפוי · {group.counts.relevant} רלוונטי
                 {group.counts.other > 0 ? ` · ${group.counts.other} מישהו אחר` : ''}
-                {group.counts.notRelevant > 0 ? ` · ${group.counts.notRelevant} לא רלוונטי${showIrrelevant ? '' : ' (מוסתר)'}` : ''}
+                {group.counts.notRelevant > 0 ? ` · ${group.counts.notRelevant} לא רלוונטי${mappingFilter === 'notRelevant' ? '' : ' (לא מוצג בסינון הנוכחי)'}` : ''}
               </span>
               <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#3b5878', marginInlineStart: 'auto', cursor: 'pointer' }} onClick={(e) => e.stopPropagation()}>
                 <input type="checkbox" checked={groupSelected} onChange={() => toggleSelectGroup(group.rows)} />
