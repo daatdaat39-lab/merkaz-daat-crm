@@ -47,7 +47,7 @@ export default async function CampaignDetailPage({ params }) {
     while (true) {
       const { data } = await supabase
         .from('campaign_contacts')
-        .select('id, category, assigned_to, status, created_at, contacts:contact_id (id, first, last, phone, email)')
+        .select('id, category, assigned_to, status, mapping_decision, created_at, contacts:contact_id (id, first, last, phone, email)')
         .eq('campaign_id', campaign.id)
         .range(from, from + pageSize - 1);
       if (!data || data.length === 0) break;
@@ -107,6 +107,7 @@ export default async function CampaignDetailPage({ params }) {
     category: r.category || '',
     assignedTo: r.assigned_to || '',
     status: r.status,
+    mappingDecision: r.mapping_decision || '',
   }));
 
   const memberContactIds = new Set(rows.map((r) => r.contactId));

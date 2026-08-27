@@ -20,7 +20,12 @@ const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6
 // מקבץ שורות לפי קטגוריה - סדר: קודם הקטגוריות מרשימת-הבחירה (רק אלה
 // שיש להן בפועל שורות), אחר-כך ערכי-קטגוריה חופשיים שהגיעו מייבוא-מיפוי
 // חיצוני ואינם ברשימה, ולבסוף "ללא קטגוריה" - תמיד אחרון.
-function buildCategoryGroups(rows, CATEGORIES) {
+// כל קבוצה גם מחשבת פילוח-מיפוי (ממתין/רלוונטי/לא רלוונטי/מישהו אחר) לפי
+// mapping_decision הקיים כבר על כל שורה - בלי לגעת ב-status/campaign_stages
+// (שדה נפרד לגמרי, מייצג התקדמות-תהליך ולא תוצאת-מיפוי). "לא רלוונטי"
+// מוסתר כברירת מחדל מ-group.rows (מה שמוצג בפועל בטבלה), אבל עדיין נספר
+// ב-counts כדי שהמנהל יידע שהוא קיים בלי שהוא "נעלם" לגמרי.
+function buildCategoryGroups(rows, CATEGORIES, showIrrelevant) {
   const map = new Map();
   for (const r of rows) {
     const key = r.category || '';
@@ -32,11 +37,22 @@ function buildCategoryGroups(rows, CATEGORIES) {
     ...Array.from(map.keys()).filter((k) => k && !CATEGORIES.includes(k)),
   ];
   if (map.has('')) orderedKeys.push('');
-  return orderedKeys.map((key) => ({
-    key,
-    label: key || 'ללא קטגוריה',
-    rows: (map.get(key) || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he')),
-  }));
+  return orderedKeys.map((key) => {
+    const allRows = (map.get(key) || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'));
+    const counts = {
+      pending: allRows.filter((r) => !r.mappingDecision).length,
+      relevant: allRows.filter((r) => r.mappingDecision === 'רלוונטי').length,
+      notRelevant: allRows.filter((r) => r.mappingDecision === 'לא רלוונטי').length,
+      other: allRows.filter((r) => r.mappingDecision && r.mappingDecision !== 'רלוונטי' && r.mappingDecision !== 'לא רלוונטי').length,
+    };
+    return {
+      key,
+      label: key || 'ללא קטגוריה',
+      allCount: allRows.length,
+      counts,
+      rows: showIrrelevant ? allRows : allRows.filter((r) => r.mappingDecision !== 'לא רלוונטי'),
+    };
+  });
 }
 
 function downloadBlob(content, filename, type) {
@@ -72,6 +88,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [pickIds, setPickIds] = useState(new Set());
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
+  const [showIrrelevant, setShowIrrelevant] = useState(false);
   const [pendingImport, setPendingImport] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [error, setError] = useState(null);
@@ -114,7 +131,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     return result.slice(0, 100);
   }, [availableContacts, search, deptFilter, tagFilter, fieldFilters, extraFields, showPickerList, hasAdvancedFilter, advancedFilters, extraFieldsByWorkspace]);
 
-  const groups = useMemo(() => buildCategoryGroups(rows, CATEGORIES), [rows, CATEGORIES]);
+  const groups = useMemo(() => buildCategoryGroups(rows, CATEGORIES, showIrrelevant), [rows, CATEGORIES, showIrrelevant]);
 
   function togglePick(id) {
     setPickIds((prev) => {
@@ -454,6 +471,13 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
 
       <BulkAssignBar selected={selectedRows} setSelected={setSelectedRows} agents={agents} categories={CATEGORIES} onApply={handleChange} rows={rows} workspaceId={workspaceId} isDonationsWorkspace={isDonationsWorkspace} />
 
+      {rows.length > 0 && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10, cursor: 'pointer' }}>
+          <input type="checkbox" checked={showIrrelevant} onChange={(e) => setShowIrrelevant(e.target.checked)} />
+          הצג גם "לא רלוונטי" (מוסתרים כברירת מחדל מהקבוצות)
+        </label>
+      )}
+
       {rows.length === 0 && (
         <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px', fontSize: 13, color: '#9b9b9b' }}>
           עדיין לא נוספו אנשי קשר לקמפיין
@@ -476,7 +500,12 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               <span style={{ fontSize: 11, color: 'var(--text-muted, #9b9b9b)' }}>{collapsed ? '▸' : '▾'}</span>
               <strong style={{ fontSize: 13 }}>{group.label}</strong>
               <span style={{ fontSize: 11.5, color: 'var(--text-muted, #9b9b9b)', background: 'var(--bg)', borderRadius: 999, padding: '1px 9px' }}>
-                {group.rows.length}
+                {group.allCount}
+              </span>
+              <span style={{ fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)' }}>
+                {group.counts.pending} ממתינים למיפוי · {group.counts.relevant} רלוונטי
+                {group.counts.other > 0 ? ` · ${group.counts.other} מישהו אחר` : ''}
+                {group.counts.notRelevant > 0 ? ` · ${group.counts.notRelevant} לא רלוונטי${showIrrelevant ? '' : ' (מוסתר)'}` : ''}
               </span>
               <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#3b5878', marginInlineStart: 'auto', cursor: 'pointer' }} onClick={(e) => e.stopPropagation()}>
                 <input type="checkbox" checked={groupSelected} onChange={() => toggleSelectGroup(group.rows)} />
