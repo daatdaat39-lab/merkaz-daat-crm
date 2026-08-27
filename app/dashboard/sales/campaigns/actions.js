@@ -253,6 +253,96 @@ export async function getSegmentRowInsights(contactId) {
   return buildContactInsights(supabase, contactId);
 }
 
+// גרסה-בכמות של buildContactInsights לייצוא-למיפוי-ידני (CSV) - קמפיין
+// יכול להכיל 500+ אנשי קשר, אז במקום buildContactInsights פר-איש-קשר
+// (6 שאילתות × N, יכול לחטוף timeout/URL-ענק על .in() עם מאות מזהים),
+// שולפת הכל בכמה שאילתות-אצווה (chunked ל-150 בכל פעם) ומקבצת ב-JS.
+async function buildBulkContactInsights(supabase, contactIds) {
+  const CHUNK = 150;
+  const chunks = [];
+  for (let i = 0; i < contactIds.length; i += CHUNK) chunks.push(contactIds.slice(i, i + CHUNK));
+
+  const byContact = {};
+  const ensure = (id) => {
+    if (!byContact[id]) byContact[id] = { departments: new Set(), seminars: [], courses: [], activeCommitment: false, txns: [], meetings: [] };
+    return byContact[id];
+  };
+
+  for (const ids of chunks) {
+    // eslint-disable-next-line no-await-in-loop
+    const [
+      { data: deptRows }, { data: seminarRows }, { data: courseRows },
+      { data: activeCommitmentRows }, { data: txns }, { data: meetingRows },
+    ] = await Promise.all([
+      supabase.from('contact_departments').select('contact_id, workspaces:workspace_id (name)').in('contact_id', ids),
+      supabase.from('contact_seminar_participations').select('contact_id, year').in('contact_id', ids),
+      supabase.from('contact_course_enrollments').select('contact_id, course_name, year_label').in('contact_id', ids),
+      supabase.from('commitments').select('contact_id').eq('status', 'active').in('contact_id', ids),
+      supabase.from('donation_transactions').select('contact_id, amount, transaction_date').in('contact_id', ids),
+      supabase.from('meetings').select('contact_id, meeting_date').in('contact_id', ids),
+    ]);
+    for (const d of deptRows || []) { if (d.workspaces?.name) ensure(d.contact_id).departments.add(d.workspaces.name); }
+    for (const s of seminarRows || []) ensure(s.contact_id).seminars.push(s);
+    for (const c of courseRows || []) ensure(c.contact_id).courses.push(c);
+    for (const c of activeCommitmentRows || []) ensure(c.contact_id).activeCommitment = true;
+    for (const t of txns || []) ensure(t.contact_id).txns.push(t);
+    for (const m of meetingRows || []) ensure(m.contact_id).meetings.push(m);
+  }
+
+  const result = {};
+  for (const id of contactIds) {
+    const bucket = byContact[id] || { departments: new Set(), seminars: [], courses: [], activeCommitment: false, txns: [], meetings: [] };
+    const rows = bucket.txns;
+    const totalDonations = { count: rows.length, total: rows.reduce((s, t) => s + Number(t.amount || 0), 0) };
+    const lastDonationDate = rows.map((t) => t.transaction_date).filter(Boolean).sort().slice(-1)[0] || null;
+
+    const byYear = new Map();
+    for (const t of rows) {
+      if (!t.transaction_date || !(Number(t.amount) > 0)) continue;
+      const year = t.transaction_date.slice(0, 4);
+      byYear.set(year, (byYear.get(year) || 0) + Number(t.amount));
+    }
+    let peakDonation = null;
+    for (const [year, amount] of byYear.entries()) {
+      if (!peakDonation || amount > peakDonation.amount) peakDonation = { year, amount };
+    }
+
+    const candidates = [];
+    if (lastDonationDate) candidates.push({ date: lastDonationDate, label: 'תרומה', exact: true });
+    for (const m of bucket.meetings) if (m.meeting_date) candidates.push({ date: m.meeting_date, label: 'פגישה', exact: true });
+    for (const s of bucket.seminars) {
+      const approx = approxDateFromHebrewYear(s.year);
+      if (approx) candidates.push({ date: approx, label: `סמינר (${s.year})`, exact: false });
+    }
+    for (const c of bucket.courses) {
+      const approx = approxDateFromHebrewYear(c.year_label);
+      if (approx) candidates.push({ date: approx, label: `קורס${c.course_name ? ` - ${c.course_name}` : ''} (${c.year_label})`, exact: false });
+    }
+    candidates.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    result[id] = {
+      departments: Array.from(bucket.departments),
+      peakDonation,
+      lastDonationDate,
+      totalDonations,
+      hasActiveCommitment: bucket.activeCommitment,
+      coursesCount: bucket.courses.length,
+      seminarsCount: bucket.seminars.length,
+      lastInteraction: candidates[0] || null,
+    };
+  }
+  return result;
+}
+
+// עוטפת את buildBulkContactInsights לקריאה מהלקוח - ייצוא-למיפוי-ידני
+// (CampaignDetailClient.js, "ייצוא למיפוי ידני") - מחזיר אותה תמונה בדיוק
+// שרואים במסך המיפוי, לכל אנשי-הקשר בקמפיין בבת אחת.
+export async function getBulkContactInsightsForExport(contactIds) {
+  const { supabase } = await requireUser();
+  if (!Array.isArray(contactIds) || contactIds.length === 0) return {};
+  return buildBulkContactInsights(supabase, contactIds);
+}
+
 // כמה אנשי-קשר דומים (שם-משפחה זהה + טלפון/כתובת זהים) שעדיין לא
 // מקושרים כבני-זוג - אותו עיקרון-זיהוי שכבר קיים למשפחות ששיתפו טלפון
 // (ר' findDuplicates.js), כאן ממוקד לצורך הצעת-קישור בזמן-אמת בתוך המיפוי.

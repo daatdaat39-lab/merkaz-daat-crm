@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
-import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, bulkUpdateCampaignContactsFromImport } from '../actions';
+import { addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, bulkUpdateCampaignContactsFromImport, getBulkContactInsightsForExport } from '../actions';
 import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
 import { contactMatchesAdvancedFilter } from '../../../components/advancedFilter';
 import MappingQueue from './MappingQueue';
@@ -73,6 +73,25 @@ function csvCell(v) {
   return `"${String(v ?? '').replace(/"/g, '""')}"`;
 }
 
+// ממיר אובייקט-תובנות (אותה צורה בדיוק כמו ContactInsightsPanel) לתאי-CSV -
+// כדי שהאקסל של המיפוי הידני יראה בדיוק את מה שרואים במסך המיפוי במערכת,
+// לא רק שם/טלפון/קטגוריה כמו קודם.
+function insightsToCsvCells(insights) {
+  if (!insights) return ['', '', '', '', '', '', '', '', ''];
+  const { departments, peakDonation, lastDonationDate, totalDonations, hasActiveCommitment, coursesCount, seminarsCount, lastInteraction } = insights;
+  return [
+    departments.join(', '),
+    peakDonation ? peakDonation.year : '',
+    peakDonation ? Math.round(peakDonation.amount) : '',
+    totalDonations.count || 0,
+    totalDonations.total ? Math.round(totalDonations.total) : 0,
+    lastDonationDate ? new Date(lastDonationDate).toLocaleDateString('he-IL') : '',
+    lastInteraction ? `${lastInteraction.label}${lastInteraction.exact ? '' : ' (משוער)'} · ${new Date(lastInteraction.date).toLocaleDateString('he-IL')}` : '',
+    hasActiveCommitment ? 'כן' : 'לא',
+    `${coursesCount || 0} קורסים, ${seminarsCount || 0} סמינרים`,
+  ];
+}
+
 export default function CampaignDetailClient({ campaignId, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} }, extraFields = [], extraFieldsByWorkspace = {}, pipelinesByWorkspace = {} }) {
   const CATEGORIES = categories.length ? categories : DEFAULT_CATEGORIES;
   const [viewMode, setViewMode] = useState('table');
@@ -93,6 +112,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [mappingFilter, setMappingFilter] = useState('all');
   const [pendingImport, setPendingImport] = useState(null);
   const [importResult, setImportResult] = useState(null);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -203,14 +223,23 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   }
 
   function handleExport() {
-    const agentNameById = Object.fromEntries(agents.map((a) => [a.id, a.name]));
-    const headerRow = [ROW_ID_HEADER, 'שם', 'טלפון', 'מייל', 'קטגוריה', 'נציג מטפל', 'סטטוס'];
-    const dataRows = rows.map((r) => [
-      r.rowId, r.name || '', r.phone || '', r.email || '', r.category || '',
-      r.assignedTo ? (agentNameById[r.assignedTo] || '') : '', campaignStages.labels[r.status] || r.status || '',
-    ].map(csvCell).join(','));
-    const csv = '﻿' + [headerRow.join(','), ...dataRows].join('\n');
-    downloadBlob(csv, `קבוצות-קמפיין-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8;');
+    setExporting(true);
+    getBulkContactInsightsForExport(rows.map((r) => r.contactId)).then((insightsByContact) => {
+      const agentNameById = Object.fromEntries(agents.map((a) => [a.id, a.name]));
+      const headerRow = [
+        ROW_ID_HEADER, 'שם', 'טלפון', 'מייל', 'קטגוריה', 'נציג מטפל', 'סטטוס',
+        'מחלקות', 'שנת-שיא (שנה)', 'שנת-שיא (סכום)', 'סה"כ תרומות (מספר)', 'סה"כ תרומות (סכום)',
+        'תרומה אחרונה', 'אינטראקציה אחרונה', 'הוראת קבע פעילה', 'קורסים/סמינרים',
+      ];
+      const dataRows = rows.map((r) => [
+        r.rowId, r.name || '', r.phone || '', r.email || '', r.category || '',
+        r.assignedTo ? (agentNameById[r.assignedTo] || '') : '', campaignStages.labels[r.status] || r.status || '',
+        ...insightsToCsvCells(insightsByContact[r.contactId]),
+      ].map(csvCell).join(','));
+      const csv = '﻿' + [headerRow.join(','), ...dataRows].join('\n');
+      downloadBlob(csv, `קבוצות-קמפיין-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8;');
+      setExporting(false);
+    });
   }
 
   function handleImportFile(e) {
@@ -436,7 +465,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
             <button type="button" onClick={() => setAdding(true)} style={primaryBtn()}>+ הוספת אנשי קשר לקמפיין</button>
             {rows.length > 0 && (
               <>
-                <button type="button" onClick={handleExport} style={ghostBtn()}>⬇ ייצוא למיפוי ידני</button>
+                <button type="button" onClick={handleExport} disabled={exporting} style={ghostBtn()}>{exporting ? 'מכין קובץ...' : '⬇ ייצוא למיפוי ידני'}</button>
                 <button type="button" onClick={() => importInputRef.current?.click()} style={ghostBtn()}>⬆ ייבוא עדכוני מיפוי</button>
                 <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleImportFile} style={{ display: 'none' }} />
                 {selectedRows.size === 0 && (
