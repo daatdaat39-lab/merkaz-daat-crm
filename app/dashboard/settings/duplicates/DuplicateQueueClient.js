@@ -22,7 +22,7 @@ const FIELD_DEFS = [
   { key: 'email', label: 'מייל', dual: 'email2' },
   { key: 'email2', label: 'מייל נוסף' },
   { key: 'source', label: 'מקור', combinable: true },
-  { key: 'dept', label: 'תחום' },
+  { key: 'dept', label: 'תחום', combinable: true },
 ];
 
 function pairKey(candidate) {

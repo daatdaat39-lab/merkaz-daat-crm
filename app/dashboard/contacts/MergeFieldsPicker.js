@@ -11,7 +11,7 @@ const FIELDS = [
   { key: 'email', label: 'מייל', dual: 'email2' },
   { key: 'email2', label: 'מייל נוסף' },
   { key: 'source', label: 'מקור', combinable: true },
-  { key: 'dept', label: 'תחום/מחלקה' },
+  { key: 'dept', label: 'תחום/מחלקה', combinable: true },
 ];
 
 // משווה בין איש קשר קיים לבין הערכים החדשים שהוקלדו, ונותן למשתמש לבחור
