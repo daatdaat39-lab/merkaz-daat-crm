@@ -217,6 +217,22 @@ export default function DuplicateQueueClient({ initialCandidates }) {
     setQueue((prev) => prev.filter((c) => pairKey(c) !== key));
   }
 
+  // אחרי מיזוג, הכרטיס שנמחק (dup.id) יכול להופיע גם בזוגות אחרים
+  // ברשימה (למשל אותו אדם היה "כפילות" גם מול אדם שלישי) - בלי הסרה
+  // הזו, אותם זוגות היו נשארים בתור ומראים כרטיס שכבר לא קיים בפועל,
+  // כאילו המיזוג "לא קרה". מסירים כל זוג שמכיל את ה-id שנמחק, לא רק
+  // את הזוג המדויק שמוזג.
+  function purgeDeletedContact(deletedId) {
+    setQueue((prev) => prev.filter((c) => c.contactA.id !== deletedId && c.contactB.id !== deletedId));
+    setSelectedKeys((prev) => {
+      const next = new Set(prev);
+      for (const k of next) {
+        if (k.startsWith(`${deletedId}_`) || k.endsWith(`_${deletedId}`)) next.delete(k);
+      }
+      return next;
+    });
+  }
+
   function setPending(key, on) {
     setPendingKeys((prev) => {
       const next = new Set(prev);
@@ -263,13 +279,14 @@ export default function DuplicateQueueClient({ initialCandidates }) {
 
   function doMerge(candidate) {
     const key = pairKey(candidate);
+    const { dup } = sidesFor(candidate);
     setPending(key, true);
     startTransition(async () => {
       const res = await mergeOne(candidate);
       setPending(key, false);
       if (res?.error) { setErrors((prev) => ({ ...prev, [key]: res.error })); return; }
       router.refresh();
-      removeFromQueue(candidate);
+      purgeDeletedContact(dup.id);
     });
   }
 
@@ -289,7 +306,7 @@ export default function DuplicateQueueClient({ initialCandidates }) {
   // (לא מקבילי - מיזוג לא בטוח-במקביל על אנשי-קשר שעלולים להצטלב), ומעדכן
   // התקדמות תוך כדי. זוג שנכשל נשאר מסומן ומציג שגיאה בשורה שלו, ולא עוצר
   // את שאר הריצה - כדי שכשל בודד לא יחסום עשרות זוגות אחרים שכן תקינים.
-  function runBulk(actionFn, label) {
+  function runBulk(actionFn, label, isMerge) {
     const candidates = queue.filter((c) => selectedKeys.has(pairKey(c)));
     if (candidates.length === 0) return;
     startTransition(async () => {
@@ -302,6 +319,11 @@ export default function DuplicateQueueClient({ initialCandidates }) {
         setPending(key, false);
         if (res?.error) {
           setErrors((prev) => ({ ...prev, [key]: res.error }));
+        } else if (isMerge) {
+          // מוחק גם זוגות אחרים ברשימה שמכילים את הכרטיס שנמחק - ר' הערה
+          // ב-purgeDeletedContact, אותה בעיה בדיוק קיימת גם במיזוג-בכמות.
+          const { dup } = sidesFor(candidate);
+          purgeDeletedContact(dup.id);
         } else {
           removeFromQueue(candidate);
           setSelectedKeys((prev) => { const next = new Set(prev); next.delete(key); return next; });
@@ -340,8 +362,8 @@ export default function DuplicateQueueClient({ initialCandidates }) {
             <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>מבצע {bulkProgress.action}… {bulkProgress.done}/{bulkProgress.total}</span>
           ) : (
             <>
-              <button type="button" onClick={() => runBulk(mergeOne, 'מיזוג')} style={primaryBtn()}>🔗 מיזוג לכל הנבחרים</button>
-              <button type="button" onClick={() => runBulk(dismissOne, 'לא כפילות')} style={ghostBtn()}>✕ לא כפילות לכל הנבחרים</button>
+              <button type="button" onClick={() => runBulk(mergeOne, 'מיזוג', true)} style={primaryBtn()}>🔗 מיזוג לכל הנבחרים</button>
+              <button type="button" onClick={() => runBulk(dismissOne, 'לא כפילות', false)} style={ghostBtn()}>✕ לא כפילות לכל הנבחרים</button>
               <button type="button" onClick={clearSelection} style={ghostBtn()}>בטל בחירה</button>
             </>
           )}
