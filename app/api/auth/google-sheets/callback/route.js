@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../../lib/supabase/admin';
-import { createSpreadsheet, formatCampaignSheet, CAMPAIGN_SHEET_HEADER_ROW } from '../../../../../lib/sheets/client';
+import { createSpreadsheet, formatCampaignSheet, addCategoryViewTabs, CAMPAIGN_SHEET_HEADER_ROW } from '../../../../../lib/sheets/client';
 import { getPicklistValues } from '../../../../dashboard/lib/picklists';
 
 const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'תורם חוזר', 'לא רלוונטי'];
@@ -75,11 +75,13 @@ export async function GET(request) {
         getPicklistValues(supabase, 'mapping_decision', campaign.workspace_id),
         supabase.from('campaign_stages').select('label').eq('campaign_id', campaignId).order('sort_order'),
       ]);
+      const categoryOptions = categoryRows.length ? categoryRows.map((r) => r.value) : DEFAULT_CATEGORIES;
       await formatCampaignSheet(tokenData.access_token, spreadsheetId, created.sheetId, {
-        categoryOptions: categoryRows.length ? categoryRows.map((r) => r.value) : DEFAULT_CATEGORIES,
+        categoryOptions,
         statusOptions: (stageRows || []).map((s) => s.label),
         decisionOptions: decisionRows.map((r) => r.value),
       });
+      await addCategoryViewTabs(tokenData.access_token, spreadsheetId, 'מיפוי', categoryOptions);
     } catch (e) {
       console.error('formatCampaignSheet failed:', e.message);
     }
