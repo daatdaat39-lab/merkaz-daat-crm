@@ -153,6 +153,9 @@ function ContactMeta({ contact, roleLabel }) {
   return (
     <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 4 }}>
       <div style={{ fontWeight: 600, textTransform: 'uppercase' }}>{roleLabel}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', textTransform: 'none', marginBottom: 2 }}>
+        {contact.first} {contact.last}
+      </div>
       {(contact.departments || []).length > 0 && <div>{(contact.departments || []).map((d) => d.workspaceName).join(', ')}</div>}
       {(contact.transactionsCount > 0 || contact.commitmentsCount > 0) && (
         <div style={{ fontWeight: 600, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 4, padding: '1px 6px', marginTop: 2, display: 'inline-block' }}>
