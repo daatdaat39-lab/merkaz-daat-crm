@@ -267,6 +267,23 @@ export async function getSegmentRowInsights(contactId) {
 // עם עשרות תנועות כל אחד), אנשים אחרים באותו chunk "מאבדים" בשקט את כל
 // הנתונים שלהם - בדיוק התופעה שגילינו ("שנת-שיא"/"סה\"כ תרומות" מציגים
 // 0 לאנשים שבפירוש תרמו). מסודר לפי id כדי שהעימוד יהיה יציב.
+// שולף את כל ערכי-הקטגוריה הקיימים בפועל בקמפיין (לצורך יצירת טאבים) -
+// חייב עימוד: קמפיין עם אלפי שורות יכול להחזיר את אותו הערך שוב ושוב
+// ב-1000 השורות הראשונות ולפספס קטגוריות שמופיעות רק מאוחר יותר בטבלה.
+export async function fetchDistinctCampaignCategories(supabase, campaignId) {
+  const categories = new Set();
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase.from('campaign_contacts')
+      .select('category').eq('campaign_id', campaignId).not('category', 'is', null)
+      .order('id').range(offset, offset + PAGE - 1);
+    if (error) throw error;
+    (data || []).forEach((r) => { if (r.category) categories.add(r.category); });
+    if (!data || data.length < PAGE) break;
+  }
+  return Array.from(categories);
+}
+
 async function fetchAllForContactIds(supabase, table, selectStr, ids, extraFilter) {
   let all = [];
   const PAGE = 1000;
@@ -662,8 +679,7 @@ export async function regenerateCategoryTabs(campaignId) {
   let accessToken;
   try { accessToken = await getSheetsAccessToken(conn.refresh_token); } catch (e) { return { error: e.message }; }
 
-  const { data: usedCategoryRows } = await supabase.from('campaign_contacts').select('category').eq('campaign_id', campaignId).not('category', 'is', null);
-  const categoryOptions = Array.from(new Set((usedCategoryRows || []).map((r) => r.category).filter(Boolean)));
+  const categoryOptions = await fetchDistinctCampaignCategories(supabase, campaignId);
   if (categoryOptions.length === 0) return { success: true, created: 0 };
 
   try {
@@ -699,10 +715,22 @@ export async function pushCampaignRowsToSheet(campaignId) {
     existingIds = new Set(values.slice(1).map((r) => r[0]).filter(Boolean));
   } catch (e) { return { error: e.message }; }
 
-  const { data: rows } = await supabase.from('campaign_contacts')
-    .select('id, category, assigned_to, status, contacts:contact_id (id, first, last, phone, email)')
-    .eq('campaign_id', campaignId);
-  const newRows = (rows || []).filter((r) => r.contacts && !existingIds.has(r.id));
+  // ה-select הזה נוגע בפוטנציאל בכל שורות הקמפיין (יכול לעבור בקלות 1000
+  // אנשי-קשר) - חייב עימוד מפורש, אחרת PostgREST חותך שקט ב-1000 ורק חלק
+  // מהקמפיין נדחף לגיליון (זו בדיוק התקלה שדווחה: רק 1000 שורות בגיליון).
+  let rows = [];
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase.from('campaign_contacts')
+      .select('id, category, assigned_to, status, contacts:contact_id (id, first, last, phone, email)')
+      .eq('campaign_id', campaignId)
+      .order('id')
+      .range(offset, offset + PAGE - 1);
+    if (error) return { error: error.message };
+    rows = rows.concat(data || []);
+    if (!data || data.length < PAGE) break;
+  }
+  const newRows = rows.filter((r) => r.contacts && !existingIds.has(r.id));
   if (newRows.length === 0) return { success: true, pushed: 0 };
 
   const [agents, { data: stages }, insightsByContact] = await Promise.all([

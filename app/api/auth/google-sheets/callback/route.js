@@ -3,6 +3,7 @@ import { createClient } from '../../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../../lib/supabase/admin';
 import { createSpreadsheet, formatCampaignSheet, addCategoryViewTabs, getSpreadsheetSheetTitles, CAMPAIGN_SHEET_HEADER_ROW } from '../../../../../lib/sheets/client';
 import { getPicklistValues } from '../../../../dashboard/lib/picklists';
+import { fetchDistinctCampaignCategories } from '../../../../dashboard/sales/campaigns/actions';
 
 const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'תורם חוזר', 'לא רלוונטי'];
 
@@ -70,18 +71,17 @@ export async function GET(request) {
     // האמיתיים של המחלקה והקמפיין. לא קריטי להצלחת החיבור עצמו - כישלון
     // כאן לא מבטל את החיבור, רק משאיר את הגיליון בלי עיצוב.
     try {
-      const [categoryRows, decisionRows, { data: stageRows }, { data: usedCategoryRows }] = await Promise.all([
+      const [categoryRows, decisionRows, { data: stageRows }, usedCategories] = await Promise.all([
         getPicklistValues(supabase, 'campaign_category', campaign.workspace_id),
         getPicklistValues(supabase, 'mapping_decision', campaign.workspace_id),
         supabase.from('campaign_stages').select('label').eq('campaign_id', campaignId).order('sort_order'),
-        supabase.from('campaign_contacts').select('category').eq('campaign_id', campaignId).not('category', 'is', null),
+        fetchDistinctCampaignCategories(supabase, campaignId),
       ]);
       // הקטגוריות של הקמפיין הזה בפועל (חופשיות-טקסט, מבניית-קבוצה) הן
       // המקור האמיתי לטאבים - לא הפיקליסט הכללי של המחלקה, שיכול להיות
       // שונה לגמרי (למשל "חם"/"קר" בזמן שהקמפיין בפועל משתמש בקטגוריות
       // כמו "שנת-שיא 1-1,000 ₪"). נופלים חזרה לפיקליסט/ברירת-מחדל רק אם
       // עדיין אין לקמפיין שום קטגוריה בפועל (חיבור-גיליון לפני בניית קבוצות).
-      const usedCategories = Array.from(new Set((usedCategoryRows || []).map((r) => r.category).filter(Boolean)));
       const categoryOptions = usedCategories.length
         ? usedCategories
         : (categoryRows.length ? categoryRows.map((r) => r.value) : DEFAULT_CATEGORIES);
