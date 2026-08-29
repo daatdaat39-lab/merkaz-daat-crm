@@ -55,6 +55,15 @@ export default function MergeFieldsPicker({ existing, newValues, onConfirm, onCa
   function handleConfirm() {
     const resolved = {};
     FIELDS.forEach(({ key, dual, combinable }) => {
+      // שדה-תאום (phone2/email2) שאין לו שורה גלויה בטבלה (כש-existing/new
+      // שניהם ריקים, ר' תנאי ה-render למעלה: existingVal==='—' && newVal==='—')
+      // מדלגים עליו כאן לגמרי - אחרת ה-else למטה כותב לו את ברירת המחדל
+      // ('existing', כלומר ריק) ודורס בשקט את מה ש-'both' של השדה הראשי
+      // (phone/email) הרגע כתב לתוכו, כי phone2/email2 מגיעים אחרי
+      // phone/email בסדר המערך FIELDS.
+      const hasExisting = !!(existing[key] || '').trim();
+      const hasNewVal = !!(newValues[key] || '').trim();
+      if (!hasExisting && !hasNewVal) return;
       if (choices[key] === 'custom') {
         resolved[key] = (customValues[key] || '').trim();
       } else if (choices[key] === 'both' && dual) {

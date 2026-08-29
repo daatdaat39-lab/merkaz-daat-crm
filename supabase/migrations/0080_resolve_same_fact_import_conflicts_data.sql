@@ -1,21 +1,27 @@
 -- ============================================================
--- ניקוי חד-פעמי נוסף (לא מיגרציית סכימה) - אחרי 0078/0079: מתוך
--- 1,649 הקונפליקטים שנשארו pending (phone/email/idnum/birth_date/
--- extra:intake_date_legacy), חלק גדול אינם קונפליקט אמיתי בכלל -
--- existing_value ו-new_value מייצגים את אותה עובדה בדיוק, רק כתובים
--- בפורמט שונה (טלפון עם/בלי 972+/מקפים, מייל ברישיות שונה, תאריך
--- לידה ISO מול M/D/YY). נבדק ישירות מול הדאטה: 963/1124 טלפונים,
--- 42/271 מיילים, 102/192 תאריכי-לידה הם "אותה עובדה" - שאר 542
--- הקונפליקטים (161 טלפון + 229 מייל + 17 ת"ז + 90 תאריך-לידה +
--- 45 intake_date_legacy - האחרון לא נבדק כאן, לא הוכח שהוא רעש
--- פורמט) נשארים pending לבדיקה אנושית אמיתית.
+-- ניקוי חד-פעמי נוסף (לא מיגרציית סכימה) לתור import_conflicts.
+--
+-- תוקן (2026-08-29): הגרסה הקודמת של הקובץ הזה פירשה את new_value של
+-- תאריך-לידה כ-M/D/YY (אמריקאי) - אבל נבדק ישירות מול ה-540 הקונפליקטים
+-- שנשארו pending כרגע, וכל מקורות הדאטה כאן כותבים תאריך כ-D/M/YY
+-- (כמו כל שאר הקוד בפרויקט - ר' parseRowDate ב-DepartmentImportWizard).
+-- אימות: מתוך 90 קונפליקטי תאריך-לידה (כולם ישיבת דעת), 88 מתאימים
+-- בדיוק ל-existing_value תחת פרשנות D/M/YY, אפס תחת M/D/YY. הגרסה
+-- הקודמת הייתה "בטוחה אך חסרת תועלת" (0 קונפליקטים מ-90 היו נפתרים) -
+-- לא הזיקה, פשוט לא עשתה כלום.
+--
+-- טלפון/מייל: נבדק גם כן ישירות מול ה-540 הנוכחיים - 0 מתוכם הם "אותה
+-- עובדה" (הניקוי המוקדם יותר, לפני שהקובץ הזה נוצר, כבר סינן את כל
+-- 963 הטלפונים ו-42 המיילים ה"אותה עובדה" שתועדו בהערה המקורית). שני
+-- השלבים האלה נשארים בקובץ בכל זאת (idempotent, לא יזיקו) למקרה שמופיע
+-- קונפליקט טלפון/מייל עתידי מאותו סוג רעש-פורמט.
 --
 -- resolution='kept_existing' (לא used_new) בכוונה: כשהערכים זהים
 -- במהות, אין שום סיבה לכתוב כלום מחדש לטבלת contacts - רק לסמן
 -- שאין כאן קונפליקט אמיתי. אפס שינוי לנתונים, רק לתור.
 --
--- הרץ בסדר: דרייראנים (שלב 1) -> סימון resolved לכל אחד מ-3 השדות
--- בנפרד (שלבים 2-4) -> וידוא (שלב 5).
+-- הרץ בסדר: דרייראן (שלב 1) -> סימון resolved לכל שדה (שלבים 2-4) ->
+-- וידוא (שלב 5).
 -- ============================================================
 
 -- שלב 1 (דרייראן) - כמה קונפליקטים "אותה עובדה" נמצא בכל שדה
@@ -33,8 +39,8 @@ union all
 select 'birth_date', count(*)
 from (
   select id, existing_value,
-    (regexp_match(new_value, '^(\d{1,2})/(\d{1,2})/(\d{2,4})$'))[1] as mo,
-    (regexp_match(new_value, '^(\d{1,2})/(\d{1,2})/(\d{2,4})$'))[2] as da,
+    (regexp_match(new_value, '^(\d{1,2})/(\d{1,2})/(\d{2,4})$'))[1] as da,
+    (regexp_match(new_value, '^(\d{1,2})/(\d{1,2})/(\d{2,4})$'))[2] as mo,
     (regexp_match(new_value, '^(\d{1,2})/(\d{1,2})/(\d{2,4})$'))[3] as yr
   from import_conflicts
   where status = 'pending' and field_key = 'birth_date'
@@ -42,7 +48,7 @@ from (
 where mo is not null
   and (case when length(yr) = 2 then (case when yr::int < 30 then '20' else '19' end) || yr else lpad(yr, 4, '0') end)
       || '-' || lpad(mo, 2, '0') || '-' || lpad(da, 2, '0') = existing_value;
--- ציפייה: phone=963, email=42, birth_date=102
+-- ציפייה (נבדק בפועל 2026-08-29): phone=0, email=0, birth_date=88
 
 -- שלב 2 - סימון קונפליקטי-טלפון "אותה עובדה" כ-resolved/kept_existing
 update import_conflicts
@@ -60,10 +66,11 @@ where status = 'pending' and field_key = 'email'
   and lower(trim(existing_value)) = lower(trim(new_value));
 
 -- שלב 4 - סימון קונפליקטי-תאריך-לידה "אותה עובדה" כ-resolved/kept_existing
+-- (D/M/YY - ר' הערת התיקון למעלה)
 with parsed as (
   select id, existing_value,
-    (regexp_match(new_value, '^(\d{1,2})/(\d{1,2})/(\d{2,4})$'))[1] as mo,
-    (regexp_match(new_value, '^(\d{1,2})/(\d{1,2})/(\d{2,4})$'))[2] as da,
+    (regexp_match(new_value, '^(\d{1,2})/(\d{1,2})/(\d{2,4})$'))[1] as da,
+    (regexp_match(new_value, '^(\d{1,2})/(\d{1,2})/(\d{2,4})$'))[2] as mo,
     (regexp_match(new_value, '^(\d{1,2})/(\d{1,2})/(\d{2,4})$'))[3] as yr
   from import_conflicts
   where status = 'pending' and field_key = 'birth_date'
@@ -80,6 +87,7 @@ set status = 'resolved', resolution = 'kept_existing', resolved_at = now(),
 from matching m
 where ic.id = m.id;
 
--- שלב 5 (וידוא) - הציפייה: 542 נשארים סה"כ (161 phone + 229 email +
--- 17 idnum + 90 birth_date + 45 extra:intake_date_legacy)
+-- שלב 5 (וידוא) - הציפייה: 452 נשארים סה"כ (160 phone + 228 email +
+-- 17 idnum + 2 birth_date + 45 extra:intake_date_legacy) - כולם
+-- קונפליקטים אמיתיים שדורשים בדיקה אנושית, לא רעש פורמט.
 select field_key, count(*) from import_conflicts where status = 'pending' group by field_key order by 2 desc;
