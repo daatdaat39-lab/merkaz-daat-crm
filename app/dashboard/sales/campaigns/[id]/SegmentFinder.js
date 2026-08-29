@@ -49,6 +49,7 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
   const [donationDateTo, setDonationDateTo] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortDir, setSortDir] = useState('desc');
+  const [dedupeCouples, setDedupeCouples] = useState(false);
 
   const [rows, setRows] = useState(null);
   const [total, setTotal] = useState(0);
@@ -93,6 +94,7 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
         donationDateFrom: donationDateFrom || null,
         donationDateTo: donationDateTo || null,
         sortBy, sortDir, limit: 500, offset: 0,
+        dedupeCouples,
       });
       if (res?.error) { setError(res.error); return; }
       setRows(res.rows);
@@ -140,8 +142,15 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
   function handleAddToCampaign() {
     if (selected.size === 0) return;
     setError(null);
+    const notesByContactId = {};
+    for (const r of rows || []) {
+      if (selected.has(r.contact_id) && r.spouse_peak_donation_amount > 0) {
+        notesByContactId[r.contact_id] =
+          `יש תרומה גם אצל בן/בת הזוג (${r.spouse_name || 'בן/בת הזוג'}): ₪${Number(r.spouse_peak_donation_amount).toLocaleString('he-IL')}`;
+      }
+    }
     startTransition(async () => {
-      const res = await addContactsToCampaignWithCategory(campaignId, Array.from(selected), category.trim() || null);
+      const res = await addContactsToCampaignWithCategory(campaignId, Array.from(selected), category.trim() || null, notesByContactId);
       if (res?.error) { setError(res.error); return; }
       setAddedMsg(`נוספו ${selected.size} אנשי קשר לקמפיין${category ? ` בקטגוריה "${category}"` : ''}.`);
       setRows((prev) => (prev || []).filter((r) => !selected.has(r.contact_id)));
@@ -227,6 +236,16 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
           "הוצא: תרם ב-X הימים האחרונים" ו"הוראת קבע פעילה = לא" משולבים אוטומטית ("וגם") - אפשר לסמן את שניהם יחד כדי להוציא תורם שנחשב פעיל לפי אחת ההגדרות.
         </p>
 
+        <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            type="checkbox" id="dedupeCouples" checked={dedupeCouples}
+            onChange={(e) => setDedupeCouples(e.target.checked)}
+          />
+          <label htmlFor="dedupeCouples" style={{ fontSize: 12.5, cursor: 'pointer' }}>
+            קיבוץ זוגות — הצג רק את מי מבני הזוג עם התרומה הגבוהה
+          </label>
+        </div>
+
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-secondary, #6b6b6b)', marginBottom: 4 }}>מיון</div>
@@ -286,7 +305,14 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
                       <td style={{ padding: '8px 8px', textAlign: 'center' }}>
                         <input type="checkbox" checked={selected.has(r.contact_id)} onChange={() => toggleSelect(r.contact_id)} />
                       </td>
-                      <td style={{ padding: '8px 12px', fontWeight: 500 }}>{r.first} {r.last}</td>
+                      <td style={{ padding: '8px 12px', fontWeight: 500 }}>
+                        {r.first} {r.last}
+                        {r.spouse_peak_donation_amount > 0 && (
+                          <div style={{ fontSize: 10.5, fontWeight: 400, color: 'var(--text-muted, #9b9b9b)', marginTop: 2 }}>
+                            🔗 גם אצל {r.spouse_name || 'בן/בת הזוג'}: ₪{Number(r.spouse_peak_donation_amount).toLocaleString('he-IL')}
+                          </div>
+                        )}
+                      </td>
                       <td style={{ padding: '8px 12px' }}>{r.phone || '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{r.source || '—'}</td>
                       <td style={{ padding: '8px 12px' }}>{r.peak_donation_amount ? `₪${Number(r.peak_donation_amount).toLocaleString('he-IL')} (${r.peak_donation_year})` : '—'}</td>

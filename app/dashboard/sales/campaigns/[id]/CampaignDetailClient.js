@@ -628,7 +628,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
                       <th style={{ padding: '8px 8px' }}></th>
-                      {['שם', 'טלפון', 'קטגוריה', 'נציג מטפל', 'סטטוס', ''].map((h) => (
+                      {['שם', 'טלפון', 'קטגוריה', 'נציג מטפל', 'סטטוס', 'הערה', ''].map((h) => (
                         <th key={h} style={{ textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '8px 14px', textTransform: 'uppercase' }}>{h}</th>
                       ))}
                     </tr>
@@ -699,6 +699,19 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
         >
           {campaignStages.order.map((s) => <option key={s} value={s}>{campaignStages.labels[s] || s}</option>)}
         </select>
+      </td>
+      <td style={{ padding: '10px 14px' }}>
+        <input
+          type="text"
+          defaultValue={r.note || ''}
+          key={r.rowId + ':' + (r.note || '')}
+          onBlur={(e) => {
+            if (e.target.value !== (r.note || '')) onChange(r.rowId, { note: e.target.value });
+          }}
+          disabled={isPending}
+          placeholder="הערה..."
+          style={{ ...cellSelect(), width: '100%', minWidth: 120 }}
+        />
       </td>
       <td style={{ padding: '10px 14px' }}>
         <button type="button" onClick={onRemove} disabled={isPending} title="הסרה מהקמפיין"

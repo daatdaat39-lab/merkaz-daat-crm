@@ -107,6 +107,7 @@ export async function updateCampaignContact(rowId, changes) {
   const update = {};
   if (changes.category !== undefined) update.category = changes.category || null;
   if (changes.assignedTo !== undefined) update.assigned_to = changes.assignedTo || null;
+  if (changes.note !== undefined) update.note = changes.note || null;
   if (changes.status !== undefined) {
     // מוודאים שהערך קיים בפועל כשלב של הקמפיין הזה - מונע "תקיעת" סטטוס
     // יתום אם שלב נמחק/שונה בכרטיסיה אחרת שנשארה פתוחה (campaign_stages
@@ -500,6 +501,7 @@ export async function searchCampaignSegment(campaignId, params) {
     p_sort_dir: params.sortDir || 'asc',
     p_limit: params.limit || 100,
     p_offset: params.offset || 0,
+    p_dedupe_couples: !!params.dedupeCouples,
   });
   if (error) return { error: error.message };
   return { success: true, rows: data || [], total: data?.[0]?.total_row_count || 0 };
@@ -511,7 +513,7 @@ export async function getContactDonationsByYear(contactId) {
   return data || [];
 }
 
-export async function addContactsToCampaignWithCategory(campaignId, contactIds, category) {
+export async function addContactsToCampaignWithCategory(campaignId, contactIds, category, notesByContactId = {}) {
   const { supabase, user } = await requireUser();
   if (!campaignId || !Array.isArray(contactIds) || contactIds.length === 0) {
     return { error: 'לא נבחרו אנשי קשר' };
@@ -522,7 +524,12 @@ export async function addContactsToCampaignWithCategory(campaignId, contactIds, 
   if (denied) return denied;
 
   const { error } = await supabase.from('campaign_contacts').upsert(
-    contactIds.map((contactId) => ({ campaign_id: campaignId, contact_id: contactId, category: category || null })),
+    contactIds.map((contactId) => ({
+      campaign_id: campaignId,
+      contact_id: contactId,
+      category: category || null,
+      note: notesByContactId[contactId] || null,
+    })),
     { onConflict: 'campaign_id,contact_id', ignoreDuplicates: true },
   );
   if (error) return { error: error.message };
