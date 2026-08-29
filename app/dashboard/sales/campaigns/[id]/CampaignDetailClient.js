@@ -6,7 +6,7 @@ import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import {
   addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, bulkUpdateCampaignContactsFromImport, getBulkContactInsightsForExport,
-  getCampaignSheetConnection, pushCampaignRowsToSheet, pullCampaignUpdatesFromSheet, disconnectCampaignSheet,
+  getCampaignSheetConnection, pushCampaignRowsToSheet, pullCampaignUpdatesFromSheet, disconnectCampaignSheet, regenerateCategoryTabs,
 } from '../actions';
 import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
 import { contactMatchesAdvancedFilter } from '../../../components/advancedFilter';
@@ -148,6 +148,16 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
       setSheetMessage({ success: `עודכנו ${res.updated} אנשי קשר מהגיליון${res.skipped ? `, דולגו ${res.skipped}` : ''}` });
       getCampaignSheetConnection(campaignId).then((r) => setSheetConnection(r.connection));
       router.refresh();
+    });
+  }
+
+  function handleRegenerateCategoryTabs() {
+    setSheetBusy(true);
+    setSheetMessage(null);
+    regenerateCategoryTabs(campaignId).then((res) => {
+      setSheetBusy(false);
+      if (res?.error) { setSheetMessage({ error: res.error }); return; }
+      setSheetMessage({ success: res.created > 0 ? `נוצרו ${res.created} לשוניות קטגוריה חדשות` : 'כל הלשוניות כבר קיימות' });
     });
   }
 
@@ -532,6 +542,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               <a href={sheetConnection.spreadsheet_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, color: 'var(--accent, #1f4d3d)' }}>פתיחת הגיליון ↗</a>
               <button type="button" onClick={handlePushToSheet} disabled={sheetBusy} style={ghostBtn()}>⬆ דחוף לגיליון</button>
               <button type="button" onClick={handlePullFromSheet} disabled={sheetBusy} style={ghostBtn()}>⬇ משוך עדכונים מהגיליון</button>
+              <button type="button" onClick={handleRegenerateCategoryTabs} disabled={sheetBusy} style={ghostBtn()} title="יוצר לשונית נפרדת לכל קטגוריה שעדיין אין לה אחת">🗂 עדכון לשוניות קטגוריה</button>
               <button type="button" onClick={handleDisconnectSheet} disabled={sheetBusy} style={{ ...ghostBtn(), color: '#b23b2f' }}>נתק</button>
               {sheetConnection.last_pushed_at && (
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>נדחף לאחרונה: {new Date(sheetConnection.last_pushed_at).toLocaleString('he-IL')}</span>

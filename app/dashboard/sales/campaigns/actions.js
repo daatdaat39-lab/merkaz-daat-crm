@@ -4,7 +4,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../lib/contactGuards';
-import { isGoogleSheetsConfigured, getAccessToken as getSheetsAccessToken, appendRows, getSheetValues, CAMPAIGN_SHEET_HEADER_ROW } from '../../../../lib/sheets/client';
+import { isGoogleSheetsConfigured, getAccessToken as getSheetsAccessToken, appendRows, getSheetValues, addCategoryViewTabs, getSpreadsheetSheetTitles, CAMPAIGN_SHEET_HEADER_ROW } from '../../../../lib/sheets/client';
 
 // קמפיין תרומות: קבוצת אנשי קשר שמטופלת יחד, מחולקת לקטגוריות (חם/קר/
 // תורם גדול), משויכת לנציגים, עם ערוץ פעולה מוגדר (שיחה/וואטסאפ/מייל/
@@ -260,6 +260,28 @@ export async function getSegmentRowInsights(contactId) {
 // יכול להכיל 500+ אנשי קשר, אז במקום buildContactInsights פר-איש-קשר
 // (6 שאילתות × N, יכול לחטוף timeout/URL-ענק על .in() עם מאות מזהים),
 // שולפת הכל בכמה שאילתות-אצווה (chunked ל-150 בכל פעם) ומקבצת ב-JS.
+// שולף את כל השורות התואמות ל-contact_id ברשימת ids, בעימוד מלא - בלי
+// זה, כל שאילתת .in() עם הרבה contact_id-ים חוזרת חתוכה בשקט ב-1000
+// שורות (ברירת המחדל של PostgREST), וכשכמה מהאנשים ב-chunk הזה ביחד
+// יש להם הרבה תנועות (donation_transactions בעיקר - נראה בפועל אנשים
+// עם עשרות תנועות כל אחד), אנשים אחרים באותו chunk "מאבדים" בשקט את כל
+// הנתונים שלהם - בדיוק התופעה שגילינו ("שנת-שיא"/"סה\"כ תרומות" מציגים
+// 0 לאנשים שבפירוש תרמו). מסודר לפי id כדי שהעימוד יהיה יציב.
+async function fetchAllForContactIds(supabase, table, selectStr, ids, extraFilter) {
+  let all = [];
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    let q = supabase.from(table).select(selectStr).in('contact_id', ids).order('id').range(offset, offset + PAGE - 1);
+    if (extraFilter) q = extraFilter(q);
+    // eslint-disable-next-line no-await-in-loop
+    const { data, error } = await q;
+    if (error) throw error;
+    all = all.concat(data || []);
+    if (!data || data.length < PAGE) break;
+  }
+  return all;
+}
+
 async function buildBulkContactInsights(supabase, contactIds) {
   const CHUNK = 150;
   const chunks = [];
@@ -273,16 +295,13 @@ async function buildBulkContactInsights(supabase, contactIds) {
 
   for (const ids of chunks) {
     // eslint-disable-next-line no-await-in-loop
-    const [
-      { data: deptRows }, { data: seminarRows }, { data: courseRows },
-      { data: activeCommitmentRows }, { data: txns }, { data: meetingRows },
-    ] = await Promise.all([
-      supabase.from('contact_departments').select('contact_id, workspaces:workspace_id (name)').in('contact_id', ids),
-      supabase.from('contact_seminar_participations').select('contact_id, year').in('contact_id', ids),
-      supabase.from('contact_course_enrollments').select('contact_id, course_name, year_label').in('contact_id', ids),
-      supabase.from('commitments').select('contact_id').eq('status', 'active').in('contact_id', ids),
-      supabase.from('donation_transactions').select('contact_id, amount, transaction_date').in('contact_id', ids),
-      supabase.from('meetings').select('contact_id, meeting_date').in('contact_id', ids),
+    const [deptRows, seminarRows, courseRows, activeCommitmentRows, txns, meetingRows] = await Promise.all([
+      fetchAllForContactIds(supabase, 'contact_departments', 'id, contact_id, workspaces:workspace_id (name)', ids),
+      fetchAllForContactIds(supabase, 'contact_seminar_participations', 'id, contact_id, year', ids),
+      fetchAllForContactIds(supabase, 'contact_course_enrollments', 'id, contact_id, course_name, year_label', ids),
+      fetchAllForContactIds(supabase, 'commitments', 'id, contact_id', ids, (q) => q.eq('status', 'active')),
+      fetchAllForContactIds(supabase, 'donation_transactions', 'id, contact_id, amount, transaction_date', ids),
+      fetchAllForContactIds(supabase, 'meetings', 'id, contact_id, meeting_date', ids),
     ]);
     for (const d of deptRows || []) { if (d.workspaces?.name) ensure(d.contact_id).departments.add(d.workspaces.name); }
     for (const s of seminarRows || []) ensure(s.contact_id).seminars.push(s);
@@ -624,6 +643,38 @@ function insightsToSheetCells(insights) {
     hasActiveCommitment ? 'כן' : 'לא',
     `${coursesCount || 0} קורסים, ${seminarsCount || 0} סמינרים`,
   ];
+}
+
+// יוצר לשוניות-תצוגה חדשות לכל קטגוריה בפועל של הקמפיין שעדיין אין לה
+// טאב (למשל אחרי שנבנו קבוצות נוספות אחרי החיבור הראשוני לגיליון) -
+// אידמפוטנטי, אפשר להריץ שוב ושוב בלי לשכפל טאבים קיימים.
+export async function regenerateCategoryTabs(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const admin = createAdminClient();
+  const { data: conn } = await admin.from('campaign_sheet_connections').select('*').eq('campaign_id', campaignId).maybeSingle();
+  if (!conn) return { error: 'אין גיליון מחובר לקמפיין הזה' };
+
+  let accessToken;
+  try { accessToken = await getSheetsAccessToken(conn.refresh_token); } catch (e) { return { error: e.message }; }
+
+  const { data: usedCategoryRows } = await supabase.from('campaign_contacts').select('category').eq('campaign_id', campaignId).not('category', 'is', null);
+  const categoryOptions = Array.from(new Set((usedCategoryRows || []).map((r) => r.category).filter(Boolean)));
+  if (categoryOptions.length === 0) return { success: true, created: 0 };
+
+  try {
+    const existingTitles = await getSpreadsheetSheetTitles(accessToken, conn.spreadsheet_id);
+    const before = existingTitles.size;
+    await addCategoryViewTabs(accessToken, conn.spreadsheet_id, conn.sheet_title, categoryOptions, existingTitles);
+    const after = await getSpreadsheetSheetTitles(accessToken, conn.spreadsheet_id);
+    return { success: true, created: after.size - before };
+  } catch (e) {
+    return { error: e.message };
+  }
 }
 
 export async function pushCampaignRowsToSheet(campaignId) {
