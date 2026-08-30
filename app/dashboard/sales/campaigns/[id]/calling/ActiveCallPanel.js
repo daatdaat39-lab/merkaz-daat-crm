@@ -41,7 +41,7 @@ export default function ActiveCallPanel({ contact, stages, onClose }) {
   function handleSave() {
     setError('');
     startTransition(async () => {
-      const res = await logCallOutcomeAndAdvance(contact.rowId, { newStatus: status, note });
+      const res = await logCallOutcomeAndAdvance(contact.rowId, { newStatus: stages.length ? status : undefined, note });
       if (res.error) { setError(res.error); return; }
       onClose({ autoAdvance });
     });
@@ -107,12 +107,14 @@ export default function ActiveCallPanel({ contact, stages, onClose }) {
             </div>
           )}
 
-          <div>
-            <label style={{ display: 'block', fontSize: 11.5, marginBottom: 4, color: 'var(--text-secondary)' }}>סטטוס</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} style={inputStyle}>
-              {stages.map((s) => <option key={s.stageKey} value={s.stageKey}>{s.label}</option>)}
-            </select>
-          </div>
+          {stages.length > 0 && (
+            <div>
+              <label style={{ display: 'block', fontSize: 11.5, marginBottom: 4, color: 'var(--text-secondary)' }}>סטטוס</label>
+              <select value={status} onChange={(e) => setStatus(e.target.value)} style={inputStyle}>
+                {stages.map((s) => <option key={s.stageKey} value={s.stageKey}>{s.label}</option>)}
+              </select>
+            </div>
+          )}
 
           <div>
             <label style={{ display: 'block', fontSize: 11.5, marginBottom: 4, color: 'var(--text-secondary)' }}>הערה על השיחה</label>
