@@ -7,6 +7,7 @@ import { getCampaignStages } from '../../../lib/campaignStages';
 import { getExtraFields, getAllExtraFields } from '../../../lib/extraFields';
 import { getAllPipelines } from '../../../lib/pipelines';
 import CampaignDetailClient from './CampaignDetailClient';
+import OpenForTelemarketingToggle from './OpenForTelemarketingToggle';
 
 // ניהול קמפיין בודד: הוספת אנשי קשר, סיווג לקטגוריה (חם/קר/תורם גדול),
 // שיוך נציג מטפל, וסימון טופל.
@@ -17,7 +18,7 @@ export default async function CampaignDetailPage({ params }) {
 
   const { data: campaign } = await supabase
     .from('campaigns')
-    .select('id, name, channel, status, kind, workspace_id, workspaces:workspace_id (name)')
+    .select('id, name, channel, status, kind, workspace_id, open_for_telemarketing, workspaces:workspace_id (name)')
     .eq('id', params.id)
     .single();
   if (!campaign) notFound();
@@ -140,12 +141,15 @@ export default async function CampaignDetailPage({ params }) {
             {` · ${rows.length} אנשי קשר`}
           </p>
         </div>
-        <a href={`/dashboard/sales/campaigns/${campaign.id}/stages`} style={{
-          fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none', border: '1px solid var(--border, #e5e5e5)',
-          borderRadius: 6, padding: '6px 12px', whiteSpace: 'nowrap',
-        }}>
-          ⚙ ניהול שלבים
-        </a>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <OpenForTelemarketingToggle campaignId={campaign.id} initialOpen={campaign.open_for_telemarketing} />
+          <a href={`/dashboard/sales/campaigns/${campaign.id}/stages`} style={{
+            fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none', border: '1px solid var(--border, #e5e5e5)',
+            borderRadius: 6, padding: '6px 12px', whiteSpace: 'nowrap',
+          }}>
+            ⚙ ניהול שלבים
+          </a>
+        </div>
       </div>
       <div style={{ marginBottom: 20 }} />
       <CampaignDetailClient

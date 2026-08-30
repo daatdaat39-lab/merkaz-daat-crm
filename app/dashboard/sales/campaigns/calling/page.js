@@ -15,13 +15,21 @@ export default async function CallingCampaignsPage() {
 
   let campaigns = [];
   if (workspaceId) {
-    const { data } = await supabase
+    // תפקיד "טלפן" הנעול רואה רק קמפיינים שמנהל פתח במפורש לטלפניה
+    // (ר' migration 0096) - מנהל/נציג רגיל, שמשתמשים באותו מסך לבדיקות,
+    // ממשיכים לראות הכל בלי קשר לשער הזה.
+    const { data: membership } = await supabase
+      .from('workspace_members').select('role').eq('user_id', user.id).eq('workspace_id', workspaceId).maybeSingle();
+    const isLockedTelemarketer = membership?.role === 'telemarketer';
+
+    let query = supabase
       .from('campaigns')
       .select('id, name, channel')
       .eq('workspace_id', workspaceId)
       .eq('status', 'active')
-      .neq('kind', 'dedication')
-      .order('name');
+      .neq('kind', 'dedication');
+    if (isLockedTelemarketer) query = query.eq('open_for_telemarketing', true);
+    const { data } = await query.order('name');
     campaigns = data || [];
   }
 

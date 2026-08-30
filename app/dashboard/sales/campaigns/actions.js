@@ -67,6 +67,20 @@ export async function deleteCampaign(campaignId) {
   return { success: true };
 }
 
+// שער-קמפיין לטלפניה - מנהל בלבד. ברירת המחדל false (ר' migration 0096)
+// אז כל קמפיין קיים סגור לטלפנים עד שמנהל פותח אותו כאן במפורש.
+export async function setCampaignOpenForTelemarketing(campaignId, open) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('id, workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const { error } = await supabase.from('campaigns').update({ open_for_telemarketing: !!open }).eq('id', campaignId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 export async function addContactsToCampaign(campaignId, contactIds) {
   const { supabase, user } = await requireUser();
   if (!campaignId || !Array.isArray(contactIds) || contactIds.length === 0) {

@@ -10,7 +10,9 @@ const cardStyle = { background: 'var(--bg)', border: '1px solid var(--border, #e
 // טבלה רגילה לעיון + כפתור "התקשר לבא בתור" שפותח מודאל ממוקד לשיחה
 // עצמה - לא כרטיס-יחיד למסך כולו (יש תקדים מפורש ב-MappingQueue.js
 // שהוחלף בטבלה לפי בקשת המשתמש - טבלה נשארת ברירת-המחדל לעיון/פיקוח).
-export default function CallQueueClient({ campaignId, stages, workspaceId, whatsappTemplates = [] }) {
+// isLockedTelemarketer: תפקיד "טלפן" הנעול מקבל חוויה שונה לגמרי - בלי
+// טבלה בכלל (גם לא נשלפת), לולאת-שיחות רצופה אמיתית במקום מסך-ביניים.
+export default function CallQueueClient({ campaignId, stages, workspaceId, whatsappTemplates = [], isLockedTelemarketer = false }) {
   const [summary, setSummary] = useState(null);
   const [category, setCategory] = useState('');
   const [rows, setRows] = useState([]);
@@ -33,7 +35,9 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
   }
 
   useEffect(() => { loadSummary(); }, [campaignId]);
-  useEffect(() => { loadRows(category); }, [campaignId, category]);
+  useEffect(() => {
+    if (!isLockedTelemarketer) loadRows(category);
+  }, [campaignId, category, isLockedTelemarketer]);
 
   function handleCallNext() {
     setError('');
@@ -41,7 +45,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
     startTransition(async () => {
       const res = await claimNextContact(campaignId, category || null);
       if (res.error) { setError(res.error); return; }
-      if (!res.contact) { setEmptyMessage('התור ריק - אין כרגע אנשי קשר זמינים בקטגוריה הזו.'); return; }
+      if (!res.contact) { setEmptyMessage('אין יותר אנשי קשר בקטגוריה הזו כרגע - נסו קטגוריה אחרת.'); return; }
       setActiveContact(res.contact);
     });
   }
@@ -49,8 +53,48 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
   function handlePanelClosed({ autoAdvance } = {}) {
     setActiveContact(null);
     loadSummary();
-    loadRows(category);
-    if (autoAdvance) handleCallNext();
+    if (!isLockedTelemarketer) loadRows(category);
+    if (isLockedTelemarketer || autoAdvance) handleCallNext();
+  }
+
+  if (isLockedTelemarketer) {
+    return (
+      <div>
+        {error && (
+          <div style={{ marginBottom: 14, background: '#fdecea', border: '1px solid #f5c6cb', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: '#c62828' }}>
+            {error}
+          </div>
+        )}
+
+        {!activeContact && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '50px 20px', textAlign: 'center' }}>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ ...inputStyle, fontSize: 14 }}>
+              <option value="">הכל</option>
+              {(summary?.categories || []).map((c) => (
+                <option key={c} value={c}>{c} ({summary?.countByCategory?.[c] || 0})</option>
+              ))}
+            </select>
+            <button
+              type="button" onClick={handleCallNext} disabled={isPending}
+              style={{ ...inputStyle, fontSize: 16, fontWeight: 700, padding: '14px 32px', background: 'var(--accent, #2f6f4f)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer' }}
+            >
+              🚀 התחל שיחות
+            </button>
+            <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+              {summary ? `${summary.total} אנשי קשר ממתינים לשיחה` : 'טוען...'}
+            </span>
+            {emptyMessage && <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{emptyMessage}</div>}
+          </div>
+        )}
+
+        {activeContact && (
+          <ActiveCallPanel
+            contact={activeContact} stages={stages} workspaceId={workspaceId} whatsappTemplates={whatsappTemplates}
+            hideAutoAdvanceToggle onClose={handlePanelClosed}
+          />
+        )}
+      </div>
+    );
   }
 
   return (
