@@ -4,6 +4,7 @@ import { createClient } from '../../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { isMemberOfWorkspace } from '../../../lib/contactGuards';
 import { fetchDistinctCampaignCategories, getSegmentRowInsights } from '../actions';
+import { formatIsraeliDateTime } from '../../../lib/dateFormat';
 
 // תור-שיחות לטלמרקטינג: בניגוד ל-actions.js (מנהל בלבד), הפעולות כאן
 // פתוחות לכל חבר-מחלקה - כל מי שעובד על הקמפיין צריך גישה לתור, לא רק
@@ -38,7 +39,7 @@ const UNDO_WINDOW_MINUTES = 5;
 
 async function fetchAttemptsForCampaignContact(supabase, campaignContactId) {
   const { data: attempts } = await supabase.from('campaign_call_attempts')
-    .select('id, agent_id, attempt_number, outcome, note, note_type, callback_at, created_at')
+    .select('id, agent_id, attempt_number, outcome, note, note_type, callback_at, dedication_text, created_at')
     .eq('campaign_contact_id', campaignContactId).order('created_at', { ascending: true });
   const agentIds = Array.from(new Set((attempts || []).map((a) => a.agent_id).filter(Boolean)));
   const { data: profiles } = agentIds.length
@@ -49,7 +50,7 @@ async function fetchAttemptsForCampaignContact(supabase, campaignContactId) {
     id: a.id, attemptNumber: a.attempt_number, agentName: a.agent_id ? (nameById[a.agent_id] || 'נציג') : 'נציג',
     outcome: a.outcome, outcomeLabel: OUTCOME_LABELS[a.outcome] || a.outcome,
     note: a.note || '', noteType: a.note_type, noteTypeLabel: NOTE_TYPE_LABELS[a.note_type] || a.note_type,
-    callbackAt: a.callback_at, createdAt: a.created_at,
+    dedicationText: a.dedication_text || '', callbackAt: a.callback_at, createdAt: a.created_at,
   }));
 }
 
@@ -145,7 +146,7 @@ async function requireOwnClaim(supabase, userId, rowId) {
   return { row };
 }
 
-export async function logCallAttempt(rowId, { outcome, note, noteType, callbackAt, newStatus }) {
+export async function logCallAttempt(rowId, { outcome, note, noteType, callbackAt, dedicationText, newStatus }) {
   const { supabase, user } = await requireUser();
   const { row, error } = await requireOwnClaim(supabase, user.id, rowId);
   if (error) return { error };
@@ -154,12 +155,13 @@ export async function logCallAttempt(rowId, { outcome, note, noteType, callbackA
     p_campaign_contact_id: row.id, p_agent_id: user.id, p_outcome: outcome,
     p_note: note && note.trim() ? note.trim() : null, p_note_type: noteType || 'general',
     p_callback_at: callbackAt || null,
+    p_dedication_text: outcome === 'donating_now' && dedicationText && dedicationText.trim() ? dedicationText.trim() : null,
   });
   if (rpcError) return { error: rpcError.message };
 
   const { data: validStages } = await supabase.from('campaign_stages').select('stage_key').eq('campaign_id', row.campaign_id);
   const validStageKeys = new Set((validStages || []).map((s) => s.stage_key));
-  const summary = `[${new Date().toLocaleString('he-IL')}] ${OUTCOME_LABELS[outcome] || outcome}${note && note.trim() ? ` - ${note.trim()}` : ''}`;
+  const summary = `[${formatIsraeliDateTime(new Date())}] ${OUTCOME_LABELS[outcome] || outcome}${note && note.trim() ? ` - ${note.trim()}` : ''}`;
   const update = { claimed_by: null, claimed_at: null, note: row.note ? `${summary}\n\n${row.note}` : summary };
   if (newStatus !== undefined && validStageKeys.has(newStatus)) update.status = newStatus;
 
@@ -170,17 +172,18 @@ export async function logCallAttempt(rowId, { outcome, note, noteType, callbackA
 
 // "לא ענה" - פעולה מיידית: רושמת ניסיון, משחררת את התפיסה, ומחזירה את
 // מזהה-הניסיון + ההערה הקודמת כדי שהלקוח יוכל להציע "בטל" מיד אחר כך.
-export async function quickNoAnswer(rowId) {
+export async function quickNoAnswer(rowId, { note, noteType } = {}) {
   const { supabase, user } = await requireUser();
   const { row, error } = await requireOwnClaim(supabase, user.id, rowId);
   if (error) return { error };
 
   const { data: attempt, error: rpcError } = await supabase.rpc('log_campaign_call_attempt', {
     p_campaign_contact_id: row.id, p_agent_id: user.id, p_outcome: 'no_answer',
+    p_note: note && note.trim() ? note.trim() : null, p_note_type: noteType || 'general',
   });
   if (rpcError) return { error: rpcError.message };
 
-  const summary = `[${new Date().toLocaleString('he-IL')}] ${OUTCOME_LABELS.no_answer}`;
+  const summary = `[${formatIsraeliDateTime(new Date())}] ${OUTCOME_LABELS.no_answer}${note && note.trim() ? ` - ${note.trim()}` : ''}`;
   const mirroredNote = row.note ? `${summary}\n\n${row.note}` : summary;
   const { error: updateError } = await supabase.from('campaign_contacts')
     .update({ claimed_by: null, claimed_at: null, note: mirroredNote }).eq('id', rowId);

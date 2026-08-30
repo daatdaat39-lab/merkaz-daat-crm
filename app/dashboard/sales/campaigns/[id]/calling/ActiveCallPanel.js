@@ -8,6 +8,8 @@ import ContactSummaryPanel from './ContactSummaryPanel';
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box' };
 const btnStyle = { ...inputStyle, width: 'auto', cursor: 'pointer' };
 const primaryBtn = { ...btnStyle, background: 'var(--accent, #2f6f4f)', color: '#fff', fontWeight: 600, border: 'none' };
+const cardStyle = { background: 'var(--bg-secondary, #f7f7f7)', borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 };
+const sectionLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', letterSpacing: '.03em' };
 
 const ANSWERED_OUTCOMES = [
   { key: 'donating_now', label: 'תורם עכשיו תוך כדי הטלפון' },
@@ -22,6 +24,21 @@ const DAY_OFFSETS = [{ key: 0, label: 'היום' }, { key: 1, label: 'מחר' },
 function telHref(phone) {
   const digits = (phone || '').replace(/[^\d+]/g, '');
   return digits ? `tel:${digits}` : null;
+}
+
+function ToggleGroup({ options, value, onChange }) {
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {options.map((o) => (
+        <button
+          key={o.key} type="button" onClick={() => onChange(o.key)}
+          style={{ ...btnStyle, fontSize: 12, background: value === o.key ? 'var(--accent, #2f6f4f)' : 'var(--bg)', color: value === o.key ? '#fff' : 'inherit' }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 function CallbackScheduler({ callbackAt, onChange }) {
@@ -70,11 +87,13 @@ function CallbackScheduler({ callbackAt, onChange }) {
 // tel: הוא ה-click-to-call הראשון בכל המערכת (ר' גם ContactQuickActions.js) -
 // הטלפניות מתקשרות מהנייד האישי שלהן, לא דרך שלוחת 015, אז אין שום מקום
 // אחר שבו השיחה נרשמת אוטומטית - יומן-הניסיונות כאן הוא הרישום היחיד שיש.
-export default function ActiveCallPanel({ contact, stages, workspaceId, whatsappTemplates = [], onClose }) {
+// hideAutoAdvanceToggle: תפקיד "טלפן" הנעול תמיד לולאה - הצ'קבוקס מיותר שם.
+export default function ActiveCallPanel({ contact, stages, workspaceId, whatsappTemplates = [], hideAutoAdvanceToggle = false, onClose }) {
   const [status, setStatus] = useState(contact.status);
   const [phase, setPhase] = useState('choosing'); // choosing | answered | no_answer_done
   const [answeredOutcome, setAnsweredOutcome] = useState(null);
   const [callbackAt, setCallbackAt] = useState(null);
+  const [dedicationText, setDedicationText] = useState('');
   const [noteType, setNoteType] = useState('general');
   const [note, setNote] = useState('');
   const [autoAdvance, setAutoAdvance] = useState(false);
@@ -98,7 +117,7 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
   function handleNoAnswer() {
     setError('');
     startTransition(async () => {
-      const res = await quickNoAnswer(contact.rowId);
+      const res = await quickNoAnswer(contact.rowId, { note, noteType });
       if (res.error) { setError(res.error); return; }
       setNoAnswerResult(res);
       setPhase('no_answer_done');
@@ -120,12 +139,12 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
     setError('');
     startTransition(async () => {
       const res = await logCallAttempt(contact.rowId, {
-        outcome: answeredOutcome, note, noteType,
+        outcome: answeredOutcome, note, noteType, dedicationText,
         callbackAt: answeredOutcome === 'call_back' ? callbackAt : null,
         newStatus: stages.length ? status : undefined,
       });
       if (res.error) { setError(res.error); return; }
-      onClose({ autoAdvance });
+      onClose({ autoAdvance: hideAutoAdvanceToggle || autoAdvance });
     });
   }
 
@@ -146,16 +165,16 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
   })();
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'var(--bg)', borderRadius: 10, width: 860, maxWidth: '95vw', maxHeight: '88vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border, #e5e5e5)' }}>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>{contact.name}</div>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ background: 'var(--bg)', borderRadius: 12, width: 900, maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,0.25)' }}>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border, #e5e5e5)' }}>
+          <div style={{ fontSize: 17, fontWeight: 700 }}>{contact.name}</div>
           <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{contact.category}</div>
         </div>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* עמודת פקדי-שיחה */}
-          <div style={{ flex: '1 1 55%', padding: '16px 20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14, borderInlineEnd: '1px solid var(--border, #e5e5e5)' }}>
+          <div style={{ flex: '1 1 55%', padding: '18px 22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, borderInlineEnd: '1px solid var(--border, #e5e5e5)' }}>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {telHref(contact.phone) && (
                 <a href={telHref(contact.phone)} style={{ ...primaryBtn, textDecoration: 'none' }}>📞 {contact.phone}</a>
@@ -167,8 +186,16 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
             </div>
 
             {spouseWarning && (
-              <div style={{ fontSize: 12, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6, padding: '8px 12px', color: '#92400e' }}>
+              <div style={{ fontSize: 12, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 12px', color: '#92400e' }}>
                 {spouseWarning}
+              </div>
+            )}
+
+            {phase !== 'no_answer_done' && (
+              <div style={cardStyle}>
+                <div style={sectionLabel}>הערה על השיחה (אופציונלי)</div>
+                <ToggleGroup options={NOTE_TYPES} value={noteType} onChange={setNoteType} />
+                <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} style={{ ...inputStyle, resize: 'vertical' }} placeholder="מה קרה בשיחה?" />
               </div>
             )}
 
@@ -180,7 +207,7 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
             )}
 
             {phase === 'no_answer_done' && noAnswerResult && (
-              <div style={{ background: 'var(--bg-secondary, #f7f7f7)', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={cardStyle}>
                 <div>✓ נרשם: לא ענה (ניסיון #{noAnswerResult.attemptNumber})</div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button type="button" onClick={handleUndoNoAnswer} disabled={isPending} style={btnStyle}>בטל</button>
@@ -190,40 +217,31 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
             )}
 
             {phase === 'answered' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {ANSWERED_OUTCOMES.map((o) => (
-                    <button
-                      key={o.key} type="button" onClick={() => setAnsweredOutcome(o.key)}
-                      style={{ ...btnStyle, background: answeredOutcome === o.key ? 'var(--accent, #2f6f4f)' : 'var(--bg)', color: answeredOutcome === o.key ? '#fff' : 'inherit' }}
-                    >
-                      {o.label}
-                    </button>
-                  ))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div>
+                  <div style={{ ...sectionLabel, marginBottom: 8 }}>תוצאת השיחה</div>
+                  <ToggleGroup options={ANSWERED_OUTCOMES} value={answeredOutcome} onChange={setAnsweredOutcome} />
                 </div>
 
-                {answeredOutcome === 'call_back' && <CallbackScheduler callbackAt={callbackAt} onChange={setCallbackAt} />}
+                {answeredOutcome === 'call_back' && (
+                  <div style={cardStyle}>
+                    <div style={sectionLabel}>מתי לחזור</div>
+                    <CallbackScheduler callbackAt={callbackAt} onChange={setCallbackAt} />
+                  </div>
+                )}
+
+                {answeredOutcome === 'donating_now' && (
+                  <div style={cardStyle}>
+                    <div style={sectionLabel}>הקדשה (אם יש)</div>
+                    <textarea
+                      value={dedicationText} onChange={(e) => setDedicationText(e.target.value)} rows={2}
+                      style={{ ...inputStyle, resize: 'vertical' }} placeholder='מה לרשום בהקדשה? לדוגמה: "לעילוי נשמת..."'
+                    />
+                  </div>
+                )}
 
                 {answeredOutcome && (
                   <>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 11.5, marginBottom: 4, color: 'var(--text-secondary)' }}>סוג הערה</label>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {NOTE_TYPES.map((t) => (
-                          <button
-                            key={t.key} type="button" onClick={() => setNoteType(t.key)}
-                            style={{ ...btnStyle, fontSize: 11.5, padding: '5px 9px', background: noteType === t.key ? 'var(--accent, #2f6f4f)' : 'var(--bg)', color: noteType === t.key ? '#fff' : 'inherit' }}
-                          >
-                            {t.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: 11.5, marginBottom: 4, color: 'var(--text-secondary)' }}>הערה</label>
-                      <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} style={{ ...inputStyle, resize: 'vertical' }} placeholder="מה קרה בשיחה?" />
-                    </div>
-
                     {stages.length > 0 && (
                       <div>
                         <label style={{ display: 'block', fontSize: 11.5, marginBottom: 4, color: 'var(--text-secondary)' }}>סטטוס</label>
@@ -233,10 +251,12 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
                       </div>
                     )}
 
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
-                      <input type="checkbox" checked={autoAdvance} onChange={(e) => setAutoAdvance(e.target.checked)} />
-                      המשך אוטומטית לבא בתור
-                    </label>
+                    {!hideAutoAdvanceToggle && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
+                        <input type="checkbox" checked={autoAdvance} onChange={(e) => setAutoAdvance(e.target.checked)} />
+                        המשך אוטומטית לבא בתור
+                      </label>
+                    )}
 
                     <button
                       type="button" onClick={handleSaveAnswered} disabled={isPending || (answeredOutcome === 'call_back' && !callbackAt)}
@@ -257,7 +277,7 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
           </div>
 
           {/* עמודת כרטיס-קשר לקריאה בלבד */}
-          <div style={{ flex: '1 1 45%', padding: '16px 20px', overflowY: 'auto' }}>
+          <div style={{ flex: '1 1 45%', padding: '18px 22px', overflowY: 'auto' }}>
             <ContactSummaryPanel contact={contact} />
           </div>
         </div>
