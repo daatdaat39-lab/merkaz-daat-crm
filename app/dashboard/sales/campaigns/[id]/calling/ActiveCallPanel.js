@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { logCallOutcomeAndAdvance, skipContact, getRecentPhoneCallsForContact } from '../callQueueActions';
+import { logCallOutcomeAndAdvance, skipContact } from '../callQueueActions';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box' };
 
@@ -12,19 +12,14 @@ function telHref(phone) {
 
 // מודאל ממוקד לשיחה פעילה - נפתח רק כשיש תפיסה בפועל (ר' CallQueueClient).
 // tel: הוא ה-click-to-call הראשון בכל המערכת (ר' גם ContactQuickActions.js) -
-// אין API יוצא ל-015, אז זה פותח את החייגן של המכשיר; אם השלוחה מחוברת
-// ל-015 השיחה עצמה עדיין תיקלט אוטומטית ב-phone_calls כשהיא מסתיימת.
+// הטלפניות מתקשרות מהנייד האישי שלהן, לא דרך שלוחת 015, אז אין שום מקום
+// אחר שבו השיחה נרשמת אוטומטית - ההערה כאן היא הרישום היחיד שיש.
 export default function ActiveCallPanel({ contact, stages, onClose }) {
   const [status, setStatus] = useState(contact.status);
   const [note, setNote] = useState('');
   const [autoAdvance, setAutoAdvance] = useState(false);
-  const [recentCalls, setRecentCalls] = useState([]);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    getRecentPhoneCallsForContact(contact.contactId).then(setRecentCalls);
-  }, [contact.contactId]);
 
   useEffect(() => {
     function releaseOnHide() {
@@ -92,12 +87,6 @@ export default function ActiveCallPanel({ contact, stages, onClose }) {
               <div>סה"כ תרומות: {contact.insights.totalDonations.count} · ₪{contact.insights.totalDonations.total.toLocaleString()}</div>
               {contact.insights.lastDonationDate && <div>תרומה אחרונה: {contact.insights.lastDonationDate}</div>}
               {contact.insights.hasActiveCommitment && <div>יש הוראת קבע פעילה</div>}
-            </div>
-          )}
-
-          {recentCalls.length > 0 && (
-            <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>
-              🎧 {recentCalls.length} שיחות קודמות ב-015 (ראו ב"שיחות" בתפריט)
             </div>
           )}
 

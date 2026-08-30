@@ -128,15 +128,3 @@ export async function skipContact(rowId) {
   if (rpcError) return { error: rpcError.message };
   return { success: true };
 }
-
-// שולפת שיחות קודמות מ-015 (phone_calls, ר' app/api/webhooks/hallo015-call)
-// לאיש-הקשר - קריאה בלבד, לא חובה לפעולת השיחה. אם השלוחה של הטלמרקטינג
-// מחוברת ל-015, שיחות היוצאות מהם (בכל אמצעי חיוג, כולל tel:) כבר נופלות
-// אוטומטית לטבלה הזו כשהן מסתיימות - זה רק מציג את מה שכבר קיים.
-export async function getRecentPhoneCallsForContact(contactId) {
-  const { supabase } = await requireUser();
-  const { data } = await supabase.from('phone_calls')
-    .select('id, direction, answered, duration_seconds, recording_url, started_at')
-    .eq('contact_id', contactId).order('started_at', { ascending: false }).limit(5);
-  return data || [];
-}
