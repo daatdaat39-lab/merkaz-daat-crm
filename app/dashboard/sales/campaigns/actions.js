@@ -597,6 +597,7 @@ export async function bulkUpdateCampaignContactsFromImport(campaignId, updates) 
     if (u.category !== undefined) patch.category = u.category || null;
     if (u.assignedTo !== undefined) patch.assigned_to = u.assignedTo || null;
     if (u.status !== undefined && validStageKeys.has(u.status)) patch.status = u.status;
+    if (u.note !== undefined) patch.note = u.note || null;
     // עדכון-מיפוי (מגיע מסנכרון-גיליון, ר' pullCampaignUpdatesFromSheet) -
     // אותם ערכים בדיוק שכבר נשמרים דרך saveMappingDecision.
     if (u.mappingDecision !== undefined && u.mappingDecision) {
@@ -722,7 +723,7 @@ export async function pushCampaignRowsToSheet(campaignId) {
   const PAGE = 1000;
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await supabase.from('campaign_contacts')
-      .select('id, category, assigned_to, status, contacts:contact_id (id, first, last, phone, email)')
+      .select('id, category, assigned_to, status, note, contacts:contact_id (id, first, last, phone, email, related_contact_id)')
       .eq('campaign_id', campaignId)
       .order('id')
       .range(offset, offset + PAGE - 1);
@@ -733,10 +734,15 @@ export async function pushCampaignRowsToSheet(campaignId) {
   const newRows = rows.filter((r) => r.contacts && !existingIds.has(r.id));
   if (newRows.length === 0) return { success: true, pushed: 0 };
 
-  const [agents, { data: stages }, insightsByContact] = await Promise.all([
+  const spouseIds = Array.from(new Set(newRows.map((r) => r.contacts.related_contact_id).filter(Boolean)));
+  const [agents, { data: stages }, insightsByContact, spouseNameById] = await Promise.all([
     loadAgentsForWorkspace(supabase, campaign.workspace_id),
     supabase.from('campaign_stages').select('stage_key, label').eq('campaign_id', campaignId),
     buildBulkContactInsights(supabase, newRows.map((r) => r.contacts.id)),
+    spouseIds.length
+      ? supabase.from('contacts').select('id, first, last').in('id', spouseIds)
+        .then(({ data }) => Object.fromEntries((data || []).map((c) => [c.id, `${c.first || ''} ${c.last || ''}`.trim()])))
+      : Promise.resolve({}),
   ]);
   const agentNameById = Object.fromEntries(agents.map((a) => [a.id, a.name]));
   const stageLabelByKey = Object.fromEntries((stages || []).map((s) => [s.stage_key, s.label]));
@@ -745,6 +751,7 @@ export async function pushCampaignRowsToSheet(campaignId) {
     r.id, `${r.contacts.first || ''} ${r.contacts.last || ''}`.trim(), r.contacts.phone || '', r.contacts.email || '',
     r.category || '', r.assigned_to ? (agentNameById[r.assigned_to] || '') : '', stageLabelByKey[r.status] || r.status || '', '',
     ...insightsToSheetCells(insightsByContact[r.contacts.id]),
+    r.note || '', r.contacts.related_contact_id ? (spouseNameById[r.contacts.related_contact_id] || '') : '',
   ]);
 
   try {
@@ -780,6 +787,7 @@ export async function pullCampaignUpdatesFromSheet(campaignId) {
     assignedTo: header.indexOf('נציג מטפל'),
     status: header.indexOf('סטטוס'),
     mappingDecision: header.indexOf('החלטת מיפוי'),
+    note: header.indexOf('הערה'),
   };
 
   const [agents, { data: stages }] = await Promise.all([
@@ -807,6 +815,7 @@ export async function pullCampaignUpdatesFromSheet(campaignId) {
       const decision = (cells[idx.mappingDecision] || '').trim();
       if (decision) patch.mappingDecision = decision;
     }
+    if (idx.note !== -1) patch.note = (cells[idx.note] || '').trim();
     return patch;
   }).filter(Boolean);
 
