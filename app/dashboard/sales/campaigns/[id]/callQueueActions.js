@@ -98,6 +98,38 @@ export async function listCategoryContactsForCalling(campaignId, category) {
   return { success: true, rows };
 }
 
+// "אנשי-קשר קשורים" (לא רק בן/בת-זוג, ר' contact_relations - 0074) +
+// "לימודים" (דעת ותבונה/סמינרים/מחזור-ישיבה) - קריאה בלבד, אותו דפוס
+// שאילתה בדיוק כמו loadContactCardData.js (כרטיס-הקשר המלא הרגיל).
+async function fetchExtendedContactInfo(supabase, contactId) {
+  const [
+    { data: relForward }, { data: relReverse },
+    { data: courses }, { data: seminars }, { data: deptRows },
+  ] = await Promise.all([
+    supabase.from('contact_relations').select('relation_label, related:related_contact_id (id, first, last)').eq('contact_id', contactId),
+    supabase.from('contact_relations').select('relation_label, owner:contact_id (id, first, last)').eq('related_contact_id', contactId),
+    supabase.from('contact_course_enrollments').select('course_name, course_code, year_label').eq('contact_id', contactId),
+    supabase.from('contact_seminar_participations').select('event_type, year, kind, status').eq('contact_id', contactId),
+    supabase.from('contact_departments').select('extra_fields, workspaces:workspace_id (name)').eq('contact_id', contactId),
+  ]);
+
+  const relations = [
+    ...(relForward || []).filter((r) => r.related).map((r) => ({ contactId: r.related.id, name: `${r.related.first || ''} ${r.related.last || ''}`.trim(), relationLabel: r.relation_label })),
+    ...(relReverse || []).filter((r) => r.owner).map((r) => ({ contactId: r.owner.id, name: `${r.owner.first || ''} ${r.owner.last || ''}`.trim(), relationLabel: r.relation_label })),
+  ];
+
+  const yeshivaDept = (deptRows || []).find((d) => d.workspaces?.name === 'ישיבת דעת');
+  const yeshivaInfo = yeshivaDept?.extra_fields
+    ? {
+        cohort: yeshivaDept.extra_fields.cohort || null,
+        studyYears: yeshivaDept.extra_fields.study_years || null,
+        role: yeshivaDept.extra_fields.yeshiva_role || null,
+      }
+    : null;
+
+  return { relations, courses: courses || [], seminars: seminars || [], yeshivaInfo };
+}
+
 export async function claimNextContact(campaignId, category) {
   const { supabase, user } = await requireUser();
   const { error } = await requireMemberOfCampaign(supabase, user.id, campaignId);
@@ -110,12 +142,13 @@ export async function claimNextContact(campaignId, category) {
   const row = (data || [])[0];
   if (!row) return { success: true, contact: null };
 
-  const [insights, attempts, { data: fullContact }] = await Promise.all([
+  const [insights, attempts, { data: fullContact }, extended] = await Promise.all([
     getSegmentRowInsights(row.contact_id),
     fetchAttemptsForCampaignContact(supabase, row.row_id),
     supabase.from('contacts')
       .select('idnum, birth_date, gender, children_count, city, street, house_number, apartment, zip_code, neighborhood, country, tags, contact_number')
       .eq('id', row.contact_id).maybeSingle(),
+    fetchExtendedContactInfo(supabase, row.contact_id),
   ]);
 
   return {
@@ -130,6 +163,7 @@ export async function claimNextContact(campaignId, category) {
       insights,
       attempts,
       personalInfo: fullContact || {},
+      relations: extended.relations, courses: extended.courses, seminars: extended.seminars, yeshivaInfo: extended.yeshivaInfo,
     },
   };
 }

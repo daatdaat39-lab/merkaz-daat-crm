@@ -123,6 +123,43 @@ export default function ContactSummaryPanel({ contact }) {
         )}
       </div>
 
+      {contact.relations?.length > 0 && (
+        <>
+          <div style={sectionLabel}>אנשי קשר קשורים</div>
+          <div style={card}>
+            {contact.relations.map((r, i) => (
+              <a key={i} href={`/dashboard/contacts/${r.contactId}`} target="_blank" rel="noreferrer" style={fieldRow}>
+                <span style={fieldLabel}>{r.relationLabel}:</span><span style={{ color: 'var(--accent, #2f6f4f)' }}>{r.name}</span>
+              </a>
+            ))}
+          </div>
+        </>
+      )}
+
+      {(contact.courses?.length > 0 || contact.seminars?.length > 0 || contact.yeshivaInfo) && (
+        <>
+          <div style={sectionLabel}>לימודים</div>
+          <div style={card}>
+            {contact.yeshivaInfo && (
+              <div style={fieldRow}>
+                <span style={fieldLabel}>ישיבת דעת:</span>
+                <span>
+                  {contact.yeshivaInfo.role ? `${contact.yeshivaInfo.role} · ` : ''}
+                  {contact.yeshivaInfo.cohort ? `מחזור ${contact.yeshivaInfo.cohort}` : ''}
+                  {contact.yeshivaInfo.studyYears ? ` (${[].concat(contact.yeshivaInfo.studyYears).join(', ')})` : ''}
+                </span>
+              </div>
+            )}
+            {contact.courses?.map((c, i) => (
+              <div key={i} style={fieldRow}><span style={fieldLabel}>קורס:</span><span>{c.course_name || 'דעת ותבונה'} · {c.year_label}</span></div>
+            ))}
+            {contact.seminars?.map((s, i) => (
+              <div key={i} style={fieldRow}><span style={fieldLabel}>סמינר:</span><span>{s.event_type} · {s.year}</span></div>
+            ))}
+          </div>
+        </>
+      )}
+
       {insights && (
         <>
           <div style={sectionLabel}>הקשר תרומות</div>
