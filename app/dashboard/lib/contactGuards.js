@@ -42,6 +42,19 @@ export async function isManagerOfWorkspace(supabase, userId, workspaceId) {
   return !!membership;
 }
 
+// true אם המשתמש חבר במחלקה הנתונה בכל תפקיד שהוא (owner/admin/agent) -
+// בשונה מ-isManagerOfWorkspace, לא מסנן לפי תפקיד - שער-הרשאה לתכונות
+// שכל נציג רגיל (לא רק מנהל) צריך לגשת אליהן, כמו תור-שיחות לטלמרקטינג.
+export async function isMemberOfWorkspace(supabase, userId, workspaceId) {
+  const { data: membership } = await supabase
+    .from('workspace_members')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+  return !!membership;
+}
+
 // true אם המשתמש הוא owner/admin בכל מחלקה שהיא (לא מוגבל למחלקה אחת) -
 // לכלים "מנהלתיים" שחוצים את כל המערכת, כמו תור בדיקת כפליות
 export async function isManagerOfAnyWorkspace(supabase, userId) {

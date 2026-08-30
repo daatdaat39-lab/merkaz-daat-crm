@@ -25,10 +25,16 @@ export default function ContactQuickActions({ contact, departments = [], sendCon
 
   const canEmail = !!emailDept && !!contact.email && !contact.frozen;
   const canWhatsapp = !!whatsappDept && !!contact.phone && !contact.frozen;
+  const telDigits = (contact.phone || '').replace(/[^\d+]/g, '');
+  const canCall = !!telDigits && !contact.frozen;
 
   return (
     <div style={{ display: 'flex', gap: 6 }}>
-      <NotConnectedButton icon="📞" label="חיוג" variant="icon" message="חיוג מתוך המערכת — עדיין לא מחובר" />
+      {canCall ? (
+        <a href={`tel:${telDigits}`} title="חיוג" style={{ ...iconBtnStyle, textDecoration: 'none', color: 'inherit' }}>📞</a>
+      ) : (
+        <NotConnectedButton icon="📞" label="חיוג" variant="icon" message={!contact.phone ? 'לאיש הקשר אין טלפון שמור' : 'איש הקשר מוקפא'} />
+      )}
 
       {canWhatsapp ? (
         <button onClick={() => setModal('whatsapp')} title="וואטסאפ" style={iconBtnStyle}>💬</button>

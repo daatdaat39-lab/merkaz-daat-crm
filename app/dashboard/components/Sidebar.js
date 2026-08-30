@@ -22,6 +22,7 @@ const NAV_SECTIONS = [
       { href: '/dashboard/sales', label: 'דשבורד מכירות', icon: '📈' },
       { href: '/dashboard/sales/pipeline', label: 'תהליכים', icon: '🔀' },
       { href: '/dashboard/sales/leads', label: 'לידים', icon: '🎯' },
+      { href: '/dashboard/sales/campaigns/calling', label: 'תור שיחות', icon: '📱' },
     ],
   },
   {
