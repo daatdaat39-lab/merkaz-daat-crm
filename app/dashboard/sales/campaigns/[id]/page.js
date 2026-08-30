@@ -143,6 +143,12 @@ export default async function CampaignDetailPage({ params }) {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <OpenForTelemarketingToggle campaignId={campaign.id} initialOpen={campaign.open_for_telemarketing} />
+          <a href={`/dashboard/sales/campaigns/${campaign.id}/calling-dashboard`} style={{
+            fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none', border: '1px solid var(--border, #e5e5e5)',
+            borderRadius: 6, padding: '6px 12px', whiteSpace: 'nowrap',
+          }}>
+            📊 דשבורד טלפניה
+          </a>
           <a href={`/dashboard/sales/campaigns/${campaign.id}/stages`} style={{
             fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none', border: '1px solid var(--border, #e5e5e5)',
             borderRadius: 6, padding: '6px 12px', whiteSpace: 'nowrap',
