@@ -26,14 +26,17 @@ export default async function CampaignCallingPage({ params }) {
     );
   }
 
-  const campaignStages = await getCampaignStages(supabase, campaign.id);
+  const [campaignStages, { data: whatsappTemplates }] = await Promise.all([
+    getCampaignStages(supabase, campaign.id),
+    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
+  ]);
   const stages = campaignStages.order.map((key) => ({ stageKey: key, label: campaignStages.labels[key], isWon: key === campaignStages.wonStage }));
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 24px' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
       <a href="/dashboard/sales/campaigns/calling" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה לרשימת הקמפיינים</a>
       <h1 style={{ fontFamily: 'var(--font-heading)', margin: '14px 0 20px', fontSize: 20 }}>📱 {campaign.name}</h1>
-      <CallQueueClient campaignId={campaign.id} stages={stages} />
+      <CallQueueClient campaignId={campaign.id} stages={stages} workspaceId={campaign.workspace_id} whatsappTemplates={whatsappTemplates || []} />
     </div>
   );
 }

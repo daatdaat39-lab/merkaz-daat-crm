@@ -10,7 +10,7 @@ const cardStyle = { background: 'var(--bg)', border: '1px solid var(--border, #e
 // טבלה רגילה לעיון + כפתור "התקשר לבא בתור" שפותח מודאל ממוקד לשיחה
 // עצמה - לא כרטיס-יחיד למסך כולו (יש תקדים מפורש ב-MappingQueue.js
 // שהוחלף בטבלה לפי בקשת המשתמש - טבלה נשארת ברירת-המחדל לעיון/פיקוח).
-export default function CallQueueClient({ campaignId, stages }) {
+export default function CallQueueClient({ campaignId, stages, workspaceId, whatsappTemplates = [] }) {
   const [summary, setSummary] = useState(null);
   const [category, setCategory] = useState('');
   const [rows, setRows] = useState([]);
@@ -114,7 +114,10 @@ export default function CallQueueClient({ campaignId, stages }) {
       </div>
 
       {activeContact && (
-        <ActiveCallPanel contact={activeContact} stages={stages} onClose={handlePanelClosed} />
+        <ActiveCallPanel
+          contact={activeContact} stages={stages} workspaceId={workspaceId} whatsappTemplates={whatsappTemplates}
+          onClose={handlePanelClosed}
+        />
       )}
     </div>
   );

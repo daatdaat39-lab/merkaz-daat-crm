@@ -24,6 +24,35 @@ async function requireMemberOfCampaign(supabase, userId, campaignId) {
   return { campaign };
 }
 
+const OUTCOME_LABELS = {
+  no_answer: 'לא ענה',
+  donating_now: 'תורם עכשיו תוך כדי הטלפון',
+  requested_link: 'ביקש קישור לתרום בעצמו',
+  not_interested: 'לא מעוניין לתרום',
+  call_back: 'ביקש להתקשר מאוחר יותר',
+};
+
+const NOTE_TYPE_LABELS = { donation: 'לגבי תרומה', general: 'כללי', other: 'אחר' };
+
+const UNDO_WINDOW_MINUTES = 5;
+
+async function fetchAttemptsForCampaignContact(supabase, campaignContactId) {
+  const { data: attempts } = await supabase.from('campaign_call_attempts')
+    .select('id, agent_id, attempt_number, outcome, note, note_type, callback_at, created_at')
+    .eq('campaign_contact_id', campaignContactId).order('created_at', { ascending: true });
+  const agentIds = Array.from(new Set((attempts || []).map((a) => a.agent_id).filter(Boolean)));
+  const { data: profiles } = agentIds.length
+    ? await supabase.from('profiles').select('id, name').in('id', agentIds)
+    : { data: [] };
+  const nameById = Object.fromEntries((profiles || []).map((p) => [p.id, p.name]));
+  return (attempts || []).map((a) => ({
+    id: a.id, attemptNumber: a.attempt_number, agentName: a.agent_id ? (nameById[a.agent_id] || 'נציג') : 'נציג',
+    outcome: a.outcome, outcomeLabel: OUTCOME_LABELS[a.outcome] || a.outcome,
+    note: a.note || '', noteType: a.note_type, noteTypeLabel: NOTE_TYPE_LABELS[a.note_type] || a.note_type,
+    callbackAt: a.callback_at, createdAt: a.created_at,
+  }));
+}
+
 export async function getCallableCampaignSummary(campaignId) {
   const { supabase, user } = await requireUser();
   const { campaign, error } = await requireMemberOfCampaign(supabase, user.id, campaignId);
@@ -80,7 +109,14 @@ export async function claimNextContact(campaignId, category) {
   const row = (data || [])[0];
   if (!row) return { success: true, contact: null };
 
-  const insights = await getSegmentRowInsights(row.contact_id);
+  const [insights, attempts, { data: fullContact }] = await Promise.all([
+    getSegmentRowInsights(row.contact_id),
+    fetchAttemptsForCampaignContact(supabase, row.row_id),
+    supabase.from('contacts')
+      .select('idnum, birth_date, gender, children_count, city, street, house_number, apartment, zip_code, neighborhood, country, tags, contact_number')
+      .eq('id', row.contact_id).maybeSingle(),
+  ]);
+
   return {
     success: true,
     contact: {
@@ -91,30 +127,95 @@ export async function claimNextContact(campaignId, category) {
         rowId: row.spouse_row_id, status: row.spouse_status, claimedBy: row.spouse_claimed_by,
       } : null,
       insights,
+      attempts,
+      personalInfo: fullContact || {},
     },
   };
 }
 
-export async function logCallOutcomeAndAdvance(rowId, { newStatus, note }) {
-  const { supabase, user } = await requireUser();
+// רושם ניסיון-שיחה (יומן campaign_call_attempts, מקור-האמת) ומשקף תמצית
+// קצרה גם ל-campaign_contacts.note (כדי שטבלת המנהל וה-Google Sheet
+// הקיימים ימשיכו להראות משהו משמעותי בלי לגעת בהם).
+async function requireOwnClaim(supabase, userId, rowId) {
   const { data: row } = await supabase.from('campaign_contacts').select('id, campaign_id, note, claimed_by').eq('id', rowId).maybeSingle();
   if (!row) return { error: 'איש הקשר לא נמצא' };
-  const { error } = await requireMemberOfCampaign(supabase, user.id, row.campaign_id);
+  const { error } = await requireMemberOfCampaign(supabase, userId, row.campaign_id);
   if (error) return { error };
-  if (row.claimed_by !== user.id) return { error: 'איש הקשר הזה כבר לא נעול אצלך - כנראה שהתפיסה פגה' };
+  if (row.claimed_by !== userId) return { error: 'איש הקשר הזה כבר לא נעול אצלך - כנראה שהתפיסה פגה' };
+  return { row };
+}
+
+export async function logCallAttempt(rowId, { outcome, note, noteType, callbackAt, newStatus }) {
+  const { supabase, user } = await requireUser();
+  const { row, error } = await requireOwnClaim(supabase, user.id, rowId);
+  if (error) return { error };
+
+  const { data: attempt, error: rpcError } = await supabase.rpc('log_campaign_call_attempt', {
+    p_campaign_contact_id: row.id, p_agent_id: user.id, p_outcome: outcome,
+    p_note: note && note.trim() ? note.trim() : null, p_note_type: noteType || 'general',
+    p_callback_at: callbackAt || null,
+  });
+  if (rpcError) return { error: rpcError.message };
 
   const { data: validStages } = await supabase.from('campaign_stages').select('stage_key').eq('campaign_id', row.campaign_id);
   const validStageKeys = new Set((validStages || []).map((s) => s.stage_key));
-  const update = { claimed_by: null, claimed_at: null };
+  const summary = `[${new Date().toLocaleString('he-IL')}] ${OUTCOME_LABELS[outcome] || outcome}${note && note.trim() ? ` - ${note.trim()}` : ''}`;
+  const update = { claimed_by: null, claimed_at: null, note: row.note ? `${summary}\n\n${row.note}` : summary };
   if (newStatus !== undefined && validStageKeys.has(newStatus)) update.status = newStatus;
-  if (note && note.trim()) {
-    const stamp = `[${new Date().toLocaleString('he-IL')}] ${note.trim()}`;
-    update.note = row.note ? `${stamp}\n\n${row.note}` : stamp;
-  }
 
   const { error: updateError } = await supabase.from('campaign_contacts').update(update).eq('id', rowId);
   if (updateError) return { error: updateError.message };
-  return { success: true };
+  return { success: true, attemptId: attempt.id };
+}
+
+// "לא ענה" - פעולה מיידית: רושמת ניסיון, משחררת את התפיסה, ומחזירה את
+// מזהה-הניסיון + ההערה הקודמת כדי שהלקוח יוכל להציע "בטל" מיד אחר כך.
+export async function quickNoAnswer(rowId) {
+  const { supabase, user } = await requireUser();
+  const { row, error } = await requireOwnClaim(supabase, user.id, rowId);
+  if (error) return { error };
+
+  const { data: attempt, error: rpcError } = await supabase.rpc('log_campaign_call_attempt', {
+    p_campaign_contact_id: row.id, p_agent_id: user.id, p_outcome: 'no_answer',
+  });
+  if (rpcError) return { error: rpcError.message };
+
+  const summary = `[${new Date().toLocaleString('he-IL')}] ${OUTCOME_LABELS.no_answer}`;
+  const mirroredNote = row.note ? `${summary}\n\n${row.note}` : summary;
+  const { error: updateError } = await supabase.from('campaign_contacts')
+    .update({ claimed_by: null, claimed_at: null, note: mirroredNote }).eq('id', rowId);
+  if (updateError) return { error: updateError.message };
+
+  return { success: true, attemptId: attempt.id, attemptNumber: attempt.attempt_number, previousNote: row.note || '' };
+}
+
+// מבטל את הניסיון האחרון - רק אם הוא עדיין הכי-אחרון על השורה, של אותו
+// נציג, ותוך חלון-זמן קצר. משחזר את ההערה הקודמת ומנסה לתפוס מחדש עבור
+// אותו נציג (יכול להיכשל בעדינות אם מישהו אחר כבר הספיק לתפוס).
+export async function undoLastCallAttempt(attemptId, rowId, previousNote) {
+  const { supabase, user } = await requireUser();
+  const { data: attempt } = await supabase.from('campaign_call_attempts')
+    .select('id, campaign_contact_id, agent_id, created_at').eq('id', attemptId).maybeSingle();
+  if (!attempt) return { error: 'הניסיון לא נמצא - כנראה כבר בוטל' };
+  if (attempt.agent_id !== user.id) return { error: 'אפשר לבטל רק ניסיון שאתה רשמת' };
+
+  const { data: latest } = await supabase.from('campaign_call_attempts')
+    .select('id').eq('campaign_contact_id', attempt.campaign_contact_id).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (!latest || latest.id !== attemptId) return { error: 'כבר נרשם ניסיון חדש יותר על איש הקשר הזה - אי אפשר לבטל' };
+
+  const minutesPassed = (Date.now() - new Date(attempt.created_at).getTime()) / 60000;
+  if (minutesPassed > UNDO_WINDOW_MINUTES) return { error: `אפשר לבטל רק עד ${UNDO_WINDOW_MINUTES} דקות אחרי הרישום` };
+
+  const { error: deleteError } = await supabase.rpc('delete_campaign_call_attempt', { p_attempt_id: attemptId });
+  if (deleteError) return { error: deleteError.message };
+
+  await supabase.from('campaign_contacts').update({ note: previousNote || null }).eq('id', rowId);
+
+  const { data: reclaimed } = await supabase.from('campaign_contacts')
+    .update({ claimed_by: user.id, claimed_at: new Date().toISOString() })
+    .eq('id', rowId).or(`claimed_by.is.null,claimed_by.eq.${user.id}`).select('id').maybeSingle();
+
+  return { success: true, reclaimed: !!reclaimed };
 }
 
 export async function skipContact(rowId) {
