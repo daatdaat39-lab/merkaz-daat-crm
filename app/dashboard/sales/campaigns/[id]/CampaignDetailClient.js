@@ -639,7 +639,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
                       <th style={{ padding: '8px 8px' }}></th>
-                      {['שם', 'טלפון', 'קטגוריה', 'נציג מטפל', 'סטטוס', 'הערה', ''].map((h) => (
+                      {['שם', 'טלפון', 'קטגוריה', 'נציג מטפל', 'סטטוס', 'הערה', 'בתור', ''].map((h) => (
                         <th key={h} style={{ textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '8px 14px', textTransform: 'uppercase' }}>{h}</th>
                       ))}
                     </tr>
@@ -722,6 +722,14 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
           disabled={isPending}
           placeholder="הערה..."
           style={{ ...cellSelect(), width: '100%', minWidth: 120 }}
+        />
+      </td>
+      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+        <input
+          type="checkbox" checked={r.inCallQueue}
+          onChange={(e) => onChange(r.rowId, { inCallQueue: e.target.checked })}
+          disabled={isPending}
+          title="נכלל בתור-השיחות לטלמרקטינג"
         />
       </td>
       <td style={{ padding: '10px 14px' }}>
@@ -870,6 +878,25 @@ function BulkAssignBar({ selected, setSelected, agents, categories, onApply, row
         </select>
         <button type="button" onClick={applyAgent} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
           שליחה לנציג
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button
+          type="button"
+          onClick={() => { const ids = Array.from(selected); startTransition(async () => { await Promise.all(ids.map((rowId) => onApply(rowId, { inCallQueue: true }))); setSelected(new Set()); }); }}
+          disabled={isPending}
+          style={{ background: '#fff', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}
+        >
+          הכנס לתור
+        </button>
+        <button
+          type="button"
+          onClick={() => { const ids = Array.from(selected); startTransition(async () => { await Promise.all(ids.map((rowId) => onApply(rowId, { inCallQueue: false }))); setSelected(new Set()); }); }}
+          disabled={isPending}
+          style={{ background: '#fff', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}
+        >
+          הוצא מהתור
         </button>
       </div>
 

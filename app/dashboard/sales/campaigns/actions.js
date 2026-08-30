@@ -99,7 +99,7 @@ export async function updateCampaignContact(rowId, changes) {
   // בדיוק כמו updateDepartmentStage/updateLeadStage שאין להן guard מנהל
   // בכלל. עדכון category/assignedTo עדיין דורש מנהל (נשלטים דרך עמוד
   // הקמפיין המנוהל-מנהל בלבד).
-  if (row.assigned_to !== user.id || changes.category !== undefined || changes.assignedTo !== undefined) {
+  if (row.assigned_to !== user.id || changes.category !== undefined || changes.assignedTo !== undefined || changes.inCallQueue !== undefined) {
     const denied = await requireManager(supabase, user.id, row.campaigns?.workspace_id);
     if (denied) return denied;
   }
@@ -108,6 +108,7 @@ export async function updateCampaignContact(rowId, changes) {
   if (changes.category !== undefined) update.category = changes.category || null;
   if (changes.assignedTo !== undefined) update.assigned_to = changes.assignedTo || null;
   if (changes.note !== undefined) update.note = changes.note || null;
+  if (changes.inCallQueue !== undefined) update.in_call_queue = !!changes.inCallQueue;
   if (changes.status !== undefined) {
     // מוודאים שהערך קיים בפועל כשלב של הקמפיין הזה - מונע "תקיעת" סטטוס
     // יתום אם שלב נמחק/שונה בכרטיסיה אחרת שנשארה פתוחה (campaign_stages
