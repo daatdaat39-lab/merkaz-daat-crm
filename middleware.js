@@ -43,6 +43,26 @@ export async function middleware(request) {
     }
   }
 
+  // תפקיד "טלפן" נעול - רואה אך ורק את תור-השיחות, שום עמוד אחר במערכת.
+  // נבדק כאן (לפני הרנדור) ולא רק בשלד (layout.js) כדי שהחסימה תהיה
+  // אמיתית ולא רק "מסתירים תפריט" - ר' migration 0094 להוספת הערך הזה
+  // ל-workspace_members.role.
+  if (user && request.nextUrl.pathname.startsWith('/dashboard')) {
+    const { data: telemarketerRow } = await supabase
+      .from('workspace_members')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('role', 'telemarketer')
+      .limit(1)
+      .maybeSingle();
+    if (telemarketerRow) {
+      const CALLING_PATH_RE = /^\/dashboard\/sales\/campaigns\/(calling(\/.*)?|[^/]+\/calling(\/.*)?)$/;
+      if (!CALLING_PATH_RE.test(request.nextUrl.pathname)) {
+        return NextResponse.redirect(new URL('/dashboard/sales/campaigns/calling', request.url));
+      }
+    }
+  }
+
   return response;
 }
 

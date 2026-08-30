@@ -40,6 +40,26 @@ export default async function DashboardLayout({ children, modal }) {
     .select('role, workspaces (id, name)')
     .eq('user_id', user.id);
 
+  // תפקיד "טלפן" נעול - רואה אך ורק את תור-השיחות (החסימה האמיתית היא
+  // ב-middleware.js, שרץ לפני הרנדור; כאן רק מדלגים על שלד המערכת הרגיל -
+  // שיקול UI, לא הרשאה). מדלגים על כל השאילתות הכבדות למטה (תגיות,
+  // וואטסאפ-ממתין, pipelines, allWorkspaces) - לא רלוונטיות בכלל.
+  const isTelemarketer = (memberships || []).some((m) => m.role === 'telemarketer');
+  if (isTelemarketer) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border, #e5e5e5)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontWeight: 700 }}>📱 תור שיחות</div>
+          <form action={handleLogout}>
+            <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12.5, color: 'var(--text-secondary)' }}>יציאה</button>
+          </form>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto' }}>{children}</div>
+        <IdleLock userEmail={user.email} />
+      </div>
+    );
+  }
+
   const workspaces = (memberships || [])
     .filter((m) => m.workspaces)
     .map((m) => ({ id: m.workspaces.id, name: m.workspaces.name, role: m.role, restricted: false }));

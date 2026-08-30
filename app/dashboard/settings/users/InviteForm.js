@@ -48,6 +48,7 @@ export default function InviteForm() {
           style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '8px 10px', fontSize: 13 }}
         >
           <option value="member">חבר</option>
+          <option value="telemarketer">טלפן</option>
           <option value="admin">מנהל</option>
           <option value="owner">בעלים</option>
         </select>

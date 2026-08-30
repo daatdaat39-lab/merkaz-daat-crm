@@ -84,7 +84,7 @@ export default function MemberRow({ userId, name, role, workspaceId, email, allM
                   fontSize: 10, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)',
                   padding: '1px 7px', borderRadius: 8,
                 }}>
-                  {m.workspaceName} ({m.role === 'owner' ? 'בעלים' : m.role === 'admin' ? 'מנהל' : 'חבר'})
+                  {m.workspaceName} ({m.role === 'owner' ? 'בעלים' : m.role === 'admin' ? 'מנהל' : m.role === 'telemarketer' ? 'טלפן' : 'חבר'})
                 </span>
               ))}
             </div>
@@ -98,6 +98,7 @@ export default function MemberRow({ userId, name, role, workspaceId, email, allM
           style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '5px 8px', fontSize: 12 }}
         >
           <option value="member">חבר</option>
+          <option value="telemarketer">טלפן</option>
           <option value="admin">מנהל</option>
           <option value="owner">בעלים</option>
         </select>

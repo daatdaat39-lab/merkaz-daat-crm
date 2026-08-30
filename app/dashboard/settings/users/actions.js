@@ -206,7 +206,7 @@ export async function changeMemberEmail(targetUserId, newEmail) {
 
 // קובע/מסיר חברות של משתמש ב-workspace ספציפי (מזוהה מפורשות, לא מוסק מה-workspace
 // הנוכחי של המבצע) — כדי לאפשר ל-owner לנהל שיוך מחלקות מכל מסך אחד.
-// role: 'member' | 'admin' | 'owner' | null (null = הסרה מה-workspace הזה)
+// role: 'member' | 'telemarketer' | 'admin' | 'owner' | null (null = הסרה מה-workspace הזה)
 export async function setMembership(targetUserId, workspaceId, role) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
