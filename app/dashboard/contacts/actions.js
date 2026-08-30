@@ -14,11 +14,23 @@ import { generateAndSendOtp, verifyOtp } from '../lib/otp';
 import { applyStageAutomations } from '../lib/stageAutomations';
 import { richnessScore, hasExactReason } from '../lib/findDuplicates';
 import { loadDuplicateCandidatesWithMoneyCounts } from '../lib/duplicateCandidates';
+import { EDITABLE_FIELDS } from '../lib/contactFieldsList';
 
-const EDITABLE_FIELDS = [
-  'first', 'last', 'phone', 'phone2', 'email', 'email2', 'dept', 'source', 'idnum', 'birth_date', 'gender', 'related_contact_id', 'relation_label',
-  'city', 'street', 'house_number', 'apartment', 'zip_code', 'neighborhood', 'country', 'children_count',
-];
+// כתיבת שינויים לאיש-קשר מאובייקט רגיל (לא FormData) - אותה לוגיקה
+// בדיוק כמו updateContact, מחולצת כדי ששני מקורות (עריכה ידנית דרך
+// updateContact, ואישור-הצעת-תיקון דרך contactEditSuggestions.js)
+// ישתמשו באותו קוד-כתיבה בדיוק, בלי לשכפל אותו.
+export async function applyContactFieldChanges(supabase, contactId, changes) {
+  const update = {};
+  for (const field of EDITABLE_FIELDS) {
+    if (field in changes) update[field] = changes[field] || null;
+  }
+  if (update.children_count != null) update.children_count = Number(update.children_count) || null;
+
+  const { error } = await supabase.from('contacts').update(update).eq('id', contactId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
 
 function parseTags(raw) {
   if (typeof raw !== 'string') return [];
@@ -158,15 +170,17 @@ export async function updateContact(contactId, formData) {
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
 
-  const update = {};
+  const changes = {};
   for (const field of EDITABLE_FIELDS) {
-    if (formData.has(field)) update[field] = formData.get(field) || null;
+    if (formData.has(field)) changes[field] = formData.get(field);
   }
-  if (update.children_count != null) update.children_count = Number(update.children_count) || null;
-  if (formData.has('tags')) update.tags = parseTags(formData.get('tags'));
+  const res = await applyContactFieldChanges(supabase, contactId, changes);
+  if (res.error) return res;
 
-  const { error } = await supabase.from('contacts').update(update).eq('id', contactId);
-  if (error) return { error: error.message };
+  if (formData.has('tags')) {
+    const { error } = await supabase.from('contacts').update({ tags: parseTags(formData.get('tags')) }).eq('id', contactId);
+    if (error) return { error: error.message };
+  }
 
   return { success: true };
 }

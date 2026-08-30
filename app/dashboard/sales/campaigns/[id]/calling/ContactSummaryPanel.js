@@ -1,11 +1,15 @@
 'use client';
 
+import { useState, useTransition } from 'react';
 import { formatIsraeliDateTime } from '../../../../lib/dateFormat';
+import { EDITABLE_CONTACT_FIELDS } from '../../../../lib/editableContactFields';
+import { submitContactEditSuggestion } from '../../../../lib/contactEditSuggestions';
 
 const sectionLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', letterSpacing: '.03em', margin: '18px 0 8px' };
 const card = { background: 'var(--bg-secondary, #f7f7f7)', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 };
 const fieldRow = { display: 'flex', gap: 6, fontSize: 12.5 };
 const fieldLabel = { color: 'var(--text-secondary)', flexShrink: 0 };
+const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '5px 8px', fontSize: 12, width: '100%', boxSizing: 'border-box' };
 
 const ATTEMPT_ORDINALS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שביעי', 'שמיני'];
 function ordinal(n) {
@@ -17,9 +21,71 @@ function formatAddress(p) {
   return parts.length ? parts.join(', ') : null;
 }
 
+// טופס-הצעת-תיקון - state מקומי בלבד, שום דבר לא נשמר עד לחיצה על "שלח
+// הצעה", ואז זה רק יוצר שורת-הצעה (contact_edit_suggestions) שממתינה
+// לאישור מנהל - אף פעם לא כותב ישירות לאיש-הקשר. מסגרת-ענבר ברורה כדי
+// שלא יתבלבל עם "פרטים אישיים" הרגיל (תצוגה בלבד) ממש מעליו.
+function EditSuggestionForm({ contact, onDone }) {
+  const initial = {
+    first: contact.first || '', last: contact.last || '', phone: contact.phone || '', email: contact.email || '',
+    ...Object.fromEntries(EDITABLE_CONTACT_FIELDS.map((f) => [f.key, contact.personalInfo?.[f.key] ?? ''])),
+  };
+  const [values, setValues] = useState(initial);
+  const [status, setStatus] = useState('idle'); // idle | sending | sent
+  const [error, setError] = useState('');
+  const [isPending, startTransition] = useTransition();
+
+  function handleSubmit() {
+    setError('');
+    const changes = {};
+    for (const key of Object.keys(values)) {
+      if (String(values[key] ?? '').trim() !== String(initial[key] ?? '').trim()) changes[key] = values[key];
+    }
+    if (Object.keys(changes).length === 0) { setError('לא שיניתם שום שדה'); return; }
+    startTransition(async () => {
+      const res = await submitContactEditSuggestion(contact.contactId, changes, contact.rowId);
+      if (res.error) { setError(res.error); return; }
+      setStatus('sent');
+    });
+  }
+
+  if (status === 'sent') {
+    return (
+      <div style={{ background: '#fbf1de', border: '1px solid #e6c98a', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: '#a85c00' }}>
+        ✓ ההצעה נשלחה למנהל לאישור.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: '#fbf1de', border: '1px dashed #e6c98a', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 11, color: '#a85c00' }}>✏️ הצעה לאישור מנהל - לא נשמר ישירות</div>
+      {[{ key: 'first', label: 'שם פרטי' }, { key: 'last', label: 'שם משפחה' }, { key: 'phone', label: 'טלפון' }, { key: 'email', label: 'מייל' }, ...EDITABLE_CONTACT_FIELDS.filter((f) => !['phone', 'email'].includes(f.key))].map((f) => (
+        <div key={f.key}>
+          <label style={{ display: 'block', fontSize: 10.5, marginBottom: 2, color: 'var(--text-secondary)' }}>{f.label}</label>
+          <input value={values[f.key] ?? ''} onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))} style={inputStyle} />
+        </div>
+      ))}
+      {error && <div style={{ fontSize: 11.5, color: '#c62828' }}>{error}</div>}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          type="button" onClick={handleSubmit} disabled={isPending}
+          style={{ background: '#a85c00', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}
+        >
+          שלח הצעה
+        </button>
+        <button type="button" onClick={onDone} disabled={isPending} style={{ background: 'none', border: '1px solid #e6c98a', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+          ביטול
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // תצוגה לקריאה בלבד - בלי שום פקד-עריכה, בכוונה: זו התצוגה שטלפן (כולל
 // תפקיד "טלפן" הנעול) רואה, ואסור שיהיה בה שום דרך לשנות איש-קשר בטעות.
 export default function ContactSummaryPanel({ contact }) {
+  const [editing, setEditing] = useState(false);
   const p = contact.personalInfo || {};
   const insights = contact.insights;
   const attempts = contact.attempts || [];
@@ -27,7 +93,17 @@ export default function ContactSummaryPanel({ contact }) {
 
   return (
     <div style={{ fontSize: 12.5, display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={{ ...sectionLabel, marginTop: 0 }}>פרטים אישיים</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ ...sectionLabel, marginTop: 0 }}>פרטים אישיים</div>
+        {!editing && (
+          <button type="button" onClick={() => setEditing(true)} style={{ fontSize: 11, background: 'none', border: 'none', color: 'var(--accent, #2f6f4f)', cursor: 'pointer' }}>
+            ✏️ הצע תיקון
+          </button>
+        )}
+      </div>
+
+      {editing && <EditSuggestionForm contact={contact} onDone={() => setEditing(false)} />}
+
       <div style={card}>
         {p.idnum && <div style={fieldRow}><span style={fieldLabel}>ת.ז (לצורך קבלה):</span><span>{p.idnum}</span></div>}
         {contact.email && <div style={fieldRow}><span style={fieldLabel}>מייל:</span><span>{contact.email}</span></div>}

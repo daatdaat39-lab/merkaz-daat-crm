@@ -122,7 +122,7 @@ export async function claimNextContact(campaignId, category) {
     success: true,
     contact: {
       rowId: row.row_id, contactId: row.contact_id, category: row.category, status: row.status, note: row.note || '',
-      name: `${row.first || ''} ${row.last || ''}`.trim(), phone: row.phone, phone2: row.phone2, email: row.email,
+      name: `${row.first || ''} ${row.last || ''}`.trim(), first: row.first, last: row.last, phone: row.phone, phone2: row.phone2, email: row.email,
       relatedContactId: row.related_contact_id, relationLabel: row.relation_label,
       spouse: row.related_contact_id ? {
         rowId: row.spouse_row_id, status: row.spouse_status, claimedBy: row.spouse_claimed_by,

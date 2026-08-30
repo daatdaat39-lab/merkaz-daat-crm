@@ -16,6 +16,7 @@ const SETTINGS_LINKS = [
   { href: '/dashboard/settings/import', icon: '📥', title: 'ייבוא נתונים', desc: 'ייבוא/ייצוא אנשי קשר, מערכת חיצונית, היסטוריית שיחות' },
   { href: '/dashboard/settings/lead-sources', icon: '📨', title: 'מקורות לידים', desc: 'חיבורי מייל לכל מחלקה, ניתוב מייל לקמפיינים, ורשימת מקורות (owner/admin בלבד)' },
   { href: '/dashboard/settings/import-conflicts', icon: '⚠', title: 'קונפליקטים בייבוא', desc: 'ערכים מקבצי ייבוא שהתנגשו עם נתון קיים - בדיקה ופתרון אחד-אחד (owner/admin בלבד)' },
+  { href: '/dashboard/settings/contact-corrections', icon: '✏️', title: 'תיקוני פרטים ממתינים', desc: 'הצעות-תיקון לפרטי אנשי קשר (למשל מטלפנים) - אישור/דחייה (owner/admin בלבד)' },
   { href: '/dashboard/settings/picklists', icon: '🏷', title: 'רשימות בחירה', desc: 'קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)' },
   { href: '/dashboard/settings/pipelines', icon: '🔀', title: 'שלבי pipeline', desc: 'הוספה/עריכה/סידור שלבי התהליך לכל מחלקה (owner/admin בלבד)' },
   { href: '/dashboard/settings/fields', icon: '🧩', title: 'שדות מחלקתיים', desc: 'הוספה/עריכה/סידור שדות נוספים לכל מחלקה (owner/admin בלבד)' },
