@@ -259,6 +259,22 @@ export async function claimSpecificContact(campaignId, rowId) {
   return { success: true, contact: await buildClaimedContactPayload(supabase, row) };
 }
 
+// "ביקשו ממני לחזור אליהם" - רק שיחות-החזרה שהנציג הזה עצמו קבע (לא כל
+// הצוות, זה נשאר ללוח-הניהול) - ר' migration 0116. לא מסיר אותם מהתור
+// הרגיל בשום צורה, רק תצוגה נוספת/נגישה-מהר לנציג לבדוק/לפתוח ישירות.
+export async function getMyPendingCallbacks(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { error } = await requireMemberOfCampaign(supabase, user.id, campaignId);
+  if (error) return { error };
+
+  const { data, error: rpcError } = await supabase.rpc('get_pending_callbacks', { p_campaign_id: campaignId, p_agent_id: user.id });
+  if (rpcError) return { error: rpcError.message };
+  const rows = (data || []).map((r) => ({
+    rowId: r.row_id, name: `${r.first || ''} ${r.last || ''}`.trim(), phone: r.phone || '', callbackAt: r.callback_at,
+  }));
+  return { success: true, rows };
+}
+
 // רושם ניסיון-שיחה (יומן campaign_call_attempts, מקור-האמת) ומשקף תמצית
 // קצרה גם ל-campaign_contacts.note (כדי שטבלת המנהל וה-Google Sheet
 // הקיימים ימשיכו להראות משהו משמעותי בלי לגעת בהם).

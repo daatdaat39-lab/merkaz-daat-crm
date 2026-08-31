@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import {
   getCallableCampaignSummary, listCategoryContactsForCalling, claimNextContact,
   startCallSession, logBreakStart, logBreakEnd, endCallSession,
-  searchCampaignContactsForCalling, claimSpecificContact,
+  searchCampaignContactsForCalling, claimSpecificContact, getMyPendingCallbacks,
 } from '../callQueueActions';
 import ActiveCallPanel from './ActiveCallPanel';
 import DonationCelebrationToast from './DonationCelebrationToast';
@@ -31,11 +31,21 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
+  // "ביקשו ממני לחזור אליהם" - רק שיחות-החזרה שהנציג הזה עצמו קבע (ר'
+  // migration 0116) - לא מסיר מהתור הרגיל, רק תצוגה/גישה מהירה נוספת.
+  const [myCallbacks, setMyCallbacks] = useState([]);
+  const [showMyCallbacks, setShowMyCallbacks] = useState(false);
 
   function loadSummary() {
     getCallableCampaignSummary(campaignId).then((res) => {
       if (res.error) { setError(res.error); return; }
       setSummary(res);
+    });
+  }
+
+  function loadMyCallbacks() {
+    getMyPendingCallbacks(campaignId).then((res) => {
+      if (res.success) setMyCallbacks(res.rows);
     });
   }
 
@@ -46,6 +56,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
   }
 
   useEffect(() => { loadSummary(); }, [campaignId]);
+  useEffect(() => { if (isLockedTelemarketer) loadMyCallbacks(); }, [campaignId, isLockedTelemarketer]);
   useEffect(() => {
     if (!isLockedTelemarketer) loadRows(category);
   }, [campaignId, category, isLockedTelemarketer]);
@@ -71,6 +82,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
     setActiveContact(null);
     loadSummary();
     if (!isLockedTelemarketer) loadRows(category);
+    if (isLockedTelemarketer) loadMyCallbacks();
     if (!stayClosed && (isLockedTelemarketer || autoAdvance)) handleCallNext(skippedRowId);
   }
 
@@ -191,7 +203,40 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
               </div>
             )}
 
-            <div style={{ width: '100%', maxWidth: 380, marginTop: 30, borderTop: '1px solid var(--border, #e5e5e5)', paddingTop: 20 }}>
+            {myCallbacks.length > 0 && (
+              <div style={{ width: '100%', maxWidth: 380, marginTop: 20 }}>
+                <button
+                  type="button" onClick={() => setShowMyCallbacks((v) => !v)}
+                  style={{ ...inputStyle, width: '100%', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <span>📅 ביקשו ממני לחזור אליהם ({myCallbacks.length})</span>
+                  <span>{showMyCallbacks ? '▴' : '▾'}</span>
+                </button>
+                {showMyCallbacks && (
+                  <div style={{ marginTop: 8, border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden', textAlign: 'right' }}>
+                    {myCallbacks.map((r) => (
+                      <button
+                        key={r.rowId} type="button" onClick={() => handleSearchSelect(r.rowId)} disabled={isPending}
+                        style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', textAlign: 'right',
+                          padding: '9px 12px', border: 'none', borderBottom: '1px solid var(--border, #f0f0f0)', background: 'var(--bg)', cursor: 'pointer',
+                        }}
+                      >
+                        <span>
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>{r.name || '—'}</span>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}> · {r.phone || '—'}</span>
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {r.callbackAt ? new Date(r.callbackAt).toLocaleString('he-IL') : ''}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ width: '100%', maxWidth: 380, marginTop: 20, borderTop: '1px solid var(--border, #e5e5e5)', paddingTop: 20 }}>
               <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>🔍 מישהו חוזר אליכם? חפשו לפי שם, טלפון או ת.ז</div>
               <input
                 type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
