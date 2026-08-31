@@ -147,6 +147,35 @@ async function fetchExtendedContactInfo(supabase, contactId) {
   return { relations, courses: courses || [], seminars: seminars || [], yeshivaInfo, departments };
 }
 
+// בונה את אובייקט-הקשר המלא שה-UI מצפה לו (ContactSummaryPanel/
+// ActiveCallPanel) מתוך שורת-התוצאה הגולמית של claim_next_campaign_contact
+// או claim_specific_campaign_contact - שתי הפונקציות מחזירות אותה צורת-
+// עמודות בדיוק, אז אותו בנאי משרת את שתיהן.
+async function buildClaimedContactPayload(supabase, row) {
+  const [insights, attempts, { data: fullContact }, extended] = await Promise.all([
+    getSegmentRowInsights(row.contact_id),
+    fetchAttemptsForCampaignContact(supabase, row.row_id),
+    supabase.from('contacts')
+      .select('idnum, birth_date, gender, children_count, city, street, house_number, apartment, zip_code, neighborhood, country, tags, contact_number')
+      .eq('id', row.contact_id).maybeSingle(),
+    fetchExtendedContactInfo(supabase, row.contact_id),
+  ]);
+
+  return {
+    rowId: row.row_id, contactId: row.contact_id, category: row.category, status: row.status, note: row.note || '',
+    name: `${row.first || ''} ${row.last || ''}`.trim(), first: row.first, last: row.last, phone: row.phone, phone2: row.phone2, email: row.email,
+    relatedContactId: row.related_contact_id, relationLabel: row.relation_label,
+    spouse: row.related_contact_id ? {
+      rowId: row.spouse_row_id, status: row.spouse_status, claimedBy: row.spouse_claimed_by,
+    } : null,
+    insights,
+    attempts,
+    personalInfo: fullContact || {},
+    relations: extended.relations, courses: extended.courses, seminars: extended.seminars, yeshivaInfo: extended.yeshivaInfo,
+    departments: extended.departments,
+  };
+}
+
 export async function claimNextContact(campaignId, category, excludeRowId) {
   const { supabase, user } = await requireUser();
   const { error } = await requireMemberOfCampaign(supabase, user.id, campaignId);
@@ -160,31 +189,65 @@ export async function claimNextContact(campaignId, category, excludeRowId) {
   const row = (data || [])[0];
   if (!row) return { success: true, contact: null };
 
-  const [insights, attempts, { data: fullContact }, extended] = await Promise.all([
-    getSegmentRowInsights(row.contact_id),
-    fetchAttemptsForCampaignContact(supabase, row.row_id),
-    supabase.from('contacts')
-      .select('idnum, birth_date, gender, children_count, city, street, house_number, apartment, zip_code, neighborhood, country, tags, contact_number')
-      .eq('id', row.contact_id).maybeSingle(),
-    fetchExtendedContactInfo(supabase, row.contact_id),
-  ]);
+  return { success: true, contact: await buildClaimedContactPayload(supabase, row) };
+}
 
-  return {
-    success: true,
-    contact: {
-      rowId: row.row_id, contactId: row.contact_id, category: row.category, status: row.status, note: row.note || '',
-      name: `${row.first || ''} ${row.last || ''}`.trim(), first: row.first, last: row.last, phone: row.phone, phone2: row.phone2, email: row.email,
-      relatedContactId: row.related_contact_id, relationLabel: row.relation_label,
-      spouse: row.related_contact_id ? {
-        rowId: row.spouse_row_id, status: row.spouse_status, claimedBy: row.spouse_claimed_by,
-      } : null,
-      insights,
-      attempts,
-      personalInfo: fullContact || {},
-      relations: extended.relations, courses: extended.courses, seminars: extended.seminars, yeshivaInfo: extended.yeshivaInfo,
-      departments: extended.departments,
-    },
-  };
+// "מישהו חוזר אליי" - חיפוש חופשי (שם/טלפון/ת.ז) בתוך רשימת הקמפיין
+// הזה בלבד, לא בכל אנשי-הקשר במערכת - כדי שטלפן נעול ימצא ויפתח כרטיס
+// של מי שכבר ברשימה שלו, גם אם לא במיקום-התור הנוכחי. שלב ראשון על
+// contacts (ilike רגיל, נתמך היטב) ואז סינון ל-campaign_contacts של
+// הקמפיין - במקום .or() על טבלה משובצת (embedded), שלא נתמך היטב ב-
+// PostgREST/supabase-js לצירוף כזה.
+export async function searchCampaignContactsForCalling(campaignId, query) {
+  const { supabase, user } = await requireUser();
+  const { error } = await requireMemberOfCampaign(supabase, user.id, campaignId);
+  if (error) return { error };
+
+  const q = (query || '').trim().replace(/[,()]/g, '');
+  if (q.length < 2) return { success: true, rows: [] };
+
+  const { data: matchedContacts } = await supabase.from('contacts')
+    .select('id, first, last, phone, phone2, idnum')
+    .or(`first.ilike.%${q}%,last.ilike.%${q}%,phone.ilike.%${q}%,phone2.ilike.%${q}%,idnum.ilike.%${q}%`)
+    .limit(50);
+  if (!matchedContacts || matchedContacts.length === 0) return { success: true, rows: [] };
+
+  const contactById = Object.fromEntries(matchedContacts.map((c) => [c.id, c]));
+  const { data: ccRows } = await supabase.from('campaign_contacts')
+    .select('id, contact_id, status, category, claimed_by')
+    .eq('campaign_id', campaignId).in('contact_id', Object.keys(contactById));
+  if (!ccRows || ccRows.length === 0) return { success: true, rows: [] };
+
+  const claimerIds = Array.from(new Set(ccRows.map((r) => r.claimed_by).filter(Boolean)));
+  const { data: profiles } = claimerIds.length
+    ? await supabase.from('profiles').select('id, name').in('id', claimerIds)
+    : { data: [] };
+  const nameById = Object.fromEntries((profiles || []).map((p) => [p.id, p.name]));
+
+  const rows = ccRows.slice(0, 20).map((r) => {
+    const c = contactById[r.contact_id];
+    return {
+      rowId: r.id, status: r.status, category: r.category,
+      name: `${c.first || ''} ${c.last || ''}`.trim(), phone: c.phone || '',
+      claimedByName: r.claimed_by ? (nameById[r.claimed_by] || 'נציג') : null,
+    };
+  });
+  return { success: true, rows };
+}
+
+// תפיסה ממוקדת של שורה שנמצאה בחיפוש - פותחת את אותו פאנל-שיחה בדיוק
+// (עם רישום הערה/תוצאה), רק בלי לעבור דרך "הבא בתור" - ר' migration 0111.
+export async function claimSpecificContact(campaignId, rowId) {
+  const { supabase, user } = await requireUser();
+  const { error } = await requireMemberOfCampaign(supabase, user.id, campaignId);
+  if (error) return { error };
+
+  const { data, error: rpcError } = await supabase.rpc('claim_specific_campaign_contact', { p_row_id: rowId, p_caller: user.id });
+  if (rpcError) return { error: rpcError.message };
+  const row = (data || [])[0];
+  if (!row) return { success: true, contact: null, alreadyClaimed: true };
+
+  return { success: true, contact: await buildClaimedContactPayload(supabase, row) };
 }
 
 // רושם ניסיון-שיחה (יומן campaign_call_attempts, מקור-האמת) ומשקף תמצית

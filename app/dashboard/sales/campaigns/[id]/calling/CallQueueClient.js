@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import {
   getCallableCampaignSummary, listCategoryContactsForCalling, claimNextContact,
   startCallSession, logBreakStart, logBreakEnd, endCallSession,
+  searchCampaignContactsForCalling, claimSpecificContact,
 } from '../callQueueActions';
 import ActiveCallPanel from './ActiveCallPanel';
 import DonationCelebrationToast from './DonationCelebrationToast';
@@ -26,6 +27,10 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
   const [error, setError] = useState('');
   const [session, setSession] = useState('idle'); // idle | active | break | ended
   const [isPending, startTransition] = useTransition();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState('');
 
   function loadSummary() {
     getCallableCampaignSummary(campaignId).then((res) => {
@@ -97,6 +102,35 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
     });
   }
 
+  // "מישהו חוזר אליי" - חיפוש עם דיליי קצר (לא שאילתה על כל הקשה),
+  // רלוונטי רק בתפקיד "טלפן" הנעול ורק כשאין שיחה פעילה כרגע.
+  useEffect(() => {
+    if (!isLockedTelemarketer) return;
+    const q = searchQuery.trim();
+    if (q.length < 2) { setSearchResults([]); setSearching(false); return; }
+    setSearching(true);
+    const timer = setTimeout(() => {
+      searchCampaignContactsForCalling(campaignId, q).then((res) => {
+        setSearching(false);
+        if (res?.error) { setSearchError(res.error); return; }
+        setSearchError('');
+        setSearchResults(res.rows || []);
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery, campaignId, isLockedTelemarketer]);
+
+  function handleSearchSelect(rowId) {
+    setSearchError('');
+    startTransition(async () => {
+      const res = await claimSpecificContact(campaignId, rowId);
+      if (res.error) { setSearchError(res.error); return; }
+      if (!res.contact) { setSearchError('איש הקשר הזה כרגע בשיחה אצל נציג אחר.'); return; }
+      setSearchQuery(''); setSearchResults([]);
+      setActiveContact(res.contact);
+    });
+  }
+
   if (isLockedTelemarketer) {
     return (
       <div>
@@ -156,6 +190,41 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
                 <button type="button" onClick={handleEndDay} disabled={isPending} style={{ ...inputStyle, width: 'auto', cursor: 'pointer' }}>⏹ סיום להיום</button>
               </div>
             )}
+
+            <div style={{ width: '100%', maxWidth: 380, marginTop: 30, borderTop: '1px solid var(--border, #e5e5e5)', paddingTop: 20 }}>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>🔍 מישהו חוזר אליכם? חפשו לפי שם, טלפון או ת.ז</div>
+              <input
+                type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="שם, טלפון או ת.ז..." style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }}
+              />
+              {searching && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>מחפש...</div>}
+              {searchError && <div style={{ fontSize: 11.5, color: '#c62828', marginTop: 6 }}>{searchError}</div>}
+              {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && !searchError && (
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>לא נמצא אף אחד ברשימת הקמפיין הזה</div>
+              )}
+              {searchResults.length > 0 && (
+                <div style={{ marginTop: 8, border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden', textAlign: 'right' }}>
+                  {searchResults.map((r) => (
+                    <button
+                      key={r.rowId} type="button" onClick={() => handleSearchSelect(r.rowId)} disabled={isPending || !!r.claimedByName}
+                      style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', textAlign: 'right',
+                        padding: '9px 12px', border: 'none', borderBottom: '1px solid var(--border, #f0f0f0)', background: 'var(--bg)',
+                        cursor: r.claimedByName ? 'not-allowed' : 'pointer', opacity: r.claimedByName ? 0.55 : 1,
+                      }}
+                    >
+                      <span>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{r.name || '—'}</span>
+                        <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}> · {r.phone || '—'}</span>
+                      </span>
+                      <span style={{ fontSize: 11, color: r.claimedByName ? '#b26a00' : 'var(--text-muted)' }}>
+                        {r.claimedByName ? `בשיחה אצל ${r.claimedByName}` : (r.category || '')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
