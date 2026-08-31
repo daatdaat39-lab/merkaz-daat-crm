@@ -693,6 +693,7 @@ export async function bulkUpdateCampaignContactsFromImport(campaignId, updates) 
     if (u.assignedTo !== undefined) patch.assigned_to = u.assignedTo || null;
     if (u.status !== undefined && validStageKeys.has(u.status)) patch.status = u.status;
     if (u.note !== undefined) patch.note = u.note || null;
+    if (u.responsiblePerson !== undefined) patch.responsible_person = u.responsiblePerson || null;
     // עדכון-מיפוי (מגיע מסנכרון-גיליון, ר' pullCampaignUpdatesFromSheet) -
     // אותם ערכים בדיוק שכבר נשמרים דרך saveMappingDecision.
     if (u.mappingDecision !== undefined && u.mappingDecision) {
@@ -824,7 +825,7 @@ export async function pushCampaignRowsToSheet(campaignId) {
   const PAGE = 1000;
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await supabase.from('campaign_contacts')
-      .select('id, category, assigned_to, status, note, in_call_queue, contacts:contact_id (id, first, last, phone, email, related_contact_id)')
+      .select('id, category, assigned_to, status, note, in_call_queue, responsible_person, contacts:contact_id (id, first, last, phone, email, related_contact_id)')
       .eq('campaign_id', campaignId)
       .order('id')
       .range(offset, offset + PAGE - 1);
@@ -853,7 +854,7 @@ export async function pushCampaignRowsToSheet(campaignId) {
     r.category || '', r.assigned_to ? (agentNameById[r.assigned_to] || '') : '', stageLabelByKey[r.status] || r.status || '',
     r.in_call_queue !== false ? 'כן' : 'לא', '',
     ...insightsToSheetCells(insightsByContact[r.contacts.id]),
-    r.note || '', r.contacts.related_contact_id ? (spouseNameById[r.contacts.related_contact_id] || '') : '',
+    r.note || '', r.responsible_person || '', r.contacts.related_contact_id ? (spouseNameById[r.contacts.related_contact_id] || '') : '',
   ]);
 
   try {
@@ -890,6 +891,7 @@ export async function pullCampaignUpdatesFromSheet(campaignId) {
     status: header.indexOf('סטטוס'),
     mappingDecision: header.indexOf('החלטת מיפוי'),
     note: header.indexOf('הערה'),
+    responsiblePerson: header.indexOf('אחראי'),
   };
 
   const [agents, { data: stages }] = await Promise.all([
@@ -918,6 +920,7 @@ export async function pullCampaignUpdatesFromSheet(campaignId) {
       if (decision) patch.mappingDecision = decision;
     }
     if (idx.note !== -1) patch.note = (cells[idx.note] || '').trim();
+    if (idx.responsiblePerson !== -1) patch.responsiblePerson = (cells[idx.responsiblePerson] || '').trim();
     return patch;
   }).filter(Boolean);
 

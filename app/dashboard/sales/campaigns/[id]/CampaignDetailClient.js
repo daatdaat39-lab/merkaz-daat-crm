@@ -367,13 +367,14 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
         ROW_ID_HEADER, 'שם', 'טלפון', 'מייל', 'קטגוריה', 'נציג מטפל', 'סטטוס', 'בתור-שיחות',
         'מחלקות', 'שנת-שיא (שנה)', 'שנת-שיא (סכום)', 'סה"כ תרומות (מספר)', 'סה"כ תרומות (סכום)',
         'תרומה אחרונה', 'אינטראקציה אחרונה', 'הוראת קבע פעילה', 'קורסים/סמינרים',
-        'קורסים תשפ"ו', 'מחזור (ישיבת דעת)', 'שנות לימוד בישיבה',
+        'קורסים תשפ"ו', 'מחזור (ישיבת דעת)', 'שנות לימוד בישיבה', 'הערה', 'אחראי',
       ];
       const dataRows = rows.map((r) => [
         r.rowId, r.name || '', r.phone || '', r.email || '', r.category || '',
         r.assignedTo ? (agentNameById[r.assignedTo] || '') : '', campaignStages.labels[r.status] || r.status || '',
         r.inCallQueue ? 'כן' : 'לא',
         ...insightsToCsvCells(insightsByContact[r.contactId]),
+        r.note || '', r.responsiblePerson || '',
       ].map(csvCell).join(','));
       const csv = '﻿' + [headerRow.join(','), ...dataRows].join('\n');
       downloadBlob(csv, `קבוצות-קמפיין-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8;');
