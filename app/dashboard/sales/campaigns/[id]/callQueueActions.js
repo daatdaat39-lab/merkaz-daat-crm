@@ -206,9 +206,18 @@ export async function searchCampaignContactsForCalling(campaignId, query) {
   const q = (query || '').trim().replace(/[,()]/g, '');
   if (q.length < 2) return { success: true, rows: [] };
 
+  // מספרי טלפון שמורים בפורמטים לא-אחידים (עם/בלי מקף, "058-4411456" מול
+  // "0505917502") - חיפוש-מחרוזת גולמי על ספרות-בלבד מפספס את המקוף.
+  // אם השאילתה כל-ספרות, מוסיפים גם ניחוש עם מקף אחרי 3 ספרות (הפורמט
+  // הנפוץ ביותר בנתונים - קידומת נייד/אזור בת 3 ספרות).
+  const phoneFilters = [`phone.ilike.%${q}%`, `phone2.ilike.%${q}%`];
+  if (/^\d{4,}$/.test(q)) {
+    const dashed = `${q.slice(0, 3)}-${q.slice(3)}`;
+    phoneFilters.push(`phone.ilike.%${dashed}%`, `phone2.ilike.%${dashed}%`);
+  }
   const { data: matchedContacts } = await supabase.from('contacts')
     .select('id, first, last, phone, phone2, idnum')
-    .or(`first.ilike.%${q}%,last.ilike.%${q}%,phone.ilike.%${q}%,phone2.ilike.%${q}%,idnum.ilike.%${q}%`)
+    .or(`first.ilike.%${q}%,last.ilike.%${q}%,idnum.ilike.%${q}%,${phoneFilters.join(',')}`)
     .limit(50);
   if (!matchedContacts || matchedContacts.length === 0) return { success: true, rows: [] };
 
