@@ -157,16 +157,24 @@ export async function bulkUpdateCampaignContactsField(campaignId, rowIds, change
   const denied = await requireManager(supabase, user.id, campaign.workspace_id);
   if (denied) return denied;
 
-  const update = {};
-  if (changes.category !== undefined) update.category = changes.category || null;
-  if (changes.assignedTo !== undefined) update.assigned_to = changes.assignedTo || null;
-  if (changes.inCallQueue !== undefined) update.in_call_queue = !!changes.inCallQueue;
-  if (changes.responsiblePerson !== undefined) update.responsible_person = changes.responsiblePerson || null;
-  if (Object.keys(update).length === 0) return { success: true, updated: 0 };
+  const hasAny = changes.category !== undefined || changes.assignedTo !== undefined
+    || changes.inCallQueue !== undefined || changes.responsiblePerson !== undefined;
+  if (!hasAny) return { success: true, updated: 0 };
 
-  const { error } = await supabase.from('campaign_contacts').update(update).eq('campaign_id', campaignId).in('id', rowIds);
+  // קריאה ל-RPC (0104) ולא update().in('id', rowIds) ישיר - אומת בפועל
+  // ש-.in() עם רשימת UUIDs נשלח ב-query string ב-URL ונכשל ("Bad Request")
+  // כבר סביב כמה מאות-אלף מזהים, בגלל מגבלת אורך-URL - ה-RPC מקבל את
+  // הרשימה במערך בגוף הבקשה (JSON), בלי מגבלת-אורך מעשית.
+  const { data: updated, error } = await supabase.rpc('bulk_update_campaign_contacts', {
+    p_campaign_id: campaignId,
+    p_row_ids: rowIds,
+    p_category: changes.category || null, p_has_category: changes.category !== undefined,
+    p_assigned_to: changes.assignedTo || null, p_has_assigned_to: changes.assignedTo !== undefined,
+    p_in_call_queue: !!changes.inCallQueue, p_has_in_call_queue: changes.inCallQueue !== undefined,
+    p_responsible_person: changes.responsiblePerson || null, p_has_responsible_person: changes.responsiblePerson !== undefined,
+  });
   if (error) return { error: error.message };
-  return { success: true, updated: rowIds.length };
+  return { success: true, updated };
 }
 
 // ערכים קיימים (לא-ריקים) של הערה/אחראי בקמפיין - לבורר "בחר מתוך רשימה"
