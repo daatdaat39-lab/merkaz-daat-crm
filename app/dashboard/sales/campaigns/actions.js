@@ -122,6 +122,7 @@ export async function updateCampaignContact(rowId, changes) {
   if (changes.category !== undefined) update.category = changes.category || null;
   if (changes.assignedTo !== undefined) update.assigned_to = changes.assignedTo || null;
   if (changes.note !== undefined) update.note = changes.note || null;
+  if (changes.responsiblePerson !== undefined) update.responsible_person = changes.responsiblePerson || null;
   if (changes.inCallQueue !== undefined) update.in_call_queue = !!changes.inCallQueue;
   if (changes.status !== undefined) {
     // מוודאים שהערך קיים בפועל כשלב של הקמפיין הזה - מונע "תקיעת" סטטוס
@@ -138,6 +139,58 @@ export async function updateCampaignContact(rowId, changes) {
   const { error } = await supabase.from('campaign_contacts').update(update).eq('id', rowId);
   if (error) return { error: error.message };
   return { success: true };
+}
+
+// עדכון-בכמות אמיתי (שאילתת update.in(...) אחת) - בניגוד להרצת
+// updateCampaignContact פר-שורה (שקרה בטעות בפועל בכפתורי ה-bulk
+// בעבר: Promise.all על handleChange, שהיא פונקציה סינכרונית שלא
+// מחזירה promise אמיתי - ה-Promise.all היה נגמר כמעט מיד בלי לחכות
+// לשמירה בפועל, ואלפי קריאות-fetch כמעט-בו-זמניות נכשלו בשקט ברובן.
+// אומת בפועל: לחיצה על "הוצא מהתור" על 6,174 שורות עדכנה בפועל רק 160
+// (קטגוריה אחת קטנה) - שאר הבקשות נעלמו). כאן זו שאילתה יחידה, אמינה.
+export async function bulkUpdateCampaignContactsField(campaignId, rowIds, changes) {
+  const { supabase, user } = await requireUser();
+  if (!campaignId || !Array.isArray(rowIds) || rowIds.length === 0) return { error: 'לא נבחרו שורות' };
+
+  const { data: campaign } = await supabase.from('campaigns').select('id, workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const update = {};
+  if (changes.category !== undefined) update.category = changes.category || null;
+  if (changes.assignedTo !== undefined) update.assigned_to = changes.assignedTo || null;
+  if (changes.inCallQueue !== undefined) update.in_call_queue = !!changes.inCallQueue;
+  if (changes.responsiblePerson !== undefined) update.responsible_person = changes.responsiblePerson || null;
+  if (Object.keys(update).length === 0) return { success: true, updated: 0 };
+
+  const { error } = await supabase.from('campaign_contacts').update(update).eq('campaign_id', campaignId).in('id', rowIds);
+  if (error) return { error: error.message };
+  return { success: true, updated: rowIds.length };
+}
+
+// ערכים קיימים (לא-ריקים) של הערה/אחראי בקמפיין - לבורר "בחר מתוך רשימה"
+// בסינון, בנוסף לחיפוש-טקסט-חופשי הקיים. מוגבל ל-200 ערכים ייחודיים
+// כדי לא להציג רשימה בלתי-שמישה על קמפיין עם אלפי הערות שונות.
+export async function getDistinctNotesAndResponsible(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('id, workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  let rows = [];
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase.from('campaign_contacts')
+      .select('note, responsible_person').eq('campaign_id', campaignId).order('id').range(offset, offset + PAGE - 1);
+    if (error) return { error: error.message };
+    rows = rows.concat(data || []);
+    if (!data || data.length < PAGE) break;
+  }
+  const notes = Array.from(new Set(rows.map((r) => r.note).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he')).slice(0, 200);
+  const responsiblePeople = Array.from(new Set(rows.map((r) => r.responsible_person).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he')).slice(0, 200);
+  return { success: true, notes, responsiblePeople };
 }
 
 export async function removeContactFromCampaign(rowId) {

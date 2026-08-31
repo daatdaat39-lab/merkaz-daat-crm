@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import {
   addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, bulkUpdateCampaignContactsFromImport, getBulkContactInsightsForExport,
   getCampaignSheetConnection, pushCampaignRowsToSheet, pullCampaignUpdatesFromSheet, disconnectCampaignSheet, regenerateCategoryTabs,
+  bulkUpdateCampaignContactsField, getDistinctNotesAndResponsible,
 } from '../actions';
 import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
 import { contactMatchesAdvancedFilter } from '../../../components/advancedFilter';
@@ -114,6 +115,9 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [mappingFilter, setMappingFilter] = useState('all');
   const [noteFilter, setNoteFilter] = useState('');
+  const [responsibleFilter, setResponsibleFilter] = useState('');
+  const [distinctNotes, setDistinctNotes] = useState([]);
+  const [distinctResponsiblePeople, setDistinctResponsiblePeople] = useState([]);
   const [pendingImport, setPendingImport] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [exporting, setExporting] = useState(false);
@@ -126,6 +130,14 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     getCampaignSheetConnection(campaignId).then((res) => {
       setSheetConfigured(res.configured);
       setSheetConnection(res.connection);
+    });
+  }, [campaignId]);
+
+  useEffect(() => {
+    getDistinctNotesAndResponsible(campaignId).then((res) => {
+      if (res?.error) return;
+      setDistinctNotes(res.notes || []);
+      setDistinctResponsiblePeople(res.responsiblePeople || []);
     });
   }, [campaignId]);
 
@@ -212,10 +224,17 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   }, [availableContacts, search, deptFilter, tagFilter, fieldFilters, extraFields, showPickerList, hasAdvancedFilter, advancedFilters, extraFieldsByWorkspace]);
 
   const noteFilteredRows = useMemo(() => {
-    if (!noteFilter.trim()) return rows;
-    const q = noteFilter.trim().toLowerCase();
-    return rows.filter((r) => (r.note || '').toLowerCase().includes(q));
-  }, [rows, noteFilter]);
+    let result = rows;
+    if (noteFilter.trim()) {
+      const q = noteFilter.trim().toLowerCase();
+      result = result.filter((r) => (r.note || '').toLowerCase().includes(q));
+    }
+    if (responsibleFilter.trim()) {
+      const q = responsibleFilter.trim().toLowerCase();
+      result = result.filter((r) => (r.responsiblePerson || '').toLowerCase().includes(q));
+    }
+    return result;
+  }, [rows, noteFilter, responsibleFilter]);
   const groups = useMemo(() => buildCategoryGroups(noteFilteredRows, CATEGORIES, mappingFilter), [noteFilteredRows, CATEGORIES, mappingFilter]);
 
   function togglePick(id) {
@@ -269,9 +288,37 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   function handleChange(rowId, changes) {
     setRows((prev) => prev.map((r) => (r.rowId === rowId ? { ...r, ...changes } : r)));
     setError(null);
-    startTransition(async () => {
-      const res = await updateCampaignContact(rowId, changes);
-      if (res?.error) { setError(res.error); router.refresh(); }
+    return new Promise((resolve) => {
+      startTransition(async () => {
+        const res = await updateCampaignContact(rowId, changes);
+        if (res?.error) { setError(res.error); router.refresh(); }
+        else if (changes.note !== undefined || changes.responsiblePerson !== undefined) {
+          getDistinctNotesAndResponsible(campaignId).then((r) => {
+            if (!r?.error) { setDistinctNotes(r.notes || []); setDistinctResponsiblePeople(r.responsiblePeople || []); }
+          });
+        }
+        resolve(res);
+      });
+    });
+  }
+
+  // עדכון-בכמות אמיתי - שאילתה יחידה (bulkUpdateCampaignContactsField) על
+  // כל rowIds יחד, במקום N קריאות updateCampaignContact מקבילות (הבאג
+  // שהתגלה בפועל: "הוצא מהתור" על 6,174 שורות עדכן בפועל רק 160).
+  function handleBulkChange(rowIds, changes) {
+    setRows((prev) => prev.map((r) => (rowIds.includes(r.rowId) ? { ...r, ...changes } : r)));
+    setError(null);
+    return new Promise((resolve) => {
+      startTransition(async () => {
+        const res = await bulkUpdateCampaignContactsField(campaignId, rowIds, changes);
+        if (res?.error) { setError(res.error); router.refresh(); }
+        else if (changes.responsiblePerson !== undefined) {
+          getDistinctNotesAndResponsible(campaignId).then((r) => {
+            if (!r?.error) { setDistinctNotes(r.notes || []); setDistinctResponsiblePeople(r.responsiblePeople || []); }
+          });
+        }
+        resolve(res);
+      });
     });
   }
 
@@ -590,7 +637,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
 
       {error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>שגיאה: {error}</div>}
 
-      <BulkAssignBar selected={selectedRows} setSelected={setSelectedRows} agents={agents} categories={CATEGORIES} onApply={handleChange} rows={rows} workspaceId={workspaceId} isDonationsWorkspace={isDonationsWorkspace} />
+      <BulkAssignBar selected={selectedRows} setSelected={setSelectedRows} agents={agents} categories={CATEGORIES} onBulkApply={handleBulkChange} rows={rows} workspaceId={workspaceId} isDonationsWorkspace={isDonationsWorkspace} />
 
       {rows.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
@@ -604,10 +651,27 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
           </select>
           <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>חיפוש בהערות:</span>
           <input
-            type="text" value={noteFilter} onChange={(e) => setNoteFilter(e.target.value)}
-            placeholder="לדוגמה: לבדוק כפול" style={{ ...inputStyle, fontSize: 12, width: 180 }}
+            type="text" list="notes-datalist" value={noteFilter} onChange={(e) => setNoteFilter(e.target.value)}
+            placeholder="הקלידו או בחרו מהרשימה" style={{ ...inputStyle, fontSize: 12, width: 180 }}
           />
+          <datalist id="notes-datalist">
+            {distinctNotes.map((n) => <option key={n} value={n} />)}
+          </datalist>
           {noteFilter.trim() && (
+            <button type="button" onClick={() => setNoteFilter('')} style={{ ...ghostBtn(), padding: '2px 8px', fontSize: 11 }}>נקה</button>
+          )}
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>סינון לפי אחראי:</span>
+          <input
+            type="text" list="responsible-datalist" value={responsibleFilter} onChange={(e) => setResponsibleFilter(e.target.value)}
+            placeholder="הקלידו או בחרו מהרשימה" style={{ ...inputStyle, fontSize: 12, width: 180 }}
+          />
+          <datalist id="responsible-datalist">
+            {distinctResponsiblePeople.map((n) => <option key={n} value={n} />)}
+          </datalist>
+          {responsibleFilter.trim() && (
+            <button type="button" onClick={() => setResponsibleFilter('')} style={{ ...ghostBtn(), padding: '2px 8px', fontSize: 11 }}>נקה</button>
+          )}
+          {(noteFilter.trim() || responsibleFilter.trim()) && (
             <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{noteFilteredRows.length} תוצאות</span>
           )}
         </div>
@@ -653,7 +717,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
                       <th style={{ padding: '8px 8px' }}></th>
-                      {['שם', 'טלפון', 'קטגוריה', 'נציג מטפל', 'סטטוס', 'הערה', 'בתור', ''].map((h) => (
+                      {['שם', 'טלפון', 'בן/בת זוג', 'קטגוריה', 'נציג מטפל', 'אחראי', 'סטטוס', 'הערה', 'בתור', ''].map((h) => (
                         <th key={h} style={{ textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '8px 14px', textTransform: 'uppercase' }}>{h}</th>
                       ))}
                     </tr>
@@ -698,6 +762,9 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
         </Link>
       </td>
       <td style={{ padding: '10px 14px' }}>{r.phone || '—'}</td>
+      <td style={{ padding: '10px 14px', fontSize: 12, color: r.spouseName ? 'inherit' : '#c8c8c8' }}>
+        {r.spouseName ? `${r.spouseName}${r.relationLabel ? ` (${r.relationLabel})` : ''}` : '—'}
+      </td>
       <td style={{ padding: '10px 14px' }}>
         <select value={r.category} onChange={(e) => onChange(r.rowId, { category: e.target.value })} disabled={isPending} style={cellSelect()}>
           <option value="">—</option>
@@ -709,6 +776,19 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
           <option value="">— ללא —</option>
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
+      </td>
+      <td style={{ padding: '10px 14px' }}>
+        <input
+          type="text"
+          defaultValue={r.responsiblePerson || ''}
+          key={r.rowId + ':resp:' + (r.responsiblePerson || '')}
+          onBlur={(e) => {
+            if (e.target.value !== (r.responsiblePerson || '')) onChange(r.rowId, { responsiblePerson: e.target.value });
+          }}
+          disabled={isPending}
+          placeholder="מי אחראי..."
+          style={{ ...cellSelect(), width: '100%', minWidth: 100 }}
+        />
       </td>
       <td style={{ padding: '10px 14px' }}>
         <select
@@ -840,20 +920,25 @@ function CampaignOverviewDashboard({ rows, agents, campaignStages, groups }) {
 }
 
 // סרגל פעולה-בכמות - מופיע רק כשנבחרו שורות (איש קשר אחד, כמה, או קבוצה
-// שלמה דרך "בחר קבוצה" בכותרת כל קבוצה), ומאפשר להעביר את כולם לנציג
-// ו/או לקטגוריה אחרת בבת אחת דרך אותה updateCampaignContact הקיימת
-// (לולאת Promise.all, בדיוק כמו BulkActionBar בלוח הלידים).
-function BulkAssignBar({ selected, setSelected, agents, categories, onApply, rows, workspaceId, isDonationsWorkspace }) {
+// שלמה דרך "בחר קבוצה" בכותרת כל קבוצה), ומאפשר להעביר את כולם לנציג/
+// קטגוריה/אחראי או להכניס-להוציא מהתור בבת אחת - onBulkApply מבצע
+// שאילתת update.in(...) יחידה (bulkUpdateCampaignContactsField) ולא
+// N קריאות מקבילות: הבאג המקורי כאן היה שהכפתורים קראו ל-Promise.all
+// על updateCampaignContact פר-שורה, ובקנה-מידה גדול (אלפי שורות) רוב
+// הבקשות נכשלו בשקט - אומת בפועל: "הוצא מהתור" על 6,174 שורות עדכן
+// בפועל רק 160.
+function BulkAssignBar({ selected, setSelected, agents, categories, onBulkApply, rows, workspaceId, isDonationsWorkspace }) {
   const [isPending, startTransition] = useTransition();
   const [agentId, setAgentId] = useState('');
   const [categoryValue, setCategoryValue] = useState('');
+  const [responsibleValue, setResponsibleValue] = useState('');
 
   if (selected.size === 0) return null;
 
   function applyAgent() {
     const ids = Array.from(selected);
     startTransition(async () => {
-      await Promise.all(ids.map((rowId) => onApply(rowId, { assignedTo: agentId })));
+      await onBulkApply(ids, { assignedTo: agentId });
       setAgentId('');
       setSelected(new Set());
     });
@@ -862,8 +947,17 @@ function BulkAssignBar({ selected, setSelected, agents, categories, onApply, row
   function applyCategory() {
     const ids = Array.from(selected);
     startTransition(async () => {
-      await Promise.all(ids.map((rowId) => onApply(rowId, { category: categoryValue })));
+      await onBulkApply(ids, { category: categoryValue });
       setCategoryValue('');
+      setSelected(new Set());
+    });
+  }
+
+  function applyResponsible() {
+    const ids = Array.from(selected);
+    startTransition(async () => {
+      await onBulkApply(ids, { responsiblePerson: responsibleValue });
+      setResponsibleValue('');
       setSelected(new Set());
     });
   }
@@ -896,9 +990,19 @@ function BulkAssignBar({ selected, setSelected, agents, categories, onApply, row
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <input
+          type="text" value={responsibleValue} onChange={(e) => setResponsibleValue(e.target.value)}
+          placeholder="מי אחראי..." style={{ ...inputStyle, fontSize: 12, width: 120 }}
+        />
+        <button type="button" onClick={applyResponsible} disabled={isPending} style={{ background: '#1f4d3d', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+          סימון אחראי
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <button
           type="button"
-          onClick={() => { const ids = Array.from(selected); startTransition(async () => { await Promise.all(ids.map((rowId) => onApply(rowId, { inCallQueue: true }))); setSelected(new Set()); }); }}
+          onClick={() => { const ids = Array.from(selected); startTransition(async () => { await onBulkApply(ids, { inCallQueue: true }); setSelected(new Set()); }); }}
           disabled={isPending}
           style={{ background: '#fff', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}
         >
@@ -906,12 +1010,13 @@ function BulkAssignBar({ selected, setSelected, agents, categories, onApply, row
         </button>
         <button
           type="button"
-          onClick={() => { const ids = Array.from(selected); startTransition(async () => { await Promise.all(ids.map((rowId) => onApply(rowId, { inCallQueue: false }))); setSelected(new Set()); }); }}
+          onClick={() => { const ids = Array.from(selected); startTransition(async () => { await onBulkApply(ids, { inCallQueue: false }); setSelected(new Set()); }); }}
           disabled={isPending}
           style={{ background: '#fff', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}
         >
           הוצא מהתור
         </button>
+        {isPending && <span style={{ fontSize: 11.5, color: '#3b5878' }}>מעדכן...</span>}
       </div>
 
       <button

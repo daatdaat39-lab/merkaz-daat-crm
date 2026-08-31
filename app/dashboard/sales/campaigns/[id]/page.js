@@ -54,7 +54,7 @@ export default async function CampaignDetailPage({ params }) {
     while (true) {
       const { data } = await supabase
         .from('campaign_contacts')
-        .select('id, category, assigned_to, status, mapping_decision, note, in_call_queue, created_at, contacts:contact_id (id, first, last, phone, email)')
+        .select('id, category, assigned_to, status, mapping_decision, note, in_call_queue, responsible_person, created_at, contacts:contact_id (id, first, last, phone, email, related_contact_id, relation_label)')
         .eq('campaign_id', campaign.id)
         .range(from, from + pageSize - 1);
       if (!data || data.length === 0) break;
@@ -105,6 +105,18 @@ export default async function CampaignDetailPage({ params }) {
   const emailById = Object.fromEntries((usersList?.users || []).map((u) => [u.id, u.email]));
   const agents = (profiles || []).map((p) => ({ id: p.id, name: p.name || emailById[p.id] || 'משתמש' }));
 
+  // שם בן/בת הזוג המקושר - contacts.related_contact_id/relation_label
+  // (מיגרציה 0023, משמש כבר ל"זוגות" דרך splitCoupleContact, ר' הערת
+  // 0074) - לא contact_relations (טבלה אחרת, קשרי הורה/ילד וכו').
+  const relatedIds = Array.from(new Set(
+    (memberRows || []).map((r) => r.contacts?.related_contact_id).filter(Boolean)
+  ));
+  const relatedNameById = {};
+  if (relatedIds.length > 0) {
+    const { data: relatedContacts } = await supabase.from('contacts').select('id, first, last').in('id', relatedIds);
+    for (const c of relatedContacts || []) relatedNameById[c.id] = `${c.first || ''} ${c.last || ''}`.trim();
+  }
+
   const rows = (memberRows || []).filter((r) => r.contacts).map((r) => ({
     rowId: r.id,
     contactId: r.contacts.id,
@@ -116,7 +128,10 @@ export default async function CampaignDetailPage({ params }) {
     status: r.status,
     mappingDecision: r.mapping_decision || '',
     note: r.note || '',
+    responsiblePerson: r.responsible_person || '',
     inCallQueue: r.in_call_queue !== false,
+    spouseName: r.contacts.related_contact_id ? (relatedNameById[r.contacts.related_contact_id] || '') : '',
+    relationLabel: r.contacts.relation_label || '',
   }));
 
   const memberContactIds = new Set(rows.map((r) => r.contactId));
