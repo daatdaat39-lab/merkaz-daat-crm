@@ -4,7 +4,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../lib/contactGuards';
-import { isGoogleSheetsConfigured, getAccessToken as getSheetsAccessToken, appendRows, getSheetValues, addCategoryViewTabs, getSpreadsheetSheetTitles, CAMPAIGN_SHEET_HEADER_ROW } from '../../../../lib/sheets/client';
+import { isGoogleSheetsConfigured, getAccessToken as getSheetsAccessToken, appendRows, getSheetValues, addCategoryViewTabs, getSpreadsheetSheetTitles, CAMPAIGN_SHEET_HEADER_ROW, updateSheetHeaderRow, batchUpdateCellRanges, columnLetter } from '../../../../lib/sheets/client';
 
 // קמפיין תרומות: קבוצת אנשי קשר שמטופלת יחד, מחולקת לקטגוריות (חם/קר/
 // תורם גדול), משויכת לנציגים, עם ערוץ פעולה מוגדר (שיחה/וואטסאפ/מייל/
@@ -929,4 +929,80 @@ export async function pullCampaignUpdatesFromSheet(campaignId) {
   if (res?.error) return res;
   await admin.from('campaign_sheet_connections').update({ last_pulled_at: new Date().toISOString() }).eq('id', conn.id);
   return res;
+}
+
+// מילוי-לאחור חד-פעמי לעמודות שנוספו ל-CAMPAIGN_SHEET_HEADER_ROW אחרי
+// שהגיליון כבר היה מחובר - appendRows/pushCampaignRowsToSheet לעולם לא
+// דורסות שורה קיימת (בכוונה, כדי לא לאבד עריכות ידניות), אז שורות
+// שכבר נדחפו לפני שהעמודות האלה נוספו נשארות ריקות בהן. כותבת קודם
+// מחדש את שורת-הכותרות (כדי שהאינדקסים חדשים אכן קיימים), ואז כותבת
+// רק לתאים של העמודות החדשות בכל שורה קיימת - בלי לגעת בשום עמודה
+// אחרת (קטגוריה/סטטוס/הערה וכו', שיכולות להכיל עריכות ידניות שנעשו
+// ישירות בגיליון).
+const SHEET_BACKFILL_COLUMNS = ['בתור-שיחות', 'קורסים תשפ"ו', 'מחזור (ישיבת דעת)', 'שנות לימוד בישיבה', 'אחראי'];
+
+export async function backfillSheetNewColumns(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const admin = createAdminClient();
+  const { data: conn } = await admin.from('campaign_sheet_connections').select('*').eq('campaign_id', campaignId).maybeSingle();
+  if (!conn) return { error: 'אין גיליון מחובר לקמפיין הזה' };
+
+  let accessToken;
+  try { accessToken = await getSheetsAccessToken(conn.refresh_token); } catch (e) { return { error: e.message }; }
+
+  try { await updateSheetHeaderRow(accessToken, conn.spreadsheet_id, conn.sheet_title, CAMPAIGN_SHEET_HEADER_ROW); }
+  catch (e) { return { error: e.message }; }
+
+  let values;
+  try { values = await getSheetValues(accessToken, conn.spreadsheet_id, conn.sheet_title); } catch (e) { return { error: e.message }; }
+  if (values.length < 2) return { success: true, updatedRows: 0, cellsWritten: 0 };
+
+  const colIndex = Object.fromEntries(SHEET_BACKFILL_COLUMNS.map((h) => [h, CAMPAIGN_SHEET_HEADER_ROW.indexOf(h)]));
+  const sheetRows = values.slice(1);
+  const rowIds = Array.from(new Set(sheetRows.map((cells) => (cells[0] || '').trim()).filter(Boolean)));
+
+  let ccRows = [];
+  const CHUNK = 150;
+  for (let i = 0; i < rowIds.length; i += CHUNK) {
+    const chunk = rowIds.slice(i, i + CHUNK);
+    // eslint-disable-next-line no-await-in-loop
+    const { data } = await supabase.from('campaign_contacts')
+      .select('id, contact_id, in_call_queue, responsible_person').eq('campaign_id', campaignId).in('id', chunk);
+    ccRows = ccRows.concat(data || []);
+  }
+  const ccById = Object.fromEntries(ccRows.map((r) => [r.id, r]));
+  const insightsByContact = await buildBulkContactInsights(supabase, ccRows.map((r) => r.contact_id));
+
+  const cellData = [];
+  sheetRows.forEach((cells, i) => {
+    const rowId = (cells[0] || '').trim();
+    const cc = rowId && ccById[rowId];
+    if (!cc) return;
+    const insights = insightsByContact[cc.contact_id] || {};
+    const sheetRowNum = i + 2; // +1 לשורת הכותרות, +1 כי אינדקס מתחיל מ-1 לא מ-0
+    const write = (header, value) => {
+      const colIdx = colIndex[header];
+      if (colIdx === -1 || colIdx === undefined) return;
+      cellData.push({ range: `'${conn.sheet_title}'!${columnLetter(colIdx)}${sheetRowNum}`, values: [[value]] });
+    };
+    write('בתור-שיחות', cc.in_call_queue !== false ? 'כן' : 'לא');
+    write('קורסים תשפ"ו', insights.has5786Course ? 'כן' : 'לא');
+    write('מחזור (ישיבת דעת)', insights.yeshivaCohort || '');
+    write('שנות לימוד בישיבה', insights.yeshivaStudyYears || '');
+    write('אחראי', cc.responsible_person || '');
+  });
+
+  const BATCH = 3000;
+  for (let i = 0; i < cellData.length; i += BATCH) {
+    // eslint-disable-next-line no-await-in-loop
+    try { await batchUpdateCellRanges(accessToken, conn.spreadsheet_id, cellData.slice(i, i + BATCH)); }
+    catch (e) { return { error: e.message, cellsWrittenSoFar: i }; }
+  }
+
+  return { success: true, updatedRows: sheetRows.length, cellsWritten: cellData.length };
 }

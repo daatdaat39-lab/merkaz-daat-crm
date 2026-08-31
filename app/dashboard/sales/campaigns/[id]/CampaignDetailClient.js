@@ -7,7 +7,7 @@ import * as XLSX from 'xlsx';
 import {
   addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, bulkUpdateCampaignContactsFromImport, getBulkContactInsightsForExport,
   getCampaignSheetConnection, pushCampaignRowsToSheet, pullCampaignUpdatesFromSheet, disconnectCampaignSheet, regenerateCategoryTabs,
-  bulkUpdateCampaignContactsField, getDistinctNotesAndResponsible,
+  bulkUpdateCampaignContactsField, getDistinctNotesAndResponsible, backfillSheetNewColumns,
 } from '../actions';
 import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
 import { contactMatchesAdvancedFilter } from '../../../components/advancedFilter';
@@ -181,6 +181,21 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
       setSheetBusy(false);
       if (res?.error) { setSheetMessage({ error: res.error }); return; }
       setSheetMessage({ success: res.created > 0 ? `נוצרו ${res.created} לשוניות קטגוריה חדשות` : 'כל הלשוניות כבר קיימות' });
+    });
+  }
+
+  // מילוי-לאחור חד-פעמי: מתקן קודם את שורת-הכותרות (נכתבת רק פעם אחת
+  // ביצירת הגיליון, לא מתעדכנת אוטומטית כשמוסיפים עמודה חדשה בקוד), ואז
+  // כותב ערכים לעמודות החדשות (בתור-שיחות/קורסים תשפ"ו/מחזור/שנות לימוד/
+  // אחראי) בכל השורות שכבר קיימות בגיליון - בלי לגעת בשום עמודה אחרת.
+  function handleBackfillSheetColumns() {
+    if (!window.confirm('פעולה זו תכתוב מחדש את שורת הכותרות ותמלא ערכים בעמודות החדשות בכל השורות הקיימות בגיליון המחובר. להמשיך?')) return;
+    setSheetBusy(true);
+    setSheetMessage(null);
+    backfillSheetNewColumns(campaignId).then((res) => {
+      setSheetBusy(false);
+      if (res?.error) { setSheetMessage({ error: res.error }); return; }
+      setSheetMessage({ success: `עודכנו כותרות + ${res.cellsWritten} תאים ב-${res.updatedRows} שורות` });
     });
   }
 
@@ -626,6 +641,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               <button type="button" onClick={handlePushToSheet} disabled={sheetBusy} style={ghostBtn()}>⬆ דחוף לגיליון</button>
               <button type="button" onClick={handlePullFromSheet} disabled={sheetBusy} style={ghostBtn()}>⬇ משוך עדכונים מהגיליון</button>
               <button type="button" onClick={handleRegenerateCategoryTabs} disabled={sheetBusy} style={ghostBtn()} title="יוצר לשונית נפרדת לכל קטגוריה שעדיין אין לה אחת">🗂 עדכון לשוניות קטגוריה</button>
+              <button type="button" onClick={handleBackfillSheetColumns} disabled={sheetBusy} style={ghostBtn()} title="מתקן את שורת הכותרות וממלא עמודות חדשות (בתור-שיחות/קורסים תשפ&quot;ו/מחזור/שנות לימוד/אחראי) בשורות שכבר קיימות בגיליון">🔄 מילוי-לאחור עמודות חדשות</button>
               <button type="button" onClick={handleDisconnectSheet} disabled={sheetBusy} style={{ ...ghostBtn(), color: '#b23b2f' }}>נתק</button>
               {sheetConnection.last_pushed_at && (
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>נדחף לאחרונה: {new Date(sheetConnection.last_pushed_at).toLocaleString('he-IL')}</span>
