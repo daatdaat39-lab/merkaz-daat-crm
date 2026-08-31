@@ -44,16 +44,21 @@ export default async function CampaignCallingPage({ params }) {
     );
   }
 
-  const [campaignStages, { data: whatsappTemplates }] = await Promise.all([
+  const [campaignStages, { data: whatsappTemplates }, { data: profile }] = await Promise.all([
     getCampaignStages(supabase, campaign.id),
     supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
+    supabase.from('profiles').select('name').eq('id', user.id).maybeSingle(),
   ]);
   const stages = campaignStages.order.map((key) => ({ stageKey: key, label: campaignStages.labels[key], isWon: key === campaignStages.wonStage }));
+  const agentName = profile?.name || user.email || 'נציג';
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
       <a href="/dashboard/sales/campaigns/calling" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה לרשימת הקמפיינים</a>
-      <h1 style={{ fontFamily: 'var(--font-heading)', margin: '14px 0 20px', fontSize: 20 }}>📱 {campaign.name}</h1>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, margin: '14px 0 20px' }}>
+        <h1 style={{ fontFamily: 'var(--font-heading)', margin: 0, fontSize: 20 }}>📱 {campaign.name}</h1>
+        <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>מחובר/ת כ: <strong>{agentName}</strong></span>
+      </div>
       <CallQueueClient
         campaignId={campaign.id} stages={stages} workspaceId={campaign.workspace_id} whatsappTemplates={whatsappTemplates || []}
         isLockedTelemarketer={isLockedTelemarketer}
