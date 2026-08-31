@@ -179,7 +179,22 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
     startTransition(async () => {
       const res = await skipContact(contact.rowId);
       if (res.error) { setError(res.error); return; }
-      onClose({});
+      // מעבירים את rowId כדי שהתפיסה הבאה תדע לדלג עליו - בלי זה, המיון
+      // הדטרמיניסטי (order by id) לפעמים תופס מיד את אותו איש-קשר בחזרה,
+      // ונראה כאילו "דלג" לא עשה כלום (ר' migration 0108).
+      onClose({ skippedRowId: contact.rowId });
+    });
+  }
+
+  // ✕ בכותרת - סוגר בלי לתפוס איש-קשר הבא (stayClosed), כדי לחזור למסך
+  // עם כפתורי הפסקה/סיום-יום - שניהם לא נגישים כשהפאנל הזה פתוח (הוא
+  // מודאל מלא-מסך). משחרר את התפיסה בדיוק כמו "דלג".
+  function handleCloseWithoutAdvancing() {
+    setError('');
+    startTransition(async () => {
+      const res = await skipContact(contact.rowId);
+      if (res.error) { setError(res.error); return; }
+      onClose({ stayClosed: true });
     });
   }
 
@@ -195,9 +210,18 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: 'var(--bg)', borderRadius: 14, width: 920, maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.28)' }}>
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border, #e5e5e5)' }}>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>{contact.name}</div>
-          <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{contact.category}</div>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border, #e5e5e5)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{contact.name}</div>
+            <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{contact.category}</div>
+          </div>
+          <button
+            type="button" onClick={handleCloseWithoutAdvancing} disabled={isPending}
+            title="סגירה בלי להתקדם - לצורך הפסקה/סיום יום"
+            style={{ background: 'none', border: 'none', fontSize: 20, lineHeight: 1, cursor: 'pointer', color: 'var(--text-secondary)', padding: 4 }}
+          >
+            ✕
+          </button>
         </div>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

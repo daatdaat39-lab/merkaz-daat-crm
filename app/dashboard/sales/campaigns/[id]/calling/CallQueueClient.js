@@ -45,23 +45,28 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
     if (!isLockedTelemarketer) loadRows(category);
   }, [campaignId, category, isLockedTelemarketer]);
 
-  function handleCallNext() {
+  function handleCallNext(excludeRowId) {
     setError('');
     setEmptyMessage('');
     startTransition(async () => {
       if (isLockedTelemarketer && session === 'idle') { await startCallSession(campaignId); setSession('active'); }
-      const res = await claimNextContact(campaignId, category || null);
+      const res = await claimNextContact(campaignId, category || null, excludeRowId);
       if (res.error) { setError(res.error); return; }
       if (!res.contact) { setEmptyMessage('אין יותר אנשי קשר בקטגוריה הזו כרגע - נסו קטגוריה אחרת.'); return; }
       setActiveContact(res.contact);
     });
   }
 
-  function handlePanelClosed({ autoAdvance } = {}) {
+  // stayClosed (מגיע מ-✕ בכותרת הפאנל) - סוגר וחוזר למסך-ביניים (הפסקה/
+  // סיום-יום זמינים שם) בלי לתפוס איש-קשר הבא, בניגוד ל"דלג"/"הבא ←"
+  // שממשיכים אוטומטית. skippedRowId מועבר הלאה כ-exclude כדי שהתפיסה
+  // הבאה לא "תדלג בחזרה" לאותה שורה בדיוק ששוחררה הרגע (ר' migration
+  // 0108 - order by cc.id דטרמיניסטי היה מחזיר מיד את אותו איש-קשר).
+  function handlePanelClosed({ autoAdvance, skippedRowId, stayClosed } = {}) {
     setActiveContact(null);
     loadSummary();
     if (!isLockedTelemarketer) loadRows(category);
-    if (isLockedTelemarketer || autoAdvance) handleCallNext();
+    if (!stayClosed && (isLockedTelemarketer || autoAdvance)) handleCallNext(skippedRowId);
   }
 
   function handleBreak() {

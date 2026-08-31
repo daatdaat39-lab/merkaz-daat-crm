@@ -147,13 +147,14 @@ async function fetchExtendedContactInfo(supabase, contactId) {
   return { relations, courses: courses || [], seminars: seminars || [], yeshivaInfo, departments };
 }
 
-export async function claimNextContact(campaignId, category) {
+export async function claimNextContact(campaignId, category, excludeRowId) {
   const { supabase, user } = await requireUser();
   const { error } = await requireMemberOfCampaign(supabase, user.id, campaignId);
   if (error) return { error };
 
   const { data, error: rpcError } = await supabase.rpc('claim_next_campaign_contact', {
     p_campaign_id: campaignId, p_caller: user.id, p_category: category || null,
+    p_exclude_row_id: excludeRowId || null,
   });
   if (rpcError) return { error: rpcError.message };
   const row = (data || [])[0];
