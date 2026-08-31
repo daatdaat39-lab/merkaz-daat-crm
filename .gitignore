@@ -3,3 +3,6 @@ node_modules
 .env.local
 .env
 *.log
+
+# סקריפטי-בדיקה זמניים (nodejs, service-role) - לעולם לא מחוברים לריפו
+scratch_*.mjs
