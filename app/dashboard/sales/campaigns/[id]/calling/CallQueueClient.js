@@ -140,7 +140,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
               ))}
             </select>
             <button
-              type="button" onClick={handleCallNext} disabled={isPending}
+              type="button" onClick={() => handleCallNext()} disabled={isPending}
               style={{ ...inputStyle, fontSize: 16, fontWeight: 700, padding: '14px 32px', background: 'var(--accent, #2f6f4f)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer' }}
             >
               🚀 התחל שיחות
@@ -185,7 +185,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
           ))}
         </select>
         <button
-          type="button" onClick={handleCallNext} disabled={isPending || !!activeContact}
+          type="button" onClick={() => handleCallNext()} disabled={isPending || !!activeContact}
           style={{ ...inputStyle, background: 'var(--accent, #2f6f4f)', color: '#fff', fontWeight: 600, cursor: 'pointer', border: 'none' }}
         >
           📞 התקשר לבא בתור
