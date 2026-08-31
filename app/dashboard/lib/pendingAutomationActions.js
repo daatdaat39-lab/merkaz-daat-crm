@@ -33,9 +33,12 @@ async function executeAutomation(supabase, pending) {
   if (pending.action_type === 'send_whatsapp_template') {
     if (!pending.contact_phone) return { error: 'לאיש הקשר אין מספר טלפון' };
     const { data: template } = pending.whatsapp_template_id
-      ? await supabase.from('whatsapp_templates').select('template_id').eq('id', pending.whatsapp_template_id).single()
+      ? await supabase.from('whatsapp_templates').select('template_id, param_count').eq('id', pending.whatsapp_template_id).single()
       : { data: null };
-    await sendWhatsAppTemplate({ phone: pending.contact_phone, firstName: pending.contact_first, reason: 'אוטומציה', templateId: template?.template_id });
+    await sendWhatsAppTemplate({
+      phone: pending.contact_phone, firstName: pending.contact_first, reason: 'אוטומציה',
+      templateId: template?.template_id, paramCount: template?.param_count ?? 2,
+    });
     return { success: true };
   }
   if (pending.action_type === 'send_email_template') {

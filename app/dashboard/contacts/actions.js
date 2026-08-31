@@ -1233,8 +1233,15 @@ export async function sendContactWhatsApp(contactId, workspaceId, reason, templa
   const { data: contact } = await supabase.from('contacts').select('first, phone').eq('id', contactId).single();
   if (!contact?.phone) return { error: 'לאיש הקשר אין מספר טלפון שמור' };
 
+  // מספר-הפרמטרים בפועל של התבנית הנבחרת - לא כל התבניות בנויות אותו
+  // דבר (ר' migration 0115) - ברירת מחדל 2 אם התבנית לא נמצאה ברשימה.
+  const { data: templateRow } = templateId
+    ? await supabase.from('whatsapp_templates').select('param_count').eq('template_id', templateId).maybeSingle()
+    : { data: null };
+  const paramCount = templateRow?.param_count ?? 2;
+
   try {
-    await sendWhatsAppTemplate({ phone: contact.phone, firstName: contact.first, reason, templateId });
+    await sendWhatsAppTemplate({ phone: contact.phone, firstName: contact.first, reason, templateId, paramCount });
   } catch (err) {
     return { error: err.message };
   }
@@ -1278,9 +1285,15 @@ export async function addWhatsAppTemplate(formData) {
   const name = formData.get('name')?.toString().trim();
   const templateId = formData.get('template_id')?.toString().trim();
   const previewText = formData.get('preview_text')?.toString().trim() || null;
+  // כמה מקומות [#1#]/[#2#] יש בנוסח המאושר בפועל ב-InforU - לא כל
+  // התבניות זהות (ר' migration 0115: שליחה עם מספר-פרמטרים שגוי נכשלת
+  // במסירה בשקט, "Operator Response: #132000"). חובה למלא נכון לפי
+  // הנוסח שרואים בפאנל InforU עצמו.
+  const paramCount = Number(formData.get('param_count'));
   if (!name || !templateId) return { error: 'יש למלא שם ומספר תבנית' };
 
-  const { error } = await supabase.from('whatsapp_templates').insert({ name, template_id: templateId, preview_text: previewText });
+  const { error } = await supabase.from('whatsapp_templates')
+    .insert({ name, template_id: templateId, preview_text: previewText, param_count: Number.isFinite(paramCount) ? paramCount : 2 });
   if (error) return { error: error.message };
   return { success: true };
 }

@@ -48,7 +48,7 @@ export default async function SettingsPage() {
     memberCount = count || 0;
   }
 
-  const { data: whatsappTemplates } = await supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at');
+  const { data: whatsappTemplates } = await supabase.from('whatsapp_templates').select('id, name, template_id, preview_text, param_count').order('created_at');
   const { data: emailTemplates } = await supabase.from('email_templates').select('id, name, subject, body').order('created_at');
 
   return (
