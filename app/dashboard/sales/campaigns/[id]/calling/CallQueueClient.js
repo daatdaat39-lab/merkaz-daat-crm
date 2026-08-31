@@ -1,8 +1,12 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { getCallableCampaignSummary, listCategoryContactsForCalling, claimNextContact } from '../callQueueActions';
+import {
+  getCallableCampaignSummary, listCategoryContactsForCalling, claimNextContact,
+  startCallSession, logBreakStart, logBreakEnd, endCallSession,
+} from '../callQueueActions';
 import ActiveCallPanel from './ActiveCallPanel';
+import DonationCelebrationToast from './DonationCelebrationToast';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
 const cardStyle = { background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8 };
@@ -11,7 +15,8 @@ const cardStyle = { background: 'var(--bg)', border: '1px solid var(--border, #e
 // עצמה - לא כרטיס-יחיד למסך כולו (יש תקדים מפורש ב-MappingQueue.js
 // שהוחלף בטבלה לפי בקשת המשתמש - טבלה נשארת ברירת-המחדל לעיון/פיקוח).
 // isLockedTelemarketer: תפקיד "טלפן" הנעול מקבל חוויה שונה לגמרי - בלי
-// טבלה בכלל (גם לא נשלפת), לולאת-שיחות רצופה אמיתית במקום מסך-ביניים.
+// טבלה בכלל (גם לא נשלפת), לולאת-שיחות רצופה אמיתית במקום מסך-ביניים,
+// ופס-משמרת (הפסקה/סיום) - ר' call_session_events, migration 0099.
 export default function CallQueueClient({ campaignId, stages, workspaceId, whatsappTemplates = [], isLockedTelemarketer = false }) {
   const [summary, setSummary] = useState(null);
   const [category, setCategory] = useState('');
@@ -19,6 +24,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
   const [activeContact, setActiveContact] = useState(null);
   const [emptyMessage, setEmptyMessage] = useState('');
   const [error, setError] = useState('');
+  const [session, setSession] = useState('idle'); // idle | active | break | ended
   const [isPending, startTransition] = useTransition();
 
   function loadSummary() {
@@ -43,6 +49,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
     setError('');
     setEmptyMessage('');
     startTransition(async () => {
+      if (isLockedTelemarketer && session === 'idle') { await startCallSession(campaignId); setSession('active'); }
       const res = await claimNextContact(campaignId, category || null);
       if (res.error) { setError(res.error); return; }
       if (!res.contact) { setEmptyMessage('אין יותר אנשי קשר בקטגוריה הזו כרגע - נסו קטגוריה אחרת.'); return; }
@@ -57,16 +64,69 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
     if (isLockedTelemarketer || autoAdvance) handleCallNext();
   }
 
+  function handleBreak() {
+    startTransition(async () => {
+      await logBreakStart(campaignId);
+      setSession('break');
+    });
+  }
+
+  function handleResumeFromBreak() {
+    startTransition(async () => {
+      await logBreakEnd(campaignId);
+      setSession('active');
+    });
+  }
+
+  function handleEndDay() {
+    startTransition(async () => {
+      await endCallSession(campaignId);
+      setSession('ended');
+    });
+  }
+
+  function handleContinueAnyway() {
+    startTransition(async () => {
+      await startCallSession(campaignId);
+      setSession('active');
+    });
+  }
+
   if (isLockedTelemarketer) {
     return (
       <div>
+        <DonationCelebrationToast campaignId={campaignId} />
+
         {error && (
           <div style={{ marginBottom: 14, background: '#fdecea', border: '1px solid #f5c6cb', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: '#c62828' }}>
             {error}
           </div>
         )}
 
-        {!activeContact && (
+        {session === 'break' && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '60px 20px', textAlign: 'center' }}>
+            <div style={{ fontSize: 40 }}>☕</div>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>בהפסקה</div>
+            <button
+              type="button" onClick={handleResumeFromBreak} disabled={isPending}
+              style={{ ...inputStyle, fontSize: 15, fontWeight: 700, padding: '12px 28px', background: 'var(--accent, #2f6f4f)', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer' }}
+            >
+              חזרה מהפסקה
+            </button>
+          </div>
+        )}
+
+        {session === 'ended' && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '60px 20px', textAlign: 'center' }}>
+            <div style={{ fontSize: 40 }}>🙏</div>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>היום הסתיים, תודה!</div>
+            <button type="button" onClick={handleContinueAnyway} disabled={isPending} style={{ ...inputStyle, width: 'auto', cursor: 'pointer' }}>
+              המשך בכל זאת
+            </button>
+          </div>
+        )}
+
+        {session !== 'break' && session !== 'ended' && !activeContact && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: '50px 20px', textAlign: 'center' }}>
             <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ ...inputStyle, fontSize: 14 }}>
               <option value="">הכל</option>
@@ -84,6 +144,13 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
               {summary ? `${summary.total} אנשי קשר ממתינים לשיחה` : 'טוען...'}
             </span>
             {emptyMessage && <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{emptyMessage}</div>}
+
+            {session === 'active' && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+                <button type="button" onClick={handleBreak} disabled={isPending} style={{ ...inputStyle, width: 'auto', cursor: 'pointer' }}>☕ הפסקה</button>
+                <button type="button" onClick={handleEndDay} disabled={isPending} style={{ ...inputStyle, width: 'auto', cursor: 'pointer' }}>⏹ סיום להיום</button>
+              </div>
+            )}
           </div>
         )}
 

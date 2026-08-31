@@ -298,6 +298,25 @@ async function logSessionEvent(campaignId, eventType) {
   return { success: true };
 }
 
+// פרטים לטוסט-חגיגה (DonationCelebrationToast.js) - נקרא אחרי אירוע
+// Realtime על INSERT ל-campaign_call_attempts, כדי להשלים שם+סכום
+// (ה-payload הגולמי של postgres_changes מכיל רק עמודות, לא joins).
+export async function getCelebrationInfo(attemptId) {
+  const { supabase } = await requireUser();
+  const { data: attempt } = await supabase.from('campaign_call_attempts')
+    .select('agent_id, donation_amount, campaign_contacts:campaign_contact_id (contacts:contact_id (first, last))')
+    .eq('id', attemptId).maybeSingle();
+  if (!attempt) return { error: 'לא נמצא' };
+  const { data: profile } = attempt.agent_id
+    ? await supabase.from('profiles').select('name').eq('id', attempt.agent_id).maybeSingle()
+    : { data: null };
+  return {
+    success: true,
+    contactName: `${attempt.campaign_contacts?.contacts?.first || ''} ${attempt.campaign_contacts?.contacts?.last || ''}`.trim(),
+    agentName: profile?.name || 'נציג', amount: attempt.donation_amount,
+  };
+}
+
 export async function startCallSession(campaignId) { return logSessionEvent(campaignId, 'start'); }
 export async function logBreakStart(campaignId) { return logSessionEvent(campaignId, 'break_start'); }
 export async function logBreakEnd(campaignId) { return logSessionEvent(campaignId, 'break_end'); }
