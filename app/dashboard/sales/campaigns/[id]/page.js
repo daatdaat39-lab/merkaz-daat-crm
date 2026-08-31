@@ -16,12 +16,18 @@ export default async function CampaignDetailPage({ params }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // open_for_telemarketing (migration 0096) - נשלף בנפרד עם נפילה-רכה:
+  // אם המיגרציה עוד לא רצה בסביבה הזו, לא רוצים שהעמוד כולו יקרוס ל-404
+  // (כבר קרה בפועל - ר' commit history) - רק המתג עצמו לא יעבוד עד אז.
   const { data: campaign } = await supabase
     .from('campaigns')
-    .select('id, name, channel, status, kind, workspace_id, open_for_telemarketing, workspaces:workspace_id (name)')
+    .select('id, name, channel, status, kind, workspace_id, workspaces:workspace_id (name)')
     .eq('id', params.id)
     .single();
   if (!campaign) notFound();
+
+  const { data: telemarketingRow } = await supabase.from('campaigns').select('open_for_telemarketing').eq('id', params.id).maybeSingle();
+  campaign.open_for_telemarketing = telemarketingRow?.open_for_telemarketing ?? false;
 
   const allowed = await isManagerOfWorkspace(supabase, user.id, campaign.workspace_id);
   if (!allowed) {
