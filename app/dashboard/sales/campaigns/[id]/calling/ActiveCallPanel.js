@@ -8,9 +8,18 @@ import ContactSummaryPanel from './ContactSummaryPanel';
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box' };
 const btnStyle = { ...inputStyle, width: 'auto', cursor: 'pointer' };
 const primaryBtn = { ...btnStyle, background: 'var(--accent, #2f6f4f)', color: '#fff', fontWeight: 600, border: 'none' };
-const cardStyle = { background: 'var(--bg-secondary, #f7f7f7)', borderRadius: 8, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 };
+const warmBtn = { ...btnStyle, background: '#c8791f', color: '#fff', fontWeight: 600, border: 'none' };
+const cardStyle = { background: 'var(--bg-secondary, #f7f7f7)', borderRadius: 10, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 };
 const sectionLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', letterSpacing: '.03em' };
 
+const OUTCOME_LABELS = {
+  no_answer: 'לא ענה', donating_now: 'תורם עכשיו תוך כדי הטלפון', requested_link: 'ביקש קישור לתרום בעצמו',
+  not_interested: 'לא מעוניין לתרום', call_back: 'ביקש להתקשר מאוחר יותר',
+};
+const NO_ANSWER_REASONS = [
+  { key: 'busy', label: 'תפוס' }, { key: 'wrong_number', label: 'מספר שגוי' },
+  { key: 'voicemail', label: 'תא קולי' }, { key: '', label: 'אחר' },
+];
 const ANSWERED_OUTCOMES = [
   { key: 'donating_now', label: 'תורם עכשיו תוך כדי הטלפון' },
   { key: 'requested_link', label: 'ביקש קישור לתרום בעצמו' },
@@ -87,17 +96,21 @@ function CallbackScheduler({ callbackAt, onChange }) {
 // tel: הוא ה-click-to-call הראשון בכל המערכת (ר' גם ContactQuickActions.js) -
 // הטלפניות מתקשרות מהנייד האישי שלהן, לא דרך שלוחת 015, אז אין שום מקום
 // אחר שבו השיחה נרשמת אוטומטית - יומן-הניסיונות כאן הוא הרישום היחיד שיש.
-// hideAutoAdvanceToggle: תפקיד "טלפן" הנעול תמיד לולאה - הצ'קבוקס מיותר שם.
-export default function ActiveCallPanel({ contact, stages, workspaceId, whatsappTemplates = [], hideAutoAdvanceToggle = false, onClose }) {
+// כל תוצאה (כולל "ענה") עוברת דרך מסך-אישור עם "בטל" לפני שממשיכים -
+// לא רק "לא ענה" - כדי שלחיצה בטעות תמיד תהיה הפיכה. ההתקדמות לבא בתור
+// תמיד ידנית (לחיצה על "הבא ←"), גם בתפקיד "טלפן" הנעול - זו בכוונה,
+// לא נשארה אופציית "המשך אוטומטית" כי מסך-האישור כבר עוצר בכל מקרה.
+export default function ActiveCallPanel({ contact, stages, workspaceId, whatsappTemplates = [], onClose }) {
   const [status, setStatus] = useState(contact.status);
-  const [phase, setPhase] = useState('choosing'); // choosing | answered | no_answer_done
+  const [phase, setPhase] = useState('choosing'); // choosing | answered | confirming
   const [answeredOutcome, setAnsweredOutcome] = useState(null);
   const [callbackAt, setCallbackAt] = useState(null);
   const [dedicationText, setDedicationText] = useState('');
+  const [donationAmount, setDonationAmount] = useState('');
+  const [pledgeDetails, setPledgeDetails] = useState('');
   const [noteType, setNoteType] = useState('general');
   const [note, setNote] = useState('');
-  const [autoAdvance, setAutoAdvance] = useState(false);
-  const [noAnswerResult, setNoAnswerResult] = useState(null);
+  const [confirmResult, setConfirmResult] = useState(null); // {attemptId, attemptNumber, previousNote, outcome}
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -114,24 +127,13 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
     };
   }, [contact.rowId, phase]);
 
-  function handleNoAnswer() {
+  function handleNoAnswer(reason) {
     setError('');
     startTransition(async () => {
-      const res = await quickNoAnswer(contact.rowId, { note, noteType });
+      const res = await quickNoAnswer(contact.rowId, { note, noteType, reason: reason || null });
       if (res.error) { setError(res.error); return; }
-      setNoAnswerResult(res);
-      setPhase('no_answer_done');
-    });
-  }
-
-  function handleUndoNoAnswer() {
-    setError('');
-    startTransition(async () => {
-      const res = await undoLastCallAttempt(noAnswerResult.attemptId, contact.rowId, noAnswerResult.previousNote);
-      if (res.error) { setError(res.error); return; }
-      if (!res.reclaimed) { onClose({}); return; }
-      setNoAnswerResult(null);
-      setPhase('choosing');
+      setConfirmResult({ ...res, outcome: 'no_answer' });
+      setPhase('confirming');
     });
   }
 
@@ -139,12 +141,24 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
     setError('');
     startTransition(async () => {
       const res = await logCallAttempt(contact.rowId, {
-        outcome: answeredOutcome, note, noteType, dedicationText,
+        outcome: answeredOutcome, note, noteType, dedicationText, donationAmount, pledgeDetails,
         callbackAt: answeredOutcome === 'call_back' ? callbackAt : null,
         newStatus: stages.length ? status : undefined,
       });
       if (res.error) { setError(res.error); return; }
-      onClose({ autoAdvance: hideAutoAdvanceToggle || autoAdvance });
+      setConfirmResult({ ...res, outcome: answeredOutcome });
+      setPhase('confirming');
+    });
+  }
+
+  function handleUndo() {
+    setError('');
+    startTransition(async () => {
+      const res = await undoLastCallAttempt(confirmResult.attemptId, contact.rowId, confirmResult.previousNote);
+      if (res.error) { setError(res.error); return; }
+      if (!res.reclaimed) { onClose({}); return; }
+      setConfirmResult(null);
+      setPhase('choosing');
     });
   }
 
@@ -164,20 +178,22 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
     return null;
   })();
 
+  const isCelebration = confirmResult?.outcome === 'donating_now';
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'var(--bg)', borderRadius: 12, width: 900, maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,0.25)' }}>
-        <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border, #e5e5e5)' }}>
-          <div style={{ fontSize: 17, fontWeight: 700 }}>{contact.name}</div>
+      <div style={{ background: 'var(--bg)', borderRadius: 14, width: 920, maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.28)' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border, #e5e5e5)' }}>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{contact.name}</div>
           <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{contact.category}</div>
         </div>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* עמודת פקדי-שיחה */}
-          <div style={{ flex: '1 1 55%', padding: '18px 22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, borderInlineEnd: '1px solid var(--border, #e5e5e5)' }}>
+          <div style={{ flex: '1 1 55%', padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, borderInlineEnd: '1px solid var(--border, #e5e5e5)' }}>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               {telHref(contact.phone) && (
-                <a href={telHref(contact.phone)} style={{ ...primaryBtn, textDecoration: 'none' }}>📞 {contact.phone}</a>
+                <a href={telHref(contact.phone)} style={{ ...primaryBtn, fontSize: 15, padding: '10px 20px', textDecoration: 'none' }}>📞 {contact.phone}</a>
               )}
               {telHref(contact.phone2) && (
                 <a href={telHref(contact.phone2)} style={{ ...btnStyle, textDecoration: 'none', color: 'inherit' }}>📞 {contact.phone2} (משני)</a>
@@ -191,7 +207,7 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
               </div>
             )}
 
-            {phase !== 'no_answer_done' && (
+            {phase !== 'confirming' && (
               <div style={cardStyle}>
                 <div style={sectionLabel}>הערה על השיחה (אופציונלי)</div>
                 <ToggleGroup options={NOTE_TYPES} value={noteType} onChange={setNoteType} />
@@ -200,18 +216,28 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
             )}
 
             {phase === 'choosing' && (
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" onClick={handleNoAnswer} disabled={isPending} style={btnStyle}>לא ענה</button>
-                <button type="button" onClick={() => setPhase('answered')} disabled={isPending} style={primaryBtn}>ענה</button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div>
+                  <div style={{ ...sectionLabel, marginBottom: 8 }}>לא ענה</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {NO_ANSWER_REASONS.map((r) => (
+                      <button key={r.key || 'other'} type="button" onClick={() => handleNoAnswer(r.key)} disabled={isPending} style={btnStyle}>{r.label}</button>
+                    ))}
+                  </div>
+                </div>
+                <button type="button" onClick={() => setPhase('answered')} disabled={isPending} style={{ ...primaryBtn, fontSize: 14, padding: '12px 20px', borderRadius: 10 }}>ענה</button>
               </div>
             )}
 
-            {phase === 'no_answer_done' && noAnswerResult && (
-              <div style={cardStyle}>
-                <div>✓ נרשם: לא ענה (ניסיון #{noAnswerResult.attemptNumber})</div>
+            {phase === 'confirming' && confirmResult && (
+              <div style={{ ...cardStyle, background: isCelebration ? '#fdf1e2' : cardStyle.background, border: isCelebration ? '1px solid #f0c987' : 'none' }}>
+                <div style={{ fontSize: isCelebration ? 15 : 13, fontWeight: isCelebration ? 700 : 400, color: isCelebration ? '#a85c00' : 'inherit' }}>
+                  {isCelebration ? '🎉 כל הכבוד! נרשמה תרומה' : `✓ נרשם: ${OUTCOME_LABELS[confirmResult.outcome] || confirmResult.outcome}`}
+                  {confirmResult.attemptNumber ? ` (ניסיון #${confirmResult.attemptNumber})` : ''}
+                </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button type="button" onClick={handleUndoNoAnswer} disabled={isPending} style={btnStyle}>בטל</button>
-                  <button type="button" onClick={() => onClose({ autoAdvance: true })} disabled={isPending} style={primaryBtn}>הבא ←</button>
+                  <button type="button" onClick={handleUndo} disabled={isPending} style={btnStyle}>בטל</button>
+                  <button type="button" onClick={() => onClose({ autoAdvance: true })} disabled={isPending} style={isCelebration ? warmBtn : primaryBtn}>הבא ←</button>
                 </div>
               </div>
             )}
@@ -232,10 +258,27 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
 
                 {answeredOutcome === 'donating_now' && (
                   <div style={cardStyle}>
-                    <div style={sectionLabel}>הקדשה (אם יש)</div>
+                    <div style={sectionLabel}>פרטי התרומה (לתיוג בלבד - לא יוצר רשומת-תרומה אמיתית)</div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, marginBottom: 3, color: 'var(--text-secondary)' }}>סכום</label>
+                      <input type="number" value={donationAmount} onChange={(e) => setDonationAmount(e.target.value)} style={inputStyle} placeholder="₪" />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, marginBottom: 3, color: 'var(--text-secondary)' }}>הקדשה (אם יש)</label>
+                      <textarea
+                        value={dedicationText} onChange={(e) => setDedicationText(e.target.value)} rows={2}
+                        style={{ ...inputStyle, resize: 'vertical' }} placeholder='לדוגמה: "לעילוי נשמת..."'
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {answeredOutcome === 'requested_link' && (
+                  <div style={cardStyle}>
+                    <div style={sectionLabel}>מה הוא אמר שיתרום? (תיעוד ההתחייבות)</div>
                     <textarea
-                      value={dedicationText} onChange={(e) => setDedicationText(e.target.value)} rows={2}
-                      style={{ ...inputStyle, resize: 'vertical' }} placeholder='מה לרשום בהקדשה? לדוגמה: "לעילוי נשמת..."'
+                      value={pledgeDetails} onChange={(e) => setPledgeDetails(e.target.value)} rows={2}
+                      style={{ ...inputStyle, resize: 'vertical' }} placeholder='לדוגמה: "אמר שיתרום 500 ₪ עד סוף השבוע"'
                     />
                   </div>
                 )}
@@ -251,16 +294,9 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
                       </div>
                     )}
 
-                    {!hideAutoAdvanceToggle && (
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)' }}>
-                        <input type="checkbox" checked={autoAdvance} onChange={(e) => setAutoAdvance(e.target.checked)} />
-                        המשך אוטומטית לבא בתור
-                      </label>
-                    )}
-
                     <button
                       type="button" onClick={handleSaveAnswered} disabled={isPending || (answeredOutcome === 'call_back' && !callbackAt)}
-                      style={primaryBtn}
+                      style={{ ...primaryBtn, fontSize: 14, padding: '12px 20px', borderRadius: 10 }}
                     >
                       שמור והתקדם
                     </button>
@@ -271,13 +307,13 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
 
             {error && <div style={{ fontSize: 12, color: '#c62828' }}>{error}</div>}
 
-            {phase !== 'no_answer_done' && (
+            {phase !== 'confirming' && (
               <button type="button" onClick={handleSkip} disabled={isPending} style={{ ...btnStyle, alignSelf: 'flex-start' }}>דלג</button>
             )}
           </div>
 
           {/* עמודת כרטיס-קשר לקריאה בלבד */}
-          <div style={{ flex: '1 1 45%', padding: '18px 22px', overflowY: 'auto' }}>
+          <div style={{ flex: '1 1 45%', padding: '20px 24px', overflowY: 'auto' }}>
             <ContactSummaryPanel contact={contact} />
           </div>
         </div>

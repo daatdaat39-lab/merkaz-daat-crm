@@ -90,7 +90,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
         {activeContact && (
           <ActiveCallPanel
             contact={activeContact} stages={stages} workspaceId={workspaceId} whatsappTemplates={whatsappTemplates}
-            hideAutoAdvanceToggle onClose={handlePanelClosed}
+            onClose={handlePanelClosed}
           />
         )}
       </div>

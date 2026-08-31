@@ -34,12 +34,13 @@ const OUTCOME_LABELS = {
 };
 
 const NOTE_TYPE_LABELS = { donation: 'לגבי תרומה', general: 'כללי', other: 'אחר' };
+const NO_ANSWER_REASON_LABELS = { busy: 'תפוס', wrong_number: 'מספר שגוי', voicemail: 'תא קולי' };
 
 const UNDO_WINDOW_MINUTES = 5;
 
 async function fetchAttemptsForCampaignContact(supabase, campaignContactId) {
   const { data: attempts } = await supabase.from('campaign_call_attempts')
-    .select('id, agent_id, attempt_number, outcome, note, note_type, callback_at, dedication_text, created_at')
+    .select('id, agent_id, attempt_number, outcome, note, note_type, callback_at, dedication_text, no_answer_reason, pledge_details, donation_amount, created_at')
     .eq('campaign_contact_id', campaignContactId).order('created_at', { ascending: true });
   const agentIds = Array.from(new Set((attempts || []).map((a) => a.agent_id).filter(Boolean)));
   const { data: profiles } = agentIds.length
@@ -50,7 +51,9 @@ async function fetchAttemptsForCampaignContact(supabase, campaignContactId) {
     id: a.id, attemptNumber: a.attempt_number, agentName: a.agent_id ? (nameById[a.agent_id] || 'נציג') : 'נציג',
     outcome: a.outcome, outcomeLabel: OUTCOME_LABELS[a.outcome] || a.outcome,
     note: a.note || '', noteType: a.note_type, noteTypeLabel: NOTE_TYPE_LABELS[a.note_type] || a.note_type,
-    dedicationText: a.dedication_text || '', callbackAt: a.callback_at, createdAt: a.created_at,
+    dedicationText: a.dedication_text || '', noAnswerReasonLabel: a.no_answer_reason ? NO_ANSWER_REASON_LABELS[a.no_answer_reason] : '',
+    pledgeDetails: a.pledge_details || '', donationAmount: a.donation_amount || null,
+    callbackAt: a.callback_at, createdAt: a.created_at,
   }));
 }
 
@@ -180,7 +183,7 @@ async function requireOwnClaim(supabase, userId, rowId) {
   return { row };
 }
 
-export async function logCallAttempt(rowId, { outcome, note, noteType, callbackAt, dedicationText, newStatus }) {
+export async function logCallAttempt(rowId, { outcome, note, noteType, callbackAt, dedicationText, pledgeDetails, donationAmount, newStatus }) {
   const { supabase, user } = await requireUser();
   const { row, error } = await requireOwnClaim(supabase, user.id, rowId);
   if (error) return { error };
@@ -190,6 +193,8 @@ export async function logCallAttempt(rowId, { outcome, note, noteType, callbackA
     p_note: note && note.trim() ? note.trim() : null, p_note_type: noteType || 'general',
     p_callback_at: callbackAt || null,
     p_dedication_text: outcome === 'donating_now' && dedicationText && dedicationText.trim() ? dedicationText.trim() : null,
+    p_pledge_details: outcome === 'requested_link' && pledgeDetails && pledgeDetails.trim() ? pledgeDetails.trim() : null,
+    p_donation_amount: outcome === 'donating_now' && donationAmount ? Number(donationAmount) : null,
   });
   if (rpcError) return { error: rpcError.message };
 
@@ -201,12 +206,12 @@ export async function logCallAttempt(rowId, { outcome, note, noteType, callbackA
 
   const { error: updateError } = await supabase.from('campaign_contacts').update(update).eq('id', rowId);
   if (updateError) return { error: updateError.message };
-  return { success: true, attemptId: attempt.id };
+  return { success: true, attemptId: attempt.id, attemptNumber: attempt.attempt_number, previousNote: row.note || '' };
 }
 
 // "לא ענה" - פעולה מיידית: רושמת ניסיון, משחררת את התפיסה, ומחזירה את
 // מזהה-הניסיון + ההערה הקודמת כדי שהלקוח יוכל להציע "בטל" מיד אחר כך.
-export async function quickNoAnswer(rowId, { note, noteType } = {}) {
+export async function quickNoAnswer(rowId, { note, noteType, reason } = {}) {
   const { supabase, user } = await requireUser();
   const { row, error } = await requireOwnClaim(supabase, user.id, rowId);
   if (error) return { error };
@@ -214,10 +219,12 @@ export async function quickNoAnswer(rowId, { note, noteType } = {}) {
   const { data: attempt, error: rpcError } = await supabase.rpc('log_campaign_call_attempt', {
     p_campaign_contact_id: row.id, p_agent_id: user.id, p_outcome: 'no_answer',
     p_note: note && note.trim() ? note.trim() : null, p_note_type: noteType || 'general',
+    p_no_answer_reason: reason || null,
   });
   if (rpcError) return { error: rpcError.message };
 
-  const summary = `[${formatIsraeliDateTime(new Date())}] ${OUTCOME_LABELS.no_answer}${note && note.trim() ? ` - ${note.trim()}` : ''}`;
+  const reasonLabel = reason ? ` (${NO_ANSWER_REASON_LABELS[reason] || reason})` : '';
+  const summary = `[${formatIsraeliDateTime(new Date())}] ${OUTCOME_LABELS.no_answer}${reasonLabel}${note && note.trim() ? ` - ${note.trim()}` : ''}`;
   const mirroredNote = row.note ? `${summary}\n\n${row.note}` : summary;
   const { error: updateError } = await supabase.from('campaign_contacts')
     .update({ claimed_by: null, claimed_at: null, note: mirroredNote }).eq('id', rowId);
@@ -266,3 +273,21 @@ export async function skipContact(rowId) {
   if (rpcError) return { error: rpcError.message };
   return { success: true };
 }
+
+// אירועי-משמרת (call_session_events, migration 0099) - "התחלה" נרשמת
+// אוטומטית בתפיסה הראשונה (לא כפתור נפרד, פחות חיכוך), הפסקה/סיום הם
+// מצבי-UI בלבד ב-CallQueueClient.js - לא נוגעים בהרשאת-התפקיד/middleware.
+async function logSessionEvent(campaignId, eventType) {
+  const { supabase, user } = await requireUser();
+  const { error } = await requireMemberOfCampaign(supabase, user.id, campaignId);
+  if (error) return { error };
+  const { error: insertError } = await supabase.from('call_session_events')
+    .insert({ agent_id: user.id, campaign_id: campaignId, event_type: eventType });
+  if (insertError) return { error: insertError.message };
+  return { success: true };
+}
+
+export async function startCallSession(campaignId) { return logSessionEvent(campaignId, 'start'); }
+export async function logBreakStart(campaignId) { return logSessionEvent(campaignId, 'break_start'); }
+export async function logBreakEnd(campaignId) { return logSessionEvent(campaignId, 'break_end'); }
+export async function endCallSession(campaignId) { return logSessionEvent(campaignId, 'end'); }
