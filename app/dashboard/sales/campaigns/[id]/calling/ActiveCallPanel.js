@@ -19,8 +19,8 @@ const OUTCOME_LABELS = {
   active_donation: 'יש כבר תרומה/הוראת קבע פעילה', number_issue: 'בעיה במספר',
 };
 const NO_ANSWER_REASONS = [
-  { key: 'busy', label: 'תפוס' }, { key: 'wrong_number', label: 'מספר שגוי' },
-  { key: 'voicemail', label: 'תא קולי' }, { key: '', label: 'אחר' },
+  { key: '', label: 'לא ענה' }, { key: 'busy', label: 'תפוס' }, { key: 'wrong_number', label: 'מספר שגוי' },
+  { key: 'voicemail', label: 'תא קולי' },
 ];
 const ANSWERED_OUTCOMES = [
   { key: 'donating_now', label: 'תורם עכשיו תוך כדי הטלפון' },
