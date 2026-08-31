@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { isMemberOfWorkspace } from '../../../lib/contactGuards';
 import { fetchDistinctCampaignCategories, getSegmentRowInsights } from '../actions';
 import { formatIsraeliDateTime } from '../../../lib/dateFormat';
+import { getAllPipelines } from '../../../lib/pipelines';
 
 // תור-שיחות לטלמרקטינג: בניגוד ל-actions.js (מנהל בלבד), הפעולות כאן
 // פתוחות לכל חבר-מחלקה - כל מי שעובד על הקמפיין צריך גישה לתור, לא רק
@@ -107,13 +108,14 @@ export async function listCategoryContactsForCalling(campaignId, category) {
 async function fetchExtendedContactInfo(supabase, contactId) {
   const [
     { data: relForward }, { data: relReverse },
-    { data: courses }, { data: seminars }, { data: deptRows },
+    { data: courses }, { data: seminars }, { data: deptRows }, pipelines,
   ] = await Promise.all([
     supabase.from('contact_relations').select('relation_label, related:related_contact_id (id, first, last)').eq('contact_id', contactId),
     supabase.from('contact_relations').select('relation_label, owner:contact_id (id, first, last)').eq('related_contact_id', contactId),
     supabase.from('contact_course_enrollments').select('course_name, course_code, year_label').eq('contact_id', contactId),
     supabase.from('contact_seminar_participations').select('event_type, year, kind, status').eq('contact_id', contactId),
-    supabase.from('contact_departments').select('extra_fields, workspaces:workspace_id (name)').eq('contact_id', contactId),
+    supabase.from('contact_departments').select('stage, last_activity_at, extra_fields, workspaces:workspace_id (name)').eq('contact_id', contactId),
+    getAllPipelines(supabase),
   ]);
 
   const relations = [
@@ -130,7 +132,15 @@ async function fetchExtendedContactInfo(supabase, contactId) {
       }
     : null;
 
-  return { relations, courses: courses || [], seminars: seminars || [], yeshivaInfo };
+  // סיכום קומפקטי - שורה אחת לכל מחלקה (בלי צלילה לפרטים), כדי שטלפן
+  // יראה במבט אחד "מה היה בכל מחלקה שהוא נמצא" בלי הצפה.
+  const departments = (deptRows || []).filter((d) => d.workspaces?.name).map((d) => ({
+    workspaceName: d.workspaces.name,
+    stageLabel: pipelines.labels[d.stage] || d.stage,
+    lastActivityAt: d.last_activity_at,
+  }));
+
+  return { relations, courses: courses || [], seminars: seminars || [], yeshivaInfo, departments };
 }
 
 export async function claimNextContact(campaignId, category) {
@@ -167,6 +177,7 @@ export async function claimNextContact(campaignId, category) {
       attempts,
       personalInfo: fullContact || {},
       relations: extended.relations, courses: extended.courses, seminars: extended.seminars, yeshivaInfo: extended.yeshivaInfo,
+      departments: extended.departments,
     },
   };
 }

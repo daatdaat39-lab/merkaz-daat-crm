@@ -123,6 +123,20 @@ export default function ContactSummaryPanel({ contact }) {
         )}
       </div>
 
+      {contact.departments?.length > 0 && (
+        <>
+          <div style={sectionLabel}>מה קורה בכל מחלקה</div>
+          <div style={card}>
+            {contact.departments.map((d, i) => (
+              <div key={i} style={fieldRow}>
+                <span style={fieldLabel}>{d.workspaceName}:</span>
+                <span>{d.stageLabel}{d.lastActivityAt ? ` · פעילות אחרונה ${formatIsraeliDateTime(d.lastActivityAt)}` : ''}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
       {contact.relations?.length > 0 && (
         <>
           <div style={sectionLabel}>אנשי קשר קשורים</div>
@@ -179,14 +193,16 @@ export default function ContactSummaryPanel({ contact }) {
           {attempts.map((a) => (
             <div key={a.id} style={card}>
               <div style={{ fontWeight: 600 }}>
-                ניסיון {ordinal(a.attemptNumber)} · {a.outcomeLabel}
+                ניסיון {ordinal(a.attemptNumber)} · {a.outcomeLabel}{a.noAnswerReasonLabel ? ` (${a.noAnswerReasonLabel})` : ''}
               </div>
               <div style={{ color: 'var(--text-secondary)', fontSize: 11 }}>
                 {a.agentName} · {formatIsraeliDateTime(a.createdAt)}
                 {a.callbackAt && ` · חזרה מתוזמנת ל-${formatIsraeliDateTime(a.callbackAt)}`}
               </div>
               {a.note && <div style={{ marginTop: 2 }}>{a.noteTypeLabel && <strong>{a.noteTypeLabel}: </strong>}{a.note}</div>}
+              {a.donationAmount != null && <div style={{ marginTop: 2 }}><strong>סכום:</strong> ₪{Number(a.donationAmount).toLocaleString()}</div>}
               {a.dedicationText && <div style={{ marginTop: 2 }}><strong>הקדשה:</strong> {a.dedicationText}</div>}
+              {a.pledgeDetails && <div style={{ marginTop: 2 }}><strong>התחייבות:</strong> {a.pledgeDetails}</div>}
             </div>
           ))}
         </div>
