@@ -282,7 +282,12 @@ async function buildContactInsights(supabase, contactId) {
   // גם "שנות לימוד" (אם יש) כדי שאפשר יהיה להשלים ידנית לפי זה בגיליון.
   const yeshivaDept = (deptRows || []).find((d) => d.workspaces?.name === 'ישיבת דעת');
   const yeshivaCohort = yeshivaDept?.extra_fields?.cohort || '';
-  const yeshivaStudyYears = yeshivaDept?.extra_fields?.study_years || '';
+  // study_years נשמר כמערך (יכולים להיות כמה שנות-לימוד לאותו איש קשר,
+  // ר' migrations 0073-0075) - חייב לצרף למחרוזת לפני הצגה/ייצוא, אחרת
+  // Google Sheets API דוחה את התא (list value לא חוקי בתוך תא בודד).
+  const yeshivaStudyYears = Array.isArray(yeshivaDept?.extra_fields?.study_years)
+    ? yeshivaDept.extra_fields.study_years.join(', ')
+    : (yeshivaDept?.extra_fields?.study_years || '');
   const has5786Course = (courseRows || []).some((c) => c.year_label === 'תשפ"ו');
 
   const rows = txns || [];
@@ -462,7 +467,9 @@ async function buildBulkContactInsights(supabase, contactIds) {
       lastInteraction: candidates[0] || null,
       has5786Course: bucket.courses.some((c) => c.year_label === 'תשפ"ו'),
       yeshivaCohort: bucket.yeshivaExtraFields?.cohort || '',
-      yeshivaStudyYears: bucket.yeshivaExtraFields?.study_years || '',
+      yeshivaStudyYears: Array.isArray(bucket.yeshivaExtraFields?.study_years)
+        ? bucket.yeshivaExtraFields.study_years.join(', ')
+        : (bucket.yeshivaExtraFields?.study_years || ''),
     };
   }
   return result;
