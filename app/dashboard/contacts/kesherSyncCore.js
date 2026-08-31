@@ -8,6 +8,29 @@
 import { findExistingMatch, insertDonationTransaction, upsertContactExternalId, upsertDepartmentMembership, linkContinuedFromEsakim } from './leadIntakeCore';
 import { isKesherConfigured, getKesherTransactions, getKesherObligations } from '../../../lib/kesher/client';
 import { enrollInKesherCampaign, enrollInCampaign } from '../sales/campaigns/kesherCampaign';
+import { formatIsraeliDateTime } from '../lib/dateFormat';
+
+// תרומה חדשה שסונכרנה נכנסת ל-note בכל campaign_contacts פתוח-לטלפניה
+// שהתורם הזה כבר חבר בו - כדי שמנהל/טלפן יראו מיד שהיא קרתה, בלי לבדוק
+// היסטוריית-תרומות בנפרד. **מוגבל בכוונה**: רק תורמים קיימים עם שיוך-
+// קמפיין קיים - תורם חדש-לגמרי לא מקבל שיוך-קמפיין ספציפי כאן (רק
+// enrollInKesherCampaign הגנרי הקיים כבר) כי אין מנגנון-קישור-מתוייג
+// שהיה מאפשר לדעת מאיזה קמפיין ספציפי תורם-חדש הגיע - זה דורש בניית
+// לינק-אישי-עם-קוד-מעקב שלא קיימת היום, לא מנוחש כאן.
+async function notifyOpenCampaignsOfDonation(supabase, contactId, amount) {
+  if (!amount) return;
+  const { data: rows } = await supabase.from('campaign_contacts')
+    .select('id, note, campaigns:campaign_id!inner (open_for_telemarketing)')
+    .eq('contact_id', contactId).eq('campaigns.open_for_telemarketing', true);
+  if (!rows || rows.length === 0) return;
+
+  const summary = `[${formatIsraeliDateTime(new Date())}] 🎉 תרם/ה ₪${Number(amount).toLocaleString()} (זוהה אוטומטית ממערכת קשר)`;
+  for (const row of rows) {
+    await supabase.from('campaign_contacts')
+      .update({ note: row.note ? `${summary}\n\n${row.note}` : summary })
+      .eq('id', row.id);
+  }
+}
 
 // מיפוי תת-מחרוזת משם ה-Project בקשר לשם מחלקה אצלנו - אומת מריצה חיה.
 const PROJECT_TO_WORKSPACE = [
@@ -418,8 +441,10 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
         // למקרה שחסר OriginalDoc בתשובה עתידית).
         receiptUrl: t.OriginalDoc || t.DocumentsDetails?.DocumentDetails?.[0]?.PdfLink || null,
       });
-      if (added === true) result.transactionsCreated++;
-      else if (added === false) {
+      if (added === true) {
+        result.transactionsCreated++;
+        await notifyOpenCampaignsOfDonation(supabase, contact.id, Number(t.Total) / 100);
+      } else if (added === false) {
         result.transactionsSkipped++;
         // insertDonationTransaction מדלגת בשקט על תנועה שכבר קיימת (לא
         // דורסת - עיקרון קבוע בכל הקוד הזה). אבל תנועות קשר שנכתבו לפני
