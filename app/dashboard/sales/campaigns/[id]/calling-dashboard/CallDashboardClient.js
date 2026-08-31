@@ -4,7 +4,7 @@ const card = { background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5
 const sectionLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', letterSpacing: '.03em', margin: '24px 0 10px' };
 
 export default function CallDashboardClient({ stats }) {
-  const { totals, agentTable, notes } = stats;
+  const { totals, agentTable, notes, pendingCallbacks = [], hoursByAgent = [] } = stats;
 
   return (
     <div>
@@ -53,6 +53,47 @@ export default function CallDashboardClient({ stats }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      <div style={sectionLabel}>שיחות חזרה ממתינות</div>
+      {pendingCallbacks.length === 0 && <div style={{ ...card, color: 'var(--text-muted)', fontSize: 12.5 }}>אין כרגע שיחות-חזרה ממתינות.</div>}
+      {pendingCallbacks.length > 0 && (
+        <div style={{ ...card, overflowX: 'auto', padding: 0 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-secondary, #f7f7f7)', textAlign: 'right' }}>
+                <th style={{ padding: '8px 12px' }}>שם</th>
+                <th style={{ padding: '8px 12px' }}>טלפון</th>
+                <th style={{ padding: '8px 12px' }}>מתי לחזור</th>
+                <th style={{ padding: '8px 12px' }}>מי קבע</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingCallbacks.map((c) => (
+                <tr key={c.rowId} style={{ borderTop: '1px solid var(--border, #e5e5e5)' }}>
+                  <td style={{ padding: '8px 12px', fontWeight: 600 }}>{c.name || '—'}</td>
+                  <td style={{ padding: '8px 12px' }}>{c.phone}</td>
+                  <td style={{ padding: '8px 12px' }}>{c.callbackAt}</td>
+                  <td style={{ padding: '8px 12px' }}>{c.scheduledBy}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div style={sectionLabel}>שעות עבודה לפי נציג</div>
+      {hoursByAgent.length === 0 && <div style={{ ...card, color: 'var(--text-muted)', fontSize: 12.5 }}>אין עדיין נתוני-משמרת.</div>}
+      {hoursByAgent.length > 0 && (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {hoursByAgent.map((h) => (
+            <div key={h.agentName} style={{ ...card, flex: '1 1 140px' }}>
+              <div style={{ fontWeight: 600, fontSize: 12.5 }}>{h.agentName}</div>
+              <div style={{ fontSize: 18, fontWeight: 700 }}>{Math.floor(h.minutes / 60)}:{String(h.minutes % 60).padStart(2, '0')}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{h.stillActive ? 'פעיל/ה כרגע' : 'שעות'}</div>
+            </div>
+          ))}
         </div>
       )}
 

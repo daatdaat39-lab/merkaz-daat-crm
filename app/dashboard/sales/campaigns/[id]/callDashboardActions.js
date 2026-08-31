@@ -30,7 +30,7 @@ export async function getCallDashboardStats(campaignId) {
   const allowed = await isManagerOfWorkspace(supabase, user.id, campaign.workspace_id);
   if (!allowed) return { error: 'רק מנהל יכול לראות דשבורד זה' };
 
-  const [{ data: totalsRows }, { data: statsRows }, { data: notesRows }] = await Promise.all([
+  const [{ data: totalsRows }, { data: statsRows }, { data: notesRows }, { data: callbackRows }, { data: sessionEvents }] = await Promise.all([
     supabase.rpc('get_call_dashboard_totals', { p_campaign_id: campaignId }),
     supabase.rpc('count_call_attempts_stats', { p_campaign_id: campaignId }),
     supabase.from('campaign_call_attempts')
@@ -38,11 +38,17 @@ export async function getCallDashboardStats(campaignId) {
       .eq('campaign_contacts.campaign_id', campaignId)
       .not('note', 'is', null).neq('note', '')
       .order('created_at', { ascending: false }).limit(50),
+    supabase.rpc('get_pending_callbacks', { p_campaign_id: campaignId }),
+    supabase.from('call_session_events').select('agent_id, event_type, created_at').eq('campaign_id', campaignId).order('created_at', { ascending: true }),
   ]);
 
   const totals = (totalsRows || [])[0] || { total_attempts: 0, unique_contacts_attempted: 0, remaining_in_queue: 0 };
 
-  const agentIds = Array.from(new Set((statsRows || []).map((r) => r.agent_id).filter(Boolean)));
+  const agentIds = Array.from(new Set([
+    ...(statsRows || []).map((r) => r.agent_id),
+    ...(callbackRows || []).map((r) => r.scheduled_by),
+    ...(sessionEvents || []).map((r) => r.agent_id),
+  ].filter(Boolean)));
   const { data: profiles } = agentIds.length
     ? await supabase.from('profiles').select('id, name').in('id', agentIds)
     : { data: [] };
@@ -72,6 +78,13 @@ export async function getCallDashboardStats(campaignId) {
       createdAt: formatIsraeliDateTime(r.created_at),
     }));
 
+  const pendingCallbacks = (callbackRows || []).map((r) => ({
+    rowId: r.row_id, name: `${r.first || ''} ${r.last || ''}`.trim(), phone: r.phone,
+    callbackAt: formatIsraeliDateTime(r.callback_at), scheduledBy: r.scheduled_by ? (nameById[r.scheduled_by] || 'נציג') : 'נציג',
+  }));
+
+  const hoursByAgent = computeAgentHours(sessionEvents || [], nameById);
+
   return {
     success: true, campaignName: campaign.name,
     totals: {
@@ -79,6 +92,29 @@ export async function getCallDashboardStats(campaignId) {
       uniqueContactsAttempted: Number(totals.unique_contacts_attempted || 0),
       remainingInQueue: Number(totals.remaining_in_queue || 0),
     },
-    agentTable, notes,
+    agentTable, notes, pendingCallbacks, hoursByAgent,
   };
+}
+
+// זיווג-אירועים כרונולוגי לכל נציג: start/break_end פותחים חלון-עבודה,
+// break_start/end סוגרים אותו - מצטבר לדקות-עבודה בפועל (לא כולל הפסקות).
+// "start" חוזר בלי "end" קודם נחשב פתיחה מחדש (למשל אחרי ריענון-דף) - לא
+// נספר פעמיים כי workingSince כבר לא-null במקרה כזה.
+function computeAgentHours(events, nameById) {
+  const byAgent = {};
+  for (const e of events) {
+    const agentName = e.agent_id ? (nameById[e.agent_id] || 'נציג') : 'לא ידוע';
+    if (!byAgent[agentName]) byAgent[agentName] = { minutes: 0, workingSince: null };
+    const bucket = byAgent[agentName];
+    const t = new Date(e.created_at).getTime();
+    if ((e.event_type === 'start' || e.event_type === 'break_end') && bucket.workingSince == null) {
+      bucket.workingSince = t;
+    } else if ((e.event_type === 'break_start' || e.event_type === 'end') && bucket.workingSince != null) {
+      bucket.minutes += (t - bucket.workingSince) / 60000;
+      bucket.workingSince = null;
+    }
+  }
+  return Object.entries(byAgent)
+    .map(([agentName, b]) => ({ agentName, minutes: Math.round(b.minutes), stillActive: b.workingSince != null }))
+    .sort((a, b) => b.minutes - a.minutes);
 }
