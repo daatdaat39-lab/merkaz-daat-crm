@@ -113,7 +113,7 @@ export async function updateCampaignContact(rowId, changes) {
   // בדיוק כמו updateDepartmentStage/updateLeadStage שאין להן guard מנהל
   // בכלל. עדכון category/assignedTo עדיין דורש מנהל (נשלטים דרך עמוד
   // הקמפיין המנוהל-מנהל בלבד).
-  if (row.assigned_to !== user.id || changes.category !== undefined || changes.assignedTo !== undefined || changes.inCallQueue !== undefined) {
+  if (row.assigned_to !== user.id || changes.category !== undefined || changes.assignedTo !== undefined || changes.inCallQueue !== undefined || changes.allowRecentDonorCall !== undefined) {
     const denied = await requireManager(supabase, user.id, row.campaigns?.workspace_id);
     if (denied) return denied;
   }
@@ -124,6 +124,10 @@ export async function updateCampaignContact(rowId, changes) {
   if (changes.note !== undefined) update.note = changes.note || null;
   if (changes.responsiblePerson !== undefined) update.responsible_person = changes.responsiblePerson || null;
   if (changes.inCallQueue !== undefined) update.in_call_queue = !!changes.inCallQueue;
+  // override פר-שורה לחסימת "תורם פעיל אחרון" האוטומטית (0113) - מנהל
+  // בלבד, כי זו החלטה שמוציאה אדם בחזרה לתור-חיוג יזום למרות שהוראת-
+  // הקבע שלו פעילה.
+  if (changes.allowRecentDonorCall !== undefined) update.allow_recent_donor_call = !!changes.allowRecentDonorCall;
   if (changes.status !== undefined) {
     // מוודאים שהערך קיים בפועל כשלב של הקמפיין הזה - מונע "תקיעת" סטטוס
     // יתום אם שלב נמחק/שונה בכרטיסיה אחרת שנשארה פתוחה (campaign_stages

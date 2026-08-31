@@ -54,7 +54,7 @@ export default async function CampaignDetailPage({ params }) {
     while (true) {
       const { data } = await supabase
         .from('campaign_contacts')
-        .select('id, category, assigned_to, status, mapping_decision, note, in_call_queue, responsible_person, created_at, contacts:contact_id (id, first, last, phone, email, related_contact_id, relation_label)')
+        .select('id, category, assigned_to, status, mapping_decision, note, in_call_queue, responsible_person, allow_recent_donor_call, created_at, contacts:contact_id (id, first, last, phone, email, related_contact_id, relation_label)')
         .eq('campaign_id', campaign.id)
         .range(from, from + pageSize - 1);
       if (!data || data.length === 0) break;
@@ -82,11 +82,15 @@ export default async function CampaignDetailPage({ params }) {
     return all.sort((a, b) => (a.first || '').localeCompare(b.first || '', 'he'));
   }
 
-  const [memberRows, allContacts, { data: members }] = await Promise.all([
+  const [memberRows, allContacts, { data: members }, { data: recentActiveDonorRows }] = await Promise.all([
     fetchAllCampaignMembers(),
     fetchAllContactsForCampaign(),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', campaign.workspace_id),
+    // מי חסום אוטומטית (הוראת-קבע פעילה + תרם ב-40 הימים האחרונים,
+    // ר' migration 0113) - שאילתה אחת יעילה, בלי .in() על אלפי מזהים.
+    supabase.rpc('get_recent_active_donor_contact_ids', { p_campaign_id: campaign.id }),
   ]);
+  const recentActiveDonorContactIds = new Set((recentActiveDonorRows || []).map((r) => r.contact_id));
 
   const memberIds = (members || []).map((m) => m.user_id);
   const [{ data: profiles }, categoryRows, campaignStages] = await Promise.all([
@@ -130,6 +134,8 @@ export default async function CampaignDetailPage({ params }) {
     note: r.note || '',
     responsiblePerson: r.responsible_person || '',
     inCallQueue: r.in_call_queue !== false,
+    isRecentActiveDonor: recentActiveDonorContactIds.has(r.contacts.id),
+    allowRecentDonorCall: !!r.allow_recent_donor_call,
     spouseName: r.contacts.related_contact_id ? (relatedNameById[r.contacts.related_contact_id] || '') : '',
     relationLabel: r.contacts.relation_label || '',
   }));

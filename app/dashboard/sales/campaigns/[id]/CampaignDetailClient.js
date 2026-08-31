@@ -128,6 +128,11 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [responsibleEmptyOnly, setResponsibleEmptyOnly] = useState(false);
   const [distinctNotes, setDistinctNotes] = useState([]);
   const [distinctResponsiblePeople, setDistinctResponsiblePeople] = useState([]);
+  // תורמים-פעילים-אחרונים (הוראת-קבע פעילה + תרם ב-40 הימים האחרונים,
+  // ר' migration 0113) - חסומים אוטומטית מהתור, ומוסתרים מהטבלה כברירת
+  // מחדל. showRecentActiveDonors=false הוא ברירת המחדל בכוונה - "פתיחה"
+  // היא פעולה מודעת, לא הגדרה נשמרת.
+  const [showRecentActiveDonors, setShowRecentActiveDonors] = useState(false);
   const [pendingImport, setPendingImport] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [exporting, setExporting] = useState(false);
@@ -251,8 +256,17 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const noteFilterActive = !!noteFilter.trim() || noteFilterValues.size > 0 || noteEmptyOnly;
   const responsibleFilterActive = !!responsibleFilter.trim() || responsibleFilterValues.size > 0 || responsibleEmptyOnly;
 
+  const blockedRecentDonorCount = useMemo(
+    () => rows.filter((r) => r.isRecentActiveDonor && !r.allowRecentDonorCall).length,
+    [rows]
+  );
+  const visibleRows = useMemo(
+    () => (showRecentActiveDonors ? rows : rows.filter((r) => !r.isRecentActiveDonor || r.allowRecentDonorCall)),
+    [rows, showRecentActiveDonors]
+  );
+
   const noteFilteredRows = useMemo(() => {
-    let result = rows;
+    let result = visibleRows;
     if (noteEmptyOnly) {
       result = result.filter((r) => !(r.note || '').trim());
     } else {
@@ -276,7 +290,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
       }
     }
     return result;
-  }, [rows, noteFilter, noteFilterValues, noteEmptyOnly, responsibleFilter, responsibleFilterValues, responsibleEmptyOnly]);
+  }, [visibleRows, noteFilter, noteFilterValues, noteEmptyOnly, responsibleFilter, responsibleFilterValues, responsibleEmptyOnly]);
   const groups = useMemo(() => buildCategoryGroups(noteFilteredRows, CATEGORIES, mappingFilter), [noteFilteredRows, CATEGORIES, mappingFilter]);
 
   function togglePick(id) {
@@ -313,7 +327,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   }
 
   function selectAllRows() {
-    setSelectedRows(new Set(rows.map((r) => r.rowId)));
+    setSelectedRows(new Set(visibleRows.map((r) => r.rowId)));
   }
 
   function handleAdd() {
@@ -710,6 +724,20 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
           {(noteFilterActive || responsibleFilterActive) && (
             <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{noteFilteredRows.length} תוצאות</span>
           )}
+          {blockedRecentDonorCount > 0 && (
+            <button
+              type="button" onClick={() => setShowRecentActiveDonors((v) => !v)}
+              style={{
+                ...ghostBtn(), padding: '5px 10px', fontSize: 12,
+                background: showRecentActiveDonors ? '#fff7ed' : 'var(--bg)',
+                borderColor: showRecentActiveDonors ? '#fed7aa' : 'var(--border, #e5e5e5)',
+                color: showRecentActiveDonors ? '#9a5b0c' : 'inherit',
+              }}
+              title="תורם עם הוראת-קבע פעילה שתרם ב-40 הימים האחרונים - חסום אוטומטית מהתור"
+            >
+              {showRecentActiveDonors ? `🔓 מוצגים ${blockedRecentDonorCount} תורמים פעילים אחרונים` : `🔒 ${blockedRecentDonorCount} תורמים פעילים אחרונים מוסתרים`}
+            </button>
+          )}
         </div>
       )}
 
@@ -855,6 +883,21 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
         <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
           {r.name || '—'}
         </Link>
+        {r.isRecentActiveDonor && (
+          <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: '#fff7ed', color: '#9a5b0c', border: '1px solid #fed7aa' }}>
+              🔒 תורם פעיל אחרון
+            </span>
+            {!r.allowRecentDonorCall && (
+              <button
+                type="button" onClick={() => onChange(r.rowId, { allowRecentDonorCall: true })} disabled={isPending}
+                style={{ background: 'none', border: 'none', color: 'var(--accent, #1f4d3d)', fontSize: 10.5, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+              >
+                אפשר להתקשר בכל זאת
+              </button>
+            )}
+          </div>
+        )}
       </td>
       <td style={{ padding: '10px 14px' }}>{r.phone || '—'}</td>
       <td style={{ padding: '10px 14px', fontSize: 12, color: r.spouseName ? 'inherit' : '#c8c8c8' }}>
