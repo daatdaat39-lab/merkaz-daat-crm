@@ -287,6 +287,11 @@ export async function skipContact(rowId) {
 
   const { error: rpcError } = await supabase.rpc('release_campaign_contact_claim', { p_row_id: rowId, p_caller: user.id });
   if (rpcError) return { error: rpcError.message };
+  // דוחף את השורה לסוף התור - אבל רק עבור הנציג הזה (ר' migration 0110) -
+  // כדי ש"דלג" לא יחזיר את אותו איש-קשר שוב ושוב כשמאגר הזמינים קטן.
+  // נציגים אחרים לא מושפעים - לכל אחד "סוף תור" משלו.
+  await supabase.from('campaign_contact_skips')
+    .upsert({ campaign_contact_id: rowId, agent_id: user.id, skipped_at: new Date().toISOString() });
   return { success: true };
 }
 
