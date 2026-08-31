@@ -948,9 +948,22 @@ export async function pullCampaignUpdatesFromSheet(campaignId) {
 // שכבר נדחפו לפני שהעמודות האלה נוספו נשארות ריקות בהן. כותבת קודם
 // מחדש את שורת-הכותרות (כדי שהאינדקסים חדשים אכן קיימים), ואז כותבת
 // רק לתאים של העמודות החדשות בכל שורה קיימת - בלי לגעת בשום עמודה
-// אחרת (קטגוריה/סטטוס/הערה וכו', שיכולות להכיל עריכות ידניות שנעשו
-// ישירות בגיליון).
-const SHEET_BACKFILL_COLUMNS = ['בתור-שיחות', 'קורסים תשפ"ו', 'מחזור (ישיבת דעת)', 'שנות לימוד בישיבה', 'אחראי'];
+// אחרת (קטגוריה/סטטוס/נציג מטפל וכו', שיכולות להכיל עריכות ידניות
+// שנעשו ישירות בגיליון).
+//
+// תיקון-נזק (2026-08-31): הוספת עמודות באמצע הכותרות בלי להזיז את
+// הנתונים הפיזיים של שורות קיימות גרמה ליישור-שגוי - "משוך עדכונים"
+// קרא בטעות "החלטת מיפוי"/"הערה" מעמודות שהחזיקו עדיין תוכן-ישן (ר'
+// תיעוד השחזור, migration 0117). לכן הרשימה כאן כוללת עכשיו גם את כל
+// עמודות-התובנה המחושבות (בטוחות לגמרי לדריסה-מחדש, לעולם לא נמשכות
+// חזרה מהגיליון) וגם "החלטת מיפוי"/"הערה" (נדרסות כאן מה-DB במפורש,
+// כי אחרי תקרית האתמול ה-DB הוא מקור-האמת המהימן היחיד שנשאר).
+const SHEET_BACKFILL_COLUMNS = [
+  'בתור-שיחות', 'החלטת מיפוי', 'מחלקות', 'שנת-שיא (שנה)', 'שנת-שיא (סכום)',
+  'סה"כ תרומות (מספר)', 'סה"כ תרומות (סכום)', 'תרומה אחרונה', 'אינטראקציה אחרונה',
+  'הוראת קבע פעילה', 'קורסים/סמינרים', 'קורסים תשפ"ו', 'מחזור (ישיבת דעת)',
+  'שנות לימוד בישיבה', 'הערה', 'אחראי',
+];
 
 export async function backfillSheetNewColumns(campaignId) {
   const { supabase, user } = await requireUser();
@@ -983,7 +996,7 @@ export async function backfillSheetNewColumns(campaignId) {
     const chunk = rowIds.slice(i, i + CHUNK);
     // eslint-disable-next-line no-await-in-loop
     const { data } = await supabase.from('campaign_contacts')
-      .select('id, contact_id, in_call_queue, responsible_person').eq('campaign_id', campaignId).in('id', chunk);
+      .select('id, contact_id, in_call_queue, responsible_person, mapping_decision, note').eq('campaign_id', campaignId).in('id', chunk);
     ccRows = ccRows.concat(data || []);
   }
   const ccById = Object.fromEntries(ccRows.map((r) => [r.id, r]));
@@ -1002,9 +1015,21 @@ export async function backfillSheetNewColumns(campaignId) {
       cellData.push({ range: `'${conn.sheet_title}'!${columnLetter(colIdx)}${sheetRowNum}`, values: [[value]] });
     };
     write('בתור-שיחות', cc.in_call_queue !== false ? 'כן' : 'לא');
+    write('החלטת מיפוי', cc.mapping_decision || '');
+    write('מחלקות', (insights.departments || []).join(', '));
+    write('שנת-שיא (שנה)', insights.peakDonation ? insights.peakDonation.year : '');
+    write('שנת-שיא (סכום)', insights.peakDonation ? Math.round(insights.peakDonation.amount) : '');
+    write('סה"כ תרומות (מספר)', insights.totalDonations?.count || 0);
+    write('סה"כ תרומות (סכום)', insights.totalDonations?.total ? Math.round(insights.totalDonations.total) : 0);
+    write('תרומה אחרונה', insights.lastDonationDate ? new Date(insights.lastDonationDate).toLocaleDateString('he-IL') : '');
+    write('אינטראקציה אחרונה', insights.lastInteraction
+      ? `${insights.lastInteraction.label}${insights.lastInteraction.exact ? '' : ' (משוער)'} · ${new Date(insights.lastInteraction.date).toLocaleDateString('he-IL')}` : '');
+    write('הוראת קבע פעילה', insights.hasActiveCommitment ? 'כן' : 'לא');
+    write('קורסים/סמינרים', `${insights.coursesCount || 0} קורסים, ${insights.seminarsCount || 0} סמינרים`);
     write('קורסים תשפ"ו', insights.has5786Course ? 'כן' : 'לא');
     write('מחזור (ישיבת דעת)', insights.yeshivaCohort || '');
     write('שנות לימוד בישיבה', insights.yeshivaStudyYears || '');
+    write('הערה', cc.note || '');
     write('אחראי', cc.responsible_person || '');
   });
 
