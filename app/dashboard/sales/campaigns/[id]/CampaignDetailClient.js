@@ -113,6 +113,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [mappingFilter, setMappingFilter] = useState('all');
+  const [noteFilter, setNoteFilter] = useState('');
   const [pendingImport, setPendingImport] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [exporting, setExporting] = useState(false);
@@ -210,7 +211,12 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     return result.slice(0, 100);
   }, [availableContacts, search, deptFilter, tagFilter, fieldFilters, extraFields, showPickerList, hasAdvancedFilter, advancedFilters, extraFieldsByWorkspace]);
 
-  const groups = useMemo(() => buildCategoryGroups(rows, CATEGORIES, mappingFilter), [rows, CATEGORIES, mappingFilter]);
+  const noteFilteredRows = useMemo(() => {
+    if (!noteFilter.trim()) return rows;
+    const q = noteFilter.trim().toLowerCase();
+    return rows.filter((r) => (r.note || '').toLowerCase().includes(q));
+  }, [rows, noteFilter]);
+  const groups = useMemo(() => buildCategoryGroups(noteFilteredRows, CATEGORIES, mappingFilter), [noteFilteredRows, CATEGORIES, mappingFilter]);
 
   function togglePick(id) {
     setPickIds((prev) => {
@@ -596,6 +602,14 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
             <option value="other">מישהו אחר צריך לגשת בלבד</option>
             <option value="notRelevant">לא רלוונטי בלבד</option>
           </select>
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>חיפוש בהערות:</span>
+          <input
+            type="text" value={noteFilter} onChange={(e) => setNoteFilter(e.target.value)}
+            placeholder="לדוגמה: לבדוק כפול" style={{ ...inputStyle, fontSize: 12, width: 180 }}
+          />
+          {noteFilter.trim() && (
+            <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{noteFilteredRows.length} תוצאות</span>
+          )}
         </div>
       )}
 
