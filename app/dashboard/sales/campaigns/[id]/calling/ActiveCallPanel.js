@@ -15,6 +15,8 @@ const sectionLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTran
 const OUTCOME_LABELS = {
   no_answer: 'לא ענה', donating_now: 'תורם עכשיו תוך כדי הטלפון', requested_link: 'ביקש קישור לתרום בעצמו',
   not_interested: 'לא מעוניין לתרום', call_back: 'ביקש להתקשר מאוחר יותר',
+  wrong_number: 'מספר שגוי (לא האדם)', duplicate_contact: 'כפילות ברשימה',
+  active_donation: 'יש כבר תרומה/הוראת קבע פעילה', number_issue: 'בעיה במספר',
 };
 const NO_ANSWER_REASONS = [
   { key: 'busy', label: 'תפוס' }, { key: 'wrong_number', label: 'מספר שגוי' },
@@ -25,6 +27,16 @@ const ANSWERED_OUTCOMES = [
   { key: 'requested_link', label: 'ביקש קישור לתרום בעצמו' },
   { key: 'not_interested', label: 'לא מעוניין לתרום' },
   { key: 'call_back', label: 'להתקשר מאוחר יותר' },
+];
+// דגלי איכות-נתונים - לא "תוצאת שיחה" רגילה אלא דיווח שהטלפן מזהה תוך כדי
+// השיחה על בעיה בכרטיס עצמו. גם הן טרמינליות (מוציאות מהתור, ר' 0105) -
+// מוצגות בנפרד מהכפתורים הרגילים כדי לא לערבב "מה קרה בשיחה" עם "יש
+// בעיה בנתונים".
+const DATA_QUALITY_OUTCOMES = [
+  { key: 'wrong_number', label: 'מספר שגוי (לא האדם)' },
+  { key: 'duplicate_contact', label: 'כפילות ברשימה' },
+  { key: 'active_donation', label: 'יש כבר תרומה/הוראת קבע פעילה' },
+  { key: 'number_issue', label: 'בעיה במספר (מנותק/לא בשימוש)' },
 ];
 const NOTE_TYPES = [{ key: 'donation', label: 'לגבי תרומה' }, { key: 'general', label: 'כללי' }, { key: 'other', label: 'אחר' }];
 const TIME_OF_DAY = [{ key: 'morning', label: 'בוקר', hour: 9 }, { key: 'noon', label: 'צהריים', hour: 13 }, { key: 'evening', label: 'ערב', hour: 18 }];
@@ -247,6 +259,16 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
                 <div>
                   <div style={{ ...sectionLabel, marginBottom: 8 }}>תוצאת השיחה</div>
                   <ToggleGroup options={ANSWERED_OUTCOMES} value={answeredOutcome} onChange={setAnsweredOutcome} />
+                </div>
+
+                <div>
+                  <div style={{ ...sectionLabel, marginBottom: 8 }}>או - יש בעיה בנתונים?</div>
+                  <ToggleGroup options={DATA_QUALITY_OUTCOMES} value={answeredOutcome} onChange={setAnsweredOutcome} />
+                  {DATA_QUALITY_OUTCOMES.some((o) => o.key === answeredOutcome) && (
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>
+                      מומלץ לפרט למה בשדה ההערה למעלה - זה יעזור למנהל.
+                    </div>
+                  )}
                 </div>
 
                 {answeredOutcome === 'call_back' && (

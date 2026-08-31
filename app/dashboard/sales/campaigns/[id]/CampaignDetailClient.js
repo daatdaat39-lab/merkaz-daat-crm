@@ -81,8 +81,11 @@ function csvCell(v) {
 // כדי שהאקסל של המיפוי הידני יראה בדיוק את מה שרואים במסך המיפוי במערכת,
 // לא רק שם/טלפון/קטגוריה כמו קודם.
 function insightsToCsvCells(insights) {
-  if (!insights) return ['', '', '', '', '', '', '', '', ''];
-  const { departments, peakDonation, lastDonationDate, totalDonations, hasActiveCommitment, coursesCount, seminarsCount, lastInteraction } = insights;
+  if (!insights) return ['', '', '', '', '', '', '', '', '', '', '', ''];
+  const {
+    departments, peakDonation, lastDonationDate, totalDonations, hasActiveCommitment, coursesCount, seminarsCount, lastInteraction,
+    has5786Course, yeshivaCohort, yeshivaStudyYears,
+  } = insights;
   return [
     departments.join(', '),
     peakDonation ? peakDonation.year : '',
@@ -93,6 +96,9 @@ function insightsToCsvCells(insights) {
     lastInteraction ? `${lastInteraction.label}${lastInteraction.exact ? '' : ' (משוער)'} · ${new Date(lastInteraction.date).toLocaleDateString('he-IL')}` : '',
     hasActiveCommitment ? 'כן' : 'לא',
     `${coursesCount || 0} קורסים, ${seminarsCount || 0} סמינרים`,
+    has5786Course ? 'כן' : 'לא',
+    yeshivaCohort || '',
+    yeshivaStudyYears || '',
   ];
 }
 
@@ -115,7 +121,11 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [mappingFilter, setMappingFilter] = useState('all');
   const [noteFilter, setNoteFilter] = useState('');
+  const [noteFilterValues, setNoteFilterValues] = useState(new Set()); // בחירה מרובה מתוך הרשימה הקיימת
+  const [noteEmptyOnly, setNoteEmptyOnly] = useState(false);
   const [responsibleFilter, setResponsibleFilter] = useState('');
+  const [responsibleFilterValues, setResponsibleFilterValues] = useState(new Set());
+  const [responsibleEmptyOnly, setResponsibleEmptyOnly] = useState(false);
   const [distinctNotes, setDistinctNotes] = useState([]);
   const [distinctResponsiblePeople, setDistinctResponsiblePeople] = useState([]);
   const [pendingImport, setPendingImport] = useState(null);
@@ -223,18 +233,35 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     return result.slice(0, 100);
   }, [availableContacts, search, deptFilter, tagFilter, fieldFilters, extraFields, showPickerList, hasAdvancedFilter, advancedFilters, extraFieldsByWorkspace]);
 
+  const noteFilterActive = !!noteFilter.trim() || noteFilterValues.size > 0 || noteEmptyOnly;
+  const responsibleFilterActive = !!responsibleFilter.trim() || responsibleFilterValues.size > 0 || responsibleEmptyOnly;
+
   const noteFilteredRows = useMemo(() => {
     let result = rows;
-    if (noteFilter.trim()) {
-      const q = noteFilter.trim().toLowerCase();
-      result = result.filter((r) => (r.note || '').toLowerCase().includes(q));
+    if (noteEmptyOnly) {
+      result = result.filter((r) => !(r.note || '').trim());
+    } else {
+      if (noteFilter.trim()) {
+        const q = noteFilter.trim().toLowerCase();
+        result = result.filter((r) => (r.note || '').toLowerCase().includes(q));
+      }
+      if (noteFilterValues.size > 0) {
+        result = result.filter((r) => noteFilterValues.has(r.note || ''));
+      }
     }
-    if (responsibleFilter.trim()) {
-      const q = responsibleFilter.trim().toLowerCase();
-      result = result.filter((r) => (r.responsiblePerson || '').toLowerCase().includes(q));
+    if (responsibleEmptyOnly) {
+      result = result.filter((r) => !(r.responsiblePerson || '').trim());
+    } else {
+      if (responsibleFilter.trim()) {
+        const q = responsibleFilter.trim().toLowerCase();
+        result = result.filter((r) => (r.responsiblePerson || '').toLowerCase().includes(q));
+      }
+      if (responsibleFilterValues.size > 0) {
+        result = result.filter((r) => responsibleFilterValues.has(r.responsiblePerson || ''));
+      }
     }
     return result;
-  }, [rows, noteFilter, responsibleFilter]);
+  }, [rows, noteFilter, noteFilterValues, noteEmptyOnly, responsibleFilter, responsibleFilterValues, responsibleEmptyOnly]);
   const groups = useMemo(() => buildCategoryGroups(noteFilteredRows, CATEGORIES, mappingFilter), [noteFilteredRows, CATEGORIES, mappingFilter]);
 
   function togglePick(id) {
@@ -337,13 +364,15 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     getBulkContactInsightsForExport(rows.map((r) => r.contactId)).then((insightsByContact) => {
       const agentNameById = Object.fromEntries(agents.map((a) => [a.id, a.name]));
       const headerRow = [
-        ROW_ID_HEADER, 'שם', 'טלפון', 'מייל', 'קטגוריה', 'נציג מטפל', 'סטטוס',
+        ROW_ID_HEADER, 'שם', 'טלפון', 'מייל', 'קטגוריה', 'נציג מטפל', 'סטטוס', 'בתור-שיחות',
         'מחלקות', 'שנת-שיא (שנה)', 'שנת-שיא (סכום)', 'סה"כ תרומות (מספר)', 'סה"כ תרומות (סכום)',
         'תרומה אחרונה', 'אינטראקציה אחרונה', 'הוראת קבע פעילה', 'קורסים/סמינרים',
+        'קורסים תשפ"ו', 'מחזור (ישיבת דעת)', 'שנות לימוד בישיבה',
       ];
       const dataRows = rows.map((r) => [
         r.rowId, r.name || '', r.phone || '', r.email || '', r.category || '',
         r.assignedTo ? (agentNameById[r.assignedTo] || '') : '', campaignStages.labels[r.status] || r.status || '',
+        r.inCallQueue ? 'כן' : 'לא',
         ...insightsToCsvCells(insightsByContact[r.contactId]),
       ].map(csvCell).join(','));
       const csv = '﻿' + [headerRow.join(','), ...dataRows].join('\n');
@@ -649,29 +678,19 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
             <option value="other">מישהו אחר צריך לגשת בלבד</option>
             <option value="notRelevant">לא רלוונטי בלבד</option>
           </select>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>חיפוש בהערות:</span>
-          <input
-            type="text" list="notes-datalist" value={noteFilter} onChange={(e) => setNoteFilter(e.target.value)}
-            placeholder="הקלידו או בחרו מהרשימה" style={{ ...inputStyle, fontSize: 12, width: 180 }}
+          <MultiValueFilter
+            label="הערות" values={distinctNotes}
+            selected={noteFilterValues} onSelectedChange={setNoteFilterValues}
+            text={noteFilter} onTextChange={setNoteFilter}
+            emptyOnly={noteEmptyOnly} onEmptyOnlyChange={setNoteEmptyOnly}
           />
-          <datalist id="notes-datalist">
-            {distinctNotes.map((n) => <option key={n} value={n} />)}
-          </datalist>
-          {noteFilter.trim() && (
-            <button type="button" onClick={() => setNoteFilter('')} style={{ ...ghostBtn(), padding: '2px 8px', fontSize: 11 }}>נקה</button>
-          )}
-          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>סינון לפי אחראי:</span>
-          <input
-            type="text" list="responsible-datalist" value={responsibleFilter} onChange={(e) => setResponsibleFilter(e.target.value)}
-            placeholder="הקלידו או בחרו מהרשימה" style={{ ...inputStyle, fontSize: 12, width: 180 }}
+          <MultiValueFilter
+            label="אחראי" values={distinctResponsiblePeople}
+            selected={responsibleFilterValues} onSelectedChange={setResponsibleFilterValues}
+            text={responsibleFilter} onTextChange={setResponsibleFilter}
+            emptyOnly={responsibleEmptyOnly} onEmptyOnlyChange={setResponsibleEmptyOnly}
           />
-          <datalist id="responsible-datalist">
-            {distinctResponsiblePeople.map((n) => <option key={n} value={n} />)}
-          </datalist>
-          {responsibleFilter.trim() && (
-            <button type="button" onClick={() => setResponsibleFilter('')} style={{ ...ghostBtn(), padding: '2px 8px', fontSize: 11 }}>נקה</button>
-          )}
-          {(noteFilter.trim() || responsibleFilter.trim()) && (
+          {(noteFilterActive || responsibleFilterActive) && (
             <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{noteFilteredRows.length} תוצאות</span>
           )}
         </div>
@@ -745,6 +764,65 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
         );
       })}
         </>
+      )}
+    </div>
+  );
+}
+
+// סינון-לפי-רשימה עם בחירה מרובה + "רק ריקים" + חיפוש-טקסט-חופשי כגיבוי -
+// פותח פאנל קטן עם checkbox לכל ערך קיים בקמפיין (מ-getDistinctNotesAndResponsible),
+// כדי שאפשר יהיה לבחור כמה הערות/אחראים ביחד ולא רק חיפוש-מחרוזת בודד.
+function MultiValueFilter({ label, values, selected, onSelectedChange, text, onTextChange, emptyOnly, onEmptyOnlyChange }) {
+  const [open, setOpen] = useState(false);
+  const activeCount = selected.size + (emptyOnly ? 1 : 0) + (text.trim() ? 1 : 0);
+
+  function toggleValue(v) {
+    onSelectedChange((prev) => {
+      const next = new Set(prev);
+      if (next.has(v)) next.delete(v); else next.add(v);
+      return next;
+    });
+  }
+
+  function clearAll() {
+    onSelectedChange(new Set());
+    onTextChange('');
+    onEmptyOnlyChange(false);
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button type="button" onClick={() => setOpen((o) => !o)} style={{ ...ghostBtn(), padding: '5px 10px', fontSize: 12 }}>
+        {label}{activeCount > 0 ? ` (${activeCount})` : ''} {open ? '▴' : '▾'}
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', right: 0, zIndex: 20, marginTop: 4, width: 240,
+          background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.12)', padding: 10,
+        }}>
+          <input
+            type="text" value={text} onChange={(e) => onTextChange(e.target.value)}
+            placeholder="חיפוש חופשי..." style={{ ...inputStyle, fontSize: 12, width: '100%', marginBottom: 8, boxSizing: 'border-box' }}
+          />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginBottom: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={emptyOnly} onChange={(e) => onEmptyOnlyChange(e.target.checked)} />
+            רק ריקים (בלי {label})
+          </label>
+          <div style={{ maxHeight: 180, overflowY: 'auto', borderTop: '1px solid var(--border, #f0f0f0)', paddingTop: 6 }}>
+            {values.length === 0 && <div style={{ fontSize: 11.5, color: 'var(--text-muted, #9b9b9b)' }}>אין ערכים קיימים</div>}
+            {values.map((v) => (
+              <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '3px 0', cursor: 'pointer' }}>
+                <input type="checkbox" checked={selected.has(v)} onChange={() => toggleValue(v)} disabled={emptyOnly} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v}</span>
+              </label>
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border, #f0f0f0)' }}>
+            <button type="button" onClick={clearAll} style={{ ...ghostBtn(), padding: '4px 10px', fontSize: 11 }}>נקה הכל</button>
+            <button type="button" onClick={() => setOpen(false)} style={{ ...primaryBtn(), padding: '4px 10px', fontSize: 11 }}>סגירה</button>
+          </div>
+        </div>
       )}
     </div>
   );

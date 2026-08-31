@@ -267,7 +267,7 @@ async function buildContactInsights(supabase, contactId) {
     { data: deptRows }, { data: seminarRows }, { data: courseRows },
     { count: activeCommitments }, { data: txns }, { data: meetingRows },
   ] = await Promise.all([
-    supabase.from('contact_departments').select('workspace_id, workspaces:workspace_id (name)').eq('contact_id', contactId),
+    supabase.from('contact_departments').select('workspace_id, extra_fields, workspaces:workspace_id (name)').eq('contact_id', contactId),
     supabase.from('contact_seminar_participations').select('event_type, year').eq('contact_id', contactId),
     supabase.from('contact_course_enrollments').select('course_name, year_label').eq('contact_id', contactId),
     supabase.from('commitments').select('id', { count: 'exact', head: true }).eq('contact_id', contactId).eq('status', 'active'),
@@ -276,6 +276,14 @@ async function buildContactInsights(supabase, contactId) {
   ]);
 
   const departments = Array.from(new Set((deptRows || []).map((d) => d.workspaces?.name).filter(Boolean)));
+  // מחזור/שנות-לימוד - שדות נוספים ייעודיים למחלקת "ישיבת דעת" בלבד
+  // (extra_fields.cohort/study_years, ר' migrations 0073-0075) - "מחזור"
+  // עדיין ריק אצל רוב הבוגרים (משימת-השלמה נפרדת, טרם בוצעה), אז מציגים
+  // גם "שנות לימוד" (אם יש) כדי שאפשר יהיה להשלים ידנית לפי זה בגיליון.
+  const yeshivaDept = (deptRows || []).find((d) => d.workspaces?.name === 'ישיבת דעת');
+  const yeshivaCohort = yeshivaDept?.extra_fields?.cohort || '';
+  const yeshivaStudyYears = yeshivaDept?.extra_fields?.study_years || '';
+  const has5786Course = (courseRows || []).some((c) => c.year_label === 'תשפ"ו');
 
   const rows = txns || [];
   const totalDonations = { count: rows.length, total: rows.reduce((s, t) => s + Number(t.amount || 0), 0) };
@@ -320,6 +328,9 @@ async function buildContactInsights(supabase, contactId) {
     coursesCount: (courseRows || []).length,
     seminarsCount: (seminarRows || []).length,
     lastInteraction,
+    has5786Course,
+    yeshivaCohort,
+    yeshivaStudyYears,
   };
 }
 
@@ -382,21 +393,26 @@ async function buildBulkContactInsights(supabase, contactIds) {
 
   const byContact = {};
   const ensure = (id) => {
-    if (!byContact[id]) byContact[id] = { departments: new Set(), seminars: [], courses: [], activeCommitment: false, txns: [], meetings: [] };
+    if (!byContact[id]) byContact[id] = { departments: new Set(), seminars: [], courses: [], activeCommitment: false, txns: [], meetings: [], yeshivaExtraFields: null };
     return byContact[id];
   };
 
   for (const ids of chunks) {
     // eslint-disable-next-line no-await-in-loop
     const [deptRows, seminarRows, courseRows, activeCommitmentRows, txns, meetingRows] = await Promise.all([
-      fetchAllForContactIds(supabase, 'contact_departments', 'id, contact_id, workspaces:workspace_id (name)', ids),
+      fetchAllForContactIds(supabase, 'contact_departments', 'id, contact_id, extra_fields, workspaces:workspace_id (name)', ids),
       fetchAllForContactIds(supabase, 'contact_seminar_participations', 'id, contact_id, year', ids),
       fetchAllForContactIds(supabase, 'contact_course_enrollments', 'id, contact_id, course_name, year_label', ids),
       fetchAllForContactIds(supabase, 'commitments', 'id, contact_id', ids, (q) => q.eq('status', 'active')),
       fetchAllForContactIds(supabase, 'donation_transactions', 'id, contact_id, amount, transaction_date', ids),
       fetchAllForContactIds(supabase, 'meetings', 'id, contact_id, meeting_date', ids),
     ]);
-    for (const d of deptRows || []) { if (d.workspaces?.name) ensure(d.contact_id).departments.add(d.workspaces.name); }
+    for (const d of deptRows || []) {
+      if (!d.workspaces?.name) continue;
+      const b = ensure(d.contact_id);
+      b.departments.add(d.workspaces.name);
+      if (d.workspaces.name === 'ישיבת דעת') b.yeshivaExtraFields = d.extra_fields || {};
+    }
     for (const s of seminarRows || []) ensure(s.contact_id).seminars.push(s);
     for (const c of courseRows || []) ensure(c.contact_id).courses.push(c);
     for (const c of activeCommitmentRows || []) ensure(c.contact_id).activeCommitment = true;
@@ -406,7 +422,7 @@ async function buildBulkContactInsights(supabase, contactIds) {
 
   const result = {};
   for (const id of contactIds) {
-    const bucket = byContact[id] || { departments: new Set(), seminars: [], courses: [], activeCommitment: false, txns: [], meetings: [] };
+    const bucket = byContact[id] || { departments: new Set(), seminars: [], courses: [], activeCommitment: false, txns: [], meetings: [], yeshivaExtraFields: null };
     const rows = bucket.txns;
     const totalDonations = { count: rows.length, total: rows.reduce((s, t) => s + Number(t.amount || 0), 0) };
     const lastDonationDate = rows.map((t) => t.transaction_date).filter(Boolean).sort().slice(-1)[0] || null;
@@ -444,6 +460,9 @@ async function buildBulkContactInsights(supabase, contactIds) {
       coursesCount: bucket.courses.length,
       seminarsCount: bucket.seminars.length,
       lastInteraction: candidates[0] || null,
+      has5786Course: bucket.courses.some((c) => c.year_label === 'תשפ"ו'),
+      yeshivaCohort: bucket.yeshivaExtraFields?.cohort || '',
+      yeshivaStudyYears: bucket.yeshivaExtraFields?.study_years || '',
     };
   }
   return result;
@@ -724,8 +743,11 @@ export async function disconnectCampaignSheet(campaignId) {
 }
 
 function insightsToSheetCells(insights) {
-  if (!insights) return ['', '', '', '', '', '', '', '', ''];
-  const { departments, peakDonation, lastDonationDate, totalDonations, hasActiveCommitment, coursesCount, seminarsCount, lastInteraction } = insights;
+  if (!insights) return ['', '', '', '', '', '', '', '', '', '', '', ''];
+  const {
+    departments, peakDonation, lastDonationDate, totalDonations, hasActiveCommitment, coursesCount, seminarsCount, lastInteraction,
+    has5786Course, yeshivaCohort, yeshivaStudyYears,
+  } = insights;
   return [
     departments.join(', '),
     peakDonation ? peakDonation.year : '',
@@ -736,6 +758,9 @@ function insightsToSheetCells(insights) {
     lastInteraction ? `${lastInteraction.label}${lastInteraction.exact ? '' : ' (משוער)'} · ${new Date(lastInteraction.date).toLocaleDateString('he-IL')}` : '',
     hasActiveCommitment ? 'כן' : 'לא',
     `${coursesCount || 0} קורסים, ${seminarsCount || 0} סמינרים`,
+    has5786Course ? 'כן' : 'לא',
+    yeshivaCohort || '',
+    yeshivaStudyYears || '',
   ];
 }
 
@@ -799,7 +824,7 @@ export async function pushCampaignRowsToSheet(campaignId) {
   const PAGE = 1000;
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await supabase.from('campaign_contacts')
-      .select('id, category, assigned_to, status, note, contacts:contact_id (id, first, last, phone, email, related_contact_id)')
+      .select('id, category, assigned_to, status, note, in_call_queue, contacts:contact_id (id, first, last, phone, email, related_contact_id)')
       .eq('campaign_id', campaignId)
       .order('id')
       .range(offset, offset + PAGE - 1);
@@ -825,7 +850,8 @@ export async function pushCampaignRowsToSheet(campaignId) {
 
   const sheetRows = newRows.map((r) => [
     r.id, `${r.contacts.first || ''} ${r.contacts.last || ''}`.trim(), r.contacts.phone || '', r.contacts.email || '',
-    r.category || '', r.assigned_to ? (agentNameById[r.assigned_to] || '') : '', stageLabelByKey[r.status] || r.status || '', '',
+    r.category || '', r.assigned_to ? (agentNameById[r.assigned_to] || '') : '', stageLabelByKey[r.status] || r.status || '',
+    r.in_call_queue !== false ? 'כן' : 'לא', '',
     ...insightsToSheetCells(insightsByContact[r.contacts.id]),
     r.note || '', r.contacts.related_contact_id ? (spouseNameById[r.contacts.related_contact_id] || '') : '',
   ]);

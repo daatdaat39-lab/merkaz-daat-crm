@@ -59,6 +59,25 @@ const YESHIVA_PAGE_TO_ROUTING = [
 
 const TZRIDEI_CAMPAIGN_NAME = 'קמפיין צרידי אלול פ"ו';
 
+// תורם שזוהה כ"צ'רידי" (Project מקשר מכיל "צריד", ר' resolveRouting)
+// כבר תרם ספציפית דרך הקמפיין הזה - אם הוא גם ברשימת-שיחות פתוחה-
+// לטלפניה, אין טעם להתקשר אליו שוב על אותה בקשה. בניגוד ל-
+// notifyOpenCampaignsOfDonation (שרק מוסיפה הערה) - כאן מוציאים בפועל
+// מהתור (in_call_queue=false), כי זו זהות-תרומה ודאית (לא רק "תרם
+// משהו"), ר' migration 0107 לגיבוי-לאחור על תורמים קיימים.
+async function markDoNotCallForCharidyDonor(supabase, contactId) {
+  const { data: rows } = await supabase.from('campaign_contacts')
+    .select('id, note, campaigns:campaign_id!inner (open_for_telemarketing)')
+    .eq('contact_id', contactId).eq('campaigns.open_for_telemarketing', true).eq('in_call_queue', true);
+  if (!rows || rows.length === 0) return;
+  const summary = `[${formatIsraeliDateTime(new Date())}] 🎉 תרם/ה כבר דרך צ'רידי (${TZRIDEI_CAMPAIGN_NAME}) - הוצא/ה אוטומטית מהתור`;
+  for (const row of rows) {
+    await supabase.from('campaign_contacts')
+      .update({ in_call_queue: false, note: row.note ? `${summary}\n\n${row.note}` : summary })
+      .eq('id', row.id);
+  }
+}
+
 // מחזיר { workspaceName, tag?, enrollCampaignName? } או null אם לא זוהה
 // שום ניתוב. pageName רלוונטי רק לפרויקט "ישיבה" - PaymentPageName ישיר
 // (מתנועה) או דרך refToPaymentPage (עבור התחייבות, לפי אסמכתא).
@@ -289,7 +308,10 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
       }
 
       if (routing.tag) await addTagToContact(supabase, contact.id, routing.tag);
-      if (routing.enrollCampaignName) await enrollInCampaign(supabase, workspace.id, contact.id, user.id, routing.enrollCampaignName);
+      if (routing.enrollCampaignName) {
+        await enrollInCampaign(supabase, workspace.id, contact.id, user.id, routing.enrollCampaignName);
+        if (routing.enrollCampaignName === TZRIDEI_CAMPAIGN_NAME) await markDoNotCallForCharidyDonor(supabase, contact.id);
+      }
 
       const reference = referenceForRouting;
       if (!reference) {
@@ -394,7 +416,10 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
       if (!contact) { result.transactionsUnmatched++; continue; }
 
       if (routing.tag) await addTagToContact(supabase, contact.id, routing.tag);
-      if (routing.enrollCampaignName) await enrollInCampaign(supabase, workspace.id, contact.id, user.id, routing.enrollCampaignName);
+      if (routing.enrollCampaignName) {
+        await enrollInCampaign(supabase, workspace.id, contact.id, user.id, routing.enrollCampaignName);
+        if (routing.enrollCampaignName === TZRIDEI_CAMPAIGN_NAME) await markDoNotCallForCharidyDonor(supabase, contact.id);
+      }
 
       // ObligationReference מקשרת כל תנועה בודדת להתחייבות/הוראת הקבע
       // שממנה היא נגבתה - אושר מריצה חיה (השדה קיים בכל תנועה, מצביע

@@ -32,6 +32,10 @@ const OUTCOME_LABELS = {
   requested_link: 'ביקש קישור לתרום בעצמו',
   not_interested: 'לא מעוניין לתרום',
   call_back: 'ביקש להתקשר מאוחר יותר',
+  wrong_number: 'מספר שגוי (לא האדם)',
+  duplicate_contact: 'כפילות ברשימה',
+  active_donation: 'יש כבר תרומה/הוראת קבע פעילה',
+  number_issue: 'בעיה במספר (מנותק/לא בשימוש)',
 };
 
 const NOTE_TYPE_LABELS = { donation: 'לגבי תרומה', general: 'כללי', other: 'אחר' };
