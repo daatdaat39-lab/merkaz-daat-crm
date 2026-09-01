@@ -269,7 +269,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
                       >
                         <span>
                           <span style={{ fontWeight: 600, fontSize: 13 }}>{r.name || '—'}</span>
-                          {r.amount != null && <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}> · ₪{Math.round(r.amount).toLocaleString()}</span>}
+                          <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}> · {r.line}</span>
                         </span>
                         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                           {r.occurredAt ? new Date(r.occurredAt).toLocaleDateString('he-IL') : ''}

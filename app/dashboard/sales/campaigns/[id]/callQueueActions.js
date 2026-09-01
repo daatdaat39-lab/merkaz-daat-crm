@@ -301,11 +301,29 @@ export async function getMyDonationAttributions(campaignId) {
   if (error) return { error };
   const { data, error: rpcError } = await supabase.rpc('get_campaign_donation_attributions', { p_campaign_id: campaignId, p_agent_id: user.id });
   if (rpcError) return { error: rpcError.message };
-  const rows = (data || []).map((r) => ({
-    contactId: r.contact_id, name: `${r.first || ''} ${r.last || ''}`.trim(), phone: r.phone,
-    amount: r.amount != null ? Number(r.amount) : null, occurredAt: r.occurred_at,
-  }));
+  const rows = (data || []).map((r) => {
+    const item = {
+      contactId: r.contact_id, name: `${r.first || ''} ${r.last || ''}`.trim(), phone: r.phone,
+      amount: r.amount != null ? Number(r.amount) : null,
+      pledgedAmount: r.pledged_amount != null ? Number(r.pledged_amount) : null,
+      occurredAt: r.occurred_at,
+    };
+    return { ...item, line: formatDonationLine({ ...item, source: r.source }) };
+  });
   return { success: true, rows };
+}
+
+// שורת-תיאור לפריט-תרומה - ר' הערה מקבילה ב-callDashboardActions.js.
+function formatDonationLine(r) {
+  const amt = (n) => `₪${Math.round(n).toLocaleString()}`;
+  if (r.source === 'merged') {
+    const samePledge = r.pledgedAmount != null && Number(r.pledgedAmount) === Number(r.amount);
+    return samePledge
+      ? `נכנס ממערכת קשר ${amt(r.amount)}`
+      : `נכנס ממערכת קשר ${amt(r.amount)} (התחייבה בטלפון ל-${amt(r.pledgedAmount)})`;
+  }
+  if (r.source === 'kesher_sync') return `זוהה אוטומטית ממערכת קשר ${amt(r.amount)}`;
+  return `התחייבה בטלפון ${amt(r.pledgedAmount)} (טרם אושרה בקשר)`;
 }
 
 export async function heartbeatClaim(rowId) {

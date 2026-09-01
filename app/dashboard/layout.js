@@ -7,6 +7,7 @@ import ConcurrentInquiryToast from './components/ConcurrentInquiryToast';
 import PendingAutomationWatcher from './components/PendingAutomationWatcher';
 import CelebrationHost from './components/CelebrationHost';
 import IdleLock from './components/IdleLock';
+import LogoutButton from './components/LogoutButton';
 import { FloatingWindowsProvider } from './components/FloatingWindows';
 import FloatingWindowsHost from './components/FloatingWindowsHost';
 import { groupTagsByDepartment } from './lib/tagGroups';
@@ -50,9 +51,9 @@ export default async function DashboardLayout({ children, modal }) {
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border, #e5e5e5)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ fontWeight: 700 }}>📱 תור שיחות</div>
-          <form action={handleLogout}>
-            <button type="submit" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12.5, color: 'var(--text-secondary)' }}>יציאה</button>
-          </form>
+          <LogoutButton logoutAction={handleLogout} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12.5, color: 'var(--text-secondary)' }}>
+            יציאה
+          </LogoutButton>
         </div>
         <div style={{ flex: 1, overflowY: 'auto' }}>{children}</div>
         <IdleLock userEmail={user.email} />

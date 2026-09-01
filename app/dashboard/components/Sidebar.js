@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { WS_COLORS } from './ui';
+import LogoutButton from './LogoutButton';
 
 const NAV_SECTIONS = [
   {
@@ -278,9 +279,8 @@ export default function Sidebar({
             </div>
             <div style={{ fontSize: 11, color: '#9b9b9b' }}>{profile?.role || '—'}</div>
           </div>
-          <form action={logoutAction}>
-            <button
-              type="submit"
+          <LogoutButton
+              logoutAction={logoutAction}
               title="התנתקות"
               style={{
                 display: 'flex',
@@ -298,8 +298,7 @@ export default function Sidebar({
             >
               <span style={{ fontSize: 14 }}>⏻</span>
               התנתקות
-            </button>
-          </form>
+            </LogoutButton>
         </div>
       </div>
     </aside>

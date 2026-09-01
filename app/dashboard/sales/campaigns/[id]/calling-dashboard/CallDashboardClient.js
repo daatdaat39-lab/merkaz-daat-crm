@@ -184,8 +184,7 @@ export default function CallDashboardClient({ campaignId, stats, donationsByAgen
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
                     <span>
                       <Link href={`/dashboard/contacts/${it.contactId}`} style={{ color: 'inherit', fontWeight: 600 }}>{it.name || '—'}</Link>
-                      {it.amount != null && <span> · ₪{Math.round(it.amount).toLocaleString()}</span>}
-                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}> · {it.source}</span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: 11 }}> · {it.line}</span>
                     </span>
                     <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{it.occurredAt}</span>
                   </div>

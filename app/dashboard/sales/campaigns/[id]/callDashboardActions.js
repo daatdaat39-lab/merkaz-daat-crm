@@ -5,6 +5,21 @@ import { redirect } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../../lib/contactGuards';
 import { formatIsraeliDateTime } from '../../../lib/dateFormat';
 
+// שורת-תיאור לפריט-תרומה - מציג את שני הסכומים (מה שנכנס בפועל מול מה
+// שהובטח בטלפון) כשקיים תיוג-ידני תואם, כדי לראות פערים (ר' migration
+// 0128) - במקום להשמיט אחד מהם בשקט.
+function formatDonationLine(r) {
+  const amt = (n) => `₪${Math.round(n).toLocaleString()}`;
+  if (r.source === 'merged') {
+    const samePledge = r.pledgedAmount != null && Number(r.pledgedAmount) === Number(r.amount);
+    return samePledge
+      ? `נכנס ממערכת קשר ${amt(r.amount)}`
+      : `נכנס ממערכת קשר ${amt(r.amount)} (התחייבה בטלפון ל-${amt(r.pledgedAmount)})`;
+  }
+  if (r.source === 'kesher_sync') return `זוהה אוטומטית ממערכת קשר ${amt(r.amount)}`;
+  return `התחייבה בטלפון ${amt(r.pledgedAmount)} (טרם אושרה בקשר)`;
+}
+
 const OUTCOME_LABELS = {
   no_answer: 'לא ענה',
   donating_now: 'תורם עכשיו תוך כדי הטלפון',
@@ -134,12 +149,13 @@ export async function getDonationAttributionsForDashboard(campaignId) {
   for (const r of rows || []) {
     const agentName = nameById[r.attributed_agent_id] || 'נציג';
     if (!byAgent[agentName]) byAgent[agentName] = { agentName, items: [] };
-    byAgent[agentName].items.push({
+    const item = {
       contactId: r.contact_id, name: `${r.first || ''} ${r.last || ''}`.trim(), phone: r.phone,
       amount: r.amount != null ? Number(r.amount) : null,
+      pledgedAmount: r.pledged_amount != null ? Number(r.pledged_amount) : null,
       occurredAt: formatIsraeliDateTime(r.occurred_at),
-      source: r.source === 'call_attempt' ? 'תויג תוך-כדי-שיחה' : 'זוהה אוטומטית ממערכת קשר',
-    });
+    };
+    byAgent[agentName].items.push({ ...item, line: formatDonationLine({ ...item, source: r.source }) });
   }
   return { success: true, byAgent: Object.values(byAgent).sort((a, b) => b.items.length - a.items.length) };
 }
