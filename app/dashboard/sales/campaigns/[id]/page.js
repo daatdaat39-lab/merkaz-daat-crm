@@ -82,15 +82,19 @@ export default async function CampaignDetailPage({ params }) {
     return all.sort((a, b) => (a.first || '').localeCompare(b.first || '', 'he'));
   }
 
-  const [memberRows, allContacts, { data: members }, { data: recentActiveDonorRows }] = await Promise.all([
+  const [memberRows, allContacts, { data: members }, { data: recentActiveDonorRows }, { data: pendingCallbackRows }] = await Promise.all([
     fetchAllCampaignMembers(),
     fetchAllContactsForCampaign(),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', campaign.workspace_id),
     // מי חסום אוטומטית (הוראת-קבע פעילה + תרם ב-40 הימים האחרונים,
     // ר' migration 0113) - שאילתה אחת יעילה, בלי .in() על אלפי מזהים.
     supabase.rpc('get_recent_active_donor_contact_ids', { p_campaign_id: campaign.id }),
+    // "ביקש להתקשר מאוחר יותר" - יוצא מהתור מיד (ר' migration 0135), חוזר
+    // רק ידנית ע"י מנהל - לקבוצה הנפרדת "📅 ביקשו לחזור אליהם" למטה.
+    supabase.rpc('get_pending_callbacks', { p_campaign_id: campaign.id }),
   ]);
   const recentActiveDonorContactIds = new Set((recentActiveDonorRows || []).map((r) => r.contact_id));
+  const pendingCallbackRowIds = new Set((pendingCallbackRows || []).map((r) => r.row_id));
 
   const memberIds = (members || []).map((m) => m.user_id);
   const [{ data: profiles }, categoryRows, campaignStages] = await Promise.all([
@@ -138,8 +142,16 @@ export default async function CampaignDetailPage({ params }) {
     isRecentActiveDonor: recentActiveDonorContactIds.has(r.contacts.id),
     allowRecentDonorCall: !!r.allow_recent_donor_call,
     noAnswerStreak: r.no_answer_streak || 0,
+    isPendingCallback: pendingCallbackRowIds.has(r.id),
     spouseName: r.contacts.related_contact_id ? (relatedNameById[r.contacts.related_contact_id] || '') : '',
     relationLabel: r.contacts.relation_label || '',
+  }));
+
+  const agentNameById = Object.fromEntries(agents.map((a) => [a.id, a.name]));
+  const pendingCallbacks = (pendingCallbackRows || []).map((r) => ({
+    rowId: r.row_id, contactId: r.contact_id, name: `${r.first || ''} ${r.last || ''}`.trim(), phone: r.phone,
+    callbackAt: r.callback_at, requestedAt: r.requested_at,
+    agentName: r.scheduled_by ? (agentNameById[r.scheduled_by] || 'נציג') : 'נציג',
   }));
 
   const memberContactIds = new Set(rows.map((r) => r.contactId));
@@ -199,6 +211,7 @@ export default async function CampaignDetailPage({ params }) {
         agents={agents}
         categories={categories}
         campaignStages={campaignStages}
+        pendingCallbacks={pendingCallbacks}
       />
     </div>
   );

@@ -106,7 +106,7 @@ function insightsToCsvCells(insights) {
   ];
 }
 
-export default function CampaignDetailClient({ campaignId, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} }, extraFields = [], extraFieldsByWorkspace = {}, pipelinesByWorkspace = {} }) {
+export default function CampaignDetailClient({ campaignId, workspaceId, isDonationsWorkspace, initialRows, availableContacts = [], agents = [], categories = [], campaignStages = { order: [], labels: {}, colors: {} }, extraFields = [], extraFieldsByWorkspace = {}, pipelinesByWorkspace = {}, pendingCallbacks = [] }) {
   const CATEGORIES = categories.length ? categories : DEFAULT_CATEGORIES;
   const [viewMode, setViewMode] = useState('table');
   const [rows, setRows] = useState(initialRows);
@@ -153,6 +153,9 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [showNoAnswerBucket, setShowNoAnswerBucket] = useState(false);
   const [minNoAnswerStreak, setMinNoAnswerStreak] = useState(NO_ANSWER_STREAK_THRESHOLD);
   const [noAnswerSelected, setNoAnswerSelected] = useState(new Set());
+  // "ביקשו לחזור אליהם" - אותה תבנית בדיוק כמו "לא ענו" (0135): יוצא
+  // מהתור מיד, מוסתר מהטבלה הרגילה, קבוצה נפרדת עם "החזר לתור" ידני.
+  const [showCallbackBucket, setShowCallbackBucket] = useState(false);
   const [pendingImport, setPendingImport] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [exporting, setExporting] = useState(false);
@@ -301,10 +304,10 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     [rows, minNoAnswerStreak]
   );
   // בניגוד לתורמים-פעילים-אחרונים (showRecentActiveDonors מחזיר אותם
-  // לאותה טבלה) - שורות "לא ענו X+ פעמים" תמיד מוסתרות מהטבלה הרגילה,
-  // ומוצגות רק בקבוצה הנפרדת למטה כש-showNoAnswerBucket=true.
+  // לאותה טבלה) - שורות "לא ענו X+ פעמים" ו"ביקשו לחזור אליהם" תמיד
+  // מוסתרות מהטבלה הרגילה, ומוצגות רק בקבוצות הנפרדות למטה.
   const visibleRows = useMemo(
-    () => rows.filter((r) => (showRecentActiveDonors || !r.isRecentActiveDonor || r.allowRecentDonorCall) && r.noAnswerStreak < NO_ANSWER_STREAK_THRESHOLD),
+    () => rows.filter((r) => (showRecentActiveDonors || !r.isRecentActiveDonor || r.allowRecentDonorCall) && r.noAnswerStreak < NO_ANSWER_STREAK_THRESHOLD && !r.isPendingCallback),
     [rows, showRecentActiveDonors]
   );
 
@@ -849,6 +852,20 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               {showNoAnswerBucket ? `▴ ${blockedNoAnswerCount} לא ענו` : `🔁 ${blockedNoAnswerCount} לא ענו`}
             </button>
           )}
+          {pendingCallbacks.length > 0 && (
+            <button
+              type="button" onClick={() => setShowCallbackBucket((v) => !v)}
+              style={{
+                ...ghostBtn(), padding: '5px 10px', fontSize: 12,
+                background: showCallbackBucket ? '#eef2f7' : 'var(--bg)',
+                borderColor: showCallbackBucket ? '#c9d6e3' : 'var(--border, #e5e5e5)',
+                color: showCallbackBucket ? '#3b5878' : 'inherit',
+              }}
+              title='יצאו מהתור מיד כשביקשו שיחת-חזרה - חוזרים לתור רק ידנית ע"י מנהל'
+            >
+              {showCallbackBucket ? `▴ ${pendingCallbacks.length} ביקשו לחזור אליהם` : `📅 ${pendingCallbacks.length} ביקשו לחזור אליהם`}
+            </button>
+          )}
         </div>
       )}
 
@@ -862,6 +879,14 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
           isPending={isPending}
           onReturnOne={handleReturnToQueue}
           onReturnSelected={handleReturnToQueueBulk}
+        />
+      )}
+
+      {showCallbackBucket && (
+        <CallbackBucket
+          rows={pendingCallbacks}
+          isPending={isPending}
+          onReturnOne={(rowId) => handleChange(rowId, { inCallQueue: true }).then((res) => { if (!res?.error) router.refresh(); })}
         />
       )}
 
@@ -1157,6 +1182,52 @@ function NoAnswerBucket({ rows, minStreak, onMinStreakChange, selected, onSelect
                 <td style={{ padding: '8px 14px' }}>{r.phone || '—'}</td>
                 <td style={{ padding: '8px 14px' }}>{r.category || '—'}</td>
                 <td style={{ padding: '8px 14px', fontWeight: 600 }}>{r.noAnswerStreak}</td>
+                <td style={{ padding: '8px 14px' }}>
+                  <button type="button" onClick={() => onReturnOne(r.rowId)} disabled={isPending} style={{ ...ghostBtn(), fontSize: 11.5, padding: '4px 10px' }}>
+                    ↩ החזר לתור
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+// קבוצת "ביקשו לחזור אליהם" - אותו רעיון בדיוק כמו NoAnswerBucket (0135):
+// שורות שיצאו אוטומטית מהתור ברגע שנקבעה שיחת-חזרה, גלוי למנהל בלבד,
+// מציג מי ביקש (agentName) מתי ביקשו (requestedAt) ולאיזה זמן הובטחה
+// החזרה (callbackAt) - כדי שהמנהל יחליט מתי באמת להחזיר לתור.
+function CallbackBucket({ rows, isPending, onReturnOne }) {
+  const fmt = (iso) => iso ? new Date(iso).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+  return (
+    <div style={{ marginBottom: 14, border: '1px solid #c9d6e3', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: '#eef2f7', padding: '9px 14px' }}>
+        <strong style={{ fontSize: 13, color: '#3b5878' }}>📅 ביקשו לחזור אליהם - יצאו מהתור</strong>
+      </div>
+      {rows.length === 0 ? (
+        <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b', background: 'var(--bg)' }}>אין כרגע</div>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: 'var(--bg)' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
+              {['שם', 'טלפון', 'מי ביקש', 'מתי ביקשו', 'לחזור מתי', ''].map((h) => (
+                <th key={h} style={{ textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '6px 14px', textTransform: 'uppercase' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.rowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
+                <td style={{ padding: '8px 14px' }}>
+                  <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.name || '—'}</Link>
+                </td>
+                <td style={{ padding: '8px 14px' }}>{r.phone || '—'}</td>
+                <td style={{ padding: '8px 14px' }}>{r.agentName}</td>
+                <td style={{ padding: '8px 14px', fontSize: 12 }}>{fmt(r.requestedAt)}</td>
+                <td style={{ padding: '8px 14px', fontSize: 12, fontWeight: 600 }}>{fmt(r.callbackAt)}</td>
                 <td style={{ padding: '8px 14px' }}>
                   <button type="button" onClick={() => onReturnOne(r.rowId)} disabled={isPending} style={{ ...ghostBtn(), fontSize: 11.5, padding: '4px 10px' }}>
                     ↩ החזר לתור
