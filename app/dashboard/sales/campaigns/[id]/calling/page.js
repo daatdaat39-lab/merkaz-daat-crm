@@ -46,7 +46,7 @@ export default async function CampaignCallingPage({ params }) {
 
   const [campaignStages, { data: whatsappTemplates }, { data: profile }] = await Promise.all([
     getCampaignStages(supabase, campaign.id),
-    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
+    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('sort_order').order('created_at'),
     supabase.from('profiles').select('name').eq('id', user.id).maybeSingle(),
   ]);
   const stages = campaignStages.order.map((key) => ({ stageKey: key, label: campaignStages.labels[key], isWon: key === campaignStages.wonStage }));

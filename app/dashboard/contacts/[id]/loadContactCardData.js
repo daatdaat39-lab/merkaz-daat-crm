@@ -58,7 +58,7 @@ export async function loadContactCardData(contactId) {
       .select('id, workspace_id, phone, reason, kind, message, direction, sent_at')
       .eq('contact_id', contact.id)
       .order('sent_at', { ascending: false }),
-    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
+    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('sort_order').order('created_at'),
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
     supabase
       .from('donation_transactions')

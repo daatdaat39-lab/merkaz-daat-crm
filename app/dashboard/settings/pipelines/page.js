@@ -32,7 +32,7 @@ export default async function PipelinesPage() {
       .select('id, workspace_id, stage_key, label, color_bg, color_fg, sort_order, is_lead_stage, is_won_stage, is_side_stage')
       .order('sort_order', { ascending: true, nullsFirst: false }),
     supabase.from('stage_automations').select('id, workspace_id, stage_key, action_type, whatsapp_template_id, email_template_id, task_title, task_due_offset_days'),
-    supabase.from('whatsapp_templates').select('id, name').order('created_at'),
+    supabase.from('whatsapp_templates').select('id, name').order('sort_order').order('created_at'),
     supabase.from('email_templates').select('id, name').order('created_at'),
   ]);
 

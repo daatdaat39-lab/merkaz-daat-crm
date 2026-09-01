@@ -43,7 +43,7 @@ export default async function ContactsPage() {
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
-    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('created_at'),
+    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('sort_order').order('created_at'),
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
   ]);
   const allContacts = (data || []).map((c) => ({
