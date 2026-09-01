@@ -8,22 +8,44 @@ import { sendContactWhatsApp, sendContactWhatsAppChatMessage } from '../actions'
 // שנשלחו והודעות שהתקבלו מהלקוח, לפי כיוון) כבועות שיחה, עם תיבת
 // כתיבה בתחתית. הודעה ראשונה/כשאין עדיין שיחה פתוחה חייבת להיות
 // תבנית מאושרת (חוק WhatsApp) - לכן יש גם כפתור לשליחת התבנית הרשמית.
-export default function WhatsAppSendModal({ contactId, workspaceId, phone, reason, thread = [], templates = [], onClose, initialMessage = '' }) {
+export default function WhatsAppSendModal({ contactId, workspaceId, phone, reason, thread = [], templates = [], onClose, initialMessage = '', skipRefresh = false }) {
   const [message, setMessage] = useState(initialMessage);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const [templateId, setTemplateId] = useState(templates[0]?.id || '');
+  // הודעות שנשלחו בפועל תוך-כדי-פתיחת-החלון - כשskipRefresh=true (מתוך
+  // שיחה פעילה) אין router.refresh() שיביא את ההודעה בחזרה מה-DB, אז
+  // בלעדי זה הטלפן/ית לא רואה שום אישור שהיא באמת נשלחה. תצוגה-אופטימית
+  // מקומית, לא תלויה ברענון.
+  const [locallySent, setLocallySent] = useState([]);
   const router = useRouter();
 
-  const sorted = [...thread].sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
+  const sorted = [...thread, ...locallySent].sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
   const selectedTemplate = templates.find((t) => t.id === templateId) || templates[0];
 
+  // try/catch מפורש כאן - לא סומכים על כך ש-Server Action תמיד מחזירה
+  // {error} ולא זורקת חריגה (רשת/timeout/כשל-לא-צפוי ב-InforU). חריגה
+  // לא-תפוסה בתוך startTransition מגיעה ל-Error Boundary הקרוב ומפילה
+  // את כל עץ-הרכיבים מתחתיו - כולל ActiveCallPanel כשהמודאל הזה נפתח
+  // מתוך שיחה פעילה, בדיוק התופעה שדווחה ("הכרטיס נסגר" אחרי שליחת
+  // וואטסאפ).
   function handleSendTemplate() {
     setError(null);
     startTransition(async () => {
-      const res = await sendContactWhatsApp(contactId, workspaceId, reason, selectedTemplate?.template_id);
-      if (res?.error) { setError(res.error); return; }
-      router.refresh();
+      try {
+        const res = await sendContactWhatsApp(contactId, workspaceId, reason, selectedTemplate?.template_id);
+        if (res?.error) { setError(res.error); return; }
+        if (skipRefresh) {
+          setLocallySent((prev) => [...prev, {
+            id: `local-${prev.length}-${selectedTemplate?.id || ''}`, kind: 'template',
+            message: selectedTemplate?.preview_text || null, reason, direction: 'out', sent_at: new Date().toISOString(),
+          }]);
+        } else {
+          router.refresh();
+        }
+      } catch (e) {
+        setError(e?.message || 'שליחת ההודעה נכשלה');
+      }
     });
   }
 
@@ -31,10 +53,21 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
     if (!message.trim()) return;
     setError(null);
     startTransition(async () => {
-      const res = await sendContactWhatsAppChatMessage(contactId, workspaceId, message);
-      if (res?.error) { setError(res.error); return; }
-      setMessage('');
-      router.refresh();
+      const sentText = message.trim();
+      try {
+        const res = await sendContactWhatsAppChatMessage(contactId, workspaceId, sentText);
+        if (res?.error) { setError(res.error); return; }
+        setMessage('');
+        if (skipRefresh) {
+          setLocallySent((prev) => [...prev, {
+            id: `local-${prev.length}-chat`, kind: 'chat', message: sentText, direction: 'out', sent_at: new Date().toISOString(),
+          }]);
+        } else {
+          router.refresh();
+        }
+      } catch (e) {
+        setError(e?.message || 'שליחת ההודעה נכשלה');
+      }
     });
   }
 

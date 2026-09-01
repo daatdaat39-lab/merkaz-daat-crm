@@ -394,6 +394,7 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
         <WhatsAppSendModal
           contactId={contact.contactId} workspaceId={workspaceId} phone={contact.phone}
           templates={whatsappTemplates} onClose={() => setShowWhatsApp(false)}
+          skipRefresh
         />
       )}
     </div>
