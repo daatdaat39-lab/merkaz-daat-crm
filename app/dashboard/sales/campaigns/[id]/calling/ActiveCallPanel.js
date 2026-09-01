@@ -127,15 +127,22 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
+  // בכוונה רק beforeunload (סגירת-טאב/ניווט-החוצה אמיתיים) - לא
+  // visibilitychange. היה כאן גם visibilitychange בעבר, אבל זה שחרר את
+  // התפיסה בטעות **מיד** ברגע שהטלפן/ית עוזב/ת את הדפדפן לחייג בפועל
+  // (מהנייד האישי, לא דרך המערכת) - "הדף הוסתר" קורה בדיוק אז, הרבה
+  // לפני שהשיחה בכלל התחילה, ובזמן שהטלפן/ית עוד "choosing". בפועל זה
+  // שחרר כמעט כל כרטיס-פעיל תוך שניות מהפתיחה - בדיוק התופעה שדווחה
+  // ("הכרטיס כבר לא נעול אצלך" מיד אחרי פתיחה). חלון-התפוגה של שעה
+  // (claim_next_campaign_contact, migration 0132) כבר מכסה נטישה אמיתית
+  // (טאב שקרס/לא נסגר) בלי הצורך בשחרור-מיידי-על-הסתרה.
   useEffect(() => {
     function releaseOnHide() {
-      if (document.visibilityState === 'hidden' && phase === 'choosing') skipContact(contact.rowId);
+      if (phase === 'choosing') skipContact(contact.rowId);
     }
     window.addEventListener('beforeunload', releaseOnHide);
-    document.addEventListener('visibilitychange', releaseOnHide);
     return () => {
       window.removeEventListener('beforeunload', releaseOnHide);
-      document.removeEventListener('visibilitychange', releaseOnHide);
     };
   }, [contact.rowId, phase]);
 
