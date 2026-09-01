@@ -112,6 +112,11 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [rows, setRows] = useState(initialRows);
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState('');
+  // חיפוש חופשי-לגמרי (שם/טלפון/מייל) בתוך כל הקבוצות בטבלה הראשית -
+  // נפרד מ-search (חיפוש בבורר "הוספת אנשי קשר"). מטרה: למצוא איש-קשר
+  // ספציפי ולעדכן אותו ישירות, בלי לגלול/לפתוח קבוצה-קבוצה על קמפיין עם
+  // אלפי שורות.
+  const [contactSearch, setContactSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [fieldFilters, setFieldFilters] = useState({});
@@ -323,7 +328,12 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     }
     return result;
   }, [visibleRows, noteFilter, noteFilterValues, noteEmptyOnly, responsibleFilter, responsibleFilterValues, responsibleEmptyOnly]);
-  const groups = useMemo(() => buildCategoryGroups(noteFilteredRows, CATEGORIES, mappingFilter), [noteFilteredRows, CATEGORIES, mappingFilter]);
+  const contactSearchFilteredRows = useMemo(() => {
+    if (!contactSearch.trim()) return noteFilteredRows;
+    const q = contactSearch.trim().toLowerCase();
+    return noteFilteredRows.filter((r) => `${r.name || ''} ${r.phone || ''} ${r.email || ''}`.toLowerCase().includes(q));
+  }, [noteFilteredRows, contactSearch]);
+  const groups = useMemo(() => buildCategoryGroups(contactSearchFilteredRows, CATEGORIES, mappingFilter), [contactSearchFilteredRows, CATEGORIES, mappingFilter]);
 
   function togglePick(id) {
     setPickIds((prev) => {
@@ -749,6 +759,22 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
 
       {rows.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <input
+            type="text" value={contactSearch} onChange={(e) => setContactSearch(e.target.value)}
+            placeholder="🔍 חיפוש איש קשר לעדכון (שם/טלפון/מייל)..."
+            style={{ ...inputStyle, minWidth: 240 }}
+          />
+          {contactSearch.trim() && (
+            <>
+              <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{contactSearchFilteredRows.length} תוצאות</span>
+              <button type="button" onClick={() => setContactSearch('')} style={{ ...ghostBtn(), padding: '4px 10px', fontSize: 12 }}>נקה חיפוש</button>
+            </>
+          )}
+        </div>
+      )}
+
+      {rows.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>הצג בקבוצות:</span>
           <select value={mappingFilter} onChange={(e) => setMappingFilter(e.target.value)} style={{ ...inputStyle, fontSize: 12 }}>
             <option value="all">הכל (חוץ מ"לא רלוונטי")</option>
@@ -823,7 +849,10 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
       )}
 
       {groups.map((group) => {
-        const collapsed = collapsedGroups.has(group.key);
+        // בזמן חיפוש-איש-קשר פעיל, קבוצות שהמשתמש כיווץ ידנית נפתחות
+        // מחדש בכוח - אחרת תוצאה שנמצאת בקבוצה מכווצת פשוט לא הייתה
+        // נראית בכלל.
+        const collapsed = !contactSearch.trim() && collapsedGroups.has(group.key);
         const groupSelected = group.rows.length > 0 && group.rows.every((r) => selectedRows.has(r.rowId));
         return (
           <div key={group.key || '__none__'} style={{ marginBottom: 12 }}>
