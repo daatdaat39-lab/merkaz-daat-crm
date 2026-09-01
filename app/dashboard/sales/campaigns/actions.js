@@ -733,7 +733,6 @@ export async function bulkUpdateCampaignContactsFromImport(campaignId, updates) 
     // לתקרית אובדן-הנתונים ב-31/08 (משיכת-גיליון דרסה יומן-שיחות שלם, ר'
     // migration 0117/0118). ייבוא/משיכה יכולים לעדכן רק manager_note.
     if (u.managerNote !== undefined) patch.manager_note = u.managerNote || null;
-    if (u.inCallQueue !== undefined) patch.in_call_queue = !!u.inCallQueue;
     if (u.responsiblePerson !== undefined) patch.responsible_person = u.responsiblePerson || null;
     // עדכון-מיפוי (מגיע מסנכרון-גיליון, ר' pullCampaignUpdatesFromSheet) -
     // אותם ערכים בדיוק שכבר נשמרים דרך saveMappingDecision.
@@ -966,7 +965,14 @@ export async function pullCampaignUpdatesFromSheet(campaignId) {
     // (מחלקות/שנת-שיא/תרומות/אינטראקציה-אחרונה/הוראת-קבע/קורסים/מחזור/
     // שנות-לימוד/בן-בת-זוג) הן תובנות מחושבות בלבד - נדרסות תמיד מה-DB
     // (push/backfillSheetNewColumns), אין טעם למשוך אותן בחזרה.
-    inCallQueue: header.indexOf('בתור-שיחות'),
+    // "בתור-שיחות" הוסר במפורש מהמשיכה (נוסה, גרם לתקלה אמיתית - ר'
+    // migration 0129): בניגוד לשדות-ידניים-בלבד, השדה הזה מתעדכן גם
+    // אוטומטית בכל תוצאת-שיחה טרמינלית (log_campaign_call_attempt). תא-
+    // גיליון הוא צילום-מסך מרגע הדחיפה/מילוי-האחרון בלבד, ולא מתעדכן חי
+    // כשקוראים מתקשרים בפועל - משיכה יכולה לדרוס בטעות "false" (הוצא-
+    // מהתור אוטומטית) בחזרה ל-"true" מתא ישן, ולהחזיר לתור מישהו שכבר
+    // לא רלוונטי. שינוי-ידני של "בתור" נשאר אפשרי, פשוט דרך התיבה בטבלה
+    // עצמה במערכת, לא דרך הגיליון.
     managerNote: header.indexOf('הערות מנהל'),
     responsiblePerson: header.indexOf('אחראי'),
   };
@@ -996,7 +1002,6 @@ export async function pullCampaignUpdatesFromSheet(campaignId) {
       const decision = (cells[idx.mappingDecision] || '').trim();
       if (decision) patch.mappingDecision = decision;
     }
-    if (idx.inCallQueue !== -1) patch.inCallQueue = (cells[idx.inCallQueue] || '').trim() !== 'לא';
     if (idx.managerNote !== -1) patch.managerNote = (cells[idx.managerNote] || '').trim();
     if (idx.responsiblePerson !== -1) patch.responsiblePerson = (cells[idx.responsiblePerson] || '').trim();
     return patch;
