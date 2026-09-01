@@ -21,7 +21,7 @@ const ROW_ID_HEADER = 'מזהה שורה (לא לשנות)';
 // חייב להישאר מסונכרן עם p_no_answer_streak_threshold (ברירת המחדל ב-
 // log_campaign_call_attempt, migration 0121) - זה הסף שבו שורה יוצאת
 // אוטומטית מהתור ועוברת ל"קבוצת לא-ענו" הנפרדת למטה.
-const NO_ANSWER_STREAK_THRESHOLD = 3;
+const NO_ANSWER_STREAK_THRESHOLD = 1;
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
 
@@ -844,9 +844,9 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
                 borderColor: showNoAnswerBucket ? '#fed7aa' : 'var(--border, #e5e5e5)',
                 color: showNoAnswerBucket ? '#9a5b0c' : 'inherit',
               }}
-              title={`יצאו אוטומטית מהתור אחרי ${NO_ANSWER_STREAK_THRESHOLD}+ "לא ענה" רצופים`}
+              title='יצאו אוטומטית מהתור מיד אחרי "לא ענה" - חוזרים לתור רק ידנית ע"י מנהל'
             >
-              {showNoAnswerBucket ? `▴ ${blockedNoAnswerCount} לא ענו ${NO_ANSWER_STREAK_THRESHOLD}+ פעמים` : `🔁 ${blockedNoAnswerCount} לא ענו ${NO_ANSWER_STREAK_THRESHOLD}+ פעמים`}
+              {showNoAnswerBucket ? `▴ ${blockedNoAnswerCount} לא ענו` : `🔁 ${blockedNoAnswerCount} לא ענו`}
             </button>
           )}
         </div>
