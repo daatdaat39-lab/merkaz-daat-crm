@@ -37,7 +37,7 @@ function DrillDownList({ loading, items }) {
   );
 }
 
-export default function CallDashboardClient({ campaignId, stats, donationsByAgent = [] }) {
+export default function CallDashboardClient({ campaignId, stats, donationsByAgent = [], donationsNotReachedOut = [] }) {
   const { totals, agentTable, notes, pendingCallbacks = [], hoursByAgent = [], currentlyClaimed = [] } = stats;
 
   const [openOutcome, setOpenOutcome] = useState(null); // `${agentId||''}:${outcome}`
@@ -172,8 +172,8 @@ export default function CallDashboardClient({ campaignId, stats, donationsByAgen
         </div>
       )}
 
-      <div style={sectionLabel}>תרמו בעקבות שיחות</div>
-      {donationsByAgent.length === 0 && <div style={{ ...card, color: 'var(--text-muted)', fontSize: 12.5 }}>אין עדיין תרומות שקושרו לשיחות.</div>}
+      <div style={sectionLabel}>תרמו - פנינו אליהם</div>
+      {donationsByAgent.length === 0 && <div style={{ ...card, color: 'var(--text-muted)', fontSize: 12.5 }}>אין עדיין תרומות של מי שדיברנו איתו.</div>}
       {donationsByAgent.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {donationsByAgent.map((g) => (
@@ -193,6 +193,24 @@ export default function CallDashboardClient({ campaignId, stats, donationsByAgen
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      <div style={sectionLabel}>תרמו - לא פנינו אליהם</div>
+      {donationsNotReachedOut.length === 0 && <div style={{ ...card, color: 'var(--text-muted)', fontSize: 12.5 }}>אין תרומות כאלה כרגע.</div>}
+      {donationsNotReachedOut.length > 0 && (
+        <div style={card}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {donationsNotReachedOut.map((it, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                <span>
+                  <Link href={`/dashboard/contacts/${it.contactId}`} style={{ color: 'inherit', fontWeight: 600 }}>{it.name || '—'}</Link>
+                  {it.amount != null && <span> · ₪{Math.round(it.amount).toLocaleString()}</span>}
+                </span>
+                <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{it.occurredAt}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
