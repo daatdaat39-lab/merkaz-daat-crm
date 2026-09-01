@@ -287,6 +287,34 @@ async function requireOwnClaim(supabase, userId, rowId) {
   return { row };
 }
 
+// שולח "פעימת-חיים" על תפיסה פתוחה - ActiveCallPanel.js קורא לזה כל כמה
+// דקות כל עוד הכרטיס עדיין פתוח בפועל, כדי ש-claimed_at לא יתיישן ותפיסה
+// שבאמת נמצאת בעבודה לא תישלח בטעות לנציג אחר (ר' heartbeat_campaign_
+// contact_claim, migration 0119). stillClaimed=false אומר שמישהו אחר כבר
+// הספיק לתפוס - הלקוח אמור לסגור את הכרטיס בכוח במקרה הזה.
+// "תרמו אחרי שדיברנו איתם" - תצוגת-הטלפן/ית: רק תרומות שמיוחסות אליו/ה
+// (ר' get_campaign_donation_attributions, migration 0122) - משלב תיוג-
+// ידני תוך-כדי-שיחה וזיהוי-אוטומטי ממערכת קשר.
+export async function getMyDonationAttributions(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { error } = await requireMemberOfCampaign(supabase, user.id, campaignId);
+  if (error) return { error };
+  const { data, error: rpcError } = await supabase.rpc('get_campaign_donation_attributions', { p_campaign_id: campaignId, p_agent_id: user.id });
+  if (rpcError) return { error: rpcError.message };
+  const rows = (data || []).map((r) => ({
+    contactId: r.contact_id, name: `${r.first || ''} ${r.last || ''}`.trim(), phone: r.phone,
+    amount: r.amount != null ? Number(r.amount) : null, occurredAt: r.occurred_at,
+  }));
+  return { success: true, rows };
+}
+
+export async function heartbeatClaim(rowId) {
+  const { supabase, user } = await requireUser();
+  const { data, error } = await supabase.rpc('heartbeat_campaign_contact_claim', { p_row_id: rowId, p_caller: user.id });
+  if (error) return { error: error.message };
+  return { success: true, stillClaimed: !!data };
+}
+
 export async function logCallAttempt(rowId, { outcome, note, noteType, callbackAt, dedicationText, pledgeDetails, donationAmount, newStatus }) {
   const { supabase, user } = await requireUser();
   const { row, error } = await requireOwnClaim(supabase, user.id, rowId);

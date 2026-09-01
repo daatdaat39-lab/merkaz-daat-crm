@@ -30,7 +30,7 @@ export async function getCallDashboardStats(campaignId) {
   const allowed = await isManagerOfWorkspace(supabase, user.id, campaign.workspace_id);
   if (!allowed) return { error: 'רק מנהל יכול לראות דשבורד זה' };
 
-  const [{ data: totalsRows }, { data: statsRows }, { data: notesRows }, { data: callbackRows }, { data: sessionEvents }] = await Promise.all([
+  const [{ data: totalsRows }, { data: statsRows }, { data: notesRows }, { data: callbackRows }, { data: sessionEvents }, { data: claimedRows }] = await Promise.all([
     supabase.rpc('get_call_dashboard_totals', { p_campaign_id: campaignId }),
     supabase.rpc('count_call_attempts_stats', { p_campaign_id: campaignId }),
     supabase.from('campaign_call_attempts')
@@ -40,6 +40,10 @@ export async function getCallDashboardStats(campaignId) {
       .order('created_at', { ascending: false }).limit(50),
     supabase.rpc('get_pending_callbacks', { p_campaign_id: campaignId }),
     supabase.from('call_session_events').select('agent_id, event_type, created_at').eq('campaign_id', campaignId).order('created_at', { ascending: true }),
+    // "מי תופס מה עכשיו" (0123) - תלוי ב-heartbeat (0119) ששומר claimed_at
+    // אמיתי כל עוד הכרטיס עוד פתוח בפועל, אחרת תפיסה ישנה-אבל-לא-פגה
+    // הייתה נראית כאן כאילו הנציג עדיין על הקו.
+    supabase.rpc('get_currently_claimed_campaign_contacts', { p_campaign_id: campaignId }),
   ]);
 
   const totals = (totalsRows || [])[0] || { total_attempts: 0, unique_contacts_attempted: 0, remaining_in_queue: 0 };
@@ -48,6 +52,7 @@ export async function getCallDashboardStats(campaignId) {
     ...(statsRows || []).map((r) => r.agent_id),
     ...(callbackRows || []).map((r) => r.scheduled_by),
     ...(sessionEvents || []).map((r) => r.agent_id),
+    ...(claimedRows || []).map((r) => r.claimed_by),
   ].filter(Boolean)));
   const { data: profiles } = agentIds.length
     ? await supabase.from('profiles').select('id, name').in('id', agentIds)
@@ -57,7 +62,7 @@ export async function getCallDashboardStats(campaignId) {
   const byAgent = {};
   for (const row of statsRows || []) {
     const agentName = row.agent_id ? (nameById[row.agent_id] || 'נציג') : 'לא ידוע';
-    if (!byAgent[agentName]) byAgent[agentName] = { agentName, total: 0, outcomes: {} };
+    if (!byAgent[agentName]) byAgent[agentName] = { agentName, agentId: row.agent_id || null, total: 0, outcomes: {} };
     byAgent[agentName].outcomes[row.outcome] = (byAgent[agentName].outcomes[row.outcome] || 0) + Number(row.attempt_count);
     byAgent[agentName].total += Number(row.attempt_count);
   }
@@ -69,6 +74,11 @@ export async function getCallDashboardStats(campaignId) {
       })),
     }))
     .sort((a, b) => b.total - a.total);
+
+  const currentlyClaimed = (claimedRows || []).map((r) => ({
+    rowId: r.row_id, contactId: r.contact_id, name: `${r.first || ''} ${r.last || ''}`.trim(), phone: r.phone,
+    agentName: r.claimed_by ? (nameById[r.claimed_by] || 'נציג') : 'נציג', claimedAt: formatIsraeliDateTime(r.claimed_at),
+  }));
 
   const notes = (notesRows || [])
     .map((r) => ({
@@ -92,8 +102,94 @@ export async function getCallDashboardStats(campaignId) {
       uniqueContactsAttempted: Number(totals.unique_contacts_attempted || 0),
       remainingInQueue: Number(totals.remaining_in_queue || 0),
     },
-    agentTable, notes, pendingCallbacks, hoursByAgent,
+    agentTable, notes, pendingCallbacks, hoursByAgent, currentlyClaimed,
   };
+}
+
+// "מי תרם אחרי ששוחחנו איתו" - כל הקמפיין, מקובץ לפי נציג-מיוחס (ר'
+// get_campaign_donation_attributions, migration 0122). p_agent_id=null
+// כאן בכוונה - זו תצוגת-מנהל, רואה את כולם, כולל "לא ניתן לייחס".
+export async function getDonationAttributionsForDashboard(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('id, workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const allowed = await isManagerOfWorkspace(supabase, user.id, campaign.workspace_id);
+  if (!allowed) return { error: 'רק מנהל יכול לראות דשבורד זה' };
+
+  const { data: rows, error } = await supabase.rpc('get_campaign_donation_attributions', { p_campaign_id: campaignId, p_agent_id: null });
+  if (error) return { error: error.message };
+
+  const agentIds = Array.from(new Set((rows || []).map((r) => r.attributed_agent_id).filter(Boolean)));
+  const { data: profiles } = agentIds.length
+    ? await supabase.from('profiles').select('id, name').in('id', agentIds)
+    : { data: [] };
+  const nameById = Object.fromEntries((profiles || []).map((p) => [p.id, p.name]));
+
+  const byAgent = {};
+  for (const r of rows || []) {
+    const agentName = r.attributed_agent_id ? (nameById[r.attributed_agent_id] || 'נציג') : 'לא ניתן לייחס';
+    if (!byAgent[agentName]) byAgent[agentName] = { agentName, items: [] };
+    byAgent[agentName].items.push({
+      contactId: r.contact_id, name: `${r.first || ''} ${r.last || ''}`.trim(), phone: r.phone,
+      amount: r.amount != null ? Number(r.amount) : null,
+      occurredAt: formatIsraeliDateTime(r.occurred_at),
+      source: r.source === 'call_attempt' ? 'תויג תוך-כדי-שיחה' : 'זוהה אוטומטית ממערכת קשר',
+    });
+  }
+  return { success: true, byAgent: Object.values(byAgent).sort((a, b) => b.items.length - a.items.length) };
+}
+
+// drill-down מתחת ל"באדג'-תוצאה" בטבלת "לפי נציג" - עד 500 ניסיונות
+// אחרונים, לא צריך עוד (זו רשימת-עיון, לא דוח מלא).
+export async function listCallAttemptsByAgentOutcome(campaignId, agentId, outcome) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('id, workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const allowed = await isManagerOfWorkspace(supabase, user.id, campaign.workspace_id);
+  if (!allowed) return { error: 'רק מנהל יכול לראות דשבורד זה' };
+
+  let query = supabase.from('campaign_call_attempts')
+    .select('id, created_at, campaign_contacts:campaign_contact_id!inner (campaign_id, contact_id, contacts:contact_id (id, first, last, phone))')
+    .eq('campaign_contacts.campaign_id', campaignId).eq('outcome', outcome)
+    .order('created_at', { ascending: false }).limit(500);
+  query = agentId ? query.eq('agent_id', agentId) : query.is('agent_id', null);
+  const { data, error } = await query;
+  if (error) return { error: error.message };
+
+  const items = (data || []).map((r) => ({
+    contactId: r.campaign_contacts?.contacts?.id,
+    name: `${r.campaign_contacts?.contacts?.first || ''} ${r.campaign_contacts?.contacts?.last || ''}`.trim(),
+    phone: r.campaign_contacts?.contacts?.phone, createdAt: formatIsraeliDateTime(r.created_at),
+  }));
+  return { success: true, items };
+}
+
+// drill-down מתחת לאריח "נותרים בתור" - כל הקמפיין, פאגינציה מלאה (אותו
+// דפוס בדיוק כמו fetchAllCampaignMembers ב-page.js, כדי לא להיחתך ב-1000
+// PostgREST על קמפיין גדול).
+export async function listRemainingInQueueContacts(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('id, workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const allowed = await isManagerOfWorkspace(supabase, user.id, campaign.workspace_id);
+  if (!allowed) return { error: 'רק מנהל יכול לראות דשבורד זה' };
+
+  let all = [];
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase.from('campaign_contacts')
+      .select('id, category, contacts:contact_id (id, first, last, phone)')
+      .eq('campaign_id', campaignId).eq('in_call_queue', true)
+      .order('id').range(offset, offset + PAGE - 1);
+    if (error) return { error: error.message };
+    all = all.concat(data || []);
+    if (!data || data.length < PAGE) break;
+  }
+  const items = all.map((r) => ({
+    rowId: r.id, contactId: r.contacts?.id, name: `${r.contacts?.first || ''} ${r.contacts?.last || ''}`.trim(),
+    phone: r.contacts?.phone, category: r.category || '',
+  }));
+  return { success: true, items };
 }
 
 // זיווג-אירועים כרונולוגי לכל נציג: start/break_end פותחים חלון-עבודה,

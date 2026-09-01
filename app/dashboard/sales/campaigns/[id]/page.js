@@ -54,7 +54,7 @@ export default async function CampaignDetailPage({ params }) {
     while (true) {
       const { data } = await supabase
         .from('campaign_contacts')
-        .select('id, category, assigned_to, status, mapping_decision, note, in_call_queue, responsible_person, allow_recent_donor_call, created_at, contacts:contact_id (id, first, last, phone, email, related_contact_id, relation_label)')
+        .select('id, category, assigned_to, status, mapping_decision, note, manager_note, in_call_queue, responsible_person, allow_recent_donor_call, no_answer_streak, created_at, contacts:contact_id (id, first, last, phone, email, related_contact_id, relation_label)')
         .eq('campaign_id', campaign.id)
         .range(from, from + pageSize - 1);
       if (!data || data.length === 0) break;
@@ -132,10 +132,12 @@ export default async function CampaignDetailPage({ params }) {
     status: r.status,
     mappingDecision: r.mapping_decision || '',
     note: r.note || '',
+    managerNote: r.manager_note || '',
     responsiblePerson: r.responsible_person || '',
     inCallQueue: r.in_call_queue !== false,
     isRecentActiveDonor: recentActiveDonorContactIds.has(r.contacts.id),
     allowRecentDonorCall: !!r.allow_recent_donor_call,
+    noAnswerStreak: r.no_answer_streak || 0,
     spouseName: r.contacts.related_contact_id ? (relatedNameById[r.contacts.related_contact_id] || '') : '',
     relationLabel: r.contacts.relation_label || '',
   }));

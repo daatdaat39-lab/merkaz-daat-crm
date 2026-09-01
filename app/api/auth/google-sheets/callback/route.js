@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '../../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../../lib/supabase/admin';
-import { createSpreadsheet, formatCampaignSheet, addCategoryViewTabs, getSpreadsheetSheetTitles, CAMPAIGN_SHEET_HEADER_ROW } from '../../../../../lib/sheets/client';
+import { createSpreadsheet, formatCampaignSheet, addCategoryViewTabs, addResponsiblePersonViewTabs, getSpreadsheetSheetTitles, CAMPAIGN_SHEET_HEADER_ROW } from '../../../../../lib/sheets/client';
 import { getPicklistValues } from '../../../../dashboard/lib/picklists';
-import { fetchDistinctCampaignCategories } from '../../../../dashboard/sales/campaigns/actions';
+import { fetchDistinctCampaignCategories, fetchDistinctCampaignResponsiblePeople } from '../../../../dashboard/sales/campaigns/actions';
 
 const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'תורם חוזר', 'לא רלוונטי'];
 
@@ -92,6 +92,11 @@ export async function GET(request) {
       });
       const existingTitles = await getSpreadsheetSheetTitles(tokenData.access_token, spreadsheetId);
       await addCategoryViewTabs(tokenData.access_token, spreadsheetId, 'מיפוי', categoryOptions, existingTitles);
+      const responsibleOptions = await fetchDistinctCampaignResponsiblePeople(supabase, campaignId);
+      if (responsibleOptions.length > 0) {
+        const titlesAfterCategoryTabs = await getSpreadsheetSheetTitles(tokenData.access_token, spreadsheetId);
+        await addResponsiblePersonViewTabs(tokenData.access_token, spreadsheetId, 'מיפוי', responsibleOptions, titlesAfterCategoryTabs);
+      }
     } catch (e) {
       console.error('formatCampaignSheet failed:', e.message);
     }

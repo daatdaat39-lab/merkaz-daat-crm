@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import { logCallAttempt, skipContact, quickNoAnswer, undoLastCallAttempt } from '../callQueueActions';
+import { logCallAttempt, skipContact, quickNoAnswer, undoLastCallAttempt, heartbeatClaim } from '../callQueueActions';
 import WhatsAppSendModal from '../../../../contacts/[id]/WhatsAppSendModal';
 import ContactSummaryPanel from './ContactSummaryPanel';
 
@@ -137,6 +137,24 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
       window.removeEventListener('beforeunload', releaseOnHide);
       document.removeEventListener('visibilitychange', releaseOnHide);
     };
+  }, [contact.rowId, phase]);
+
+  // "פעימת-חיים" על התפיסה כל עוד הכרטיס עדיין פתוח בפועל (choosing/
+  // answered, לא confirming - שם התפיסה כבר שוחררה ע"י השרת) - מונע מצב
+  // שבו כרטיס שבאמת עדיין בעבודה (רק פתוח הרבה זמן) "נגנב" לנציג אחר אחרי
+  // 15 הדקות של claim_next_campaign_contact, בזמן שהטלפן/ית המקורי/ת עדיין
+  // לא הספיק/ה לשלוח (ר' heartbeatClaim, migration 0119). אם stillClaimed
+  // חוזר false - מישהו אחר כבר תפס בפועל, אין טעם להשאיר את הכרטיס פתוח.
+  useEffect(() => {
+    if (phase === 'confirming') return;
+    const interval = setInterval(async () => {
+      const res = await heartbeatClaim(contact.rowId);
+      if (res && res.stillClaimed === false) {
+        setError('התפיסה על איש הקשר הזה כבר לא בתוקף - כנראה נתפס בינתיים ע"י נציג אחר');
+        onClose({ stayClosed: true });
+      }
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [contact.rowId, phase]);
 
   function handleNoAnswer(reason) {

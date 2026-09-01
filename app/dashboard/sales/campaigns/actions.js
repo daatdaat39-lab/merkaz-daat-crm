@@ -4,7 +4,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../lib/contactGuards';
-import { isGoogleSheetsConfigured, getAccessToken as getSheetsAccessToken, appendRows, getSheetValues, addCategoryViewTabs, getSpreadsheetSheetTitles, CAMPAIGN_SHEET_HEADER_ROW, updateSheetHeaderRow, batchUpdateCellRanges, columnLetter } from '../../../../lib/sheets/client';
+import { isGoogleSheetsConfigured, getAccessToken as getSheetsAccessToken, appendRows, getSheetValues, addCategoryViewTabs, addResponsiblePersonViewTabs, getSpreadsheetSheetTitles, CAMPAIGN_SHEET_HEADER_ROW, updateSheetHeaderRow, batchUpdateCellRanges, columnLetter } from '../../../../lib/sheets/client';
 
 // קמפיין תרומות: קבוצת אנשי קשר שמטופלת יחד, מחולקת לקטגוריות (חם/קר/
 // תורם גדול), משויכת לנציגים, עם ערוץ פעולה מוגדר (שיחה/וואטסאפ/מייל/
@@ -113,7 +113,7 @@ export async function updateCampaignContact(rowId, changes) {
   // בדיוק כמו updateDepartmentStage/updateLeadStage שאין להן guard מנהל
   // בכלל. עדכון category/assignedTo עדיין דורש מנהל (נשלטים דרך עמוד
   // הקמפיין המנוהל-מנהל בלבד).
-  if (row.assigned_to !== user.id || changes.category !== undefined || changes.assignedTo !== undefined || changes.inCallQueue !== undefined || changes.allowRecentDonorCall !== undefined) {
+  if (row.assigned_to !== user.id || changes.category !== undefined || changes.assignedTo !== undefined || changes.inCallQueue !== undefined || changes.allowRecentDonorCall !== undefined || changes.managerNote !== undefined || changes.resetNoAnswerStreak !== undefined) {
     const denied = await requireManager(supabase, user.id, row.campaigns?.workspace_id);
     if (denied) return denied;
   }
@@ -121,13 +121,20 @@ export async function updateCampaignContact(rowId, changes) {
   const update = {};
   if (changes.category !== undefined) update.category = changes.category || null;
   if (changes.assignedTo !== undefined) update.assigned_to = changes.assignedTo || null;
-  if (changes.note !== undefined) update.note = changes.note || null;
+  // note (יומן-שיחות הטלפנים, append-only) לא ניתן לעריכה ישירה כאן בכוונה -
+  // רק logCallAttempt/quickNoAnswer כותבים אליו. הערת-מנהל (טקסט חופשי,
+  // ניתן-לדריסה) היא manager_note, נפרד לגמרי (ר' migration 0120) - מנהל-
+  // בלבד, בדיוק כמו category/assignedTo.
+  if (changes.managerNote !== undefined) update.manager_note = changes.managerNote || null;
   if (changes.responsiblePerson !== undefined) update.responsible_person = changes.responsiblePerson || null;
   if (changes.inCallQueue !== undefined) update.in_call_queue = !!changes.inCallQueue;
   // override פר-שורה לחסימת "תורם פעיל אחרון" האוטומטית (0113) - מנהל
   // בלבד, כי זו החלטה שמוציאה אדם בחזרה לתור-חיוג יזום למרות שהוראת-
   // הקבע שלו פעילה.
   if (changes.allowRecentDonorCall !== undefined) update.allow_recent_donor_call = !!changes.allowRecentDonorCall;
+  // "החזר לתור" ידני על שורה שיצאה מהתור אחרי כמה "לא ענה" רצופים (ר'
+  // migration 0121) - מאפס את הרצף כדי שלא תצא מהתור שוב מיד בניסיון-הבא.
+  if (changes.resetNoAnswerStreak) update.no_answer_streak = 0;
   if (changes.status !== undefined) {
     // מוודאים שהערך קיים בפועל כשלב של הקמפיין הזה - מונע "תקיעת" סטטוס
     // יתום אם שלב נמחק/שונה בכרטיסיה אחרת שנשארה פתוחה (campaign_stages
@@ -162,7 +169,7 @@ export async function bulkUpdateCampaignContactsField(campaignId, rowIds, change
   if (denied) return denied;
 
   const hasAny = changes.category !== undefined || changes.assignedTo !== undefined
-    || changes.inCallQueue !== undefined || changes.responsiblePerson !== undefined;
+    || changes.inCallQueue !== undefined || changes.responsiblePerson !== undefined || changes.resetNoAnswerStreak;
   if (!hasAny) return { success: true, updated: 0 };
 
   // קריאה ל-RPC (0104) ולא update().in('id', rowIds) ישיר - אומת בפועל
@@ -176,6 +183,7 @@ export async function bulkUpdateCampaignContactsField(campaignId, rowIds, change
     p_assigned_to: changes.assignedTo || null, p_has_assigned_to: changes.assignedTo !== undefined,
     p_in_call_queue: !!changes.inCallQueue, p_has_in_call_queue: changes.inCallQueue !== undefined,
     p_responsible_person: changes.responsiblePerson || null, p_has_responsible_person: changes.responsiblePerson !== undefined,
+    p_reset_no_answer_streak: !!changes.resetNoAnswerStreak,
   });
   if (error) return { error: error.message };
   return { success: true, updated };
@@ -378,6 +386,23 @@ export async function fetchDistinctCampaignCategories(supabase, campaignId) {
     if (!data || data.length < PAGE) break;
   }
   return Array.from(categories);
+}
+
+// אותו דפוס בדיוק כמו fetchDistinctCampaignCategories, על responsible_
+// person ("אחראי" - טקסט חופשי, נפרד לגמרי מ-assigned_to/"נציג מטפל")
+// במקום category - לצורך יצירת לשוניות-גיליון לפי אחראי (ר' סעיף 5).
+export async function fetchDistinctCampaignResponsiblePeople(supabase, campaignId) {
+  const values = new Set();
+  const PAGE = 1000;
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase.from('campaign_contacts')
+      .select('responsible_person').eq('campaign_id', campaignId).not('responsible_person', 'is', null)
+      .order('id').range(offset, offset + PAGE - 1);
+    if (error) throw error;
+    (data || []).forEach((r) => { if (r.responsible_person) values.add(r.responsible_person); });
+    if (!data || data.length < PAGE) break;
+  }
+  return Array.from(values);
 }
 
 async function fetchAllForContactIds(supabase, table, selectStr, ids, extraFilter) {
@@ -703,7 +728,10 @@ export async function bulkUpdateCampaignContactsFromImport(campaignId, updates) 
     if (u.category !== undefined) patch.category = u.category || null;
     if (u.assignedTo !== undefined) patch.assigned_to = u.assignedTo || null;
     if (u.status !== undefined && validStageKeys.has(u.status)) patch.status = u.status;
-    if (u.note !== undefined) patch.note = u.note || null;
+    // note (יומן-שיחות הטלפנים) לעולם לא נדרס מכאן - זה בדיוק הנתיב שגרם
+    // לתקרית אובדן-הנתונים ב-31/08 (משיכת-גיליון דרסה יומן-שיחות שלם, ר'
+    // migration 0117/0118). ייבוא/משיכה יכולים לעדכן רק manager_note.
+    if (u.managerNote !== undefined) patch.manager_note = u.managerNote || null;
     if (u.responsiblePerson !== undefined) patch.responsible_person = u.responsiblePerson || null;
     // עדכון-מיפוי (מגיע מסנכרון-גיליון, ר' pullCampaignUpdatesFromSheet) -
     // אותם ערכים בדיוק שכבר נשמרים דרך saveMappingDecision.
@@ -807,6 +835,36 @@ export async function regenerateCategoryTabs(campaignId) {
   }
 }
 
+// אחות ל-regenerateCategoryTabs, אותו דפוס בדיוק - יוצר לשונית-תצוגה
+// חדשה לכל ערך "אחראי" בפועל של הקמפיין שעדיין אין לו טאב (ר' סעיף 5).
+export async function regenerateResponsiblePersonTabs(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const admin = createAdminClient();
+  const { data: conn } = await admin.from('campaign_sheet_connections').select('*').eq('campaign_id', campaignId).maybeSingle();
+  if (!conn) return { error: 'אין גיליון מחובר לקמפיין הזה' };
+
+  let accessToken;
+  try { accessToken = await getSheetsAccessToken(conn.refresh_token); } catch (e) { return { error: e.message }; }
+
+  const responsibleOptions = await fetchDistinctCampaignResponsiblePeople(supabase, campaignId);
+  if (responsibleOptions.length === 0) return { success: true, created: 0 };
+
+  try {
+    const existingTitles = await getSpreadsheetSheetTitles(accessToken, conn.spreadsheet_id);
+    const before = existingTitles.size;
+    await addResponsiblePersonViewTabs(accessToken, conn.spreadsheet_id, conn.sheet_title, responsibleOptions, existingTitles);
+    const after = await getSpreadsheetSheetTitles(accessToken, conn.spreadsheet_id);
+    return { success: true, created: after.size - before };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
 export async function pushCampaignRowsToSheet(campaignId) {
   const { supabase, user } = await requireUser();
   const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
@@ -836,7 +894,7 @@ export async function pushCampaignRowsToSheet(campaignId) {
   const PAGE = 1000;
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await supabase.from('campaign_contacts')
-      .select('id, category, assigned_to, status, note, in_call_queue, responsible_person, contacts:contact_id (id, first, last, phone, email, related_contact_id)')
+      .select('id, category, assigned_to, status, note, manager_note, in_call_queue, responsible_person, contacts:contact_id (id, first, last, phone, email, related_contact_id)')
       .eq('campaign_id', campaignId)
       .order('id')
       .range(offset, offset + PAGE - 1);
@@ -865,7 +923,7 @@ export async function pushCampaignRowsToSheet(campaignId) {
     r.category || '', r.assigned_to ? (agentNameById[r.assigned_to] || '') : '', stageLabelByKey[r.status] || r.status || '',
     r.in_call_queue !== false ? 'כן' : 'לא', '',
     ...insightsToSheetCells(insightsByContact[r.contacts.id]),
-    r.note || '', r.responsible_person || '', r.contacts.related_contact_id ? (spouseNameById[r.contacts.related_contact_id] || '') : '',
+    r.note || '', r.manager_note || '', r.responsible_person || '', r.contacts.related_contact_id ? (spouseNameById[r.contacts.related_contact_id] || '') : '',
   ]);
 
   try {
@@ -901,7 +959,9 @@ export async function pullCampaignUpdatesFromSheet(campaignId) {
     assignedTo: header.indexOf('נציג מטפל'),
     status: header.indexOf('סטטוס'),
     mappingDecision: header.indexOf('החלטת מיפוי'),
-    note: header.indexOf('הערה'),
+    // note (עמודת "הערה" - יומן-שיחות הטלפנים) לעולם לא נמשך מכאן בכוונה -
+    // ר' migration 0120. משיכה יכולה לעדכן רק "הערות מנהל".
+    managerNote: header.indexOf('הערות מנהל'),
     responsiblePerson: header.indexOf('אחראי'),
   };
 
@@ -930,7 +990,7 @@ export async function pullCampaignUpdatesFromSheet(campaignId) {
       const decision = (cells[idx.mappingDecision] || '').trim();
       if (decision) patch.mappingDecision = decision;
     }
-    if (idx.note !== -1) patch.note = (cells[idx.note] || '').trim();
+    if (idx.managerNote !== -1) patch.managerNote = (cells[idx.managerNote] || '').trim();
     if (idx.responsiblePerson !== -1) patch.responsiblePerson = (cells[idx.responsiblePerson] || '').trim();
     return patch;
   }).filter(Boolean);
@@ -962,7 +1022,7 @@ const SHEET_BACKFILL_COLUMNS = [
   'בתור-שיחות', 'החלטת מיפוי', 'מחלקות', 'שנת-שיא (שנה)', 'שנת-שיא (סכום)',
   'סה"כ תרומות (מספר)', 'סה"כ תרומות (סכום)', 'תרומה אחרונה', 'אינטראקציה אחרונה',
   'הוראת קבע פעילה', 'קורסים/סמינרים', 'קורסים תשפ"ו', 'מחזור (ישיבת דעת)',
-  'שנות לימוד בישיבה', 'הערה', 'אחראי',
+  'שנות לימוד בישיבה', 'הערה', 'הערות מנהל', 'אחראי',
 ];
 
 export async function backfillSheetNewColumns(campaignId) {
@@ -996,7 +1056,7 @@ export async function backfillSheetNewColumns(campaignId) {
     const chunk = rowIds.slice(i, i + CHUNK);
     // eslint-disable-next-line no-await-in-loop
     const { data } = await supabase.from('campaign_contacts')
-      .select('id, contact_id, in_call_queue, responsible_person, mapping_decision, note').eq('campaign_id', campaignId).in('id', chunk);
+      .select('id, contact_id, in_call_queue, responsible_person, mapping_decision, note, manager_note').eq('campaign_id', campaignId).in('id', chunk);
     ccRows = ccRows.concat(data || []);
   }
   const ccById = Object.fromEntries(ccRows.map((r) => [r.id, r]));
@@ -1030,6 +1090,7 @@ export async function backfillSheetNewColumns(campaignId) {
     write('מחזור (ישיבת דעת)', insights.yeshivaCohort || '');
     write('שנות לימוד בישיבה', insights.yeshivaStudyYears || '');
     write('הערה', cc.note || '');
+    write('הערות מנהל', cc.manager_note || '');
     write('אחראי', cc.responsible_person || '');
   });
 

@@ -1,7 +1,7 @@
 import { createClient } from '../../../../../../lib/supabase/server';
 import { redirect, notFound } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../../../lib/contactGuards';
-import { getCallDashboardStats } from '../callDashboardActions';
+import { getCallDashboardStats, getDonationAttributionsForDashboard } from '../callDashboardActions';
 import CallDashboardClient from './CallDashboardClient';
 
 // דשבורד טלפניה למנהל - עמוד נפרד (לא טאב בתוך [id]/page.js) כדי לא
@@ -27,7 +27,10 @@ export default async function CallDashboardPage({ params }) {
     );
   }
 
-  const stats = await getCallDashboardStats(campaign.id);
+  const [stats, donations] = await Promise.all([
+    getCallDashboardStats(campaign.id),
+    getDonationAttributionsForDashboard(campaign.id),
+  ]);
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 24px' }}>
@@ -36,7 +39,7 @@ export default async function CallDashboardPage({ params }) {
       {stats.error ? (
         <div style={{ background: '#fdecea', border: '1px solid #f5c6cb', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: '#c62828' }}>{stats.error}</div>
       ) : (
-        <CallDashboardClient stats={stats} />
+        <CallDashboardClient campaignId={campaign.id} stats={stats} donationsByAgent={donations?.byAgent || []} />
       )}
     </div>
   );

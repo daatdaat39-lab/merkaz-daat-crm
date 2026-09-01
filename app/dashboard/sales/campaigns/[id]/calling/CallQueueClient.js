@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
+import Link from 'next/link';
 import {
   getCallableCampaignSummary, listCategoryContactsForCalling, claimNextContact,
   startCallSession, logBreakStart, logBreakEnd, endCallSession,
-  searchCampaignContactsForCalling, claimSpecificContact, getMyPendingCallbacks,
+  searchCampaignContactsForCalling, claimSpecificContact, getMyPendingCallbacks, getMyDonationAttributions,
 } from '../callQueueActions';
 import ActiveCallPanel from './ActiveCallPanel';
 import DonationCelebrationToast from './DonationCelebrationToast';
@@ -35,6 +36,10 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
   // migration 0116) - לא מסיר מהתור הרגיל, רק תצוגה/גישה מהירה נוספת.
   const [myCallbacks, setMyCallbacks] = useState([]);
   const [showMyCallbacks, setShowMyCallbacks] = useState(false);
+  // "תרמו אחרי שדיברנו איתם" - ר' getMyDonationAttributions, migration
+  // 0122. אותו דפוס בדיוק כמו myCallbacks.
+  const [myDonations, setMyDonations] = useState([]);
+  const [showMyDonations, setShowMyDonations] = useState(false);
 
   function loadSummary() {
     getCallableCampaignSummary(campaignId).then((res) => {
@@ -49,6 +54,12 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
     });
   }
 
+  function loadMyDonations() {
+    getMyDonationAttributions(campaignId).then((res) => {
+      if (res.success) setMyDonations(res.rows);
+    });
+  }
+
   function loadRows(cat) {
     listCategoryContactsForCalling(campaignId, cat || null).then((res) => {
       if (res.success) setRows(res.rows);
@@ -57,6 +68,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
 
   useEffect(() => { loadSummary(); }, [campaignId]);
   useEffect(() => { if (isLockedTelemarketer) loadMyCallbacks(); }, [campaignId, isLockedTelemarketer]);
+  useEffect(() => { if (isLockedTelemarketer) loadMyDonations(); }, [campaignId, isLockedTelemarketer]);
   useEffect(() => {
     if (!isLockedTelemarketer) loadRows(category);
   }, [campaignId, category, isLockedTelemarketer]);
@@ -82,7 +94,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
     setActiveContact(null);
     loadSummary();
     if (!isLockedTelemarketer) loadRows(category);
-    if (isLockedTelemarketer) loadMyCallbacks();
+    if (isLockedTelemarketer) { loadMyCallbacks(); loadMyDonations(); }
     if (!stayClosed && (isLockedTelemarketer || autoAdvance)) handleCallNext(skippedRowId);
   }
 
@@ -230,6 +242,39 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
                           {r.callbackAt ? new Date(r.callbackAt).toLocaleString('he-IL') : ''}
                         </span>
                       </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {myDonations.length > 0 && (
+              <div style={{ width: '100%', maxWidth: 380, marginTop: 20 }}>
+                <button
+                  type="button" onClick={() => setShowMyDonations((v) => !v)}
+                  style={{ ...inputStyle, width: '100%', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <span>🎉 תרמו אחרי שדיברנו איתם ({myDonations.length})</span>
+                  <span>{showMyDonations ? '▴' : '▾'}</span>
+                </button>
+                {showMyDonations && (
+                  <div style={{ marginTop: 8, border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden', textAlign: 'right' }}>
+                    {myDonations.map((r, i) => (
+                      <Link
+                        key={r.contactId + ':' + i} href={`/dashboard/contacts/${r.contactId}`}
+                        style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', textAlign: 'right',
+                          padding: '9px 12px', borderBottom: '1px solid var(--border, #f0f0f0)', background: 'var(--bg)', color: 'inherit', textDecoration: 'none',
+                        }}
+                      >
+                        <span>
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>{r.name || '—'}</span>
+                          {r.amount != null && <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}> · ₪{Math.round(r.amount).toLocaleString()}</span>}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {r.occurredAt ? new Date(r.occurredAt).toLocaleDateString('he-IL') : ''}
+                        </span>
+                      </Link>
                     ))}
                   </div>
                 )}

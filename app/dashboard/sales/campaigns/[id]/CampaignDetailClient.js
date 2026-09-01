@@ -6,7 +6,7 @@ import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import {
   addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, bulkUpdateCampaignContactsFromImport, getBulkContactInsightsForExport,
-  getCampaignSheetConnection, pushCampaignRowsToSheet, pullCampaignUpdatesFromSheet, disconnectCampaignSheet, regenerateCategoryTabs,
+  getCampaignSheetConnection, pushCampaignRowsToSheet, pullCampaignUpdatesFromSheet, disconnectCampaignSheet, regenerateCategoryTabs, regenerateResponsiblePersonTabs,
   bulkUpdateCampaignContactsField, getDistinctNotesAndResponsible, backfillSheetNewColumns,
 } from '../actions';
 import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
@@ -18,6 +18,10 @@ import SegmentFinder from './SegmentFinder';
 // בחירה) ריקה, כדי שהמסך לעולם לא יישאר בלי אף קטגוריה לבחור
 const DEFAULT_CATEGORIES = ['חם', 'קר', 'תורם בסכום גדול', 'תורם חוזר', 'לא רלוונטי'];
 const ROW_ID_HEADER = 'מזהה שורה (לא לשנות)';
+// חייב להישאר מסונכרן עם p_no_answer_streak_threshold (ברירת המחדל ב-
+// log_campaign_call_attempt, migration 0121) - זה הסף שבו שורה יוצאת
+// אוטומטית מהתור ועוברת ל"קבוצת לא-ענו" הנפרדת למטה.
+const NO_ANSWER_STREAK_THRESHOLD = 3;
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
 
@@ -133,6 +137,13 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   // מחדל. showRecentActiveDonors=false הוא ברירת המחדל בכוונה - "פתיחה"
   // היא פעולה מודעת, לא הגדרה נשמרת.
   const [showRecentActiveDonors, setShowRecentActiveDonors] = useState(false);
+  // "לא ענו X+ פעמים" - שורות שעברו את סף-הרצף (0121) יוצאות אוטומטית
+  // מהתור ולא מוצגות בטבלה הרגילה בכלל (בניגוד לתורמים-פעילים-אחרונים,
+  // שם showRecentActiveDonors מחזיר אותם לאותה טבלה) - יש להן קבוצה
+  // נפרדת משלהן, עם סינון-לפי-מינימום-רצף וכפתור "החזר לתור".
+  const [showNoAnswerBucket, setShowNoAnswerBucket] = useState(false);
+  const [minNoAnswerStreak, setMinNoAnswerStreak] = useState(NO_ANSWER_STREAK_THRESHOLD);
+  const [noAnswerSelected, setNoAnswerSelected] = useState(new Set());
   const [pendingImport, setPendingImport] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [exporting, setExporting] = useState(false);
@@ -186,6 +197,16 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
       setSheetBusy(false);
       if (res?.error) { setSheetMessage({ error: res.error }); return; }
       setSheetMessage({ success: res.created > 0 ? `נוצרו ${res.created} לשוניות קטגוריה חדשות` : 'כל הלשוניות כבר קיימות' });
+    });
+  }
+
+  function handleRegenerateResponsiblePersonTabs() {
+    setSheetBusy(true);
+    setSheetMessage(null);
+    regenerateResponsiblePersonTabs(campaignId).then((res) => {
+      setSheetBusy(false);
+      if (res?.error) { setSheetMessage({ error: res.error }); return; }
+      setSheetMessage({ success: res.created > 0 ? `נוצרו ${res.created} לשוניות אחראי חדשות` : 'כל הלשוניות כבר קיימות' });
     });
   }
 
@@ -260,8 +281,19 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     () => rows.filter((r) => r.isRecentActiveDonor && !r.allowRecentDonorCall).length,
     [rows]
   );
+  const blockedNoAnswerCount = useMemo(
+    () => rows.filter((r) => r.noAnswerStreak >= NO_ANSWER_STREAK_THRESHOLD).length,
+    [rows]
+  );
+  const noAnswerBucketRows = useMemo(
+    () => rows.filter((r) => r.noAnswerStreak >= minNoAnswerStreak).sort((a, b) => b.noAnswerStreak - a.noAnswerStreak),
+    [rows, minNoAnswerStreak]
+  );
+  // בניגוד לתורמים-פעילים-אחרונים (showRecentActiveDonors מחזיר אותם
+  // לאותה טבלה) - שורות "לא ענו X+ פעמים" תמיד מוסתרות מהטבלה הרגילה,
+  // ומוצגות רק בקבוצה הנפרדת למטה כש-showNoAnswerBucket=true.
   const visibleRows = useMemo(
-    () => (showRecentActiveDonors ? rows : rows.filter((r) => !r.isRecentActiveDonor || r.allowRecentDonorCall)),
+    () => rows.filter((r) => (showRecentActiveDonors || !r.isRecentActiveDonor || r.allowRecentDonorCall) && r.noAnswerStreak < NO_ANSWER_STREAK_THRESHOLD),
     [rows, showRecentActiveDonors]
   );
 
@@ -378,6 +410,21 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     });
   }
 
+  // "החזר לתור" - מחזיר שורה שיצאה מהתור אחרי כמה "לא ענה" רצופים
+  // (0121) בחזרה לתור פעיל, ומאפס את הרצף כדי שלא תצא שוב מיד בניסיון-
+  // הבא. בודד ובכמות, אותו דפוס בדיוק כמו handleChange/handleBulkChange.
+  function handleReturnToQueue(rowId) {
+    handleChange(rowId, { inCallQueue: true, resetNoAnswerStreak: true });
+    setNoAnswerSelected((prev) => { const next = new Set(prev); next.delete(rowId); return next; });
+  }
+
+  function handleReturnToQueueBulk() {
+    if (noAnswerSelected.size === 0) return;
+    const ids = Array.from(noAnswerSelected);
+    handleBulkChange(ids, { inCallQueue: true, resetNoAnswerStreak: true });
+    setNoAnswerSelected(new Set());
+  }
+
   function handleRemove(rowId) {
     startTransition(async () => {
       const res = await removeContactFromCampaign(rowId);
@@ -396,14 +443,14 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
         ROW_ID_HEADER, 'שם', 'טלפון', 'מייל', 'קטגוריה', 'נציג מטפל', 'סטטוס', 'בתור-שיחות',
         'מחלקות', 'שנת-שיא (שנה)', 'שנת-שיא (סכום)', 'סה"כ תרומות (מספר)', 'סה"כ תרומות (סכום)',
         'תרומה אחרונה', 'אינטראקציה אחרונה', 'הוראת קבע פעילה', 'קורסים/סמינרים',
-        'קורסים תשפ"ו', 'מחזור (ישיבת דעת)', 'שנות לימוד בישיבה', 'הערה', 'אחראי',
+        'קורסים תשפ"ו', 'מחזור (ישיבת דעת)', 'שנות לימוד בישיבה', 'הערה (יומן שיחות)', 'הערת מנהל', 'אחראי',
       ];
       const dataRows = rows.map((r) => [
         r.rowId, r.name || '', r.phone || '', r.email || '', r.category || '',
         r.assignedTo ? (agentNameById[r.assignedTo] || '') : '', campaignStages.labels[r.status] || r.status || '',
         r.inCallQueue ? 'כן' : 'לא',
         ...insightsToCsvCells(insightsByContact[r.contactId]),
-        r.note || '', r.responsiblePerson || '',
+        r.note || '', r.managerNote || '', r.responsiblePerson || '',
       ].map(csvCell).join(','));
       const csv = '﻿' + [headerRow.join(','), ...dataRows].join('\n');
       downloadBlob(csv, `קבוצות-קמפיין-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8;');
@@ -655,6 +702,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               <button type="button" onClick={handlePushToSheet} disabled={sheetBusy} style={ghostBtn()}>⬆ דחוף לגיליון</button>
               <button type="button" onClick={handlePullFromSheet} disabled={sheetBusy} style={ghostBtn()}>⬇ משוך עדכונים מהגיליון</button>
               <button type="button" onClick={handleRegenerateCategoryTabs} disabled={sheetBusy} style={ghostBtn()} title="יוצר לשונית נפרדת לכל קטגוריה שעדיין אין לה אחת">🗂 עדכון לשוניות קטגוריה</button>
+              <button type="button" onClick={handleRegenerateResponsiblePersonTabs} disabled={sheetBusy} style={ghostBtn()} title="יוצר לשונית נפרדת לכל אחראי שעדיין אין לו אחת">🗂 עדכון לשוניות אחראי</button>
               <button type="button" onClick={handleBackfillSheetColumns} disabled={sheetBusy} style={ghostBtn()} title="מתקן את שורת הכותרות וממלא עמודות חדשות (בתור-שיחות/קורסים תשפ&quot;ו/מחזור/שנות לימוד/אחראי) בשורות שכבר קיימות בגיליון">🔄 מילוי-לאחור עמודות חדשות</button>
               <button type="button" onClick={handleDisconnectSheet} disabled={sheetBusy} style={{ ...ghostBtn(), color: '#b23b2f' }}>נתק</button>
               {sheetConnection.last_pushed_at && (
@@ -738,7 +786,34 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               {showRecentActiveDonors ? `🔓 מוצגים ${blockedRecentDonorCount} תורמים פעילים אחרונים` : `🔒 ${blockedRecentDonorCount} תורמים פעילים אחרונים מוסתרים`}
             </button>
           )}
+          {blockedNoAnswerCount > 0 && (
+            <button
+              type="button" onClick={() => setShowNoAnswerBucket((v) => !v)}
+              style={{
+                ...ghostBtn(), padding: '5px 10px', fontSize: 12,
+                background: showNoAnswerBucket ? '#fff7ed' : 'var(--bg)',
+                borderColor: showNoAnswerBucket ? '#fed7aa' : 'var(--border, #e5e5e5)',
+                color: showNoAnswerBucket ? '#9a5b0c' : 'inherit',
+              }}
+              title={`יצאו אוטומטית מהתור אחרי ${NO_ANSWER_STREAK_THRESHOLD}+ "לא ענה" רצופים`}
+            >
+              {showNoAnswerBucket ? `▴ ${blockedNoAnswerCount} לא ענו ${NO_ANSWER_STREAK_THRESHOLD}+ פעמים` : `🔁 ${blockedNoAnswerCount} לא ענו ${NO_ANSWER_STREAK_THRESHOLD}+ פעמים`}
+            </button>
+          )}
         </div>
+      )}
+
+      {showNoAnswerBucket && (
+        <NoAnswerBucket
+          rows={noAnswerBucketRows}
+          minStreak={minNoAnswerStreak}
+          onMinStreakChange={setMinNoAnswerStreak}
+          selected={noAnswerSelected}
+          onSelectedChange={setNoAnswerSelected}
+          isPending={isPending}
+          onReturnOne={handleReturnToQueue}
+          onReturnSelected={handleReturnToQueueBulk}
+        />
       )}
 
       {rows.length === 0 && (
@@ -781,7 +856,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
                       <th style={{ padding: '8px 8px' }}></th>
-                      {['שם', 'טלפון', 'בן/בת זוג', 'קטגוריה', 'נציג מטפל', 'אחראי', 'סטטוס', 'הערה', 'בתור', ''].map((h) => (
+                      {['שם', 'טלפון', 'בן/בת זוג', 'קטגוריה', 'נציג מטפל', 'אחראי', 'סטטוס', 'יומן שיחות', 'הערת מנהל', 'בתור', ''].map((h) => (
                         <th key={h} style={{ textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '8px 14px', textTransform: 'uppercase' }}>{h}</th>
                       ))}
                     </tr>
@@ -943,16 +1018,24 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
           {campaignStages.order.map((s) => <option key={s} value={s}>{campaignStages.labels[s] || s}</option>)}
         </select>
       </td>
+      {/* יומן-שיחות הטלפנים (note) - תצוגה בלבד, לא ניתן לעריכה כאן בכוונה.
+          עריכה ישירה בטבלה הזו על אותה עמודה היא בדיוק מה שגרם לדריסת יומן-
+          שיחות שלם בתקרית ה-31/08 (ר' migration 0117/0120). */}
+      <td style={{ padding: '10px 14px', fontSize: 12, color: r.note ? 'inherit' : '#c8c8c8', maxWidth: 180 }}>
+        <span title={r.note || ''} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {r.note ? r.note.split('\n')[0] : '—'}
+        </span>
+      </td>
       <td style={{ padding: '10px 14px' }}>
         <input
           type="text"
-          defaultValue={r.note || ''}
-          key={r.rowId + ':' + (r.note || '')}
+          defaultValue={r.managerNote || ''}
+          key={r.rowId + ':mgr:' + (r.managerNote || '')}
           onBlur={(e) => {
-            if (e.target.value !== (r.note || '')) onChange(r.rowId, { note: e.target.value });
+            if (e.target.value !== (r.managerNote || '')) onChange(r.rowId, { managerNote: e.target.value });
           }}
           disabled={isPending}
-          placeholder="הערה..."
+          placeholder="הערת מנהל..."
           style={{ ...cellSelect(), width: '100%', minWidth: 120 }}
         />
       </td>
@@ -969,6 +1052,70 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
           style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 13 }}>✕</button>
       </td>
     </tr>
+  );
+}
+
+// קבוצת "לא ענו X+ פעמים" - שורות שיצאו אוטומטית מהתור (0121). חוצה
+// קטגוריות בכוונה (לא מוצגת בתוך groups הרגילים) - סינון-לפי-מינימום-
+// רצף + "החזר לתור" בודד/בכמות, גלוי למנהל בלבד (הקטע הזה נטען רק
+// מתוך CampaignDetailClient שכבר manager-only).
+function NoAnswerBucket({ rows, minStreak, onMinStreakChange, selected, onSelectedChange, isPending, onReturnOne, onReturnSelected }) {
+  const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.rowId));
+  function toggleAll() {
+    onSelectedChange(allSelected ? new Set() : new Set(rows.map((r) => r.rowId)));
+  }
+  function toggleOne(rowId) {
+    onSelectedChange((prev) => { const next = new Set(prev); if (next.has(rowId)) next.delete(rowId); else next.add(rowId); return next; });
+  }
+  return (
+    <div style={{ marginBottom: 14, border: '1px solid #fed7aa', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff7ed', padding: '9px 14px', flexWrap: 'wrap' }}>
+        <strong style={{ fontSize: 13, color: '#9a5b0c' }}>🔁 לא ענו - יצאו מהתור</strong>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9a5b0c' }}>
+          מינימום רצף:
+          <select value={minStreak} onChange={(e) => onMinStreakChange(Number(e.target.value))} style={{ ...cellSelect(), padding: '4px 8px' }}>
+            {[1, 2, 3, 5, 10].map((n) => <option key={n} value={n}>{n}+</option>)}
+          </select>
+        </label>
+        {selected.size > 0 && (
+          <button type="button" onClick={onReturnSelected} disabled={isPending} style={{ ...ghostBtn(), fontSize: 12, marginInlineStart: 'auto' }}>
+            ↩ החזר לתור ({selected.size})
+          </button>
+        )}
+      </div>
+      {rows.length === 0 ? (
+        <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b', background: 'var(--bg)' }}>אין שורות בסף הזה</div>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: 'var(--bg)' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
+              <th style={{ padding: '6px 8px' }}><input type="checkbox" checked={allSelected} onChange={toggleAll} /></th>
+              {['שם', 'טלפון', 'קטגוריה', 'פעמים "לא ענה" רצוף', ''].map((h) => (
+                <th key={h} style={{ textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '6px 14px', textTransform: 'uppercase' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.rowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
+                <td style={{ padding: '8px', textAlign: 'center' }}><input type="checkbox" checked={selected.has(r.rowId)} onChange={() => toggleOne(r.rowId)} /></td>
+                <td style={{ padding: '8px 14px' }}>
+                  <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.name || '—'}</Link>
+                </td>
+                <td style={{ padding: '8px 14px' }}>{r.phone || '—'}</td>
+                <td style={{ padding: '8px 14px' }}>{r.category || '—'}</td>
+                <td style={{ padding: '8px 14px', fontWeight: 600 }}>{r.noAnswerStreak}</td>
+                <td style={{ padding: '8px 14px' }}>
+                  <button type="button" onClick={() => onReturnOne(r.rowId)} disabled={isPending} style={{ ...ghostBtn(), fontSize: 11.5, padding: '4px 10px' }}>
+                    ↩ החזר לתור
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
