@@ -318,12 +318,17 @@ function formatDonationLine(r) {
   const amt = (n) => `₪${Math.round(n).toLocaleString()}`;
   if (r.source === 'merged') {
     const samePledge = r.pledgedAmount != null && Number(r.pledgedAmount) === Number(r.amount);
-    return samePledge
-      ? `נכנס ממערכת קשר ${amt(r.amount)}`
-      : `נכנס ממערכת קשר ${amt(r.amount)} (התחייבה בטלפון ל-${amt(r.pledgedAmount)})`;
+    if (samePledge) return `נכנס ממערכת קשר ${amt(r.amount)}`;
+    // pledgedAmount יכול להיות null (טלפן/ית סימן/ה "תורם עכשיו" בלי
+    // להזין סכום) - amt(null) היה מציג בטעות "₪0" (Math.round(null)=0).
+    return r.pledgedAmount != null
+      ? `נכנס ממערכת קשר ${amt(r.amount)} (התחייבה בטלפון ל-${amt(r.pledgedAmount)})`
+      : `נכנס ממערכת קשר ${amt(r.amount)} (התחייבה בטלפון בלי סכום מצוין)`;
   }
   if (r.source === 'kesher_sync') return `זוהה אוטומטית ממערכת קשר ${amt(r.amount)}`;
-  return `התחייבה בטלפון ${amt(r.pledgedAmount)} (טרם אושרה בקשר)`;
+  return r.pledgedAmount != null
+    ? `התחייבה בטלפון ${amt(r.pledgedAmount)} (טרם אושרה בקשר)`
+    : `התחייבה בטלפון (סכום לא צוין, טרם אושרה בקשר)`;
 }
 
 export async function heartbeatClaim(rowId) {
