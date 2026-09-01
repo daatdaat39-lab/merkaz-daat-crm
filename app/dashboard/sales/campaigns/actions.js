@@ -203,14 +203,15 @@ export async function getDistinctNotesAndResponsible(campaignId) {
   const PAGE = 1000;
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await supabase.from('campaign_contacts')
-      .select('note, responsible_person').eq('campaign_id', campaignId).order('id').range(offset, offset + PAGE - 1);
+      .select('note, manager_note, responsible_person').eq('campaign_id', campaignId).order('id').range(offset, offset + PAGE - 1);
     if (error) return { error: error.message };
     rows = rows.concat(data || []);
     if (!data || data.length < PAGE) break;
   }
   const notes = Array.from(new Set(rows.map((r) => r.note).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he')).slice(0, 200);
+  const managerNotes = Array.from(new Set(rows.map((r) => r.manager_note).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he')).slice(0, 200);
   const responsiblePeople = Array.from(new Set(rows.map((r) => r.responsible_person).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he')).slice(0, 200);
-  return { success: true, notes, responsiblePeople };
+  return { success: true, notes, managerNotes, responsiblePeople };
 }
 
 export async function removeContactFromCampaign(rowId) {

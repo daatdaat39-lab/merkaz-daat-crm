@@ -129,13 +129,17 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [selectedRows, setSelectedRows] = useState(new Set());
   const [collapsedGroups, setCollapsedGroups] = useState(new Set());
   const [mappingFilter, setMappingFilter] = useState('all');
-  const [noteFilter, setNoteFilter] = useState('');
+  const [noteFilter, setNoteFilter] = useState(''); // מסנן על note - עמודת "יומן שיחות"
   const [noteFilterValues, setNoteFilterValues] = useState(new Set()); // בחירה מרובה מתוך הרשימה הקיימת
   const [noteEmptyOnly, setNoteEmptyOnly] = useState(false);
+  const [managerNoteFilter, setManagerNoteFilter] = useState(''); // מסנן נפרד על manager_note - "הערת מנהל"
+  const [managerNoteFilterValues, setManagerNoteFilterValues] = useState(new Set());
+  const [managerNoteEmptyOnly, setManagerNoteEmptyOnly] = useState(false);
   const [responsibleFilter, setResponsibleFilter] = useState('');
   const [responsibleFilterValues, setResponsibleFilterValues] = useState(new Set());
   const [responsibleEmptyOnly, setResponsibleEmptyOnly] = useState(false);
   const [distinctNotes, setDistinctNotes] = useState([]);
+  const [distinctManagerNotes, setDistinctManagerNotes] = useState([]);
   const [distinctResponsiblePeople, setDistinctResponsiblePeople] = useState([]);
   // תורמים-פעילים-אחרונים (הוראת-קבע פעילה + תרם ב-40 הימים האחרונים,
   // ר' migration 0113) - חסומים אוטומטית מהתור, ומוסתרים מהטבלה כברירת
@@ -168,6 +172,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     getDistinctNotesAndResponsible(campaignId).then((res) => {
       if (res?.error) return;
       setDistinctNotes(res.notes || []);
+      setDistinctManagerNotes(res.managerNotes || []);
       setDistinctResponsiblePeople(res.responsiblePeople || []);
     });
   }, [campaignId]);
@@ -280,6 +285,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   }, [availableContacts, search, deptFilter, tagFilter, fieldFilters, extraFields, showPickerList, hasAdvancedFilter, advancedFilters, extraFieldsByWorkspace]);
 
   const noteFilterActive = !!noteFilter.trim() || noteFilterValues.size > 0 || noteEmptyOnly;
+  const managerNoteFilterActive = !!managerNoteFilter.trim() || managerNoteFilterValues.size > 0 || managerNoteEmptyOnly;
   const responsibleFilterActive = !!responsibleFilter.trim() || responsibleFilterValues.size > 0 || responsibleEmptyOnly;
 
   const blockedRecentDonorCount = useMemo(
@@ -315,6 +321,17 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
         result = result.filter((r) => noteFilterValues.has(r.note || ''));
       }
     }
+    if (managerNoteEmptyOnly) {
+      result = result.filter((r) => !(r.managerNote || '').trim());
+    } else {
+      if (managerNoteFilter.trim()) {
+        const q = managerNoteFilter.trim().toLowerCase();
+        result = result.filter((r) => (r.managerNote || '').toLowerCase().includes(q));
+      }
+      if (managerNoteFilterValues.size > 0) {
+        result = result.filter((r) => managerNoteFilterValues.has(r.managerNote || ''));
+      }
+    }
     if (responsibleEmptyOnly) {
       result = result.filter((r) => !(r.responsiblePerson || '').trim());
     } else {
@@ -327,7 +344,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
       }
     }
     return result;
-  }, [visibleRows, noteFilter, noteFilterValues, noteEmptyOnly, responsibleFilter, responsibleFilterValues, responsibleEmptyOnly]);
+  }, [visibleRows, noteFilter, noteFilterValues, noteEmptyOnly, managerNoteFilter, managerNoteFilterValues, managerNoteEmptyOnly, responsibleFilter, responsibleFilterValues, responsibleEmptyOnly]);
   const contactSearchFilteredRows = useMemo(() => {
     if (!contactSearch.trim()) return noteFilteredRows;
     const q = contactSearch.trim().toLowerCase();
@@ -390,9 +407,9 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
       startTransition(async () => {
         const res = await updateCampaignContact(rowId, changes);
         if (res?.error) { setError(res.error); router.refresh(); }
-        else if (changes.note !== undefined || changes.responsiblePerson !== undefined) {
+        else if (changes.managerNote !== undefined || changes.responsiblePerson !== undefined) {
           getDistinctNotesAndResponsible(campaignId).then((r) => {
-            if (!r?.error) { setDistinctNotes(r.notes || []); setDistinctResponsiblePeople(r.responsiblePeople || []); }
+            if (!r?.error) { setDistinctNotes(r.notes || []); setDistinctManagerNotes(r.managerNotes || []); setDistinctResponsiblePeople(r.responsiblePeople || []); }
           });
         }
         resolve(res);
@@ -412,7 +429,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
         if (res?.error) { setError(res.error); router.refresh(); }
         else if (changes.responsiblePerson !== undefined) {
           getDistinctNotesAndResponsible(campaignId).then((r) => {
-            if (!r?.error) { setDistinctNotes(r.notes || []); setDistinctResponsiblePeople(r.responsiblePeople || []); }
+            if (!r?.error) { setDistinctNotes(r.notes || []); setDistinctManagerNotes(r.managerNotes || []); setDistinctResponsiblePeople(r.responsiblePeople || []); }
           });
         }
         resolve(res);
@@ -784,10 +801,16 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
             <option value="notRelevant">לא רלוונטי בלבד</option>
           </select>
           <MultiValueFilter
-            label="הערות" values={distinctNotes}
+            label="יומן שיחות" values={distinctNotes}
             selected={noteFilterValues} onSelectedChange={setNoteFilterValues}
             text={noteFilter} onTextChange={setNoteFilter}
             emptyOnly={noteEmptyOnly} onEmptyOnlyChange={setNoteEmptyOnly}
+          />
+          <MultiValueFilter
+            label="הערת מנהל" values={distinctManagerNotes}
+            selected={managerNoteFilterValues} onSelectedChange={setManagerNoteFilterValues}
+            text={managerNoteFilter} onTextChange={setManagerNoteFilter}
+            emptyOnly={managerNoteEmptyOnly} onEmptyOnlyChange={setManagerNoteEmptyOnly}
           />
           <MultiValueFilter
             label="אחראי" values={distinctResponsiblePeople}
@@ -795,7 +818,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
             text={responsibleFilter} onTextChange={setResponsibleFilter}
             emptyOnly={responsibleEmptyOnly} onEmptyOnlyChange={setResponsibleEmptyOnly}
           />
-          {(noteFilterActive || responsibleFilterActive) && (
+          {(noteFilterActive || managerNoteFilterActive || responsibleFilterActive) && (
             <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{noteFilteredRows.length} תוצאות</span>
           )}
           {blockedRecentDonorCount > 0 && (
