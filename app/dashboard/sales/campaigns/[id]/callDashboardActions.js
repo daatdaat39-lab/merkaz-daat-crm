@@ -125,32 +125,23 @@ export async function getDonationAttributionsForDashboard(campaignId) {
     : { data: [] };
   const nameById = Object.fromEntries((profiles || []).map((p) => [p.id, p.name]));
 
-  // שתי רשימות נפרדות: מי שבאמת פנינו אליו (יש ניסיון-שיחה בקמפיין,
-  // attributed_agent_id קיים - מקובץ לפי נציג) מול מי שתרם בלי ששוחחנו
-  // איתו בכלל (attributed_agent_id null - רק חבר ברשימת-אנשי-הקשר של
-  // הקמפיין, בלי קשר לשיחות) - שתי משמעויות שונות לגמרי, לא מתערבבות.
+  // 0127: get_campaign_donation_attributions דורשת עכשיו ניסיון-שיחה
+  // אמיתי בקמפיין הזה בשביל כל שורה - attributed_agent_id תמיד קיים,
+  // אין יותר "לא ניתן לייחס"/"לא פנינו אליהם" (זה בדיוק הכוונה - רק מי
+  // שבאמת פנינו אליו דרך הקמפיין הזה, לא כל מי שנמצא ברשימת-אנשי-הקשר
+  // הענקית ותרם מכל סיבה שהיא).
   const byAgent = {};
-  const notReachedOut = [];
   for (const r of rows || []) {
-    const item = {
+    const agentName = nameById[r.attributed_agent_id] || 'נציג';
+    if (!byAgent[agentName]) byAgent[agentName] = { agentName, items: [] };
+    byAgent[agentName].items.push({
       contactId: r.contact_id, name: `${r.first || ''} ${r.last || ''}`.trim(), phone: r.phone,
       amount: r.amount != null ? Number(r.amount) : null,
       occurredAt: formatIsraeliDateTime(r.occurred_at),
       source: r.source === 'call_attempt' ? 'תויג תוך-כדי-שיחה' : 'זוהה אוטומטית ממערכת קשר',
-    };
-    if (r.attributed_agent_id) {
-      const agentName = nameById[r.attributed_agent_id] || 'נציג';
-      if (!byAgent[agentName]) byAgent[agentName] = { agentName, items: [] };
-      byAgent[agentName].items.push(item);
-    } else {
-      notReachedOut.push(item);
-    }
+    });
   }
-  return {
-    success: true,
-    byAgent: Object.values(byAgent).sort((a, b) => b.items.length - a.items.length),
-    notReachedOut,
-  };
+  return { success: true, byAgent: Object.values(byAgent).sort((a, b) => b.items.length - a.items.length) };
 }
 
 // drill-down מתחת ל"באדג'-תוצאה" בטבלת "לפי נציג" - עד 500 ניסיונות

@@ -39,7 +39,7 @@ export default async function CallDashboardPage({ params }) {
       {stats.error ? (
         <div style={{ background: '#fdecea', border: '1px solid #f5c6cb', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: '#c62828' }}>{stats.error}</div>
       ) : (
-        <CallDashboardClient campaignId={campaign.id} stats={stats} donationsByAgent={donations?.byAgent || []} donationsNotReachedOut={donations?.notReachedOut || []} />
+        <CallDashboardClient campaignId={campaign.id} stats={stats} donationsByAgent={donations?.byAgent || []} />
       )}
     </div>
   );
