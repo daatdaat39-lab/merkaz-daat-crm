@@ -206,20 +206,35 @@ export async function searchCampaignContactsForCalling(campaignId, query) {
   const q = (query || '').trim().replace(/[,()]/g, '');
   if (q.length < 2) return { success: true, rows: [] };
 
-  // מספרי טלפון שמורים בפורמטים לא-אחידים (עם/בלי מקף, "058-4411456" מול
-  // "0505917502") - חיפוש-מחרוזת גולמי על ספרות-בלבד מפספס את המקוף.
-  // אם השאילתה כל-ספרות, מוסיפים גם ניחוש עם מקף אחרי 3 ספרות (הפורמט
-  // הנפוץ ביותר בנתונים - קידומת נייד/אזור בת 3 ספרות).
-  const phoneFilters = [`phone.ilike.%${q}%`, `phone2.ilike.%${q}%`];
-  if (/^\d{4,}$/.test(q)) {
-    const dashed = `${q.slice(0, 3)}-${q.slice(3)}`;
-    phoneFilters.push(`phone.ilike.%${dashed}%`, `phone2.ilike.%${dashed}%`);
-  }
-  const { data: matchedContacts } = await supabase.from('contacts')
-    .select('id, first, last, phone, phone2, idnum')
-    .or(`first.ilike.%${q}%,last.ilike.%${q}%,idnum.ilike.%${q}%,${phoneFilters.join(',')}`)
-    .limit(50);
-  if (!matchedContacts || matchedContacts.length === 0) return { success: true, rows: [] };
+  // חיפוש-שם: שאילתה כמו "דוד כהן" נבדקה בעבר כמחרוזת-אחת-שלמה מול כל
+  // עמודה בנפרד (first/last) - אף עמודה לא מכילה את שתי המילים יחד, אז
+  // חיפוש-שם-מלא לא מצא כלום (רק חיפוש-מילה-בודדת עבד). עכשיו: מפצלים
+  // למילים, שואבים מועמדים לפי המילה הראשונה (ilike פשוט על contacts,
+  // נתמך היטב), ואז מסננים ב-JS ששאר-המילים (אם יש) גם מופיעות ב-first
+  // או ב-last - כך "דוד כהן"/"כהן דוד" עובדים בכל סדר, בלי להסתמך על
+  // תחביר and/or מקונן לא-בטוח ב-PostgREST/supabase-js.
+  const selectCols = 'id, first, last, phone, phone2, idnum';
+  const words = q.split(/\s+/).filter(Boolean);
+  // חיפוש-טלפון: מספרים שמורים בפורמטים לא-אחידים (עם/בלי מקף/רווח, 0
+  // מוביל חסר) - phone_digits/phone2_digits (עמודות מחושבות, last-9-
+  // digits, migration 0065) כבר פותרות בדיוק את זה לזיהוי-כפילויות;
+  // עדיף על ניחוש-פורמט קשיח (הוספת מקף אחרי 3 ספרות) שהיה כאן קודם.
+  const qDigits = q.replace(/\D/g, '').slice(-9);
+  const [{ data: nameCandidates }, { data: phoneOrIdMatches }] = await Promise.all([
+    supabase.from('contacts').select(selectCols).or(`first.ilike.%${words[0]}%,last.ilike.%${words[0]}%`).limit(200),
+    supabase.from('contacts').select(selectCols)
+      .or(`idnum.ilike.%${q}%${qDigits.length >= 4 ? `,phone_digits.ilike.%${qDigits}%,phone2_digits.ilike.%${qDigits}%` : ''}`)
+      .limit(50),
+  ]);
+
+  const lower = (s) => (s || '').toLowerCase();
+  const nameMatches = (nameCandidates || []).filter((c) =>
+    words.every((w) => lower(c.first).includes(lower(w)) || lower(c.last).includes(lower(w)))
+  );
+  const matchedContacts = Object.values(
+    Object.fromEntries([...nameMatches, ...(phoneOrIdMatches || [])].map((c) => [c.id, c]))
+  );
+  if (matchedContacts.length === 0) return { success: true, rows: [] };
 
   const contactById = Object.fromEntries(matchedContacts.map((c) => [c.id, c]));
   const { data: ccRows } = await supabase.from('campaign_contacts')
