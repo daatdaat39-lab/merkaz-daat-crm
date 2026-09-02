@@ -987,6 +987,11 @@ function MultiValueFilter({ label, values, selected, onSelectedChange, text, onT
     onEmptyOnlyChange(false);
   }
 
+  function selectAll() {
+    onEmptyOnlyChange(false);
+    onSelectedChange(new Set(values));
+  }
+
   return (
     <div style={{ position: 'relative' }}>
       <button type="button" onClick={() => setOpen((o) => !o)} style={{ ...ghostBtn(), padding: '5px 10px', fontSize: 12 }}>
@@ -1016,7 +1021,10 @@ function MultiValueFilter({ label, values, selected, onSelectedChange, text, onT
             ))}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border, #f0f0f0)' }}>
-            <button type="button" onClick={clearAll} style={{ ...ghostBtn(), padding: '4px 10px', fontSize: 11 }}>נקה הכל</button>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button type="button" onClick={selectAll} disabled={values.length === 0} style={{ ...ghostBtn(), padding: '4px 10px', fontSize: 11 }}>בחר הכל</button>
+              <button type="button" onClick={clearAll} style={{ ...ghostBtn(), padding: '4px 10px', fontSize: 11 }}>נקה הכל</button>
+            </div>
             <button type="button" onClick={() => setOpen(false)} style={{ ...primaryBtn(), padding: '4px 10px', fontSize: 11 }}>סגירה</button>
           </div>
         </div>
