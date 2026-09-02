@@ -151,7 +151,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
     startTransition(async () => {
       const res = await claimSpecificContact(campaignId, rowId);
       if (res.error) { setSearchError(res.error); return; }
-      if (!res.contact) { setSearchError('איש הקשר הזה כרגע בשיחה אצל נציג אחר.'); return; }
+      if (!res.contact) { setSearchError('איש הקשר הזה לא זמין - הוא כרגע בשיחה אצל נציג אחר, או משויך באופן בלעדי לנציג אחר.'); return; }
       setSearchQuery(''); setSearchResults([]); setSimilarResults([]);
       setActiveContact(res.contact);
     });
