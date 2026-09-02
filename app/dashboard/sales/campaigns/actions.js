@@ -991,7 +991,12 @@ export async function pullCampaignUpdatesFromSheet(campaignId) {
     if (idx.category !== -1) patch.category = (cells[idx.category] || '').trim();
     if (idx.assignedTo !== -1) {
       const name = (cells[idx.assignedTo] || '').trim();
-      patch.assignedTo = name ? (agentIdByName[name] || null) : null;
+      // תא ריק = "לא הוזן שיוך-נציג בגיליון בכלל", לא "נקה שיוך" - כמו
+      // "בתור-שיחות" (migration 0129): משיכה לא אמורה לדרוס הקצאת-נציג
+      // שנעשתה רק ב-CRM ("שליחה לנציג", ר' תור-אישי migration 0137) רק
+      // כי עמודת "נציג מטפל" בגיליון לא מולאה בפועל. שם שלא מזוהה כנציג
+      // קיים (טעות-הקלדה/נמחק) מטופל באותו אופן - לא מנקה בשקט.
+      if (name && agentIdByName[name]) patch.assignedTo = agentIdByName[name];
     }
     if (idx.status !== -1) {
       const label = (cells[idx.status] || '').trim();
