@@ -67,15 +67,21 @@ export async function getCallableCampaignSummary(campaignId) {
   const { campaign, error } = await requireMemberOfCampaign(supabase, user.id, campaignId);
   if (error) return { error };
 
-  const [categories, { data: counts, error: countsError }] = await Promise.all([
+  const [categories, { data: counts, error: countsError }, { count: personalCount }] = await Promise.all([
     fetchDistinctCampaignCategories(supabase, campaignId),
     supabase.rpc('count_callable_campaign_contacts_by_category', { p_campaign_id: campaignId, p_caller: user.id }),
+    // "תור אישי" (migration 0137) - ספירה מקורבת (בלי לשכפל כל תנאי-WHERE
+    // העדין של claim_next_campaign_contact - מספיק בשביל "X ממתינים לך"
+    // בתצוגה, לא חייב להיות מדויק-לחלוטין) של שורות שהוקצו לנציג הזה
+    // וממתינות עדיין.
+    supabase.from('campaign_contacts').select('id', { count: 'exact', head: true })
+      .eq('campaign_id', campaignId).eq('assigned_to', user.id).eq('in_call_queue', true),
   ]);
   if (countsError) return { error: countsError.message };
 
   const countByCategory = Object.fromEntries((counts || []).map((r) => [r.category || '(ללא קטגוריה)', r.callable_count]));
   const total = (counts || []).reduce((s, r) => s + Number(r.callable_count || 0), 0);
-  return { success: true, campaignName: campaign.name, categories, countByCategory, total };
+  return { success: true, campaignName: campaign.name, categories, countByCategory, total, personalCount: personalCount || 0 };
 }
 
 // טבלת-עיון בלבד (לא אינטראקטיבית) - שקיפות "מי תופס מה עכשיו", לא כלי
@@ -189,7 +195,12 @@ export async function claimNextContact(campaignId, category, excludeRowId) {
   const row = (data || [])[0];
   if (!row) return { success: true, contact: null };
 
-  return { success: true, contact: await buildClaimedContactPayload(supabase, row) };
+  const contact = await buildClaimedContactPayload(supabase, row);
+  // "תור אישי" (migration 0137) - claim_next_campaign_contact מחזירה
+  // assigned_to; אם זה בדיוק הנציג-התופס, הכרטיס הגיע מהרשימה-האישית
+  // שלו (עדיפות-ראשונה בתור), לא מהמאגר הכללי - להצגת תגית ב-UI.
+  contact.isPersonal = row.assigned_to === user.id;
+  return { success: true, contact };
 }
 
 // "מישהו חוזר אליי" - חיפוש חופשי (שם/טלפון/ת.ז) בתוך רשימת הקמפיין

@@ -237,7 +237,14 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
       <div style={{ background: 'var(--bg)', borderRadius: 14, width: 920, maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.28)' }}>
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border, #e5e5e5)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>{contact.name}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
+              {contact.name}
+              {contact.isPersonal && (
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#8a5a00', background: '#fff3d6', border: '1px solid #f0d78c', borderRadius: 20, padding: '2px 8px' }}>
+                  🎯 מהרשימה האישית שלך
+                </span>
+              )}
+            </div>
             <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{contact.category}</div>
           </div>
           <button

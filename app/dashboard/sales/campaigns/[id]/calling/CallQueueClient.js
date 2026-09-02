@@ -206,6 +206,11 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
             <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
               {summary ? `${summary.total} אנשי קשר ממתינים לשיחה` : 'טוען...'}
             </span>
+            {summary?.personalCount > 0 && (
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#8a5a00', background: '#fff3d6', border: '1px solid #f0d78c', borderRadius: 20, padding: '3px 10px' }}>
+                🎯 {summary.personalCount} מהרשימה האישית שלך ממתינים
+              </span>
+            )}
             {emptyMessage && <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>{emptyMessage}</div>}
 
             {session === 'active' && (
@@ -352,6 +357,11 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
         <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
           {summary ? `${summary.total} אנשי קשר ממתינים לשיחה` : 'טוען...'}
         </span>
+        {summary?.personalCount > 0 && (
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#8a5a00', background: '#fff3d6', border: '1px solid #f0d78c', borderRadius: 20, padding: '3px 10px' }}>
+            🎯 {summary.personalCount} מהרשימה האישית שלך
+          </span>
+        )}
       </div>
 
       {emptyMessage && (

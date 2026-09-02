@@ -185,6 +185,19 @@ export async function updateContact(contactId, formData) {
   return { success: true };
 }
 
+// תיקון-מהיר של מספר טלפון (לא דרך טופס-העריכה המלא) - נועד ל"עיפרון"
+// ליד מספר-הטלפון בחלון-הוואטסאפ/תור-השיחות: אין נירמול-גורף על כל
+// הרשומות (ר' תיעוד ב-migration 0065 והדיון בשיחה) - רק נגיעה נקודתית
+// כשמישהו בפועל פותח את הכרטיס הזה ומתקן ביד. משתמש/ת פשוט/ה (לא רק
+// מנהל) - אותו היגיון כמו יתר עריכות-הכרטיס הרגילות.
+export async function updateContactPhone(contactId, field, value) {
+  const { supabase } = await requireUser();
+  if (field !== 'phone' && field !== 'phone2') return { error: 'שדה לא חוקי' };
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+  return applyContactFieldChanges(supabase, contactId, { [field]: (value || '').trim() });
+}
+
 // הוספת תגית בודדת מהתפריט הנפתח המהיר (מחוץ למצב עריכה מלא)
 export async function addContactTag(contactId, tag) {
   const { supabase } = await requireUser();

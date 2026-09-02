@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { sendContactWhatsApp, sendContactWhatsAppChatMessage } from '../actions';
+import { sendContactWhatsApp, sendContactWhatsAppChatMessage, updateContactPhone } from '../actions';
 
 // חלון צ'אט WhatsApp מלא לאיש קשר: מציג את כל ההיסטוריה (הודעות
 // שנשלחו והודעות שהתקבלו מהלקוח, לפי כיוון) כבועות שיחה, עם תיבת
@@ -18,7 +18,31 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
   // בלעדי זה הטלפן/ית לא רואה שום אישור שהיא באמת נשלחה. תצוגה-אופטימית
   // מקומית, לא תלויה ברענון.
   const [locallySent, setLocallySent] = useState([]);
+  // תיקון-מספר ידני ("עיפרון") - InforU מחזיר לפעמים 200-תקין גם כשהמסירה
+  // בפועל נכשלת בגלל פורמט לא-תקין (בלי לבדוק את גוף-התשובה, ר' lib/
+  // inforu/whatsapp.js) - אי אפשר לסמוך על הופעת-שגיאה כתנאי להצעת-תיקון,
+  // אז האפשרות זמינה תמיד, לא רק אחרי כישלון שזוהה.
+  const [currentPhone, setCurrentPhone] = useState(phone);
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneDraft, setPhoneDraft] = useState(phone);
+  const [phoneSaving, setPhoneSaving] = useState(false);
   const router = useRouter();
+
+  function startEditPhone() {
+    setPhoneDraft(currentPhone || '');
+    setEditingPhone(true);
+  }
+
+  async function savePhone() {
+    const next = phoneDraft.trim();
+    if (!next || next === currentPhone) { setEditingPhone(false); return; }
+    setPhoneSaving(true);
+    const res = await updateContactPhone(contactId, 'phone', next);
+    setPhoneSaving(false);
+    if (res?.error) { setError(res.error); return; }
+    setCurrentPhone(next);
+    setEditingPhone(false);
+  }
 
   const sorted = [...thread, ...locallySent].sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
   const selectedTemplate = templates.find((t) => t.id === templateId) || templates[0];
@@ -83,7 +107,23 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
         <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 600 }}>WhatsApp</div>
-            <div style={{ fontSize: 12, color: '#9b9b9b' }}>{phone}</div>
+            {editingPhone ? (
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 2 }}>
+                <input
+                  value={phoneDraft} onChange={(e) => setPhoneDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') savePhone(); if (e.key === 'Escape') setEditingPhone(false); }}
+                  autoFocus dir="ltr"
+                  style={{ fontSize: 12, border: '1px solid #e5e5e5', borderRadius: 4, padding: '2px 6px', width: 110 }}
+                />
+                <button type="button" onClick={savePhone} disabled={phoneSaving} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }} title="שמירה">✓</button>
+                <button type="button" onClick={() => setEditingPhone(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#9b9b9b' }} title="ביטול">✕</button>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: '#9b9b9b', display: 'flex', alignItems: 'center', gap: 4 }}>
+                {currentPhone}
+                <button type="button" onClick={startEditPhone} title="תיקון מספר" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, opacity: 0.6 }}>✏️</button>
+              </div>
+            )}
           </div>
           {templates.length <= 1 && (
             <button
