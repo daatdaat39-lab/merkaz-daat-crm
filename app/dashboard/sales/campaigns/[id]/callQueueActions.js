@@ -215,7 +215,7 @@ export async function searchCampaignContactsForCalling(campaignId, query) {
   if (error) return { error };
 
   const q = (query || '').trim().replace(/[,()]/g, '');
-  if (q.length < 2) return { success: true, rows: [] };
+  if (q.length < 2) return { success: true, rows: [], similarRows: [] };
 
   // חיפוש-שם: שאילתה כמו "דוד כהן" נבדקה בעבר כמחרוזת-אחת-שלמה מול כל
   // עמודה בנפרד (first/last) - אף עמודה לא מכילה את שתי המילים יחד, אז
@@ -245,21 +245,42 @@ export async function searchCampaignContactsForCalling(campaignId, query) {
   const matchedContacts = Object.values(
     Object.fromEntries([...nameMatches, ...(phoneOrIdMatches || [])].map((c) => [c.id, c]))
   );
-  if (matchedContacts.length === 0) return { success: true, rows: [] };
+
+  // חיפוש-דמיון ("אולי התכוונת ל...") - טעות-הקלדה בשם (אות חסרה/מוחלפת,
+  // "דוד" מול "דויד") לא נתפסת ע"י ilike-תת-מחרוזת למעלה בכלל. pg_trgm
+  // כבר מותקן ומאונדקס על שם-מלא (migration 0066, לגילוי-כפילויות) -
+  // נעזרים באותו similarity() (migration 0138) כדי להציע התאמות-קרובות,
+  // כתוצאה נפרדת מתחת לתוצאות-המדויקות - רק כשיש בשאילתה אותיות (לא
+  // רלוונטי לחיפוש טלפון/ת.ז טהור-ספרות).
+  const isNameLike = /[^\d\s\-+.]/.test(q);
+  const { data: simData } = isNameLike
+    ? await supabase.rpc('search_campaign_contacts_by_name_similarity', {
+        p_campaign_id: campaignId, p_query: q,
+        p_exclude_contact_ids: matchedContacts.map((c) => c.id), p_min_similarity: 0.25, p_limit: 6,
+      })
+    : { data: [] };
+
+  if (matchedContacts.length === 0 && (!simData || simData.length === 0)) {
+    return { success: true, rows: [], similarRows: [] };
+  }
 
   const contactById = Object.fromEntries(matchedContacts.map((c) => [c.id, c]));
-  const { data: ccRows } = await supabase.from('campaign_contacts')
-    .select('id, contact_id, status, category, claimed_by')
-    .eq('campaign_id', campaignId).in('contact_id', Object.keys(contactById));
-  if (!ccRows || ccRows.length === 0) return { success: true, rows: [] };
+  const { data: ccRows } = matchedContacts.length
+    ? await supabase.from('campaign_contacts')
+        .select('id, contact_id, status, category, claimed_by')
+        .eq('campaign_id', campaignId).in('contact_id', Object.keys(contactById))
+    : { data: [] };
 
-  const claimerIds = Array.from(new Set(ccRows.map((r) => r.claimed_by).filter(Boolean)));
+  const claimerIds = Array.from(new Set([
+    ...(ccRows || []).map((r) => r.claimed_by),
+    ...(simData || []).map((r) => r.claimed_by),
+  ].filter(Boolean)));
   const { data: profiles } = claimerIds.length
     ? await supabase.from('profiles').select('id, name').in('id', claimerIds)
     : { data: [] };
   const nameById = Object.fromEntries((profiles || []).map((p) => [p.id, p.name]));
 
-  const rows = ccRows.slice(0, 20).map((r) => {
+  const rows = (ccRows || []).slice(0, 20).map((r) => {
     const c = contactById[r.contact_id];
     return {
       rowId: r.id, status: r.status, category: r.category,
@@ -267,7 +288,14 @@ export async function searchCampaignContactsForCalling(campaignId, query) {
       claimedByName: r.claimed_by ? (nameById[r.claimed_by] || 'נציג') : null,
     };
   });
-  return { success: true, rows };
+
+  const similarRows = (simData || []).map((r) => ({
+    rowId: r.row_id, status: r.status, category: r.category,
+    name: `${r.first || ''} ${r.last || ''}`.trim(), phone: r.phone || '',
+    claimedByName: r.claimed_by ? (nameById[r.claimed_by] || 'נציג') : null,
+  }));
+
+  return { success: true, rows, similarRows };
 }
 
 // תפיסה ממוקדת של שורה שנמצאה בחיפוש - פותחת את אותו פאנל-שיחה בדיוק

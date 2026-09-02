@@ -30,6 +30,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
   const [isPending, startTransition] = useTransition();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [similarResults, setSimilarResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   // "ביקשו ממני לחזור אליהם" - רק שיחות-החזרה שהנציג הזה עצמו קבע (ר'
@@ -131,7 +132,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
   useEffect(() => {
     if (!isLockedTelemarketer) return;
     const q = searchQuery.trim();
-    if (q.length < 2) { setSearchResults([]); setSearching(false); return; }
+    if (q.length < 2) { setSearchResults([]); setSimilarResults([]); setSearching(false); return; }
     setSearching(true);
     const timer = setTimeout(() => {
       searchCampaignContactsForCalling(campaignId, q).then((res) => {
@@ -139,6 +140,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
         if (res?.error) { setSearchError(res.error); return; }
         setSearchError('');
         setSearchResults(res.rows || []);
+        setSimilarResults(res.similarRows || []);
       });
     }, 350);
     return () => clearTimeout(timer);
@@ -150,7 +152,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
       const res = await claimSpecificContact(campaignId, rowId);
       if (res.error) { setSearchError(res.error); return; }
       if (!res.contact) { setSearchError('איש הקשר הזה כרגע בשיחה אצל נציג אחר.'); return; }
-      setSearchQuery(''); setSearchResults([]);
+      setSearchQuery(''); setSearchResults([]); setSimilarResults([]);
       setActiveContact(res.contact);
     });
   }
@@ -294,7 +296,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
               />
               {searching && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>מחפש...</div>}
               {searchError && <div style={{ fontSize: 11.5, color: '#c62828', marginTop: 6 }}>{searchError}</div>}
-              {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && !searchError && (
+              {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && similarResults.length === 0 && !searchError && (
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>לא נמצא אף אחד ברשימת הקמפיין הזה</div>
               )}
               {searchResults.length > 0 && (
@@ -317,6 +319,31 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
                       </span>
                     </button>
                   ))}
+                </div>
+              )}
+              {similarResults.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>אולי התכוונת ל... (שם דומה)</div>
+                  <div style={{ border: '1px dashed var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden', textAlign: 'right' }}>
+                    {similarResults.map((r) => (
+                      <button
+                        key={r.rowId} type="button" onClick={() => handleSearchSelect(r.rowId)} disabled={isPending || !!r.claimedByName}
+                        style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', textAlign: 'right',
+                          padding: '9px 12px', border: 'none', borderBottom: '1px solid var(--border, #f0f0f0)', background: 'var(--bg)',
+                          cursor: r.claimedByName ? 'not-allowed' : 'pointer', opacity: r.claimedByName ? 0.55 : 0.85,
+                        }}
+                      >
+                        <span>
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>{r.name || '—'}</span>
+                          <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}> · {r.phone || '—'}</span>
+                        </span>
+                        <span style={{ fontSize: 11, color: r.claimedByName ? '#b26a00' : 'var(--text-muted)' }}>
+                          {r.claimedByName ? `בשיחה אצל ${r.claimedByName}` : (r.category || '')}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
