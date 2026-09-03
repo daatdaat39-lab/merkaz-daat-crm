@@ -206,7 +206,14 @@ async function createContactFromKesher(supabase, { name, idnum, phone, email }, 
 // ב-user.id בפנים ממשיך לעבוד בלי שינוי, כי גם קריאת ה-cron מעבירה
 // אובייקט {id: null} ולא null ישירות (created_by/created_by-ish
 // עמודות תומכות בזה).
-export async function runKesherSyncCore(supabase, user, fromDate, toDate, createNewContacts, triggeredBy = 'manual') {
+// bookkeepingToDate - נפרד מ-toDate (טווח-השאילתה בפועל מול קשר) בכוונה:
+// ברירת-המחדל (זהה ל-toDate) שומרת על ההתנהגות הקיימת של סנכרון-ידני
+// לגמרי. ה-cron (route.js) מעביר כאן את "היום" האמיתי, נפרד מה-toDate
+// המורחב-קדימה ששולח בפועל לקשר - כדי שה-fromDate של הריצה הבאה ימשיך
+// להתקדם לפי זמן-אמת ולא "יקפוץ" לתאריך העתידי ששאלנו עליו הפעם (ר'
+// migration/route.js לתיעוד מלא של הבאג שזה מתקן - הוראת-קבע עם
+// start_date עתידי-קרוב לא נתפסה כי ה-toDate תמיד היה "היום").
+export async function runKesherSyncCore(supabase, user, fromDate, toDate, createNewContacts, triggeredBy = 'manual', bookkeepingToDate = toDate) {
   if (!isKesherConfigured()) return { error: 'קשר לא מוגדר - חסרים משתני סביבה בשרת (KESHER_USERNAME/KESHER_PASSWORD)' };
   if (!fromDate || !toDate) return { error: 'יש לבחור טווח תאריכים' };
 
@@ -505,7 +512,7 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
   // לוג הריצה - משמש למילוי אוטומטי של "מתאריך" בפעם הבאה (ר' getLastKesherSyncDate)
   // ולקצב-ההרצה של ה-cron (ר' app/api/cron/sync-kesher)
   await supabase.from('kesher_sync_runs').insert({
-    from_date: fromDate, to_date: toDate, created_by: user.id, triggered_by: triggeredBy,
+    from_date: fromDate, to_date: bookkeepingToDate, created_by: user.id, triggered_by: triggeredBy,
     transactions_created: result.transactionsCreated, transactions_skipped: result.transactionsSkipped, transactions_unmatched: result.transactionsUnmatched,
     obligations_created: result.obligationsCreated, obligations_updated: result.obligationsUpdated, obligations_unmatched: result.obligationsUnmatched,
   });
