@@ -7,8 +7,9 @@ import * as XLSX from 'xlsx';
 import {
   addContactsToCampaign, updateCampaignContact, removeContactFromCampaign, bulkUpdateCampaignContactsFromImport, getBulkContactInsightsForExport,
   getCampaignSheetConnection, pushCampaignRowsToSheet, pullCampaignUpdatesFromSheet, disconnectCampaignSheet, regenerateCategoryTabs, regenerateResponsiblePersonTabs,
-  bulkUpdateCampaignContactsField, getDistinctNotesAndResponsible, backfillSheetNewColumns,
+  bulkUpdateCampaignContactsField, getDistinctNotesAndResponsible, backfillSheetNewColumns, getCampaignHelpContacts, setCampaignHelpContacts,
 } from '../actions';
+import { searchContacts } from '../../../contacts/actions';
 import AdvancedFilterPanel from '../../../components/AdvancedFilterPanel';
 import { contactMatchesAdvancedFilter } from '../../../components/advancedFilter';
 import MappingQueue from './MappingQueue';
@@ -167,6 +168,43 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   const [sheetConnection, setSheetConnection] = useState(null);
   const [sheetBusy, setSheetBusy] = useState(false);
   const [sheetMessage, setSheetMessage] = useState(null);
+  // "כפתור עזרה" (migration 0145) - אנשי-קשר-אחראים שמקבלים וואטסאפ כשטלפן/ית
+  // מבקש/ת עזרה. חיפוש-והוספה, אותו דפוס בדיוק כמו contactSearch למטה.
+  const [helpContacts, setHelpContacts] = useState([]);
+  const [helpSearch, setHelpSearch] = useState('');
+  const [helpSearchResults, setHelpSearchResults] = useState([]);
+  const [helpSaving, setHelpSaving] = useState(false);
+
+  useEffect(() => {
+    getCampaignHelpContacts(campaignId).then((res) => {
+      if (res?.success) setHelpContacts(res.contacts || []);
+    });
+  }, [campaignId]);
+
+  useEffect(() => {
+    const q = helpSearch.trim();
+    if (q.length < 2) { setHelpSearchResults([]); return; }
+    const timer = setTimeout(() => {
+      searchContacts(q, '00000000-0000-0000-0000-000000000000').then((results) => setHelpSearchResults(results || []));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [helpSearch]);
+
+  function addHelpContact(contact) {
+    if (helpContacts.some((c) => c.id === contact.id)) { setHelpSearch(''); setHelpSearchResults([]); return; }
+    const next = [...helpContacts, contact];
+    setHelpContacts(next);
+    setHelpSearch(''); setHelpSearchResults([]);
+    setHelpSaving(true);
+    setCampaignHelpContacts(campaignId, next.map((c) => c.id)).finally(() => setHelpSaving(false));
+  }
+
+  function removeHelpContact(contactId) {
+    const next = helpContacts.filter((c) => c.id !== contactId);
+    setHelpContacts(next);
+    setHelpSaving(true);
+    setCampaignHelpContacts(campaignId, next.map((c) => c.id)).finally(() => setHelpSaving(false));
+  }
 
   useEffect(() => {
     getCampaignSheetConnection(campaignId).then((res) => {
@@ -757,6 +795,33 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
           {sheetMessage?.success && <span style={{ fontSize: 12, color: '#1f7a3d' }}>✓ {sheetMessage.success}</span>}
         </div>
       )}
+
+      <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', background: 'var(--bg-secondary, #fafafa)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>🆘 אחראים לעזרה:</span>
+        {helpContacts.map((c) => (
+          <span key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, background: '#fff3d6', border: '1px solid #f0d78c', borderRadius: 20, padding: '3px 10px' }}>
+            {c.first} {c.last}{c.phone ? ` · ${c.phone}` : ''}
+            <button type="button" onClick={() => removeHelpContact(c.id)} disabled={helpSaving} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, color: '#8a5a00' }}>✕</button>
+          </span>
+        ))}
+        <input
+          type="text" value={helpSearch} onChange={(e) => setHelpSearch(e.target.value)}
+          placeholder="חיפוש איש-קשר להוספה..." style={{ ...inputStyle, fontSize: 12, width: 180 }}
+        />
+        {helpSearchResults.length > 0 && (
+          <div style={{ position: 'absolute', top: '100%', right: 14, zIndex: 20, marginTop: 4, width: 240, background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', overflow: 'hidden' }}>
+            {helpSearchResults.map((c) => (
+              <button
+                key={c.id} type="button" onClick={() => addHelpContact(c)}
+                style={{ display: 'block', width: '100%', textAlign: 'right', padding: '8px 12px', border: 'none', borderBottom: '1px solid var(--border, #f0f0f0)', background: 'var(--bg)', cursor: 'pointer', fontSize: 12.5 }}
+              >
+                {c.first} {c.last}{c.phone ? ` · ${c.phone}` : ''}
+              </button>
+            ))}
+          </div>
+        )}
+        {helpContacts.length === 0 && <span style={{ fontSize: 11.5, color: 'var(--text-muted, #9b9b9b)' }}>לא הוגדרו - כפתור-העזרה של הטלפנים לא יעבוד</span>}
+      </div>
 
       {importResult?.error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>{importResult.error}</div>}
       {importResult?.success && (

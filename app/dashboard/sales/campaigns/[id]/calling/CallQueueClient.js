@@ -6,6 +6,7 @@ import {
   getCallableCampaignSummary, listCategoryContactsForCalling, claimNextContact,
   startCallSession, logBreakStart, logBreakEnd, endCallSession,
   searchCampaignContactsForCalling, claimSpecificContact, getMyPendingCallbacks, getMyDonationAttributions,
+  sendHelpRequest,
 } from '../callQueueActions';
 import ActiveCallPanel from './ActiveCallPanel';
 import DonationCelebrationToast from './DonationCelebrationToast';
@@ -40,6 +41,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
   // "תרמו אחרי שדיברנו איתם" - ר' getMyDonationAttributions, migration
   // 0122. אותו דפוס בדיוק כמו myCallbacks.
   const [myDonations, setMyDonations] = useState([]);
+  const [helpStatus, setHelpStatus] = useState(null); // 'sending' | {error} | {success} | null
   const [showMyDonations, setShowMyDonations] = useState(false);
 
   function loadSummary() {
@@ -146,6 +148,17 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
     return () => clearTimeout(timer);
   }, [searchQuery, campaignId, isLockedTelemarketer]);
 
+  // כפתור-עזרה - צף מעל הכל (גם מעל ActiveCallPanel, zIndex 1000), כדי
+  // שיהיה נגיש תמיד בלי קשר למצב-המסך (בחירת-קטגוריה/שיחה-פעילה/הפסקה).
+  function handleSendHelp() {
+    setHelpStatus('sending');
+    startTransition(async () => {
+      const res = await sendHelpRequest(campaignId);
+      setHelpStatus(res?.error ? { error: res.error } : { success: true });
+      setTimeout(() => setHelpStatus(null), 4000);
+    });
+  }
+
   function handleSearchSelect(rowId) {
     setSearchError('');
     startTransition(async () => {
@@ -161,6 +174,23 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
     return (
       <div>
         <DonationCelebrationToast campaignId={campaignId} />
+
+        <div style={{ position: 'fixed', bottom: 16, left: 16, zIndex: 1100, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+          {helpStatus === 'success' || helpStatus?.success ? (
+            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', color: '#166534', borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>✓ בקשת-העזרה נשלחה</div>
+          ) : helpStatus?.error ? (
+            <div style={{ background: '#fdecea', border: '1px solid #f5c6cb', color: '#c62828', borderRadius: 8, padding: '6px 12px', fontSize: 12, maxWidth: 220 }}>{helpStatus.error}</div>
+          ) : null}
+          <button
+            type="button" onClick={handleSendHelp} disabled={helpStatus === 'sending'}
+            style={{
+              background: '#c8791f', color: '#fff', border: 'none', borderRadius: 999, padding: '10px 18px',
+              fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+            }}
+          >
+            🆘 {helpStatus === 'sending' ? 'שולח...' : 'עזרה'}
+          </button>
+        </div>
 
         {error && (
           <div style={{ marginBottom: 14, background: '#fdecea', border: '1px solid #f5c6cb', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: '#c62828' }}>

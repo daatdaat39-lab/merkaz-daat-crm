@@ -49,6 +49,34 @@ export async function createCampaign(workspaceId, name, channel) {
   return { success: true, id: data.id };
 }
 
+// כפתור-עזרה (migration 0145) - "אחראים" הם אנשי-קשר רגילים מהמערכת (לא
+// חברי-מחלקה) שמקבלים וואטסאפ כשטלפן/ית לוחצ/ת "עזרה" - ר' sendHelpRequest
+// ב-callQueueActions.js. ניהול-הרשימה מנהל-בלבד, בדיוק כמו שאר הגדרות-הקמפיין.
+export async function getCampaignHelpContacts(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('workspace_id, help_contact_ids').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const ids = campaign.help_contact_ids || [];
+  if (ids.length === 0) return { success: true, contacts: [] };
+  const { data } = await supabase.from('contacts').select('id, first, last, phone').in('id', ids);
+  return { success: true, contacts: data || [] };
+}
+
+export async function setCampaignHelpContacts(campaignId, contactIds) {
+  const { supabase, user } = await requireUser();
+  const { data: campaign } = await supabase.from('campaigns').select('workspace_id').eq('id', campaignId).single();
+  if (!campaign) return { error: 'הקמפיין לא נמצא' };
+  const denied = await requireManager(supabase, user.id, campaign.workspace_id);
+  if (denied) return denied;
+
+  const { error } = await supabase.from('campaigns').update({ help_contact_ids: contactIds || [] }).eq('id', campaignId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 // מחיקת קמפיין - מנהל/בעלים בלבד. campaign_contacts/campaign_stages/
 // email_connections.campaign_id כולן on delete cascade (מיגרציות 0032,
 // 0039, 0057) - מחיקת השורה היחידה כאן מנקה את הכל, בלי צורך במחיקות

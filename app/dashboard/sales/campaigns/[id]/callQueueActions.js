@@ -6,6 +6,7 @@ import { isMemberOfWorkspace } from '../../../lib/contactGuards';
 import { fetchDistinctCampaignCategories, getSegmentRowInsights } from '../actions';
 import { formatIsraeliDateTime } from '../../../lib/dateFormat';
 import { getAllPipelines } from '../../../lib/pipelines';
+import { sendWhatsAppTemplate } from '../../../../../lib/inforu/whatsapp';
 
 // תור-שיחות לטלמרקטינג: בניגוד ל-actions.js (מנהל בלבד), הפעולות כאן
 // פתוחות לכל חבר-מחלקה - כל מי שעובד על הקמפיין צריך גישה לתור, לא רק
@@ -518,6 +519,42 @@ export async function getCelebrationInfo(attemptId) {
     contactName: `${attempt.campaign_contacts?.contacts?.first || ''} ${attempt.campaign_contacts?.contacts?.last || ''}`.trim(),
     agentName: profile?.name || 'נציג', amount: attempt.donation_amount,
   };
+}
+
+// כפתור-עזרה - שולח וואטסאפ ("כפתור עזרה", migration 0145) לכל אנשי-הקשר
+// שהמנהל הגדיר כ"אחראים" לקמפיין הזה (campaigns.help_contact_ids), עם
+// שם-הנציג-המבקש כמשתנה היחיד בתבנית. פתוח לכל חבר-קמפיין (לא רק מנהל) -
+// זו בדיוק הדרך שבה טלפן/ית אמור/ה לבקש עזרה.
+export async function sendHelpRequest(campaignId) {
+  const { supabase, user } = await requireUser();
+  const { error } = await requireMemberOfCampaign(supabase, user.id, campaignId);
+  if (error) return { error };
+
+  const [{ data: campaign }, { data: profile }, { data: templateRow }] = await Promise.all([
+    supabase.from('campaigns').select('help_contact_ids').eq('id', campaignId).single(),
+    supabase.from('profiles').select('name').eq('id', user.id).maybeSingle(),
+    supabase.from('whatsapp_templates').select('template_id, param_count').eq('template_id', '282787').maybeSingle(),
+  ]);
+  const helpContactIds = campaign?.help_contact_ids || [];
+  if (helpContactIds.length === 0) return { error: 'לא הוגדרו אנשי-קשר אחראים לעזרה בקמפיין הזה - פנה/י למנהל' };
+  if (!templateRow) return { error: 'תבנית "כפתור עזרה" לא רשומה במערכת' };
+
+  const { data: helpContacts } = await supabase.from('contacts').select('id, phone').in('id', helpContactIds);
+  const agentName = profile?.name || 'נציג';
+
+  let sent = 0;
+  const errors = [];
+  for (const c of helpContacts || []) {
+    if (!c.phone) continue;
+    try {
+      await sendWhatsAppTemplate({ phone: c.phone, firstName: agentName, templateId: templateRow.template_id, paramCount: templateRow.param_count });
+      sent++;
+    } catch (e) {
+      errors.push(e.message);
+    }
+  }
+  if (sent === 0) return { error: errors[0] || 'שליחת בקשת-העזרה נכשלה' };
+  return { success: true, sent };
 }
 
 export async function startCallSession(campaignId) { return logSessionEvent(campaignId, 'start'); }
