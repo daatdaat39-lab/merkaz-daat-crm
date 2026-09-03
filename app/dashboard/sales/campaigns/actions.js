@@ -113,7 +113,7 @@ export async function updateCampaignContact(rowId, changes) {
   // בדיוק כמו updateDepartmentStage/updateLeadStage שאין להן guard מנהל
   // בכלל. עדכון category/assignedTo עדיין דורש מנהל (נשלטים דרך עמוד
   // הקמפיין המנוהל-מנהל בלבד).
-  if (row.assigned_to !== user.id || changes.category !== undefined || changes.assignedTo !== undefined || changes.inCallQueue !== undefined || changes.allowRecentDonorCall !== undefined || changes.managerNote !== undefined || changes.resetNoAnswerStreak !== undefined) {
+  if (row.assigned_to !== user.id || changes.category !== undefined || changes.assignedTo !== undefined || changes.inCallQueue !== undefined || changes.allowRecentDonorCall !== undefined || changes.managerNote !== undefined || changes.resetNoAnswerStreak !== undefined || changes.resetSpouseReachedExit !== undefined) {
     const denied = await requireManager(supabase, user.id, row.campaigns?.workspace_id);
     if (denied) return denied;
   }
@@ -135,6 +135,9 @@ export async function updateCampaignContact(rowId, changes) {
   // "החזר לתור" ידני על שורה שיצאה מהתור אחרי כמה "לא ענה" רצופים (ר'
   // migration 0121) - מאפס את הרצף כדי שלא תצא מהתור שוב מיד בניסיון-הבא.
   if (changes.resetNoAnswerStreak) update.no_answer_streak = 0;
+  // "החזר לתור" ידני על שורה שיצאה כי בן/בת-הזוג נענה/תה (ר' migration
+  // 0143) - אותו דפוס בדיוק כמו resetNoAnswerStreak.
+  if (changes.resetSpouseReachedExit) update.spouse_reached_exit = false;
   if (changes.status !== undefined) {
     // מוודאים שהערך קיים בפועל כשלב של הקמפיין הזה - מונע "תקיעת" סטטוס
     // יתום אם שלב נמחק/שונה בכרטיסיה אחרת שנשארה פתוחה (campaign_stages

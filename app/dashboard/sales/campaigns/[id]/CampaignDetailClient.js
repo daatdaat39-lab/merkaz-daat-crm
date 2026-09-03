@@ -156,6 +156,10 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   // "ביקשו לחזור אליהם" - אותה תבנית בדיוק כמו "לא ענו" (0135): יוצא
   // מהתור מיד, מוסתר מהטבלה הרגילה, קבוצה נפרדת עם "החזר לתור" ידני.
   const [showCallbackBucket, setShowCallbackBucket] = useState(false);
+  // "בן/בת הזוג נענה/תה" - אותה תבנית בדיוק (0143): יוצא מהתור אוטומטית
+  // כשבן/בת-הזוג ענה/תה בפועל, מוסתר מהטבלה הרגילה, קבוצה נפרדת עם
+  // "החזר לתור" ידני.
+  const [showSpouseBucket, setShowSpouseBucket] = useState(false);
   const [pendingImport, setPendingImport] = useState(null);
   const [importResult, setImportResult] = useState(null);
   const [exporting, setExporting] = useState(false);
@@ -303,11 +307,13 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     () => rows.filter((r) => r.noAnswerStreak >= minNoAnswerStreak).sort((a, b) => b.noAnswerStreak - a.noAnswerStreak),
     [rows, minNoAnswerStreak]
   );
+  const spouseBucketRows = useMemo(() => rows.filter((r) => r.spouseReachedExit), [rows]);
   // בניגוד לתורמים-פעילים-אחרונים (showRecentActiveDonors מחזיר אותם
-  // לאותה טבלה) - שורות "לא ענו X+ פעמים" ו"ביקשו לחזור אליהם" תמיד
-  // מוסתרות מהטבלה הרגילה, ומוצגות רק בקבוצות הנפרדות למטה.
+  // לאותה טבלה) - שורות "לא ענו X+ פעמים", "ביקשו לחזור אליהם" ו"בן/בת
+  // הזוג נענה/תה" תמיד מוסתרות מהטבלה הרגילה, ומוצגות רק בקבוצות
+  // הנפרדות למטה.
   const visibleRows = useMemo(
-    () => rows.filter((r) => (showRecentActiveDonors || !r.isRecentActiveDonor || r.allowRecentDonorCall) && r.noAnswerStreak < NO_ANSWER_STREAK_THRESHOLD && !r.isPendingCallback),
+    () => rows.filter((r) => (showRecentActiveDonors || !r.isRecentActiveDonor || r.allowRecentDonorCall) && r.noAnswerStreak < NO_ANSWER_STREAK_THRESHOLD && !r.isPendingCallback && !r.spouseReachedExit),
     [rows, showRecentActiveDonors]
   );
 
@@ -866,6 +872,20 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               {showCallbackBucket ? `▴ ${pendingCallbacks.length} ביקשו לחזור אליהם` : `📅 ${pendingCallbacks.length} ביקשו לחזור אליהם`}
             </button>
           )}
+          {spouseBucketRows.length > 0 && (
+            <button
+              type="button" onClick={() => setShowSpouseBucket((v) => !v)}
+              style={{
+                ...ghostBtn(), padding: '5px 10px', fontSize: 12,
+                background: showSpouseBucket ? '#eef2f7' : 'var(--bg)',
+                borderColor: showSpouseBucket ? '#c9d6e3' : 'var(--border, #e5e5e5)',
+                color: showSpouseBucket ? '#3b5878' : 'inherit',
+              }}
+              title='יצאו אוטומטית מהתור כי בן/בת-הזוג נענה/תה - חוזרים לתור רק ידנית ע"י מנהל'
+            >
+              {showSpouseBucket ? `▴ ${spouseBucketRows.length} בן/בת הזוג נענה/תה` : `💑 ${spouseBucketRows.length} בן/בת הזוג נענה/תה`}
+            </button>
+          )}
         </div>
       )}
 
@@ -887,6 +907,14 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
           rows={pendingCallbacks}
           isPending={isPending}
           onReturnOne={(rowId) => handleChange(rowId, { inCallQueue: true }).then((res) => { if (!res?.error) router.refresh(); })}
+        />
+      )}
+
+      {showSpouseBucket && (
+        <SpouseReachedBucket
+          rows={spouseBucketRows}
+          isPending={isPending}
+          onReturnOne={(rowId) => handleChange(rowId, { inCallQueue: true, resetSpouseReachedExit: true }).then((res) => { if (!res?.error) router.refresh(); })}
         />
       )}
 
@@ -1236,6 +1264,48 @@ function CallbackBucket({ rows, isPending, onReturnOne }) {
                 <td style={{ padding: '8px 14px' }}>{r.agentName}</td>
                 <td style={{ padding: '8px 14px', fontSize: 12 }}>{fmt(r.requestedAt)}</td>
                 <td style={{ padding: '8px 14px', fontSize: 12, fontWeight: 600 }}>{fmt(r.callbackAt)}</td>
+                <td style={{ padding: '8px 14px' }}>
+                  <button type="button" onClick={() => onReturnOne(r.rowId)} disabled={isPending} style={{ ...ghostBtn(), fontSize: 11.5, padding: '4px 10px' }}>
+                    ↩ החזר לתור
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+// "בן/בת הזוג נענה/תה" - יצאו אוטומטית מהתור (log_campaign_call_attempt,
+// migration 0143) - אותו מבנה בדיוק כמו CallbackBucket, בלי checkboxes/
+// בחירה-מרובה (כמו שם, לא כמו NoAnswerBucket).
+function SpouseReachedBucket({ rows, isPending, onReturnOne }) {
+  return (
+    <div style={{ marginBottom: 14, border: '1px solid #c9d6e3', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: '#eef2f7', padding: '9px 14px' }}>
+        <strong style={{ fontSize: 13, color: '#3b5878' }}>💑 בן/בת הזוג נענה/תה - יצאו מהתור</strong>
+      </div>
+      {rows.length === 0 ? (
+        <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b', background: 'var(--bg)' }}>אין כרגע</div>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: 'var(--bg)' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
+              {['שם', 'טלפון', 'בן/בת הזוג', ''].map((h) => (
+                <th key={h} style={{ textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '6px 14px', textTransform: 'uppercase' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.rowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
+                <td style={{ padding: '8px 14px' }}>
+                  <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.name || '—'}</Link>
+                </td>
+                <td style={{ padding: '8px 14px' }}>{r.phone || '—'}</td>
+                <td style={{ padding: '8px 14px' }}>{r.spouseName || '—'}</td>
                 <td style={{ padding: '8px 14px' }}>
                   <button type="button" onClick={() => onReturnOne(r.rowId)} disabled={isPending} style={{ ...ghostBtn(), fontSize: 11.5, padding: '4px 10px' }}>
                     ↩ החזר לתור
