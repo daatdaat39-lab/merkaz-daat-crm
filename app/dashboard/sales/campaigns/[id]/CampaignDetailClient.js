@@ -1354,7 +1354,11 @@ function BulkAssignBar({ selected, setSelected, agents, categories, onBulkApply,
   function applyAgent() {
     const ids = Array.from(selected);
     startTransition(async () => {
-      await onBulkApply(ids, { assignedTo: agentId });
+      // "שלח לנציג" מכניס גם לתור באותה פעולה - צעד אחד, לא שניים. בטוח
+      // לעשות את זה תמיד (גם אם השורה לא הייתה בתור קודם) כי מ-migration
+      // 0140 שיוך-לנציג הוא בלעדי: השורה תיכנס רק לתור של הנציג הזה, אף
+      // נציג אחר לא יכול לתפוס אותה - אין סיכון ש"תור של כולם" יתמלא.
+      await onBulkApply(ids, { assignedTo: agentId, inCallQueue: true, resetNoAnswerStreak: true });
       setAgentId('');
       setSelected(new Set());
     });
