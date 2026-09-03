@@ -1030,7 +1030,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
                         <th
                           key={h}
                           style={{
-                            textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '8px 14px', textTransform: 'uppercase',
+                            textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '8px 8px', textTransform: 'uppercase',
                             ...(i === 0 ? { position: 'sticky', insetInlineStart: 32, zIndex: 2, background: 'var(--bg-secondary, #fafafa)', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.12)' } : {}),
                           }}
                         >
@@ -1137,11 +1137,11 @@ function MultiValueFilter({ label, values, selected, onSelectedChange, text, onT
 function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelected, onToggleSelect, onChange, onRemove }) {
   return (
     <tr style={{ borderBottom: '1px solid #f2f2f2' }}>
-      <td style={{ padding: '10px 8px', textAlign: 'center', position: 'sticky', insetInlineStart: 0, zIndex: 1, background: 'var(--bg)' }}>
+      <td style={{ padding: '8px 8px', textAlign: 'center', position: 'sticky', insetInlineStart: 0, zIndex: 1, background: 'var(--bg)' }}>
         <input type="checkbox" checked={isSelected} onChange={onToggleSelect} />
       </td>
-      <td style={{ padding: '10px 14px', position: 'sticky', insetInlineStart: 32, zIndex: 1, background: 'var(--bg)', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.12)' }}>
-        <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
+      <td style={{ padding: '8px 8px', maxWidth: 130, position: 'sticky', insetInlineStart: 32, zIndex: 1, background: 'var(--bg)', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.12)' }}>
+        <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.name || ''}>
           {r.name || '—'}
         </Link>
         {r.isRecentActiveDonor && (
@@ -1160,23 +1160,23 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
           </div>
         )}
       </td>
-      <td style={{ padding: '10px 14px' }}>{r.phone || '—'}</td>
-      <td style={{ padding: '10px 14px', fontSize: 12, color: r.spouseName ? 'inherit' : '#c8c8c8' }}>
+      <td style={{ padding: '8px 8px', whiteSpace: 'nowrap' }}>{r.phone || '—'}</td>
+      <td style={{ padding: '8px 8px', fontSize: 12, color: r.spouseName ? 'inherit' : '#c8c8c8', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.spouseName ? `${r.spouseName}${r.relationLabel ? ` (${r.relationLabel})` : ''}` : ''}>
         {r.spouseName ? `${r.spouseName}${r.relationLabel ? ` (${r.relationLabel})` : ''}` : '—'}
       </td>
-      <td style={{ padding: '10px 14px' }}>
-        <select value={r.category} onChange={(e) => onChange(r.rowId, { category: e.target.value })} disabled={isPending} style={cellSelect()}>
+      <td style={{ padding: '8px 8px' }}>
+        <select value={r.category} onChange={(e) => onChange(r.rowId, { category: e.target.value })} disabled={isPending} style={{ ...cellSelect(), maxWidth: 110 }}>
           <option value="">—</option>
           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
       </td>
-      <td style={{ padding: '10px 14px' }}>
-        <select value={r.assignedTo} onChange={(e) => onChange(r.rowId, { assignedTo: e.target.value })} disabled={isPending} style={cellSelect()}>
+      <td style={{ padding: '8px 8px' }}>
+        <select value={r.assignedTo} onChange={(e) => onChange(r.rowId, { assignedTo: e.target.value })} disabled={isPending} style={{ ...cellSelect(), maxWidth: 100 }}>
           <option value="">— ללא —</option>
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
       </td>
-      <td style={{ padding: '10px 14px' }}>
+      <td style={{ padding: '8px 8px' }}>
         <input
           type="text"
           defaultValue={r.responsiblePerson || ''}
@@ -1186,16 +1186,16 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
           }}
           disabled={isPending}
           placeholder="מי אחראי..."
-          style={{ ...cellSelect(), width: '100%', minWidth: 100 }}
+          style={{ ...cellSelect(), width: '100%', minWidth: 72, maxWidth: 90 }}
         />
       </td>
-      <td style={{ padding: '10px 14px' }}>
+      <td style={{ padding: '8px 8px' }}>
         <select
           value={r.status}
           onChange={(e) => onChange(r.rowId, { status: e.target.value })}
           disabled={isPending}
           style={{
-            ...cellSelect(),
+            ...cellSelect(), maxWidth: 100,
             background: (campaignStages.colors[r.status] || {}).bg || '#f4f4f5',
             color: (campaignStages.colors[r.status] || {}).color || '#52525b',
             border: 'none', fontWeight: 500,
@@ -1207,12 +1207,12 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
       {/* יומן-שיחות הטלפנים (note) - תצוגה בלבד, לא ניתן לעריכה כאן בכוונה.
           עריכה ישירה בטבלה הזו על אותה עמודה היא בדיוק מה שגרם לדריסת יומן-
           שיחות שלם בתקרית ה-31/08 (ר' migration 0117/0120). */}
-      <td style={{ padding: '10px 14px', fontSize: 12, color: r.note ? 'inherit' : '#c8c8c8', maxWidth: 180 }}>
+      <td style={{ padding: '8px 8px', fontSize: 12, color: r.note ? 'inherit' : '#c8c8c8', maxWidth: 130 }}>
         <span title={r.note || ''} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {r.note ? r.note.split('\n')[0] : '—'}
         </span>
       </td>
-      <td style={{ padding: '10px 14px' }}>
+      <td style={{ padding: '8px 8px' }}>
         <input
           type="text"
           defaultValue={r.managerNote || ''}
@@ -1222,10 +1222,10 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
           }}
           disabled={isPending}
           placeholder="הערת מנהל..."
-          style={{ ...cellSelect(), width: '100%', minWidth: 120 }}
+          style={{ ...cellSelect(), width: '100%', minWidth: 90, maxWidth: 110 }}
         />
       </td>
-      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+      <td style={{ padding: '8px 4px', textAlign: 'center' }}>
         <input
           type="checkbox" checked={r.inCallQueue}
           onChange={(e) => onChange(r.rowId, { inCallQueue: e.target.checked })}
@@ -1233,7 +1233,7 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
           title="נכלל בתור-השיחות לטלמרקטינג"
         />
       </td>
-      <td style={{ padding: '10px 14px' }}>
+      <td style={{ padding: '8px 4px' }}>
         <button type="button" onClick={onRemove} disabled={isPending} title="הסרה מהקמפיין"
           style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 13 }}>✕</button>
       </td>
