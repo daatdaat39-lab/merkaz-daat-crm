@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { logCallAttempt, skipContact, quickNoAnswer, undoLastCallAttempt, heartbeatClaim } from '../callQueueActions';
+import { updateContactPhone } from '../../../../contacts/actions';
 import WhatsAppSendModal from '../../../../contacts/[id]/WhatsAppSendModal';
 import ContactSummaryPanel from './ContactSummaryPanel';
 
@@ -45,6 +46,54 @@ const DAY_OFFSETS = [{ key: 0, label: 'היום' }, { key: 1, label: 'מחר' },
 function telHref(phone) {
   const digits = (phone || '').replace(/[^\d+]/g, '');
   return digits ? `tel:${digits}` : null;
+}
+
+// עיפרון-תיקון-מספר ישירות על הכפתור-החייג (במקום רק בתוך חלון-הוואטסאפ,
+// ר' WhatsAppSendModal) - טלפן/ית שרואה מספר לא-תקין (או שלחיצת ה-tel:
+// לא עובדת) יכול/ה לתקן בלי לפתוח וואטסאפ בכלל. אותה action בדיוק
+// (updateContactPhone), רק תצוגה מקומית משלו.
+function EditablePhoneChip({ phone, label, contactId, field, primary, onSaved, onError }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const next = draft.trim();
+    if (!next || next === phone) { setEditing(false); return; }
+    setSaving(true);
+    const res = await updateContactPhone(contactId, field, next);
+    setSaving(false);
+    if (res?.error) { onError(res.error); return; }
+    onSaved(next);
+    setEditing(false);
+  }
+
+  if (editing) {
+    return (
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <input
+          value={draft} onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
+          autoFocus dir="ltr"
+          style={{ fontSize: 13, border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 10px', width: 130 }}
+        />
+        <button type="button" onClick={save} disabled={saving} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 15 }} title="שמירה">✓</button>
+        <button type="button" onClick={() => setEditing(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)' }} title="ביטול">✕</button>
+      </div>
+    );
+  }
+
+  if (!phone) return null;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
+      {telHref(phone) && (
+        <a href={telHref(phone)} style={primary ? { ...primaryBtn, fontSize: 15, padding: '10px 20px', textDecoration: 'none' } : { ...btnStyle, textDecoration: 'none', color: 'inherit' }}>
+          📞 {phone}{label ? ` (${label})` : ''}
+        </a>
+      )}
+      <button type="button" onClick={() => { setDraft(phone); setEditing(true); }} title="תיקון מספר" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 4, opacity: 0.55 }}>✏️</button>
+    </span>
+  );
 }
 
 function ToggleGroup({ options, value, onChange }) {
@@ -124,6 +173,8 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
   const [note, setNote] = useState('');
   const [confirmResult, setConfirmResult] = useState(null); // {attemptId, attemptNumber, previousNote, outcome}
   const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [currentPhone, setCurrentPhone] = useState(contact.phone);
+  const [currentPhone2, setCurrentPhone2] = useState(contact.phone2);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
@@ -259,13 +310,15 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {/* עמודת פקדי-שיחה */}
           <div style={{ flex: '1 1 55%', padding: '20px 24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16, borderInlineEnd: '1px solid var(--border, #e5e5e5)' }}>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {telHref(contact.phone) && (
-                <a href={telHref(contact.phone)} style={{ ...primaryBtn, fontSize: 15, padding: '10px 20px', textDecoration: 'none' }}>📞 {contact.phone}</a>
-              )}
-              {telHref(contact.phone2) && (
-                <a href={telHref(contact.phone2)} style={{ ...btnStyle, textDecoration: 'none', color: 'inherit' }}>📞 {contact.phone2} (משני)</a>
-              )}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+              <EditablePhoneChip
+                phone={currentPhone} contactId={contact.contactId} field="phone" primary
+                onSaved={setCurrentPhone} onError={setError}
+              />
+              <EditablePhoneChip
+                phone={currentPhone2} label="משני" contactId={contact.contactId} field="phone2"
+                onSaved={setCurrentPhone2} onError={setError}
+              />
               <button type="button" onClick={() => setShowWhatsApp(true)} style={btnStyle}>💬 וואטסאפ</button>
             </div>
 
@@ -399,7 +452,7 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
 
       {showWhatsApp && (
         <WhatsAppSendModal
-          contactId={contact.contactId} workspaceId={workspaceId} phone={contact.phone}
+          contactId={contact.contactId} workspaceId={workspaceId} phone={currentPhone}
           templates={whatsappTemplates} onClose={() => setShowWhatsApp(false)}
           skipRefresh
         />
