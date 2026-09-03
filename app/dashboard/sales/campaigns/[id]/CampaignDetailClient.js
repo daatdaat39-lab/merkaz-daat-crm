@@ -1025,9 +1025,17 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-secondary, #fafafa)' }}>
-                      <th style={{ padding: '8px 8px' }}></th>
-                      {['שם', 'טלפון', 'בן/בת זוג', 'קטגוריה', 'נציג מטפל', 'אחראי', 'סטטוס', 'יומן שיחות', 'הערת מנהל', 'בתור', ''].map((h) => (
-                        <th key={h} style={{ textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '8px 14px', textTransform: 'uppercase' }}>{h}</th>
+                      <th style={{ padding: '8px 8px', position: 'sticky', insetInlineStart: 0, zIndex: 2, background: 'var(--bg-secondary, #fafafa)' }}></th>
+                      {['שם', 'טלפון', 'בן/בת זוג', 'קטגוריה', 'נציג מטפל', 'אחראי', 'סטטוס', 'יומן שיחות', 'הערת מנהל', 'בתור', ''].map((h, i) => (
+                        <th
+                          key={h}
+                          style={{
+                            textAlign: 'right', fontSize: 10.5, color: 'var(--text-muted, #9b9b9b)', padding: '8px 14px', textTransform: 'uppercase',
+                            ...(i === 0 ? { position: 'sticky', insetInlineStart: 32, zIndex: 2, background: 'var(--bg-secondary, #fafafa)', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.12)' } : {}),
+                          }}
+                        >
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -1129,10 +1137,10 @@ function MultiValueFilter({ label, values, selected, onSelectedChange, text, onT
 function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelected, onToggleSelect, onChange, onRemove }) {
   return (
     <tr style={{ borderBottom: '1px solid #f2f2f2' }}>
-      <td style={{ padding: '10px 8px', textAlign: 'center' }}>
+      <td style={{ padding: '10px 8px', textAlign: 'center', position: 'sticky', insetInlineStart: 0, zIndex: 1, background: 'var(--bg)' }}>
         <input type="checkbox" checked={isSelected} onChange={onToggleSelect} />
       </td>
-      <td style={{ padding: '10px 14px' }}>
+      <td style={{ padding: '10px 14px', position: 'sticky', insetInlineStart: 32, zIndex: 1, background: 'var(--bg)', boxShadow: '2px 0 4px -2px rgba(0,0,0,0.12)' }}>
         <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
           {r.name || '—'}
         </Link>
