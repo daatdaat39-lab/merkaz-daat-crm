@@ -147,6 +147,9 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
   // מחדל. showRecentActiveDonors=false הוא ברירת המחדל בכוונה - "פתיחה"
   // היא פעולה מודעת, לא הגדרה נשמרת.
   const [showRecentActiveDonors, setShowRecentActiveDonors] = useState(false);
+  // סינון "טלפון ריק" - בדיקה נגד phone וגם phone2 (רק אם שניהם ריקים
+  // אין שום דרך להתקשר) - כדי שמנהל יוכל לאתר ולהוציא מהתור בבת-אחת.
+  const [emptyPhoneOnly, setEmptyPhoneOnly] = useState(false);
   // "לא ענו X+ פעמים" - שורות שעברו את סף-הרצף (0121) יוצאות אוטומטית
   // מהתור ולא מוצגות בטבלה הרגילה בכלל (בניגוד לתורמים-פעילים-אחרונים,
   // שם showRecentActiveDonors מחזיר אותם לאותה טבלה) - יש להן קבוצה
@@ -337,6 +340,10 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     () => rows.filter((r) => r.isRecentActiveDonor && !r.allowRecentDonorCall).length,
     [rows]
   );
+  const emptyPhoneCount = useMemo(
+    () => rows.filter((r) => !(r.phone || '').trim() && !(r.phone2 || '').trim()).length,
+    [rows]
+  );
   const blockedNoAnswerCount = useMemo(
     () => rows.filter((r) => r.noAnswerStreak >= NO_ANSWER_STREAK_THRESHOLD).length,
     [rows]
@@ -390,8 +397,11 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
         result = result.filter((r) => responsibleFilterValues.has(r.responsiblePerson || ''));
       }
     }
+    if (emptyPhoneOnly) {
+      result = result.filter((r) => !(r.phone || '').trim() && !(r.phone2 || '').trim());
+    }
     return result;
-  }, [visibleRows, noteFilter, noteFilterValues, noteEmptyOnly, managerNoteFilter, managerNoteFilterValues, managerNoteEmptyOnly, responsibleFilter, responsibleFilterValues, responsibleEmptyOnly]);
+  }, [visibleRows, noteFilter, noteFilterValues, noteEmptyOnly, managerNoteFilter, managerNoteFilterValues, managerNoteEmptyOnly, responsibleFilter, responsibleFilterValues, responsibleEmptyOnly, emptyPhoneOnly]);
   const contactSearchFilteredRows = useMemo(() => {
     if (!contactSearch.trim()) return noteFilteredRows;
     const q = contactSearch.trim().toLowerCase();
@@ -907,6 +917,20 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               title="תורם עם הוראת-קבע פעילה שתרם ב-40 הימים האחרונים - חסום אוטומטית מהתור"
             >
               {showRecentActiveDonors ? `🔓 מוצגים ${blockedRecentDonorCount} תורמים פעילים אחרונים` : `🔒 ${blockedRecentDonorCount} תורמים פעילים אחרונים מוסתרים`}
+            </button>
+          )}
+          {emptyPhoneCount > 0 && (
+            <button
+              type="button" onClick={() => setEmptyPhoneOnly((v) => !v)}
+              style={{
+                ...ghostBtn(), padding: '5px 10px', fontSize: 12,
+                background: emptyPhoneOnly ? '#fdecea' : 'var(--bg)',
+                borderColor: emptyPhoneOnly ? '#f5c6cb' : 'var(--border, #e5e5e5)',
+                color: emptyPhoneOnly ? '#c62828' : 'inherit',
+              }}
+              title="אין טלפון ראשי או משני - סנן כדי לבחור ולהוציא מהתור בבת-אחת"
+            >
+              {emptyPhoneOnly ? `✕ מציג רק ${emptyPhoneCount} ללא טלפון` : `📵 ${emptyPhoneCount} ללא טלפון`}
             </button>
           )}
           {blockedNoAnswerCount > 0 && (
