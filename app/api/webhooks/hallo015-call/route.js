@@ -48,14 +48,21 @@ export async function POST(request) {
   const snumber = (body.snumber || '').toString().trim() || null;
   const dnumber = (body.dnumber || '').toString().trim() || null;
 
+  // תוקן (שלב 5 ממודול מכירות/שירות - נמצא בגילוי-פערים, לא קשור
+  // לפיצ'ר החדש): הייתה כאן השוואה מדויקת מול phone/phone2 הגולמיים,
+  // בלי להשתמש במספר המנורמל שכבר חושב - אף התאמה לא הצליחה בפועל
+  // כי המספרים ב-015 (snumber/dnumber) כמעט אף פעם לא זהים-תו-לתו
+  // לאיך שהטלפון שמור אצלנו (קידומת/אפס-מוביל). משתמשים ב-phone_digits/
+  // phone2_digits (עמודות מחושבות, 9 ספרות אחרונות, migration 0065) -
+  // אותו נירמול בדיוק כמו normalizePhone, ומאונדקס.
   let contactId = null;
   for (const num of [snumber, dnumber]) {
     if (!num || contactId) continue;
     const normalized = normalizePhone(num);
     if (!normalized) continue;
     const results = await Promise.all([
-      supabase.from('contacts').select('id').eq('phone', num).limit(1),
-      supabase.from('contacts').select('id').eq('phone2', num).limit(1),
+      supabase.from('contacts').select('id').eq('phone_digits', normalized).limit(1),
+      supabase.from('contacts').select('id').eq('phone2_digits', normalized).limit(1),
     ]);
     for (const { data } of results) {
       if (data?.[0]) { contactId = data[0].id; break; }
