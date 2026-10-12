@@ -70,17 +70,25 @@ export default function LeadRow({ contact: c, agents, workspaceId, workspaceName
         <input type="checkbox" checked={selected} onChange={() => onToggleSelect?.(c.id)} />
       </td>
       <td style={{ padding: '10px 16px', fontSize: 13 }}>
-        <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
-          <span style={{ width: 26, height: 26, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0 }}>
-            {initials(c.first, c.last)}
-          </span>
-          {c.first} {c.last}
-          {c.existingElsewhere && (
-            <span title="איש הקשר הזה כבר מוכר למערכת ממחלקה אחרת" style={{ fontSize: 10, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 100, padding: '1px 8px' }}>
-              איש קשר קיים
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
+            <span style={{ width: 26, height: 26, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0 }}>
+              {initials(c.first, c.last)}
             </span>
-          )}
-        </Link>
+            {c.first} {c.last}
+            {c.existingElsewhere && (
+              <span title="איש הקשר הזה כבר מוכר למערכת ממחלקה אחרת" style={{ fontSize: 10, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 100, padding: '1px 8px' }}>
+                איש קשר קיים
+              </span>
+            )}
+          </Link>
+          <Link
+            href={`/dashboard/sales/leads/${c.departmentRowId}`} title="פתיחת מסך-טיפול (תסריטים + ציר-זמן + המרה)"
+            style={{ fontSize: 13, textDecoration: 'none', flexShrink: 0, opacity: 0.7 }}
+          >
+            📋
+          </Link>
+        </div>
       </td>
       <td style={{ padding: '10px 16px', fontSize: 13 }}>
         <select
