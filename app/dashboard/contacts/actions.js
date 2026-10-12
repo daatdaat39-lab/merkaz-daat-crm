@@ -527,6 +527,10 @@ export async function mergeContacts(keepId, duplicateId, resolvedFields) {
   // מההתחלה, בניגוד לשתי הטבלאות למעלה שנוספו רק אחרי אובדן-נתונים
   // בפועל (ר' ההערה למעלה) - לא לחזור על אותה טעות.
   await moveRowsSkippingConflicts('course_purchases', ['course_id'], 'course_id');
+  // service_cases (מודול מכירות/שירות, migration 0151) - גם היא נוספה
+  // מההתחלה, מאותה סיבה בדיוק. case_number ייחודי-גלובלי (bigserial) -
+  // אף פעם לא "מתנגש" באמת, אז כל קריאות-השירות של הכפול תמיד עוברות.
+  await moveRowsSkippingConflicts('service_cases', ['case_number'], 'case_number');
   // import_conflicts - בלי אילוץ ייחודיות, מעבירים ישירות
   await supabase.from('import_conflicts').update({ contact_id: keepId }).eq('contact_id', duplicateId);
 

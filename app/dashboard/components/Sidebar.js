@@ -27,6 +27,12 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    label: 'שירות',
+    items: [
+      { href: '/dashboard/service/cases', label: 'קריאות שירות', icon: '🎫' },
+    ],
+  },
+  {
     label: 'תקשורת',
     items: [
       { href: '/dashboard/chat', label: "צ'אט צוות", icon: '🗨️' },
