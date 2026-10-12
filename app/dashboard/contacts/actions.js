@@ -523,6 +523,10 @@ export async function mergeContacts(keepId, duplicateId, resolvedFields) {
   // כמה עשרות ב"דעת ותבונה" עם שיוך-מחלקה אבל בלי אף רשומת היסטוריה.
   await moveRowsSkippingConflicts('contact_course_enrollments', ['year_label', 'course_code'], 'course_code');
   await moveRowsSkippingConflicts('contact_seminar_participations', ['event_type', 'year', 'kind'], 'event_type');
+  // course_purchases (מודול מכירות/שירות, migration 0148) - נוספה כאן
+  // מההתחלה, בניגוד לשתי הטבלאות למעלה שנוספו רק אחרי אובדן-נתונים
+  // בפועל (ר' ההערה למעלה) - לא לחזור על אותה טעות.
+  await moveRowsSkippingConflicts('course_purchases', ['course_id'], 'course_id');
   // import_conflicts - בלי אילוץ ייחודיות, מעבירים ישירות
   await supabase.from('import_conflicts').update({ contact_id: keepId }).eq('contact_id', duplicateId);
 
