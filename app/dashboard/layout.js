@@ -5,6 +5,8 @@ import Topbar from './components/Topbar';
 import NewLeadToast from './components/NewLeadToast';
 import ConcurrentInquiryToast from './components/ConcurrentInquiryToast';
 import PendingAutomationWatcher from './components/PendingAutomationWatcher';
+import CtiCallToast from './components/CtiCallToast';
+import AgentPresenceHeartbeat from './components/AgentPresenceHeartbeat';
 import CelebrationHost from './components/CelebrationHost';
 import IdleLock from './components/IdleLock';
 import LogoutButton from './components/LogoutButton';
@@ -207,6 +209,8 @@ export default async function DashboardLayout({ children, modal }) {
       <NewLeadToast workspaceId={currentWorkspaceId} />
       <ConcurrentInquiryToast workspaceId={currentWorkspaceId} userId={user.id} />
       <PendingAutomationWatcher userId={user.id} />
+      <CtiCallToast workspaceId={currentWorkspaceId} userId={user.id} />
+      <AgentPresenceHeartbeat workspaceId={currentWorkspaceId} />
       <CelebrationHost />
       <IdleLock userEmail={user.email} />
       <FloatingWindowsHost />

@@ -88,5 +88,35 @@ export async function POST(request) {
   }, { onConflict: 'external_call_id' });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // הקפצת-מסך (שלב 5) - **אחרי**-שיחה, לא באמצע (ר' ההערה למעלה: אין
+  // לנו webhook על תחילת-שיחה). רק לשיחות-נכנסות (direction שונה מ-
+  // 'outbound', אותה מוסכמה כמו בתצוגה הקיימת ב-ContactTabs.js) עם
+  // ניתוב-קו מוגדר (cti_line_routing, migration 0153) - בלי ניתוב, אין
+  // workspace לשייך את ההתראה אליו, אז מדלגים בשקט (הרישום ב-phone_calls
+  // כבר קרה למעלה, לא תלוי בזה).
+  const isInbound = body.direction !== 'outbound';
+  if (isInbound && dnumber) {
+    const { data: routing } = await supabase.from('cti_line_routing').select('workspace_id').eq('dnumber', dnumber).maybeSingle();
+    if (routing?.workspace_id) {
+      let departmentId = null;
+      let agentId = null;
+      if (contactId) {
+        const { data: dept } = await supabase
+          .from('contact_departments')
+          .select('id, agent_id')
+          .eq('contact_id', contactId)
+          .eq('workspace_id', routing.workspace_id)
+          .maybeSingle();
+        departmentId = dept?.id || null;
+        agentId = dept?.agent_id || null;
+      }
+      await supabase.from('cti_call_events').insert({
+        workspace_id: routing.workspace_id, contact_id: contactId, department_id: departmentId,
+        agent_id: agentId, phone: snumber, answered: body.answered === '1' || body.answered === 1 || body.answered === true,
+      });
+    }
+  }
+
   return NextResponse.json({ success: true, matched: !!contactId });
 }

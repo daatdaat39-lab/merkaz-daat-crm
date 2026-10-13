@@ -19,6 +19,7 @@ const SETTINGS_LINKS = [
   { href: '/dashboard/settings/contact-corrections', icon: '✏️', title: 'תיקוני פרטים ממתינים', desc: 'הצעות-תיקון לפרטי אנשי קשר (למשל מטלפנים) - אישור/דחייה (owner/admin בלבד)' },
   { href: '/dashboard/settings/picklists', icon: '🏷', title: 'רשימות בחירה', desc: 'קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)' },
   { href: '/dashboard/settings/reference-content', icon: '📋', title: 'תוכן-עזר למכירות ושירות', desc: 'תסריטי-מכירה וטיפול-בהתנגדויות, ומאגר-ידע לשירות - לפי קורס (owner/admin בלבד)' },
+  { href: '/dashboard/settings/cti-routing', icon: '☎️', title: 'ניתוב-קווים (CTI)', desc: 'מיפוי בין קו-טלפון פנימי ב-015 למחלקה, לצורך התראות-שיחה (owner/admin בלבד)' },
   { href: '/dashboard/settings/pipelines', icon: '🔀', title: 'שלבי pipeline', desc: 'הוספה/עריכה/סידור שלבי התהליך לכל מחלקה (owner/admin בלבד)' },
   { href: '/dashboard/settings/fields', icon: '🧩', title: 'שדות מחלקתיים', desc: 'הוספה/עריכה/סידור שדות נוספים לכל מחלקה (owner/admin בלבד)' },
   { href: '/dashboard/settings/insights', icon: '💡', title: 'תובנות והצעות AI', desc: 'ניתוח מדדים אמיתיים והצעות מעשיות למחלקה (owner/admin בלבד)' },
