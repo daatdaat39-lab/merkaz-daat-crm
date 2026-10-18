@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { searchContacts } from '../../contacts/actions';
-import { createCase, updateCaseStatus, assignCaseAgent } from './actions';
-import { SEVERITY_LABELS, STATUS_LABELS, slaStatus } from '../../lib/serviceSla';
+import { createCase } from './actions';
+import { SEVERITY_LABELS } from '../../lib/serviceSla';
+import CaseCard from './CaseCard';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5, boxSizing: 'border-box' };
 const btnStyle = { ...inputStyle, cursor: 'pointer' };
@@ -34,8 +34,8 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
         <div style={{ display: 'flex', gap: 8 }}>
           {TABS.map((t) => (
             <button key={t.key} type="button" onClick={() => setTab(t.key)} style={{
-              background: tab === t.key ? '#0a0a0a' : 'var(--bg)', color: tab === t.key ? '#fff' : 'inherit',
-              border: '1px solid var(--border, #e5e5e5)', borderRadius: 999, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer',
+              background: tab === t.key ? 'var(--bg-tertiary)' : 'none', color: tab === t.key ? 'var(--text)' : 'var(--text-secondary)',
+              border: '1px solid ' + (tab === t.key ? 'var(--border-strong)' : 'transparent'), borderRadius: 999, padding: '6px 14px', fontSize: 12.5, fontWeight: tab === t.key ? 600 : 500, cursor: 'pointer',
             }}>
               {t.label}
             </button>
@@ -47,21 +47,10 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
       {filtered.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין קריאות כאן</div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'right' }}>
-                {['#', 'איש קשר', 'נושא', 'קורס', 'חומרה', 'SLA', 'סטטוס', 'נציג מטפל'].map((h) => (
-                  <th key={h} style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c) => (
-                <CaseRow key={c.id} c={c} agents={agents} />
-              ))}
-            </tbody>
-          </table>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+          {filtered.map((c) => (
+            <CaseCard key={c.id} c={c} agents={agents} />
+          ))}
         </div>
       )}
 
@@ -69,56 +58,6 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
         <NewCaseModal workspaceId={workspaceId} courses={courses} onClose={() => setShowNew(false)} onCreated={(id) => router.push(`/dashboard/service/cases/${id}`)} />
       )}
     </div>
-  );
-}
-
-function CaseRow({ c, agents }) {
-  const [isPending, startTransition] = useTransition();
-  const router = useRouter();
-  const sla = c.status === 'closed' ? null : slaStatus(c.slaDueAt, c.severity);
-
-  function handleStatusChange(e) {
-    startTransition(async () => { await updateCaseStatus(c.id, e.target.value); router.refresh(); });
-  }
-  function handleAgentChange(e) {
-    startTransition(async () => { await assignCaseAgent(c.id, e.target.value || null); router.refresh(); });
-  }
-
-  return (
-    <tr style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
-      <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>#{c.caseNumber}</td>
-      <td style={{ padding: '10px 12px' }}>
-        <Link href={`/dashboard/service/cases/${c.id}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
-          {c.contactName}
-        </Link>
-        {c.contactPhone && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.contactPhone}</div>}
-      </td>
-      <td style={{ padding: '10px 12px' }}>
-        <Link href={`/dashboard/service/cases/${c.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>{c.subject}</Link>
-      </td>
-      <td style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-secondary)' }}>{c.courseName || '—'}</td>
-      <td style={{ padding: '10px 12px' }}>
-        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: 'var(--bg-tertiary)' }}>
-          {SEVERITY_LABELS[c.severity] || c.severity}
-        </span>
-      </td>
-      <td style={{ padding: '10px 12px' }}>
-        {sla ? (
-          <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: sla.bg, color: sla.color }}>{sla.label}</span>
-        ) : '—'}
-      </td>
-      <td style={{ padding: '10px 12px' }}>
-        <select value={c.status} onChange={handleStatusChange} disabled={isPending} style={inputStyle}>
-          {Object.entries(STATUS_LABELS).map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-        </select>
-      </td>
-      <td style={{ padding: '10px 12px' }}>
-        <select value={c.assignedTo || ''} onChange={handleAgentChange} disabled={isPending} style={inputStyle}>
-          <option value="">ללא נציג</option>
-          {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-        </select>
-      </td>
-    </tr>
   );
 }
 

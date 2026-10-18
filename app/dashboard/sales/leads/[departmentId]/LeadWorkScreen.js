@@ -122,6 +122,11 @@ export default function LeadWorkScreen({
       }
       right={
         <>
+          {/* חריץ-המלצת-AI (שלב 2 ימלא כאן בפועל) */}
+          <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 14 }}>
+            💡 המלצת AI תוצג כאן בקרוב
+          </div>
+
           <div style={sectionLabel}>פרטי יצירת קשר</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '8px 0 16px' }}>
             {telHref(contact.phone) && <a href={telHref(contact.phone)} style={{ ...primaryBtn, textAlign: 'center', textDecoration: 'none' }}>📞 {contact.phone}</a>}

@@ -6,9 +6,11 @@ import { DEPT_KEYWORDS, contactMatchesDept } from '../../components/ui';
 import TagFilterMultiSelect from '../../components/TagFilterMultiSelect';
 import { addContactTag, assignAgent } from '../../contacts/actions';
 import { updateCampaignContact } from '../campaigns/actions';
-import LeadRow from './LeadRow';
+import LeadCard from './LeadCard';
 
-const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
+// עיצוב-pill רך לסרגל-הסינון (שלב 1 מתוכנית-העיצוב-מחדש) - תמיד גלוי
+// (סוכם מפורשות שלא מאחורי כפתור), רק בעיצוב נעים יותר מתיבות-קשות.
+const inputStyle = { border: '1px solid var(--border)', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, background: 'var(--bg)' };
 
 // לוח לידים עם סינון ומיון בצד הלקוח - הנתונים כבר נטענו מהשרת, אז
 // כל הסינון/מיון כאן מיידי בלי בקשות נוספות. הקיבוץ לפי תגית (תרומות/
@@ -211,7 +213,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         {activeFilterCount > 0 && (
           <button
             onClick={() => { setAgentFilter(''); setStageFilter(''); setReasonFilter(''); setTagFilters([]); setOverdueOnly(false); setOverdueHours(24); setSearch(''); }}
-            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}
+            style={{ ...inputStyle, cursor: 'pointer', color: 'var(--text-secondary)' }}
           >
             ניקוי סינון
           </button>
@@ -219,15 +221,16 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14, borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             style={{
-              background: 'none', border: 'none', borderBottom: '2px solid ' + (activeTab === t.key ? '#0a0a0a' : 'transparent'),
-              padding: '8px 4px', marginBottom: -1, fontSize: 13, fontWeight: activeTab === t.key ? 600 : 500,
-              color: activeTab === t.key ? '#0a0a0a' : 'var(--text-secondary)', cursor: 'pointer',
+              background: activeTab === t.key ? 'var(--bg-tertiary)' : 'none',
+              border: '1px solid ' + (activeTab === t.key ? 'var(--border-strong)' : 'transparent'),
+              borderRadius: 100, padding: '6px 14px', fontSize: 12.5, fontWeight: activeTab === t.key ? 600 : 500,
+              color: activeTab === t.key ? 'var(--text)' : 'var(--text-secondary)', cursor: 'pointer',
             }}
           >
             {t.label} ({tabCounts[t.key]})
@@ -352,36 +355,28 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <button
-        type="button"
-        onClick={() => setCollapsed((v) => !v)}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, marginBottom: 8, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}
-      >
-        <span style={{ fontSize: 10 }}>{collapsed ? '▸' : '▾'}</span>
-        {title} ({leads.length})
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <button
+          type="button"
+          onClick={() => setCollapsed((v) => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}
+        >
+          <span style={{ fontSize: 10 }}>{collapsed ? '▸' : '▾'}</span>
+          {title} ({leads.length})
+        </button>
+        {!collapsed && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--text-muted)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
+            בחר הכל
+          </label>
+        )}
+      </div>
       {!collapsed && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-secondary)' }}>
-              <th style={{ padding: '10px 8px', textAlign: 'center' }}>
-                <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
-              </th>
-              {['שם', 'סטטוס', 'טלפון', 'מייל', 'מקור', 'מהות הפנייה', 'טיפול אחרון', 'נציג מטפל'].map((h) => (
-                <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
-              ))}
-              {extraFields.map((f) => (
-                <th key={f.key} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{f.label}</th>
-              ))}
-              <th style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>פעולות מהירות</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leads.map((c) => (
-              <LeadRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sideStages={sideStages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} extraFields={extraFields} closeReasons={closeReasons} />
-            ))}
-          </tbody>
-        </table>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+          {leads.map((c) => (
+            <LeadCard key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sideStages={sideStages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} extraFields={extraFields} closeReasons={closeReasons} />
+          ))}
+        </div>
       )}
     </div>
   );

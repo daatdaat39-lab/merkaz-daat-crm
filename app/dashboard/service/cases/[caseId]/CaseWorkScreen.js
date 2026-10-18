@@ -116,14 +116,20 @@ export default function CaseWorkScreen({
           <Link href={`/dashboard/contacts/${contact.id}`} style={{ fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none' }}>פתח כרטיס מלא ←</Link>
         </div>
       }
+      hero={
+        sla && (
+          <div style={{ padding: '22px 24px', textAlign: 'center', background: sla.bg }}>
+            <div style={{ ...sectionLabel, color: sla.color, opacity: 0.8 }}>SLA</div>
+            <div style={{ fontFamily: 'var(--font-heading)', fontSize: 30, fontWeight: 700, color: sla.color, marginTop: 2 }}>{sla.label}</div>
+          </div>
+        )
+      }
       right={
         <>
-          {sla && (
-            <div style={{ ...cardStyle, background: sla.bg, border: `1px solid ${sla.color}33` }}>
-              <div style={sectionLabel}>SLA</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: sla.color }}>{sla.label}</div>
-            </div>
-          )}
+          {/* חריץ-המלצת-AI (שלב 2 ימלא כאן בפועל) */}
+          <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 14 }}>
+            💡 המלצת AI תוצג כאן בקרוב
+          </div>
 
           <div style={sectionLabel}>פרטי יצירת קשר</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '8px 0 16px' }}>
