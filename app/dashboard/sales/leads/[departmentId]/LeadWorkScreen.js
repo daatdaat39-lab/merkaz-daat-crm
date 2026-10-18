@@ -25,7 +25,7 @@ function telHref(phone) {
 // visibilitychange - ר' ההערה המתועדת ב-ActiveCallPanel.js על אותה
 // סכנה בדיוק: הסתרת-טאב כשהנציג עובר לחייג מהנייד האישי שלו).
 export default function LeadWorkScreen({
-  departmentId, contact, department, stageLabel, wonStageLabel, workspaceId, workspaceName,
+  departmentId, aiActionText, contact, department, stageLabel, wonStageLabel, workspaceId, workspaceName,
   courses, playbookItems, whatsappTemplates, timelineProps,
 }) {
   const [lockState, setLockState] = useState('checking'); // checking | locked | denied
@@ -122,10 +122,11 @@ export default function LeadWorkScreen({
       }
       right={
         <>
-          {/* חריץ-המלצת-AI (שלב 2 ימלא כאן בפועל) */}
-          <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 14 }}>
-            💡 המלצת AI תוצג כאן בקרוב
-          </div>
+          {aiActionText && (
+            <div style={{ background: 'var(--purple-bg, #f5f3ff)', border: '1px solid var(--purple, #7c3aed)', borderRadius: 8, padding: '9px 12px', fontSize: 12, marginBottom: 14, display: 'flex', gap: 7 }}>
+              <span>💡</span><span>{aiActionText}</span>
+            </div>
+          )}
 
           <div style={sectionLabel}>פרטי יצירת קשר</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '8px 0 16px' }}>

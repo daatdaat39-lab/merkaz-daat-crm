@@ -6,6 +6,7 @@ import { DEPT_KEYWORDS, contactMatchesDept } from '../../components/ui';
 import TagFilterMultiSelect from '../../components/TagFilterMultiSelect';
 import { addContactTag, assignAgent } from '../../contacts/actions';
 import { updateCampaignContact } from '../campaigns/actions';
+import { refreshStaleActionChips } from './aiChipActions';
 import LeadCard from './LeadCard';
 
 // עיצוב-pill רך לסרגל-הסינון (שלב 1 מתוכנית-העיצוב-מחדש) - תמיד גלוי
@@ -48,7 +49,23 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
   const [overdueHours, setOverdueHours] = useState(24);
   const [sortBy, setSortBy] = useState('activity_desc');
   const [selected, setSelected] = useState(() => new Set());
+  const [refreshing, startRefresh] = useTransition();
+  const [refreshMsg, setRefreshMsg] = useState('');
   const router = useRouter();
+
+  const staleAiCount = useMemo(() => leads.filter((l) => l.aiActionSummaryStale).length, [leads]);
+
+  // כפתור-רענון-ידני - לא קורא ל-AI על כל כרטיס בכל טעינה (יקר/איטי),
+  // רק כשלוחצים, ואז באצווה-מוגבלת (ר' aiChipActions.js).
+  function handleRefreshAi() {
+    setRefreshMsg('');
+    startRefresh(async () => {
+      const res = await refreshStaleActionChips(workspaceId);
+      if (res?.error) { setRefreshMsg(res.error); return; }
+      setRefreshMsg(`עודכנו ${res.refreshed} המלצות`);
+      router.refresh();
+    });
+  }
 
   const leadsWithTab = useMemo(() => leads.map((l) => ({ ...l, _tab: tabOf(l, leadStages, wonStage, leadTabByStage) })), [leads, leadStages, wonStage, leadTabByStage]);
   const tabCounts = useMemo(() => {
@@ -221,7 +238,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       </div>
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16, alignItems: 'center' }}>
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -236,6 +253,13 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
             {t.label} ({tabCounts[t.key]})
           </button>
         ))}
+        <button
+          type="button" onClick={handleRefreshAi} disabled={refreshing || staleAiCount === 0}
+          style={{ ...inputStyle, cursor: staleAiCount === 0 ? 'default' : 'pointer', marginInlineStart: 'auto', opacity: staleAiCount === 0 ? 0.5 : 1 }}
+        >
+          🔄 {refreshing ? 'מרענן...' : `רענון המלצות AI${staleAiCount > 0 ? ` (${Math.min(staleAiCount, 25)})` : ''}`}
+        </button>
+        {refreshMsg && <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{refreshMsg}</span>}
       </div>
 
       {campaignLeadGroupsFiltered.length > 0 && (

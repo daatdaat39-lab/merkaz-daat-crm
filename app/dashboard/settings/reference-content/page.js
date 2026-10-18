@@ -24,7 +24,7 @@ export default async function ReferenceContentPage() {
   }
 
   const [{ data: items }, { data: courses }] = await Promise.all([
-    supabase.from('reference_content').select('id, kind, course_id, tag, title, body, sort_order, is_active').order('kind').order('sort_order'),
+    supabase.from('reference_content').select('id, kind, course_id, tag, title, body, sort_order, is_active, trigger_condition, suggested_action, auto_suggested').order('kind').order('sort_order'),
     supabase.from('courses').select('id, name').eq('is_active', true).order('sort_order').order('name'),
   ]);
 
@@ -33,7 +33,7 @@ export default async function ReferenceContentPage() {
       <a href="/dashboard/settings" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה להגדרות</a>
       <h1 style={{ fontFamily: 'var(--font-heading)', margin: '14px 0 4px', fontSize: 20 }}>תוכן-עזר למכירות ושירות</h1>
       <p style={{ margin: '0 0 20px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
-        תסריטי-שיחה וטיפול-בהתנגדויות למסך-המכירות, והצעות-פתרון למסך-השירות - נטענים דינמית לפי קורס.
+        תסריטי-שיחה וטיפול-בהתנגדויות למסך-המכירות, הצעות-פתרון למסך-השירות, וכללים שה-AI מתבסס עליהם בהמלצות - נטענים דינמית לפי קורס.
       </p>
       <ReferenceContentClient items={items || []} courses={courses || []} />
     </div>

@@ -57,10 +57,15 @@ export default function CaseCard({ c, agents }) {
         {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
       </select>
 
-      {/* חריץ-המלצת-AI (שלב 2 ימלא כאן בפועל) */}
-      <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '7px 10px', fontSize: 11.5, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-        💡 המלצת AI תוצג כאן בקרוב
-      </div>
+      {c.aiActionSummary ? (
+        <div style={{ background: 'var(--purple-bg, #f5f3ff)', border: '1px solid var(--purple, #7c3aed)', borderRadius: 8, padding: '7px 10px', fontSize: 11.5, display: 'flex', gap: 6 }}>
+          <span>💡</span><span>{c.aiActionSummary}</span>
+        </div>
+      ) : (
+        <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '7px 10px', fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          אין עדיין המלצת AI - לחץ/י "רענון המלצות" למעלה
+        </div>
+      )}
     </div>
   );
 }

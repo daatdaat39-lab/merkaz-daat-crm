@@ -2,6 +2,7 @@ import { createClient } from '../../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { isMemberOfWorkspace } from '../../../lib/contactGuards';
 import { loadContactCardData } from '../../../contacts/[id]/loadContactCardData';
+import { ensureCaseActionChip } from '../../../lib/aiActionChip';
 import CaseWorkScreen from './CaseWorkScreen';
 
 // מסך-עבודה לקריאת-שירות בודדת (שלב 4) - אותו שלד תלת-עמודות כמו מסך-
@@ -14,7 +15,7 @@ export default async function CaseWorkPage({ params }) {
 
   const { data: caseRow } = await supabase
     .from('service_cases')
-    .select('id, case_number, contact_id, workspace_id, course_id, subject, status, severity, sla_due_at, assigned_to, created_at, workspaces:workspace_id (name)')
+    .select('id, case_number, contact_id, workspace_id, course_id, subject, status, severity, sla_due_at, assigned_to, created_at, ai_action_summary, ai_action_summary_stale, workspaces:workspace_id (name)')
     .eq('id', caseId)
     .maybeSingle();
 
@@ -45,9 +46,19 @@ export default async function CaseWorkPage({ params }) {
     : { data: [] };
   const agents = (memberProfiles || []).map((p) => ({ id: p.id, name: p.name || 'משתמש' }));
 
+  const aiActionText = await ensureCaseActionChip(supabase, {
+    id: caseId, stale: caseRow.ai_action_summary_stale !== false, cachedSummary: caseRow.ai_action_summary,
+    contactName: `${props.contact.first} ${props.contact.last}`, courseId: caseRow.course_id,
+    communication: {
+      inquiries: props.allInquiries, meetings: props.meetings, tasks: props.tasks,
+      sentEmails: props.sentEmails, sentWhatsapp: props.sentWhatsapp, callHistory: props.callHistory, phoneCalls: props.phoneCalls,
+    },
+  });
+
   return (
     <CaseWorkScreen
       caseId={caseId}
+      aiActionText={aiActionText}
       caseData={{
         caseNumber: caseRow.case_number, subject: caseRow.subject, status: caseRow.status,
         severity: caseRow.severity, slaDueAt: caseRow.sla_due_at, assignedTo: caseRow.assigned_to,

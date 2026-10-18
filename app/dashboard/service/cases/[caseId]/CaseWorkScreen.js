@@ -24,7 +24,7 @@ function telHref(phone) {
 // לא lock_lead) ישירות על service_cases.id. אותה משמעת בדיוק כמו
 // LeadWorkScreen.js: heartbeat כל 5 דק', שחרור רק ב-beforeunload.
 export default function CaseWorkScreen({
-  caseId, caseData, contact, workspaceName, agents, kbItems, whatsappTemplates, workspaceId, timelineProps,
+  caseId, aiActionText, caseData, contact, workspaceName, agents, kbItems, whatsappTemplates, workspaceId, timelineProps,
 }) {
   const [lockState, setLockState] = useState('checking');
   const [status, setStatus] = useState(caseData.status);
@@ -126,10 +126,11 @@ export default function CaseWorkScreen({
       }
       right={
         <>
-          {/* חריץ-המלצת-AI (שלב 2 ימלא כאן בפועל) */}
-          <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '9px 12px', fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: 14 }}>
-            💡 המלצת AI תוצג כאן בקרוב
-          </div>
+          {aiActionText && (
+            <div style={{ background: 'var(--purple-bg, #f5f3ff)', border: '1px solid var(--purple, #7c3aed)', borderRadius: 8, padding: '9px 12px', fontSize: 12, marginBottom: 14, display: 'flex', gap: 7 }}>
+              <span>💡</span><span>{aiActionText}</span>
+            </div>
+          )}
 
           <div style={sectionLabel}>פרטי יצירת קשר</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '8px 0 16px' }}>

@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { searchContacts } from '../../contacts/actions';
 import { createCase } from './actions';
+import { refreshStaleCaseActionChips } from './aiChipActions';
 import { SEVERITY_LABELS } from '../../lib/serviceSla';
 import CaseCard from './CaseCard';
 
@@ -20,6 +21,8 @@ const TABS = [
 export default function CasesBoard({ cases, agents, courses, workspaceId }) {
   const [tab, setTab] = useState('active');
   const [showNew, setShowNew] = useState(false);
+  const [refreshing, startRefresh] = useTransition();
+  const [refreshMsg, setRefreshMsg] = useState('');
   const router = useRouter();
 
   const filtered = cases.filter((c) => {
@@ -28,10 +31,22 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
     return true;
   });
 
+  const staleAiCount = cases.filter((c) => c.aiActionSummaryStale).length;
+
+  function handleRefreshAi() {
+    setRefreshMsg('');
+    startRefresh(async () => {
+      const res = await refreshStaleCaseActionChips(workspaceId);
+      if (res?.error) { setRefreshMsg(res.error); return; }
+      setRefreshMsg(`עודכנו ${res.refreshed} המלצות`);
+      router.refresh();
+    });
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {TABS.map((t) => (
             <button key={t.key} type="button" onClick={() => setTab(t.key)} style={{
               background: tab === t.key ? 'var(--bg-tertiary)' : 'none', color: tab === t.key ? 'var(--text)' : 'var(--text-secondary)',
@@ -40,6 +55,13 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
               {t.label}
             </button>
           ))}
+          <button
+            type="button" onClick={handleRefreshAi} disabled={refreshing || staleAiCount === 0}
+            style={{ ...btnStyle, opacity: staleAiCount === 0 ? 0.5 : 1, cursor: staleAiCount === 0 ? 'default' : 'pointer' }}
+          >
+            🔄 {refreshing ? 'מרענן...' : `רענון המלצות AI${staleAiCount > 0 ? ` (${Math.min(staleAiCount, 25)})` : ''}`}
+          </button>
+          {refreshMsg && <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{refreshMsg}</span>}
         </div>
         <button type="button" onClick={() => setShowNew(true)} style={primaryBtn}>+ קריאה חדשה</button>
       </div>

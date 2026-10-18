@@ -24,7 +24,7 @@ export default async function ServiceCasesPage() {
   if (workspaceId) {
     const { data } = await supabase
       .from('service_cases')
-      .select('id, case_number, subject, status, severity, sla_due_at, assigned_to, created_at, course_id, contacts:contact_id (id, first, last, phone), courses:course_id (name)')
+      .select('id, case_number, subject, status, severity, sla_due_at, assigned_to, created_at, course_id, ai_action_summary, ai_action_summary_stale, contacts:contact_id (id, first, last, phone), courses:course_id (name)')
       .eq('workspace_id', workspaceId)
       .order('created_at', { ascending: false });
     cases = (data || []).filter((row) => row.contacts);
@@ -56,7 +56,8 @@ export default async function ServiceCasesPage() {
             id: c.id, caseNumber: c.case_number, subject: c.subject, status: c.status, severity: c.severity,
             slaDueAt: c.sla_due_at, assignedTo: c.assigned_to, createdAt: c.created_at,
             contactId: c.contacts.id, contactName: `${c.contacts.first || ''} ${c.contacts.last || ''}`.trim(), contactPhone: c.contacts.phone,
-            courseName: c.courses?.name || null,
+            courseName: c.courses?.name || null, aiActionSummary: c.ai_action_summary || null,
+            aiActionSummaryStale: c.ai_action_summary_stale !== false,
           }))}
           agents={agents}
           courses={courses || []}
