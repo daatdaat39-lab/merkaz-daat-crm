@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { DEPT_KEYWORDS, contactMatchesDept } from '../../components/ui';
 import TagFilterMultiSelect from '../../components/TagFilterMultiSelect';
 import { addContactTag, assignAgent } from '../../contacts/actions';
-import { updateCampaignContact } from '../campaigns/actions';
 import { refreshStaleActionChips } from './aiChipActions';
 import LeadTableRow from './LeadTableRow';
 
@@ -38,7 +37,7 @@ function tabOf(lead, leadStages, wonStage, leadTabByStage) {
   return 'closed';
 }
 
-export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sideStages = [], stageLabels = {}, stageColors = {}, leadStages = [], wonStage = null, leadTabByStage = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], extraFields = [], closeReasons, campaignLeadGroups = [], allTags = [], tagGroups = null }) {
+export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, stages, sideStages = [], stageLabels = {}, stageColors = {}, leadStages = [], wonStage = null, leadTabByStage = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], extraFields = [], closeReasons, allTags = [], tagGroups = null }) {
   const [activeTab, setActiveTab] = useState('new');
   const [search, setSearch] = useState('');
   const [agentFilter, setAgentFilter] = useState('');
@@ -91,14 +90,6 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
     [tabLeads]
   );
 
-  // ערכי "שלב" בסרגל הסינון הראשי כוללים גם את שלבי הקמפיינים הפעילים
-  // (בקידומת __campaign__:<campaignId>:<stageKey>, כדי לא להתנגש בערכי
-  // stage_key של המחלקה) - כשנבחר ערך כזה, מסננים רק את שורות הקמפיין
-  // הספציפי הזה, ולידים "רגילים" ממילא לא תואמים כי הערך לא שווה לאף
-  // stage_key אמיתי. בונים מ-campaignLeadGroups המקורי (לא המסונן) כדי
-  // שרשימת האפשרויות תישאר יציבה גם כשסינון אחר מצמצם תוצאות.
-  const isCampaignStageFilter = stageFilter.startsWith('__campaign__:');
-
   const filtered = useMemo(() => {
     let result = tabLeads;
 
@@ -136,35 +127,6 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
     return sorted;
   }, [tabLeads, search, agentFilter, stageFilter, reasonFilter, tagFilters, overdueOnly, overdueHours, sortBy, agents]);
 
-  // אותו סרגל סינון (חיפוש/נציג/שלב) חל גם על שורות הקמפיינים למטה -
-  // "מהות פנייה" ו"לא טופל מעל X שעות" לא רלוונטיים לשורת קמפיין (אין
-  // לה latestReason/last_activity_at), ולכן סינון כזה מחריג אותן; שלב
-  // "רגיל" של המחלקה גם מחריג אותן (אין להן stage כזה) - רק ערך שלב
-  // עם קידומת __campaign__ שייך לקמפיין הזה בדיוק משאיר אותן.
-  const campaignLeadGroupsFiltered = useMemo(() => {
-    return campaignLeadGroups
-      .map((g) => {
-        let rows = g.rows;
-        if (search.trim()) {
-          const q = search.trim().toLowerCase();
-          rows = rows.filter((r) => `${r.name} ${r.phone || ''} ${r.email || ''}`.toLowerCase().includes(q));
-        }
-        if (agentFilter === 'none') rows = rows.filter((r) => !r.assignedTo);
-        else if (agentFilter) rows = rows.filter((r) => r.assignedTo === agentFilter);
-        if (reasonFilter || overdueOnly) rows = [];
-        if (stageFilter) {
-          if (isCampaignStageFilter) {
-            const [, campaignId, stageKey] = stageFilter.split(':');
-            rows = g.campaignId === campaignId ? rows.filter((r) => r.status === stageKey) : [];
-          } else {
-            rows = [];
-          }
-        }
-        return { ...g, rows };
-      })
-      .filter((g) => g.rows.length > 0);
-  }, [campaignLeadGroups, search, agentFilter, reasonFilter, overdueOnly, stageFilter, isCampaignStageFilter]);
-
   const departments = Object.keys(DEPT_KEYWORDS);
   const categorized = departments
     .map((dept) => ({ dept, leads: filtered.filter((l) => contactMatchesDept(l, dept)) }))
@@ -189,18 +151,9 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
           <option value="none">ללא נציג</option>
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
-        <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} style={inputStyle} title="סינון זה חל גם על לידי המחלקה וגם על לידי הקמפיינים למטה">
+        <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value)} style={inputStyle}>
           <option value="">כל השלבים</option>
-          <optgroup label={`שלבי ${workspaceName}`}>
-            {stages.map((s) => <option key={s} value={s}>{stageLabels[s] || s}</option>)}
-          </optgroup>
-          {campaignLeadGroups.map((g) => (
-            <optgroup key={g.campaignId} label={`קמפיין: ${g.campaignName}`}>
-              {g.stages.order.map((s) => (
-                <option key={s} value={`__campaign__:${g.campaignId}:${s}`}>{g.stages.labels[s] || s}</option>
-              ))}
-            </optgroup>
-          ))}
+          {stages.map((s) => <option key={s} value={s}>{stageLabels[s] || s}</option>)}
         </select>
         <select value={reasonFilter} onChange={(e) => setReasonFilter(e.target.value)} style={inputStyle}>
           <option value="">כל הנושאים</option>
@@ -261,15 +214,6 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         </button>
         {refreshMsg && <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{refreshMsg}</span>}
       </div>
-
-      {campaignLeadGroupsFiltered.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, color: 'var(--text-secondary)' }}>🎯 לידים מקמפיינים</div>
-          {campaignLeadGroupsFiltered.map((g) => (
-            <CampaignLeadGroup key={g.campaignId} group={g} />
-          ))}
-        </div>
-      )}
 
       {filtered.length !== tabLeads.length && (
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
@@ -416,66 +360,3 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
   );
 }
 
-// טבלה נפרדת לכל קמפיין פעיל - נציג רגיל רואה רק את מה שהוקצה לו
-// (מסונן כבר בשרת), מנהל רואה את כל חברי הקמפיין
-function CampaignLeadGroup({ group }) {
-  const [isPending, startTransition] = useTransition();
-  const [collapsed, setCollapsed] = useState(false);
-  const router = useRouter();
-
-  function handleStatusChange(rowId, value) {
-    startTransition(async () => {
-      await updateCampaignContact(rowId, { status: value });
-      router.refresh();
-    });
-  }
-
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <button
-        type="button"
-        onClick={() => setCollapsed((v) => !v)}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, marginBottom: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}
-      >
-        <span style={{ fontSize: 10 }}>{collapsed ? '▸' : '▾'}</span>
-        {group.campaignName} ({group.rows.length})
-      </button>
-      {!collapsed && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-          <thead>
-            <tr style={{ background: 'var(--bg-secondary)' }}>
-              {['שם', 'סטטוס', 'טלפון', 'מייל'].map((h) => (
-                <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {group.rows.map((r) => (
-              <tr key={r.rowId} style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
-                <td style={{ padding: '10px 16px', fontSize: 13 }}>
-                  <a href={`/dashboard/contacts/${r.contactId}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>{r.name}</a>
-                </td>
-                <td style={{ padding: '10px 16px', fontSize: 13 }}>
-                  <select
-                    value={r.status}
-                    onChange={(e) => handleStatusChange(r.rowId, e.target.value)}
-                    disabled={isPending}
-                    style={{
-                      border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 500, cursor: 'pointer',
-                      background: (group.stages.colors[r.status] || {}).bg || '#f4f4f5',
-                      color: (group.stages.colors[r.status] || {}).color || '#52525b',
-                    }}
-                  >
-                    {group.stages.order.map((s) => <option key={s} value={s}>{group.stages.labels[s] || s}</option>)}
-                  </select>
-                </td>
-                <td style={{ padding: '10px 16px', fontSize: 13 }}>{r.phone || '—'}</td>
-                <td style={{ padding: '10px 16px', fontSize: 13 }}>{r.email || '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}

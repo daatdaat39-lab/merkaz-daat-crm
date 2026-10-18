@@ -9,7 +9,6 @@ import LeadsBoard from './LeadsBoard';
 import AdvancedInquiriesBanner from './AdvancedInquiriesBanner';
 import { groupTagsByDepartment } from '../../lib/tagGroups';
 import { isManagerOfWorkspace } from '../../lib/contactGuards';
-import { getCampaignStages } from '../../lib/campaignStages';
 import { getAllContactTagRows } from '../../lib/allContactTags';
 
 const RECENT_INQUIRY_DAYS = 3;
@@ -140,42 +139,6 @@ export default async function SalesLeadsPage() {
     pendingCount = count || 0;
   }
 
-  // לידים מקמפיינים פעילים (לא הקדשה) - טבלה נפרדת לכל קמפיין. נציג
-  // רגיל רואה רק מה שהוקצה לו; מנהל רואה את כל חברי הקמפיין
-  let campaignLeadGroups = [];
-  if (workspaceId) {
-    const { data: activeCampaigns } = await supabase
-      .from('campaigns')
-      .select('id, name')
-      .eq('workspace_id', workspaceId)
-      .neq('kind', 'dedication')
-      .eq('status', 'active');
-    if (activeCampaigns?.length) {
-      const campaignIds = activeCampaigns.map((c) => c.id);
-      let query = supabase
-        .from('campaign_contacts')
-        .select('id, campaign_id, status, assigned_to, contacts:contact_id (id, first, last, phone, email)')
-        .in('campaign_id', campaignIds);
-      if (!isManager) query = query.eq('assigned_to', user.id);
-      const { data: memberRows } = await query;
-      const stagesByCampaign = Object.fromEntries(
-        await Promise.all(campaignIds.map(async (id) => [id, await getCampaignStages(supabase, id)]))
-      );
-      campaignLeadGroups = activeCampaigns
-        .map((c) => ({
-          campaignId: c.id,
-          campaignName: c.name,
-          stages: stagesByCampaign[c.id],
-          rows: (memberRows || [])
-            .filter((r) => r.campaign_id === c.id && r.contacts)
-            .map((r) => ({
-              rowId: r.id, contactId: r.contacts.id, name: `${r.contacts.first || ''} ${r.contacts.last || ''}`.trim(),
-              phone: r.contacts.phone, email: r.contacts.email, status: r.status, assignedTo: r.assigned_to,
-            })),
-        }))
-        .filter((g) => g.rows.length > 0);
-    }
-  }
 
   return (
     <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>
@@ -220,7 +183,7 @@ export default async function SalesLeadsPage() {
         />
       )}
 
-      {leads.length === 0 && campaignLeadGroups.length === 0 ? (
+      {leads.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים פתוחים כרגע</div>
       ) : (
         <LeadsBoard
@@ -231,7 +194,6 @@ export default async function SalesLeadsPage() {
           emailTemplates={emailTemplates || []}
           extraFields={isManager ? extraFields : extraFields.filter((f) => f.visibleToAgents !== false)}
           closeReasons={closeReasons}
-          campaignLeadGroups={campaignLeadGroups}
           allTags={existingTags}
           tagGroups={tagGroups}
         />
