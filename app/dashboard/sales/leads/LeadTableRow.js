@@ -29,7 +29,7 @@ const COL_COUNT = 5;
 // פרטים"), רק בפריסת-טבלה: שורה ראשית עם העמודות, שורה שנייה
 // (colSpan מלא) לצ'יפ-ה-AI ולהרחבה - ציר-זמן/תגיות/שדות-נוספים לא
 // נכנסים טבעי לעמודה, צריכים רוחב-מלא.
-export default function LeadTableRow({ contact: c, agents, workspaceId, workspaceName, stages = [], sideStages = [], stageLabels = {}, stageColors = {}, sendConnections = [], whatsappTemplates = [], emailTemplates = [], selected = false, onToggleSelect, extraFields = [], closeReasons }) {
+export default function LeadTableRow({ contact: c, agents, workspaceId, workspaceName, stages = [], sideStages = [], stageLabels = {}, stageColors = {}, leadStages = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [], selected = false, onToggleSelect, extraFields = [], closeReasons }) {
   const [isPending, startTransition] = useTransition();
   const [closing, setClosing] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -73,8 +73,15 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
     });
   }
 
-  const hasExpandableInfo = Boolean(c.email) || c.inquiryCount > 1 || c.latestReason || c.existingElsewhere
-    || c.createdByManager || (c.tags || []).length > 0 || extraFields.length > 0;
+  // שדות-מחלקתיים-מותאמים (extraFields) הם ברובם מידע-אחרי-הרשמה (סטטוס-
+  // לימודים/תשלום, סנכרון-אורביט וכו') - חסרי-משמעות לליד שעדיין בשלב
+  // מוקדם (לפני שהוא בכלל תלמיד/לקוח). מוצגים רק אחרי שהשלב התקדם מעבר
+  // לשלבי-הליד הראשוניים - לא עוד "עוד פרטים" שתמיד מלא ברעש לא-רלוונטי.
+  const isEarlyLeadStage = leadStages.includes(c.stage);
+  const visibleExtraFields = isEarlyLeadStage ? [] : extraFields;
+
+  const hasExpandableInfo = Boolean(c.email) || c.inquiryCount > 1 || c.existingElsewhere
+    || c.createdByManager || (c.tags || []).length > 0 || visibleExtraFields.length > 0;
 
   return (
     <>
@@ -100,7 +107,8 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
             </Link>
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-            {c.source || 'מקור לא ידוע'}{c.phone ? ` · ${c.phone}` : ''}
+            {c.source || 'מקור לא ידוע'}{c.phone ? ` · ${c.phone}` : ''}{c.latestReason ? ` · ${c.latestReason}` : ''}
+            {c.inquiryCount > 1 && <span style={{ color: 'var(--danger, #a3392f)', fontWeight: 600 }}> · 🔄 פנה שוב ({c.inquiryCount})</span>}
           </div>
         </td>
         <td style={{ padding: '10px 16px', fontSize: 13, position: 'relative' }}>
@@ -161,20 +169,14 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
                       👤 יזום ע"י מנהל
                     </span>
                   )}
-                  {c.inquiryCount > 1 && (
-                    <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--danger, #a3392f)', background: 'var(--danger-soft, #fdecea)', borderRadius: 100, padding: '1px 8px' }}>
-                      🔄 פנה שוב ({c.inquiryCount})
-                    </span>
-                  )}
                   {(c.tags || []).map((t) => (
                     <span key={t} style={{ fontSize: 10, color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', borderRadius: 100, padding: '1px 8px' }}>{t}</span>
                   ))}
                 </div>
 
                 {c.email && <div style={{ fontSize: 12 }}>✉️ {c.email}</div>}
-                {c.latestReason && <div style={{ fontSize: 12 }}>מהות הפנייה: {c.latestReason}</div>}
 
-                {extraFields.map((f) => (
+                {visibleExtraFields.map((f) => (
                   <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                     <span style={{ color: 'var(--text-muted)', flexShrink: 0 }}>{f.label}:</span>
                     {f.type === 'computed' ? (
