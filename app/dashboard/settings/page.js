@@ -15,8 +15,6 @@ const SETTINGS_LINKS = [
   { href: '/dashboard/settings/duplicates', icon: '🔎', title: 'בדיקת כפליות', desc: 'סריקת אנשי קשר למיזוג כפילויות (owner/admin בלבד)' },
   { href: '/dashboard/settings/import', icon: '📥', title: 'ייבוא נתונים', desc: 'ייבוא/ייצוא אנשי קשר, מערכת חיצונית, היסטוריית שיחות' },
   { href: '/dashboard/settings/lead-sources', icon: '📨', title: 'מקורות לידים', desc: 'חיבורי מייל לכל מחלקה, ניתוב מייל לקמפיינים, ורשימת מקורות (owner/admin בלבד)' },
-  { href: '/dashboard/settings/import-conflicts', icon: '⚠', title: 'קונפליקטים בייבוא', desc: 'ערכים מקבצי ייבוא שהתנגשו עם נתון קיים - בדיקה ופתרון אחד-אחד (owner/admin בלבד)' },
-  { href: '/dashboard/settings/contact-corrections', icon: '✏️', title: 'תיקוני פרטים ממתינים', desc: 'הצעות-תיקון לפרטי אנשי קשר (למשל מטלפנים) - אישור/דחייה (owner/admin בלבד)' },
   { href: '/dashboard/settings/picklists', icon: '🏷', title: 'רשימות בחירה', desc: 'קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)' },
   { href: '/dashboard/settings/reference-content', icon: '📋', title: 'תוכן-עזר למכירות ושירות', desc: 'תסריטי-מכירה וטיפול-בהתנגדויות, ומאגר-ידע לשירות - לפי קורס (owner/admin בלבד)' },
   { href: '/dashboard/settings/cti-routing', icon: '☎️', title: 'ניתוב-קווים (CTI)', desc: 'מיפוי בין קו-טלפון פנימי ב-015 למחלקה, לצורך התראות-שיחה (owner/admin בלבד)' },
@@ -98,7 +96,6 @@ export default async function SettingsPage() {
               : null,
           },
           { label: 'קשר (סליקה וקבלות)', desc: 'תרומות, הוראות קבע, קבלות', configured: isKesherConfigured() },
-          { label: 'Google Calendar', desc: 'סנכרון פגישות', configured: false },
         ].map((item) => (
           <div key={item.label} style={{
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',

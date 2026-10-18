@@ -91,15 +91,6 @@ export async function listWorkspaces() {
   return data || [];
 }
 
-// כל התגיות שכבר בשימוש במערכת (לרשימה הנפתחת בטופס תגיות)
-export async function listAllTags() {
-  const { supabase } = await requireUser();
-  const { data } = await supabase.from('contacts').select('tags');
-  const set = new Set();
-  (data || []).forEach((c) => (c.tags || []).forEach((t) => set.add(t)));
-  return Array.from(set).sort();
-}
-
 // בדיקה "רכה" לפני יצירה - מציגה למשתמש התאמות אפשריות (כולל שם דומה, לא
 // רק התאמה מדויקת) כדי שהוא יאשר בעצמו אם זה אותו אדם, במקום מיזוג שקט
 export async function checkPossibleDuplicates({ first, last, phone, email, idnum }) {
@@ -718,8 +709,7 @@ export async function importDepartmentBatch(rows, workspaceId, sourceSystem, bat
 // תפוס בלי בחירה מפורשת של המשתמש - אותו עיקרון-על כמו הייבוא עצמו.
 const TWIN_FIELD = { phone: 'phone2', email: 'email2' };
 
-// לוגיקת המוטציה בפועל (used_new/kept_both) - מופרדת כדי ששני הקוראים
-// (resolveImportConflict - פריט בודד, bulkResolveImportConflicts - כמות)
+// לוגיקת המוטציה בפועל (used_new/kept_both) - מופרדת כדי שכל הקוראים
 // ישתפו בדיוק את אותה סמנטיקה, בלי לשכפל אותה. לא בודקת הרשאות/סטטוס -
 // זה באחריות הקורא.
 async function applyImportConflictResolution(supabase, conflict, resolution) {
@@ -767,49 +757,11 @@ export async function resolveImportConflict(conflictId, resolution) {
   return { success: true };
 }
 
-// פתרון-בכמות של קונפליקטי-ייבוא - אותה סמנטיקה בדיוק כמו
-// resolveImportConflict (חולקת את applyImportConflictResolution), רק
-// שמטפלת בקבוצה שלמה (עד 100) בקריאה אחת במקום קליק לכל שורה - ר'
-// "תוכנית: ניקוי תור קונפליקטי-ייבוא..." בתוכנית שאושרה. kept_both
-// מדולג בשקט לכל שורה שבה שדה-התאום כבר תפוס (לא עוצר את שאר הקבוצה).
-export async function bulkResolveImportConflicts(conflictIds, resolution) {
-  const { supabase, user } = await requireUser();
-  if (!['kept_existing', 'used_new', 'kept_both'].includes(resolution)) return { error: 'פתרון לא תקין' };
-  if (!Array.isArray(conflictIds) || conflictIds.length === 0) return { error: 'לא נבחרו קונפליקטים' };
-  if (conflictIds.length > 100) return { error: 'עד 100 קונפליקטים בבקשה אחת' };
-
-  const { data: conflicts } = await supabase.from('import_conflicts').select('*').in('id', conflictIds).eq('status', 'pending');
-  if (!conflicts || conflicts.length === 0) return { success: true, resolved: 0 };
-
-  const workspaceIds = Array.from(new Set(conflicts.map((c) => c.workspace_id).filter(Boolean)));
-  for (const wsId of workspaceIds) {
-    if (!(await isManagerOfWorkspace(supabase, user.id, wsId))) return { error: 'רק בעלים/מנהל של המחלקה יכול לפתור קונפליקטים שלה' };
-  }
-
-  let resolved = 0;
-  const nowIso = new Date().toISOString();
-  for (let i = 0; i < conflicts.length; i += 25) {
-    const batch = conflicts.slice(i, i + 25);
-    const results = await Promise.all(batch.map(async (c) => {
-      const applied = await applyImportConflictResolution(supabase, c, resolution);
-      if (applied?.error) return false;
-      const { error } = await supabase.from('import_conflicts')
-        .update({ status: 'resolved', resolution, resolved_at: nowIso, resolved_by: user.id })
-        .eq('id', c.id);
-      return !error;
-    }));
-    resolved += results.filter(Boolean).length;
-  }
-  return { success: true, resolved, attempted: conflicts.length };
-}
-
 // פתרון קבוצה שלמה של קונפליקטים (כל ה-pending שתואמים field_key+
 // workspace, לא רק עמוד אחד) בקריאה אחת - זה מה שכפתור "בצע לכל
 // הקבוצה" ב-ImportConflictsClient.js קורא לו. שולף את כל ה-id-ים
 // התואמים בדפדוף (PostgREST מגביל תשובה ל-1000 בלי .range()), ואז
-// משתמש באותה לוגיקה כמו bulkResolveImportConflicts (batches של 25) -
-// בלי מגבלת ה-100 של הפונקציה הזו, כי כאן השרת בוחר את ה-id-ים לפי
-// קריטריון, לא הקליינט שולח רשימה שרירותית.
+// מטפל בקבוצות של 25 בכל פעם דרך applyImportConflictResolution.
 export async function bulkResolveGroupConflicts(fieldKey, workspaceId, resolution) {
   const { supabase, user } = await requireUser();
   if (!['kept_existing', 'used_new', 'kept_both'].includes(resolution)) return { error: 'פתרון לא תקין' };
@@ -870,38 +822,6 @@ export async function approveAndAssignLead(departmentRowId, agentId) {
     })
     .eq('id', departmentRowId);
   if (error) return { error: error.message };
-  return { success: true };
-}
-
-// הפיכת איש קשר קיים ל"ליד יזום" ע"י המנהל - משייך אותו למחלקה (אם עוד
-// לא משויך), מסמן created_by_manager כדי שיהיה ברור בעמודת המקור שזו
-// הקצאה יזומה ולא פנייה של הלקוח, ומקצה נציג.
-export async function createManagerLead(contactId, workspaceId, agentId, reason) {
-  const { supabase, user } = await requireUser();
-  if (!contactId || !workspaceId) return { error: 'חסרים פרטים' };
-
-  const allowed = await isManagerOfWorkspace(supabase, user.id, workspaceId);
-  if (!allowed) return { error: 'רק בעלים/מנהל של המחלקה יכול ליצור ליד יזום' };
-  const frozenError = await requireNotFrozen(supabase, contactId);
-  if (frozenError) return frozenError;
-
-  const workspace = await resolveTargetWorkspace(supabase, user, workspaceId);
-  if (!workspace.id) return { error: 'המחלקה לא נמצאה' };
-
-  await upsertDepartmentMembership(
-    supabase, contactId, workspace, reason || 'הקצאה יזומה של המנהל', null, 'מנהל', null,
-    { createdByManager: true },
-  );
-
-  if (agentId) {
-    await supabase.from('contact_departments')
-      .update({ agent_id: agentId, assigned_by: user.id, created_by_manager: true })
-      .eq('contact_id', contactId).eq('workspace_id', workspaceId);
-  } else {
-    await supabase.from('contact_departments')
-      .update({ created_by_manager: true })
-      .eq('contact_id', contactId).eq('workspace_id', workspaceId);
-  }
   return { success: true };
 }
 
