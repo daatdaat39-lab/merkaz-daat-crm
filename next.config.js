@@ -4,14 +4,16 @@
 // MIME sniffing, ודליפת מידע ב-Referrer. ה-CSP מוגבל ל'self' + Supabase
 // (REST/Realtime/Storage) בלבד - כל שאר הקריאות החיצוניות (Anthropic, Google,
 // Zoom, InforU) נעשות מהשרת (server actions/route handlers), לא מהדפדפן,
-// ולכן לא כפופות ל-connect-src כאן כלל.
+// ולכן לא כפופות ל-connect-src כאן כלל. היוצא-מן-הכלל היחיד: גופני
+// Google Fonts (עיצוב-מחדש של לידים/שירות, ר' app/layout.js) - נטענים
+// מהדפדפן עצמו, ולכן style-src/font-src מורחבים נקודתית אליהם בלבד.
 const isDev = process.env.NODE_ENV !== 'production';
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
-  "style-src 'self' 'unsafe-inline'",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: https://*.supabase.co",
-  "font-src 'self'",
+  "font-src 'self' https://fonts.gstatic.com",
   // נגן ההקלטות בכרטיס איש קשר/מסך שיחות טוען קובץ מדיה מ-015pbx.net
   // (קישורים ישנים/לא-מותאמים) וגם מ-Supabase Storage (bucket
   // call-recordings - העתק שלנו של הקלטות 015, ר' poll-call-recordings) -

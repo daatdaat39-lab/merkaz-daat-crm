@@ -10,6 +10,7 @@ import AdvancedInquiriesBanner from './AdvancedInquiriesBanner';
 import { groupTagsByDepartment } from '../../lib/tagGroups';
 import { isManagerOfWorkspace } from '../../lib/contactGuards';
 import { getAllContactTagRows } from '../../lib/allContactTags';
+import { WarningIcon } from '../../components/icons';
 
 const RECENT_INQUIRY_DAYS = 3;
 
@@ -141,30 +142,31 @@ export default async function SalesLeadsPage() {
 
 
   return (
-    <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>
+    <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px', background: 'var(--k-bg)', minHeight: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: 0, fontSize: 20 }}>לידים</h1>
-          <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 12.5 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--k-text-muted)' }}>מכירות</div>
+          <h1 style={{ fontFamily: 'var(--k-font-display)', margin: '4px 0 0', fontSize: 30, color: 'var(--k-text)' }}>לידים</h1>
+          <p style={{ margin: '6px 0 0', color: 'var(--k-text-muted)', fontSize: 12.5 }}>
             {leads.filter((l) => pipeline.leadStages.includes(l.stage)).length} לידים פתוחים, מחולקים לתת-קטגוריות
             {overdueCount > 0 && (
-              <span style={{ color: 'var(--danger, #a3392f)', fontWeight: 600 }}> · ⚠ {overdueCount} לידים ללא טיפול מעל 24 שעות</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--k-danger-text)', fontWeight: 600 }}> · <WarningIcon size={12} /> {overdueCount} לידים ללא טיפול מעל 24 שעות</span>
             )}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {isManager && (
             <Link href="/dashboard/sales/campaigns" style={{
-              background: 'var(--bg)', color: '#0a0a0a', border: '1px solid var(--border, #e5e5e5)', textDecoration: 'none',
-              fontSize: 13, padding: '7px 14px', borderRadius: 6,
+              background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)', textDecoration: 'none',
+              fontSize: 13, padding: '8px 16px', borderRadius: 100,
             }}>
               🎯 קמפיינים
             </Link>
           )}
           {isManager && pendingCount > 0 && (
             <Link href="/dashboard/sales/pending" style={{
-              background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a', textDecoration: 'none',
-              fontSize: 13, fontWeight: 600, padding: '7px 14px', borderRadius: 6,
+              background: 'var(--k-caution-bg)', color: 'var(--k-caution-text)', border: 'none', textDecoration: 'none',
+              fontSize: 13, fontWeight: 600, padding: '8px 16px', borderRadius: 100,
             }}>
               📥 {pendingCount} ממתינים לאישורך
             </Link>
@@ -184,7 +186,7 @@ export default async function SalesLeadsPage() {
       )}
 
       {leads.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים פתוחים כרגע</div>
+        <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין לידים פתוחים כרגע</div>
       ) : (
         <LeadsBoard
           leads={leads} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName}

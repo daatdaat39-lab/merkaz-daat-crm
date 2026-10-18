@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SEVERITY_LABELS, STATUS_LABELS, slaStatus } from '../../lib/serviceSla';
 import { updateCaseStatus, assignCaseAgent } from './actions';
+import { PhoneIcon, PersonIcon, SparkleIcon } from '../../components/icons';
 
-const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '5px 8px', fontSize: 12 };
+const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '5px 8px', fontSize: 12, background: 'var(--k-surface)', color: 'var(--k-text)' };
 const COL_COUNT = 7;
 
 // שורת-קריאה בטבלה (כיוון 🅰 מהסקיצה - נבחר במקום הכרטיסים), אותו
@@ -26,20 +27,28 @@ export default function CaseTableRow({ c, agents }) {
 
   return (
     <>
-      <tr style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
-        <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>#{c.caseNumber}</td>
+      <tr style={{ borderBottom: '1px solid var(--k-border)' }}>
+        <td style={{ padding: '10px 12px', color: 'var(--k-text-muted)', fontVariantNumeric: 'tabular-nums' }}>#{c.caseNumber}</td>
         <td style={{ padding: '10px 12px' }}>
-          <Link href={`/dashboard/service/cases/${c.id}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
-            {c.contactName}
-          </Link>
-          {c.contactPhone && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.contactPhone}</div>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Link href={`/dashboard/contacts/${c.contactId}`} style={{ textDecoration: 'none', fontFamily: 'var(--k-font-display)', fontSize: 14, color: 'var(--k-text)' }}>
+              {c.contactName}
+            </Link>
+            <Link
+              href={`/dashboard/service/cases/${c.id}`} title="התקשרות - פותח את מסך-הטיפול"
+              style={{ display: 'flex', alignItems: 'center', gap: 3, fontWeight: 700, fontSize: 10.5, background: 'var(--k-accent)', color: '#fff', borderRadius: 100, padding: '3px 9px', textDecoration: 'none' }}
+            >
+              <PhoneIcon size={10} />
+            </Link>
+          </div>
+          {c.contactPhone && <div style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>{c.contactPhone}</div>}
         </td>
         <td style={{ padding: '10px 12px' }}>
-          <Link href={`/dashboard/service/cases/${c.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>{c.subject}</Link>
-          {c.courseName && <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{c.courseName}</div>}
+          <Link href={`/dashboard/service/cases/${c.id}`} style={{ textDecoration: 'none', color: 'var(--k-text)' }}>{c.subject}</Link>
+          {c.courseName && <div style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>{c.courseName}</div>}
         </td>
         <td style={{ padding: '10px 12px' }}>
-          <span style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 100, background: 'var(--bg-tertiary)', color: 'var(--text-secondary)' }}>
+          <span style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 100, background: 'var(--k-pill-bg)', color: 'var(--k-pill-text)' }}>
             {SEVERITY_LABELS[c.severity] || c.severity}
           </span>
         </td>
@@ -60,15 +69,15 @@ export default function CaseTableRow({ c, agents }) {
           </select>
         </td>
       </tr>
-      <tr style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
+      <tr style={{ borderBottom: '1px solid var(--k-border)' }}>
         <td></td>
         <td colSpan={COL_COUNT - 1} style={{ padding: '0 12px 10px' }}>
           {c.aiActionSummary ? (
-            <div style={{ background: 'var(--purple-bg, #f5f3ff)', border: '1px solid var(--purple, #7c3aed)', borderRadius: 8, padding: '6px 10px', fontSize: 11.5, display: 'flex', gap: 6 }}>
-              <span>💡</span><span>{c.aiActionSummary}</span>
+            <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderInlineEnd: '3px solid var(--k-accent)', borderRadius: 8, padding: '6px 10px', fontSize: 11.5, display: 'flex', gap: 6, color: 'var(--k-text)' }}>
+              <SparkleIcon size={13} style={{ color: 'var(--k-accent)' }} /><span>{c.aiActionSummary}</span>
             </div>
           ) : (
-            <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '6px 10px', fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+            <div style={{ background: 'var(--k-pill-bg)', borderRadius: 8, padding: '6px 10px', fontSize: 11, color: 'var(--k-text-muted)', fontStyle: 'italic' }}>
               אין עדיין המלצת AI - לחץ/י "רענון המלצות" למעלה
             </div>
           )}

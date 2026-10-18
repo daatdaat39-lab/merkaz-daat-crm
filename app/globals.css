@@ -32,6 +32,26 @@
   --surface-hover: #f4f5f7;
   --font-heading: "Frank Ruhl Libre", serif;
   --font-body: -apple-system, "Segoe UI", Arial, sans-serif;
+
+  /* כיוון-עיצוב "קינטי/מרווה" - שמות-תוכן נפרדים (k-) מכוונים, כדי
+     שעיצוב-מחדש של לידים/שירות לא ישפיע על שאר המערכת עד שתורחב
+     בכוונה למסכים נוספים (ר' plan: עיצוב-מחדש של לידים ושירות). */
+  --k-bg: #f4f6f0;
+  --k-surface: #ffffff;
+  --k-border: #e3e8da;
+  --k-text: #333c2b;
+  --k-text-muted: #8a9279;
+  --k-pill-bg: #e1e8d4;
+  --k-pill-text: #3a4430;
+  --k-accent: #6f8c53;
+  --k-ok-bg: #dfe9d2;
+  --k-ok-text: #3d5c2a;
+  --k-caution-bg: #ecdfb9;
+  --k-caution-text: #6b5420;
+  --k-danger-bg: #e3c6bd;
+  --k-danger-text: #7a3b2a;
+  --k-font-display: "Secular One", sans-serif;
+  --k-font-body: "Heebo", -apple-system, "Segoe UI", Arial, sans-serif;
 }
 
 /* Dark Mode - נטען כש-data-theme="dark" על ה-html (נקבע בשרת לפי
@@ -67,6 +87,20 @@
   --shadow-soft: 0 2px 8px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
   --shadow-hover: 0 8px 24px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.25);
   --surface-hover: #24252b;
+  --k-bg: #1b1f17;
+  --k-surface: #22271d;
+  --k-border: #333a28;
+  --k-text: #e8ecdf;
+  --k-text-muted: #93a081;
+  --k-pill-bg: #2d3424;
+  --k-pill-text: #d9e2c8;
+  --k-accent: #9abb78;
+  --k-ok-bg: #2e3a22;
+  --k-ok-text: #bcd79e;
+  --k-caution-bg: #4a3f1e;
+  --k-caution-text: #e2cf8f;
+  --k-danger-bg: #432822;
+  --k-danger-text: #e2a894;
 }
 
 * { box-sizing: border-box; }

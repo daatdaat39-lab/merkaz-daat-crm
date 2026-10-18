@@ -59,10 +59,12 @@ export default async function LeadWorkPage({ params }) {
     );
   }
 
-  const [{ data: courses }, { data: playbookItems }, pipeline] = await Promise.all([
+  const [{ data: courses }, { data: playbookItems }, pipeline, { data: sendConnections }, { data: emailTemplates }] = await Promise.all([
     supabase.from('courses').select('id, name, price').eq('is_active', true).order('sort_order').order('name'),
     supabase.from('reference_content').select('id, course_id, tag, title, body').eq('kind', 'playbook').eq('is_active', true).order('sort_order'),
     getPipeline(supabase, deptRow.workspaces?.name),
+    supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
+    supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
   ]);
 
   // צ'יפ-AI "מה-לעשות-עכשיו" - נוצר/מתרענן אוטומטית כאן אם stale (ר'
@@ -84,6 +86,7 @@ export default async function LeadWorkPage({ params }) {
       contact={{
         id: props.contact.id, first: props.contact.first, last: props.contact.last,
         phone: props.contact.phone, phone2: props.contact.phone2, email: props.contact.email,
+        city: props.contact.city, idnum: props.contact.idnum, birth_date: props.contact.birth_date, occupation: props.contact.occupation,
       }}
       department={department}
       stageLabel={pipeline.labels[department.stage] || department.stage}
@@ -93,6 +96,8 @@ export default async function LeadWorkPage({ params }) {
       courses={courses || []}
       playbookItems={playbookItems || []}
       whatsappTemplates={props.whatsappTemplates}
+      emailTemplates={emailTemplates || []}
+      sendConnections={sendConnections || []}
       timelineProps={{
         inquiries: props.allInquiries,
         sentEmails: props.sentEmails,

@@ -7,10 +7,11 @@ import TagFilterMultiSelect from '../../components/TagFilterMultiSelect';
 import { addContactTag, assignAgent } from '../../contacts/actions';
 import { refreshStaleActionChips } from './aiChipActions';
 import LeadTableRow from './LeadTableRow';
+import { RefreshIcon } from '../../components/icons';
 
 // עיצוב-pill רך לסרגל-הסינון (שלב 1 מתוכנית-העיצוב-מחדש) - תמיד גלוי
-// (סוכם מפורשות שלא מאחורי כפתור), רק בעיצוב נעים יותר מתיבות-קשות.
-const inputStyle = { border: '1px solid var(--border)', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, background: 'var(--bg)' };
+// (סוכם מפורשות שלא מאחורי כפתור), בכיוון "קינטי/מרווה" (ר' plan).
+const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
 
 // לוח לידים עם סינון ומיון בצד הלקוח - הנתונים כבר נטענו מהשרת, אז
 // כל הסינון/מיון כאן מיידי בלי בקשות נוספות. הקיבוץ לפי תגית (תרומות/
@@ -138,8 +139,8 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
 
   return (
     <div>
-      <div style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--bg)', paddingTop: 8, paddingBottom: 4, marginBottom: 14, boxShadow: '0 4px 10px -6px rgba(0,0,0,0.12)' }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 5, background: 'var(--k-bg)', paddingTop: 8, paddingBottom: 4, marginBottom: 14, boxShadow: '0 4px 10px -6px rgba(0,0,0,0.12)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10, background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-soft)', padding: 14 }}>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -160,7 +161,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
           {reasonOptions.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
         <TagFilterMultiSelect value={tagFilters} onChange={setTagFilters} tags={allTags} groups={tagGroups} placeholder="כל התגיות" />
-        <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: 'var(--k-text-muted)', whiteSpace: 'nowrap' }}>
           <input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} />
           רק ליד שלא טופל מעל
           <input
@@ -183,7 +184,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         {activeFilterCount > 0 && (
           <button
             onClick={() => { setAgentFilter(''); setStageFilter(''); setReasonFilter(''); setTagFilters([]); setOverdueOnly(false); setOverdueHours(24); setSearch(''); }}
-            style={{ ...inputStyle, cursor: 'pointer', color: 'var(--text-secondary)' }}
+            style={{ ...inputStyle, cursor: 'pointer', color: 'var(--k-text-muted)' }}
           >
             ניקוי סינון
           </button>
@@ -197,10 +198,11 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
             key={t.key}
             onClick={() => setActiveTab(t.key)}
             style={{
-              background: activeTab === t.key ? 'var(--bg-tertiary)' : 'none',
-              border: '1px solid ' + (activeTab === t.key ? 'var(--border-strong)' : 'transparent'),
-              borderRadius: 100, padding: '6px 14px', fontSize: 12.5, fontWeight: activeTab === t.key ? 600 : 500,
-              color: activeTab === t.key ? 'var(--text)' : 'var(--text-secondary)', cursor: 'pointer',
+              fontFamily: 'var(--k-font-display)',
+              background: activeTab === t.key ? 'var(--k-text)' : 'none',
+              border: '1px solid ' + (activeTab === t.key ? 'var(--k-text)' : 'var(--k-border)'),
+              borderRadius: 100, padding: '6px 16px', fontSize: 13,
+              color: activeTab === t.key ? 'var(--k-bg)' : 'var(--k-text-muted)', cursor: 'pointer',
             }}
           >
             {t.label} ({tabCounts[t.key]})
@@ -208,15 +210,15 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
         ))}
         <button
           type="button" onClick={handleRefreshAi} disabled={refreshing || staleAiCount === 0}
-          style={{ ...inputStyle, cursor: staleAiCount === 0 ? 'default' : 'pointer', marginInlineStart: 'auto', opacity: staleAiCount === 0 ? 0.5 : 1 }}
+          style={{ ...inputStyle, display: 'flex', alignItems: 'center', gap: 6, cursor: staleAiCount === 0 ? 'default' : 'pointer', marginInlineStart: 'auto', opacity: staleAiCount === 0 ? 0.5 : 1 }}
         >
-          🔄 {refreshing ? 'מרענן...' : `רענון המלצות AI${staleAiCount > 0 ? ` (${Math.min(staleAiCount, 25)})` : ''}`}
+          <RefreshIcon size={13} /> {refreshing ? 'מרענן...' : `רענון המלצות AI${staleAiCount > 0 ? ` (${Math.min(staleAiCount, 25)})` : ''}`}
         </button>
-        {refreshMsg && <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{refreshMsg}</span>}
+        {refreshMsg && <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>{refreshMsg}</span>}
       </div>
 
       {filtered.length !== tabLeads.length && (
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginBottom: 12 }}>
           מציג {filtered.length} מתוך {tabLeads.length} לידים בלשונית זו
         </div>
       )}
@@ -230,7 +232,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
       {uncategorized.length > 0 && <LeadGroup title="ללא תגית מזוהה" leads={uncategorized} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sideStages={sideStages} stageLabels={stageLabels} stageColors={stageColors} leadStages={leadStages} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected} onToggleSelect={toggleSelect} setSelected={setSelected} extraFields={extraFields} closeReasons={closeReasons} />}
 
       {filtered.length === 0 && (
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין לידים התואמים את הסינון</div>
+        <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין לידים התואמים את הסינון</div>
       )}
     </div>
   );
@@ -271,9 +273,9 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
   return (
     <div style={{
       display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 16,
-      background: '#eef2f7', border: '1px solid #c9d6e3', borderRadius: 8, padding: '10px 14px',
+      background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '10px 14px',
     }}>
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: '#3b5878' }}>נבחרו {selected.size} לידים</span>
+      <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 13, color: 'var(--k-text)' }}>נבחרו {selected.size} לידים</span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <input
@@ -282,7 +284,7 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
           placeholder="הוספת תגית לכולם..."
           style={{ ...inputStyle, fontSize: 12 }}
         />
-        <button type="button" onClick={applyTag} disabled={isPending || !tag.trim()} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+        <button type="button" onClick={applyTag} disabled={isPending || !tag.trim()} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
           הוספה
         </button>
       </div>
@@ -292,7 +294,7 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
           <option value="">ללא נציג</option>
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
-        <button type="button" onClick={applyAgent} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+        <button type="button" onClick={applyAgent} disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
           שינוי נציג לכולם
         </button>
       </div>
@@ -300,7 +302,7 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
       <button
         type="button"
         onClick={() => setSelected(new Set())}
-        style={{ background: 'none', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878', marginInlineStart: 'auto' }}
+        style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--k-text-muted)', marginInlineStart: 'auto' }}
       >
         ביטול בחירה
       </button>
@@ -327,25 +329,25 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
         <button
           type="button"
           onClick={() => setCollapsed((v) => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', padding: 0, fontFamily: 'var(--k-font-display)', fontSize: 15, color: 'var(--k-text)', cursor: 'pointer' }}
         >
           <span style={{ fontSize: 10 }}>{collapsed ? '▸' : '▾'}</span>
           {title} ({leads.length})
         </button>
         {!collapsed && (
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--text-muted)', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--k-text-muted)', cursor: 'pointer' }}>
             <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} />
             בחר הכל
           </label>
         )}
       </div>
       {!collapsed && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden' }}>
           <thead>
-            <tr style={{ background: 'var(--bg-secondary)' }}>
+            <tr style={{ background: 'var(--k-bg)' }}>
               <th style={{ padding: '10px 8px' }}></th>
               {['שם', 'שלב', 'זמן', 'נציג מטפל'].map((h) => (
-                <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
+                <th key={h} style={{ textAlign: 'right', fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
               ))}
             </tr>
           </thead>

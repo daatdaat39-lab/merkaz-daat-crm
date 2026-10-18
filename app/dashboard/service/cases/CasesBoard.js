@@ -7,10 +7,11 @@ import { createCase } from './actions';
 import { refreshStaleCaseActionChips } from './aiChipActions';
 import { SEVERITY_LABELS } from '../../lib/serviceSla';
 import CaseTableRow from './CaseTableRow';
+import { RefreshIcon } from '../../components/icons';
 
-const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5, boxSizing: 'border-box' };
+const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
 const btnStyle = { ...inputStyle, cursor: 'pointer' };
-const primaryBtn = { ...btnStyle, background: 'var(--accent, #2f6f4f)', color: '#fff', fontWeight: 600, border: 'none' };
+const primaryBtn = { ...btnStyle, background: 'var(--k-accent)', color: '#fff', fontWeight: 600, border: 'none' };
 
 const TABS = [
   { key: 'active', label: 'פתוחות' },
@@ -49,32 +50,33 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {TABS.map((t) => (
             <button key={t.key} type="button" onClick={() => setTab(t.key)} style={{
-              background: tab === t.key ? 'var(--bg-tertiary)' : 'none', color: tab === t.key ? 'var(--text)' : 'var(--text-secondary)',
-              border: '1px solid ' + (tab === t.key ? 'var(--border-strong)' : 'transparent'), borderRadius: 999, padding: '6px 14px', fontSize: 12.5, fontWeight: tab === t.key ? 600 : 500, cursor: 'pointer',
+              fontFamily: 'var(--k-font-display)',
+              background: tab === t.key ? 'var(--k-text)' : 'none', color: tab === t.key ? 'var(--k-bg)' : 'var(--k-text-muted)',
+              border: '1px solid ' + (tab === t.key ? 'var(--k-text)' : 'var(--k-border)'), borderRadius: 999, padding: '6px 16px', fontSize: 13, cursor: 'pointer',
             }}>
               {t.label}
             </button>
           ))}
           <button
             type="button" onClick={handleRefreshAi} disabled={refreshing || staleAiCount === 0}
-            style={{ ...btnStyle, opacity: staleAiCount === 0 ? 0.5 : 1, cursor: staleAiCount === 0 ? 'default' : 'pointer' }}
+            style={{ ...btnStyle, display: 'flex', alignItems: 'center', gap: 6, opacity: staleAiCount === 0 ? 0.5 : 1, cursor: staleAiCount === 0 ? 'default' : 'pointer' }}
           >
-            🔄 {refreshing ? 'מרענן...' : `רענון המלצות AI${staleAiCount > 0 ? ` (${Math.min(staleAiCount, 25)})` : ''}`}
+            <RefreshIcon size={13} /> {refreshing ? 'מרענן...' : `רענון המלצות AI${staleAiCount > 0 ? ` (${Math.min(staleAiCount, 25)})` : ''}`}
           </button>
-          {refreshMsg && <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{refreshMsg}</span>}
+          {refreshMsg && <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>{refreshMsg}</span>}
         </div>
         <button type="button" onClick={() => setShowNew(true)} style={primaryBtn}>+ קריאה חדשה</button>
       </div>
 
       {filtered.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין קריאות כאן</div>
+        <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין קריאות כאן</div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: 'auto', background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14 }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'right' }}>
+              <tr style={{ borderBottom: '1px solid var(--k-border)', textAlign: 'right' }}>
                 {['#', 'איש קשר', 'נושא', 'חומרה', 'SLA', 'סטטוס', 'נציג מטפל'].map((h) => (
-                  <th key={h} style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>{h}</th>
+                  <th key={h} style={{ padding: '10px 12px', fontSize: 11, color: 'var(--k-text-muted)', fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase' }}>{h}</th>
                 ))}
               </tr>
             </thead>

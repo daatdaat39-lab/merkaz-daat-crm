@@ -35,10 +35,12 @@ export default async function CaseWorkPage({ params }) {
   }
   const { props } = cardData;
 
-  const [{ data: kbItems }, { data: members }, { data: whatsappTemplates }] = await Promise.all([
+  const [{ data: kbItems }, { data: members }, { data: whatsappTemplates }, { data: sendConnections }, { data: emailTemplates }] = await Promise.all([
     supabase.from('reference_content').select('id, course_id, tag, title, body').eq('kind', 'kb').eq('is_active', true).order('sort_order'),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', caseRow.workspace_id),
     supabase.from('whatsapp_templates').select('id, name, template_id, preview_text, course_id').order('sort_order').order('created_at'),
+    supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
+    supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
   ]);
   const memberIds = (members || []).map((m) => m.user_id);
   const { data: memberProfiles } = memberIds.length
@@ -67,11 +69,14 @@ export default async function CaseWorkPage({ params }) {
       contact={{
         id: props.contact.id, first: props.contact.first, last: props.contact.last,
         phone: props.contact.phone, phone2: props.contact.phone2, email: props.contact.email,
+        city: props.contact.city, idnum: props.contact.idnum, birth_date: props.contact.birth_date, occupation: props.contact.occupation,
       }}
       workspaceName={caseRow.workspaces?.name}
       agents={agents}
       kbItems={kbItems || []}
       whatsappTemplates={whatsappTemplates || []}
+      emailTemplates={emailTemplates || []}
+      sendConnections={sendConnections || []}
       workspaceId={caseRow.workspace_id}
       timelineProps={{
         inquiries: props.allInquiries,

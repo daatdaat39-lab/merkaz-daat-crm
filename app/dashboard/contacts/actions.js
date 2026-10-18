@@ -189,6 +189,17 @@ export async function updateContactPhone(contactId, field, value) {
   return applyContactFieldChanges(supabase, contactId, { [field]: (value || '').trim() });
 }
 
+// תיקון-מהיר של שדה-אישי בודד (עיר/מקצוע/ת.ז/תאריך-לידה) - נועד ל"צ'יפי
+// השלמה" במסך-הטיפול בליד/קריאה (ר' תוכנית עיצוב-מחדש), אותו היגיון
+// כמו updateContactPhone אבל כללי לכל שדה מ-EDITABLE_FIELDS.
+export async function updateContactField(contactId, field, value) {
+  const { supabase } = await requireUser();
+  if (!EDITABLE_FIELDS.includes(field)) return { error: 'שדה לא חוקי' };
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+  return applyContactFieldChanges(supabase, contactId, { [field]: typeof value === 'string' ? value.trim() : value });
+}
+
 // הוספת תגית בודדת מהתפריט הנפתח המהיר (מחוץ למצב עריכה מלא)
 export async function addContactTag(contactId, tag) {
   const { supabase } = await requireUser();

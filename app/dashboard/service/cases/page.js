@@ -40,16 +40,17 @@ export default async function ServiceCasesPage() {
   const { data: courses } = await supabase.from('courses').select('id, name').eq('is_active', true).order('sort_order').order('name');
 
   return (
-    <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>
+    <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px', background: 'var(--k-bg)', minHeight: '100%' }}>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: 0, fontSize: 20 }}>קריאות שירות</h1>
-        <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 12.5 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--k-text-muted)' }}>שירות</div>
+        <h1 style={{ fontFamily: 'var(--k-font-display)', margin: '4px 0 0', fontSize: 30, color: 'var(--k-text)' }}>קריאות שירות</h1>
+        <p style={{ margin: '6px 0 0', color: 'var(--k-text-muted)', fontSize: 12.5 }}>
           {workspaceName || 'המחלקה שלך'} · {cases.filter((c) => c.status !== 'closed').length} קריאות פתוחות
         </p>
       </div>
 
       {!workspaceId ? (
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין מחלקה פעילה</div>
+        <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין מחלקה פעילה</div>
       ) : (
         <CasesBoard
           cases={cases.map((c) => ({

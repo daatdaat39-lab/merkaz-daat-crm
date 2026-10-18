@@ -10,6 +10,7 @@ import ContactQuickActions from '../../components/ContactQuickActions';
 import ExtraFieldCell from '../../components/ExtraFieldCell';
 import { computeFieldValue } from '../../lib/computedFields';
 import { celebrate } from '../../components/celebrate';
+import { PhoneIcon, PersonIcon, SparkleIcon, WarningIcon, MailIcon } from '../../components/icons';
 
 function elapsedLabel(iso) {
   if (!iso) return null;
@@ -21,7 +22,6 @@ function elapsedLabel(iso) {
   return `${days} ${days === 1 ? 'יום' : 'ימים'} מאז הטיפול האחרון`;
 }
 
-const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding: '5px 8px', fontSize: 12 };
 const COL_COUNT = 5;
 
 // שורת-ליד בטבלה (כיוון 🅰 מהסקיצה - נבחר במקום הכרטיסים) - אותו עיקרון
@@ -85,30 +85,36 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
 
   return (
     <>
-      <tr style={{ borderBottom: '1px solid var(--bg-tertiary)', background: overdue ? 'var(--danger-soft, #fdecea)' : 'transparent' }}>
+      <tr style={{ borderBottom: '1px solid var(--k-border)', background: overdue ? 'var(--k-caution-bg)' : 'transparent' }}>
         <td style={{ padding: '10px 8px', textAlign: 'center' }}>
           <input type="checkbox" checked={selected} onChange={() => onToggleSelect?.(c.id)} />
         </td>
         <td style={{ padding: '10px 16px', fontSize: 13 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
-              <span style={{ width: 24, height: 24, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit' }}>
+              <span style={{ width: 24, height: 24, background: 'var(--k-pill-bg)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: 'var(--k-pill-text)', flexShrink: 0 }}>
                 {initials(c.first, c.last)}
               </span>
-              {c.first} {c.last}
+              <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)' }}>{c.first} {c.last}</span>
               {c.existingElsewhere && (
                 <span title="איש הקשר הזה כבר מוכר למערכת ממחלקה אחרת" style={{ fontSize: 10, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 100, padding: '1px 8px' }}>
                   איש קשר קיים
                 </span>
               )}
             </Link>
-            <Link href={`/dashboard/sales/leads/${c.departmentRowId}`} title="פתיחת מסך-טיפול (תסריטים + ציר-זמן + המרה)" style={{ fontSize: 13, textDecoration: 'none', flexShrink: 0, opacity: 0.7 }}>
-              📋
+            <Link
+              href={`/dashboard/sales/leads/${c.departmentRowId}`} title="התקשרות - פותח את מסך-הטיפול (תסריטים + ציר-זמן + המרה)"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--k-font-body)', fontWeight: 700, fontSize: 11.5,
+                background: 'var(--k-accent)', color: '#fff', borderRadius: 100, padding: '4px 11px', textDecoration: 'none', flexShrink: 0,
+              }}
+            >
+              <PhoneIcon size={11} /> התקשר
             </Link>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'var(--k-text-muted)', marginTop: 3 }}>
             {c.source || 'מקור לא ידוע'}{c.phone ? ` · ${c.phone}` : ''}{c.latestReason ? ` · ${c.latestReason}` : ''}
-            {c.inquiryCount > 1 && <span style={{ color: 'var(--danger, #a3392f)', fontWeight: 600 }}> · 🔄 פנה שוב ({c.inquiryCount})</span>}
+            {c.inquiryCount > 1 && <span style={{ color: 'var(--k-danger-text)', fontWeight: 600 }}> · פנה שוב ({c.inquiryCount})</span>}
           </div>
         </td>
         <td style={{ padding: '10px 16px', fontSize: 13, position: 'relative' }}>
@@ -117,8 +123,8 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
             onChange={handleStageChange}
             disabled={isPending}
             style={{
-              border: 'none', borderRadius: 100, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer',
-              background: 'var(--bg-tertiary)', color: (stageColors[c.stage] || stageColors.open || { color: 'var(--text-secondary)' }).color,
+              border: 'none', borderRadius: 100, padding: '4px 10px', fontFamily: 'var(--k-font-display)', fontSize: 12, cursor: 'pointer',
+              background: 'var(--k-pill-bg)', color: (stageColors[c.stage] || stageColors.open || { color: 'var(--k-pill-text)' }).color,
             }}
           >
             {stages.map((s) => <option key={s} value={s}>{stageLabels[s]}</option>)}
@@ -127,27 +133,27 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
           {closing && <CloseReasonPicker reasons={closeReasons?.length ? closeReasons : CLOSE_REASONS} onConfirm={handleCloseConfirm} onCancel={() => setClosing(false)} />}
         </td>
         <td style={{ padding: '10px 16px', fontSize: 11.5 }}>
-          <span style={{ color: overdue ? 'var(--danger, #a3392f)' : 'var(--text-muted)', fontWeight: overdue ? 600 : 400 }}>
-            {overdue && '⚠ '}{elapsedLabel(c.last_activity_at) || '—'}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: overdue ? 'var(--k-danger-text)' : 'var(--k-text-muted)', fontWeight: overdue ? 600 : 400 }}>
+            {overdue && <WarningIcon size={12} />}{elapsedLabel(c.last_activity_at) || '—'}
           </span>
         </td>
         <td style={{ padding: '10px 16px' }}>
-          <select value={c.agent_id || ''} onChange={handleAgentChange} disabled={isPending} style={inputStyle}>
+          <select value={c.agent_id || ''} onChange={handleAgentChange} disabled={isPending} style={{ border: '1px solid var(--k-border)', borderRadius: 6, padding: '5px 8px', fontSize: 12, background: 'var(--k-surface)', color: 'var(--k-text)' }}>
             <option value="">ללא נציג</option>
             {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </td>
       </tr>
-      <tr style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
+      <tr style={{ borderBottom: '1px solid var(--k-border)' }}>
         <td></td>
         <td colSpan={COL_COUNT - 1} style={{ padding: '0 16px 10px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {c.aiActionSummary ? (
-              <div style={{ background: 'var(--purple-bg, #f5f3ff)', border: '1px solid var(--purple, #7c3aed)', borderRadius: 8, padding: '6px 10px', fontSize: 11.5, display: 'flex', gap: 6 }}>
-                <span>💡</span><span>{c.aiActionSummary}</span>
+              <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderInlineEnd: '3px solid var(--k-accent)', borderRadius: 8, padding: '6px 10px', fontSize: 11.5, display: 'flex', gap: 6, color: 'var(--k-text)' }}>
+                <SparkleIcon size={13} style={{ color: 'var(--k-accent)' }} /><span>{c.aiActionSummary}</span>
               </div>
             ) : (
-              <div style={{ background: 'var(--bg-tertiary)', borderRadius: 8, padding: '6px 10px', fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              <div style={{ background: 'var(--k-pill-bg)', borderRadius: 8, padding: '6px 10px', fontSize: 11, color: 'var(--k-text-muted)', fontStyle: 'italic' }}>
                 אין עדיין המלצת AI - לחץ/י "רענון המלצות" למעלה
               </div>
             )}
@@ -155,26 +161,26 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
             {hasExpandableInfo && (
               <button
                 type="button" onClick={() => setExpanded((v) => !v)}
-                style={{ background: 'none', border: 'none', padding: 0, fontSize: 11.5, color: 'var(--accent, #2f6f4f)', cursor: 'pointer', alignSelf: 'flex-start' }}
+                style={{ background: 'none', border: 'none', padding: 0, fontSize: 11.5, color: 'var(--k-accent)', cursor: 'pointer', alignSelf: 'flex-start' }}
               >
                 {expanded ? '▾ הסתר פרטים' : '▸ עוד פרטים'}
               </button>
             )}
 
             {expanded && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4, borderTop: '1px solid var(--bg-tertiary)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4, borderTop: '1px solid var(--k-border)' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {c.createdByManager && (
-                    <span style={{ fontSize: 10, fontWeight: 600, color: '#6d28d9', background: '#f5f3ff', borderRadius: 100, padding: '1px 8px' }}>
-                      👤 יזום ע"י מנהל
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 600, color: 'var(--k-pill-text)', background: 'var(--k-pill-bg)', borderRadius: 100, padding: '1px 8px' }}>
+                      <PersonIcon size={10} /> יזום ע"י מנהל
                     </span>
                   )}
                   {(c.tags || []).map((t) => (
-                    <span key={t} style={{ fontSize: 10, color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', borderRadius: 100, padding: '1px 8px' }}>{t}</span>
+                    <span key={t} style={{ fontSize: 10, color: 'var(--k-text-muted)', background: 'var(--k-pill-bg)', borderRadius: 100, padding: '1px 8px' }}>{t}</span>
                   ))}
                 </div>
 
-                {c.email && <div style={{ fontSize: 12 }}>✉️ {c.email}</div>}
+                {c.email && <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--k-text)' }}><MailIcon size={12} /> {c.email}</div>}
 
                 {visibleExtraFields.map((f) => (
                   <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
@@ -206,13 +212,13 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
 function CloseReasonPicker({ reasons = CLOSE_REASONS, onConfirm, onCancel }) {
   const [reason, setReason] = useState(reasons[0]);
   return (
-    <div style={{ marginTop: 6, padding: 8, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6, width: 200, position: 'absolute', zIndex: 2 }}>
-      <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 11.5, border: '1px solid var(--border)', borderRadius: 4, marginBottom: 6 }}>
+    <div style={{ marginTop: 6, padding: 8, background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 10, width: 200, position: 'absolute', zIndex: 2, boxShadow: 'var(--shadow-md)' }}>
+      <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 11.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '4px 8px', marginBottom: 6, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
         {reasons.map((r) => <option key={r} value={r}>{r}</option>)}
       </select>
       <div style={{ display: 'flex', gap: 6 }}>
-        <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, background: '#a3392f', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>אישור</button>
-        <button onClick={onCancel} style={{ flex: 1, fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>ביטול</button>
+        <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, fontWeight: 600, background: 'var(--k-danger-bg)', color: 'var(--k-danger-text)', border: 'none', borderRadius: 100, padding: '5px 0', cursor: 'pointer' }}>אישור</button>
+        <button onClick={onCancel} style={{ flex: 1, fontSize: 11, background: 'var(--k-bg)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 0', cursor: 'pointer', color: 'var(--k-text)' }}>ביטול</button>
       </div>
     </div>
   );

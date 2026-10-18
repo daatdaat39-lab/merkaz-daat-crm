@@ -1,24 +1,20 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ThreeColumnScreen from '../../../components/ThreeColumnScreen';
 import UnifiedTimeline from '../../../components/UnifiedTimeline';
-import WhatsAppSendModal from '../../../contacts/[id]/WhatsAppSendModal';
-import { updateDepartmentExtraField } from '../../../contacts/actions';
+import ContactQuickActions from '../../../components/ContactQuickActions';
+import FillSection from '../../../components/FillSection';
+import { PersonIcon, SparkleIcon, CheckIcon, CloseXIcon } from '../../../components/icons';
+import { updateDepartmentExtraField, updateLeadStage } from '../../../contacts/actions';
+import { CLOSE_REASONS } from '../../../components/pipelines';
 import { lockLead, heartbeatLeadLock, releaseLeadLock, convertLead } from './leadLockActions';
 
-const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box' };
-const btnStyle = { ...inputStyle, width: 'auto', cursor: 'pointer' };
-const primaryBtn = { ...btnStyle, background: 'var(--accent, #2f6f4f)', color: '#fff', fontWeight: 600, border: 'none' };
-const cardStyle = { background: 'var(--bg-secondary, #f7f7f7)', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 };
-const sectionLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', letterSpacing: '.03em' };
-
-function telHref(phone) {
-  const digits = (phone || '').replace(/[^\d+]/g, '');
-  return digits ? `tel:${digits}` : null;
-}
+const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
+const cardStyle = { background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 };
+const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' };
 
 // מסך-עבודה לטיפול-בליד (שלב 3) - נועל (migration 0148/lockLead) ברגע
 // הפתיחה, פעימת-חיים כל 5 דקות, ומשחרר **רק** ב-beforeunload (לא
@@ -26,14 +22,16 @@ function telHref(phone) {
 // סכנה בדיוק: הסתרת-טאב כשהנציג עובר לחייג מהנייד האישי שלו).
 export default function LeadWorkScreen({
   departmentId, aiActionText, contact, department, stageLabel, wonStageLabel, workspaceId, workspaceName,
-  courses, playbookItems, whatsappTemplates, timelineProps,
+  courses, playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps,
 }) {
   const [lockState, setLockState] = useState('checking'); // checking | locked | denied
   const [courseId, setCourseId] = useState(department.extraFields?.course_id || '');
   const [price, setPrice] = useState('');
   const [converting, setConverting] = useState(false);
   const [converted, setConverted] = useState(false);
-  const [showWhatsApp, setShowWhatsApp] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [closeReason, setCloseReason] = useState(CLOSE_REASONS[0]);
+  const [scriptTag, setScriptTag] = useState('הכל');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -93,8 +91,18 @@ export default function LeadWorkScreen({
     });
   }
 
+  function handleCloseNotRelevant() {
+    startTransition(async () => {
+      await updateLeadStage(departmentId, 'closed', closeReason);
+      setClosing(false);
+      router.refresh();
+    });
+  }
+
   const selectedCourse = courses.find((c) => c.id === courseId);
-  const filteredPlaybook = playbookItems.filter((item) => !item.course_id || item.course_id === courseId);
+  const courseFiltered = playbookItems.filter((item) => !item.course_id || item.course_id === courseId);
+  const scriptTags = useMemo(() => ['הכל', ...Array.from(new Set(courseFiltered.map((i) => i.tag).filter(Boolean)))], [courseFiltered]);
+  const filteredPlaybook = scriptTag === 'הכל' ? courseFiltered : courseFiltered.filter((i) => i.tag === scriptTag);
 
   if (lockState === 'checking') {
     return <div style={{ padding: 24, fontSize: 13 }}>טוען...</div>;
@@ -104,102 +112,161 @@ export default function LeadWorkScreen({
     return (
       <div style={{ maxWidth: 500, margin: '60px auto', padding: '0 24px', textAlign: 'center' }}>
         <div style={{ fontSize: 14, marginBottom: 12 }}>⚠ {error}</div>
-        <Link href="/dashboard/sales/leads" style={{ fontSize: 13, color: 'var(--accent, #2f6f4f)' }}>← חזרה לרשימת הלידים</Link>
+        <Link href="/dashboard/sales/leads" style={{ fontSize: 13, color: 'var(--k-accent)' }}>← חזרה לרשימת הלידים</Link>
       </div>
     );
   }
 
   return (
-    <ThreeColumnScreen
-      header={
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 700 }}>{contact.first} {contact.last}</div>
-            <div style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{workspaceName} · {stageLabel}</div>
-          </div>
-          <Link href={`/dashboard/contacts/${contact.id}`} style={{ fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none' }}>פתח כרטיס מלא ←</Link>
-        </div>
-      }
-      right={
-        <>
-          {aiActionText && (
-            <div style={{ background: 'var(--purple-bg, #f5f3ff)', border: '1px solid var(--purple, #7c3aed)', borderRadius: 8, padding: '9px 12px', fontSize: 12, marginBottom: 14, display: 'flex', gap: 7 }}>
-              <span>💡</span><span>{aiActionText}</span>
-            </div>
-          )}
-
-          <div style={sectionLabel}>פרטי יצירת קשר</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '8px 0 16px' }}>
-            {telHref(contact.phone) && <a href={telHref(contact.phone)} style={{ ...primaryBtn, textAlign: 'center', textDecoration: 'none' }}>📞 {contact.phone}</a>}
-            {telHref(contact.phone2) && <a href={telHref(contact.phone2)} style={{ ...btnStyle, textAlign: 'center', textDecoration: 'none' }}>📞 {contact.phone2} (משני)</a>}
-            <button type="button" onClick={() => setShowWhatsApp(true)} style={btnStyle}>💬 וואטסאפ</button>
-            {contact.email && <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>✉️ {contact.email}</div>}
-          </div>
-
-          <div style={cardStyle}>
-            <div style={sectionLabel}>קורס</div>
-            <select value={courseId} onChange={handleCourseChange} disabled={isPending} style={inputStyle}>
-              <option value="">— בחירת קורס —</option>
-              {courses.map((c) => <option key={c.id} value={c.id}>{c.name}{c.price ? ` (₪${c.price})` : ''}</option>)}
-            </select>
-          </div>
-
-          {converted ? (
-            <div style={{ ...cardStyle, background: '#fdf1e2', border: '1px solid #f0c987', color: '#a85c00', fontWeight: 600 }}>
-              🎉 ההרשמה נרשמה! השלב עודכן ל-{wonStageLabel || 'ניצחון'}.
-            </div>
-          ) : (
-            <div style={cardStyle}>
-              <div style={sectionLabel}>המרה להרשמה</div>
-              <div>
-                <label style={{ display: 'block', fontSize: 11, marginBottom: 3, color: 'var(--text-secondary)' }}>מחיר (אופציונלי)</label>
-                <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} style={inputStyle} placeholder={selectedCourse?.price ? `${selectedCourse.price}` : '₪'} />
+    <div style={{ background: 'var(--k-bg)', minHeight: '100%' }}>
+      <ThreeColumnScreen
+        header={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 22, color: 'var(--k-text)' }}>{contact.first} {contact.last}</span>
+                <Link
+                  href={`/dashboard/contacts/${contact.id}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--k-accent)', background: 'var(--k-pill-bg)', borderRadius: 100, padding: '3px 11px', textDecoration: 'none' }}
+                >
+                  <PersonIcon size={11} /> כרטיס מלא
+                </Link>
               </div>
-              <button type="button" onClick={handleConvert} disabled={!courseId || converting} style={{ ...primaryBtn, fontSize: 14, padding: '10px 18px', borderRadius: 10 }}>
-                {converting ? 'מבצע...' : `✓ המרה${wonStageLabel ? ` ל-${wonStageLabel}` : ''}`}
-              </button>
-              {!courseId && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>יש לבחור קורס קודם</div>}
+              <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 3 }}>{workspaceName} · {stageLabel}</div>
             </div>
-          )}
+          </div>
+        }
+        right={
+          <>
+            {aiActionText && (
+              <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderInlineEnd: '3px solid var(--k-accent)', borderRadius: 10, padding: '9px 12px', fontSize: 12.5, marginBottom: 14, display: 'flex', gap: 7, color: 'var(--k-text)' }}>
+                <SparkleIcon size={14} style={{ color: 'var(--k-accent)' }} /><span>{aiActionText}</span>
+              </div>
+            )}
 
-          {error && <div style={{ fontSize: 12, color: '#c62828' }}>{error}</div>}
-        </>
-      }
-      center={
-        <>
-          <div style={{ ...sectionLabel, marginBottom: 10 }}>ציר זמן</div>
-          <UnifiedTimeline {...timelineProps} />
-        </>
-      }
-      left={
-        <>
-          <div style={{ ...sectionLabel, marginBottom: 10 }}>תסריטי מכירה</div>
-          {filteredPlaybook.length === 0 ? (
-            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-              {courseId ? 'אין עדיין תסריטים לקורס הזה.' : 'בחר/י קורס כדי לראות תסריטים מותאמים.'}
+            <div style={sectionLabel}>פרטי יצירת קשר</div>
+            <div style={{ margin: '8px 0 16px' }}>
+              <ContactQuickActions
+                contact={{ id: contact.id, first: contact.first, phone: contact.phone, email: contact.email }}
+                departments={workspaceId ? [{ workspaceId, workspaceName }] : []}
+                sendConnections={sendConnections}
+                whatsappTemplates={whatsappTemplates}
+                emailTemplates={emailTemplates}
+              />
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {filteredPlaybook.map((item) => (
-                <details key={item.id} style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '10px 12px' }}>
-                  <summary style={{ fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
-                    {item.title}{item.tag ? ` · ${item.tag}` : ''}
-                  </summary>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8, whiteSpace: 'pre-wrap' }}>{item.body}</div>
-                </details>
-              ))}
+
+            <div style={cardStyle}>
+              <div style={sectionLabel}>קורס</div>
+              <select value={courseId} onChange={handleCourseChange} disabled={isPending} style={inputStyle}>
+                <option value="">— בחירת קורס —</option>
+                {courses.map((c) => <option key={c.id} value={c.id}>{c.name}{c.price ? ` (₪${c.price})` : ''}</option>)}
+              </select>
             </div>
-          )}
-        </>
-      }
-    >
-      {showWhatsApp && (
-        <WhatsAppSendModal
-          contactId={contact.id} workspaceId={workspaceId} phone={contact.phone}
-          templates={whatsappTemplates} onClose={() => setShowWhatsApp(false)}
-          skipRefresh
-        />
-      )}
-    </ThreeColumnScreen>
+
+            <FillSection
+              contactId={contact.id}
+              fields={[
+                { key: 'city', label: 'עיר מגורים', currentValue: contact.city },
+                { key: 'occupation', label: 'מקצוע', currentValue: contact.occupation },
+                { key: 'idnum', label: 'ת.ז (לצורך רישום)', currentValue: contact.idnum },
+                { key: 'birth_date', label: 'תאריך לידה', type: 'date', currentValue: contact.birth_date },
+              ]}
+            />
+
+            {error && <div style={{ fontSize: 12, color: 'var(--k-danger-text)', marginTop: 10 }}>{error}</div>}
+          </>
+        }
+        center={
+          <>
+            <div style={{ ...sectionLabel, marginBottom: 10 }}>ציר זמן</div>
+            <UnifiedTimeline {...timelineProps} />
+          </>
+        }
+        left={
+          <>
+            <div style={{ ...sectionLabel, marginBottom: 10 }}>תסריטים</div>
+            {scriptTags.length > 2 && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                {scriptTags.map((t) => (
+                  <button
+                    key={t} type="button" onClick={() => setScriptTag(t)}
+                    style={{
+                      fontSize: 11.5, border: '1px solid ' + (scriptTag === t ? 'var(--k-text)' : 'var(--k-border)'),
+                      background: scriptTag === t ? 'var(--k-text)' : 'none', color: scriptTag === t ? 'var(--k-bg)' : 'var(--k-text-muted)',
+                      borderRadius: 100, padding: '4px 12px', cursor: 'pointer',
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+            {filteredPlaybook.length === 0 ? (
+              <div style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>
+                {courseId ? 'אין עדיין תסריטים לקורס הזה.' : 'בחר/י קורס כדי לראות תסריטים מותאמים.'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {filteredPlaybook.map((item) => (
+                  <details key={item.id} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 10, padding: '10px 12px' }}>
+                    <summary style={{ fontSize: 12.5, fontWeight: 600, cursor: 'pointer', color: 'var(--k-text)' }}>
+                      {item.title}{item.tag ? ` · ${item.tag}` : ''}
+                    </summary>
+                    <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 8, whiteSpace: 'pre-wrap' }}>{item.body}</div>
+                  </details>
+                ))}
+              </div>
+            )}
+          </>
+        }
+      />
+
+      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 20px 30px' }}>
+        {converted ? (
+          <div style={{ background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', borderRadius: 12, padding: '14px 18px', fontWeight: 600, marginTop: 20 }}>
+            🎉 ההרשמה נרשמה! השלב עודכן ל-{wonStageLabel || 'ניצחון'}.
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--k-border)', justifyContent: 'flex-end' }}>
+              <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginInlineEnd: 'auto' }}>
+                שינוי-שלב רגיל נעשה מהרשימה הראשית; שתי האפשרויות כאן הן סגירה סופית של הליד.
+              </span>
+              <input
+                type="number" value={price} onChange={(e) => setPrice(e.target.value)}
+                placeholder={selectedCourse?.price ? `₪${selectedCourse.price}` : 'מחיר (אופציונלי)'}
+                style={{ ...inputStyle, width: 140 }}
+              />
+              <button
+                type="button" onClick={handleConvert} disabled={!courseId || converting}
+                style={{
+                  fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: 'none', borderRadius: 100, padding: '8px 18px', cursor: !courseId ? 'default' : 'pointer',
+                  background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', opacity: !courseId ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: 6,
+                }}
+              >
+                <CheckIcon size={13} /> {converting ? 'מבצע...' : `נרשם ללימודים${wonStageLabel ? ` (${wonStageLabel})` : ''}`}
+              </button>
+              <button
+                type="button" onClick={() => setClosing((v) => !v)}
+                style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 18px', cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <CloseXIcon size={13} /> לא רלוונטי
+              </button>
+            </div>
+            {closing && (
+              <div style={{ border: '1px dashed var(--k-border)', borderRadius: 10, padding: '10px 14px', marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--k-surface)' }}>
+                <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>סיבת-סגירה:</span>
+                <select value={closeReason} onChange={(e) => setCloseReason(e.target.value)} style={{ fontSize: 12.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 12px', background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+                  {CLOSE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <button type="button" onClick={handleCloseNotRelevant} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, background: 'var(--k-text)', color: 'var(--k-bg)', border: 'none', borderRadius: 100, padding: '5px 14px', cursor: 'pointer' }}>
+                  אישור סגירה
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }
