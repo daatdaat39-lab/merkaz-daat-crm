@@ -7,7 +7,7 @@ import TagFilterMultiSelect from '../../components/TagFilterMultiSelect';
 import { addContactTag, assignAgent } from '../../contacts/actions';
 import { updateCampaignContact } from '../campaigns/actions';
 import { refreshStaleActionChips } from './aiChipActions';
-import LeadCard from './LeadCard';
+import LeadTableRow from './LeadTableRow';
 
 // עיצוב-pill רך לסרגל-הסינון (שלב 1 מתוכנית-העיצוב-מחדש) - תמיד גלוי
 // (סוכם מפורשות שלא מאחורי כפתור), רק בעיצוב נעים יותר מתיבות-קשות.
@@ -396,11 +396,21 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
         )}
       </div>
       {!collapsed && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-          {leads.map((c) => (
-            <LeadCard key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sideStages={sideStages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} extraFields={extraFields} closeReasons={closeReasons} />
-          ))}
-        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          <thead>
+            <tr style={{ background: 'var(--bg-secondary)' }}>
+              <th style={{ padding: '10px 8px' }}></th>
+              {['שם', 'שלב', 'זמן', 'נציג מטפל'].map((h) => (
+                <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {leads.map((c) => (
+              <LeadTableRow key={c.id} contact={c} agents={agents} workspaceId={workspaceId} workspaceName={workspaceName} stages={stages} sideStages={sideStages} stageLabels={stageLabels} stageColors={stageColors} sendConnections={sendConnections} whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates} selected={selected.has(c.id)} onToggleSelect={onToggleSelect} extraFields={extraFields} closeReasons={closeReasons} />
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

@@ -6,7 +6,7 @@ import { searchContacts } from '../../contacts/actions';
 import { createCase } from './actions';
 import { refreshStaleCaseActionChips } from './aiChipActions';
 import { SEVERITY_LABELS } from '../../lib/serviceSla';
-import CaseCard from './CaseCard';
+import CaseTableRow from './CaseTableRow';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5, boxSizing: 'border-box' };
 const btnStyle = { ...inputStyle, cursor: 'pointer' };
@@ -69,10 +69,21 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
       {filtered.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין קריאות כאן</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-          {filtered.map((c) => (
-            <CaseCard key={c.id} c={c} agents={agents} />
-          ))}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'right' }}>
+                {['#', 'איש קשר', 'נושא', 'חומרה', 'SLA', 'סטטוס', 'נציג מטפל'].map((h) => (
+                  <th key={h} style={{ padding: '8px 12px', fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((c) => (
+                <CaseTableRow key={c.id} c={c} agents={agents} />
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
