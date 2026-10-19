@@ -43,18 +43,18 @@ export default function EmailComposeModal({ contactId, workspaceId, fromAddress,
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ background: 'var(--bg)', borderRadius: 10, padding: 20, width: 440, maxWidth: '92vw', display: 'flex', flexDirection: 'column', gap: 10 }}
+        style={{ background: 'var(--k-surface)', borderRadius: 16, padding: 20, width: 440, maxWidth: '92vw', display: 'flex', flexDirection: 'column', gap: 10 }}
       >
-        <div style={{ fontSize: 15, fontWeight: 600 }}>שליחת מייל</div>
-        <div style={{ fontSize: 12, color: '#9b9b9b' }}>מאת {fromAddress} · אל {toAddress}</div>
+        <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 18, color: 'var(--k-text)' }}>שליחת מייל</div>
+        <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>מאת {fromAddress} · אל {toAddress}</div>
 
-        {error && <div style={{ color: '#b23b2f', fontSize: 12.5 }}>שגיאה: {error}</div>}
+        {error && <div style={{ color: 'var(--k-danger-text)', fontSize: 12.5 }}>שגיאה: {error}</div>}
 
         {templates.length > 0 && (
           <select
             defaultValue=""
             onChange={(e) => { applyTemplate(e.target.value); e.target.value = ''; }}
-            style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 12.5, color: '#6b6b6b' }}
+            style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 12.5, color: 'var(--k-text-muted)', background: 'var(--k-surface)' }}
           >
             <option value="" disabled>טעינת תבנית מוכנה...</option>
             {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -65,24 +65,24 @@ export default function EmailComposeModal({ contactId, workspaceId, fromAddress,
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           placeholder="נושא"
-          style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }}
+          style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 10px', fontSize: 13, background: 'var(--k-surface)', color: 'var(--k-text)' }}
         />
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="תוכן ההודעה..."
           rows={8}
-          style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical' }}
+          style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 10px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical', background: 'var(--k-surface)', color: 'var(--k-text)' }}
         />
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 6 }}>
-          <button onClick={onClose} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' }}>
+          <button onClick={onClose} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 16px', fontSize: 13, cursor: 'pointer', color: 'var(--k-text)' }}>
             ביטול
           </button>
           <button
             onClick={handleSend}
             disabled={isPending || !subject.trim() || !body.trim()}
-            style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer', opacity: isPending ? 0.6 : 1 }}
+            style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 16px', fontSize: 13, cursor: 'pointer', opacity: isPending ? 0.6 : 1 }}
           >
             {isPending ? 'שולח...' : 'שליחה'}
           </button>

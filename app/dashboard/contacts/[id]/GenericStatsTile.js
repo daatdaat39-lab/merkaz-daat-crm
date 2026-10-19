@@ -49,8 +49,8 @@ export default function GenericStatsTile({ department, stageOrder = [], labels =
   return (
     <div style={{
       display: 'flex', alignItems: 'flex-start', gap: 20, flexWrap: 'wrap',
-      background: 'var(--blue-bg)', border: '1px solid var(--blue)', borderRadius: 10,
-      padding: '14px 16px', marginBottom: 16,
+      background: 'var(--k-pill-bg)', border: 'none', borderRadius: 14,
+      padding: '14px 18px', marginBottom: 16,
     }}>
       <Block label="שלב נוכחי">
         <span style={value()}>{currentStageLabel}</span>
@@ -85,16 +85,16 @@ export default function GenericStatsTile({ department, stageOrder = [], labels =
 function Block({ label, children }) {
   return (
     <div style={{ flexShrink: 0 }}>
-      <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--blue)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-text-muted)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
       {children}
     </div>
   );
 }
 
 function value() {
-  return { fontSize: 13, fontWeight: 700, color: 'var(--blue)' };
+  return { fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-accent)' };
 }
 
 function sub() {
-  return { fontSize: 11, color: 'var(--blue)', marginTop: 2, opacity: 0.85 };
+  return { fontSize: 11, color: 'var(--k-text-muted)', marginTop: 2 };
 }

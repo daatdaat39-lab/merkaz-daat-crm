@@ -102,24 +102,24 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ background: 'var(--bg)', borderRadius: 10, width: 440, maxWidth: '92vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+        style={{ background: 'var(--k-surface)', borderRadius: 16, width: 440, maxWidth: '92vw', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
       >
-        <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--k-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 15, fontWeight: 600 }}>WhatsApp</div>
+            <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 17, color: 'var(--k-text)' }}>WhatsApp</div>
             {editingPhone ? (
               <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 2 }}>
                 <input
                   value={phoneDraft} onChange={(e) => setPhoneDraft(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') savePhone(); if (e.key === 'Escape') setEditingPhone(false); }}
                   autoFocus dir="ltr"
-                  style={{ fontSize: 12, border: '1px solid #e5e5e5', borderRadius: 4, padding: '2px 6px', width: 110 }}
+                  style={{ fontSize: 12, border: '1px solid var(--k-border)', borderRadius: 4, padding: '2px 6px', width: 110, background: 'var(--k-surface)', color: 'var(--k-text)' }}
                 />
-                <button type="button" onClick={savePhone} disabled={phoneSaving} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }} title="שמירה">✓</button>
-                <button type="button" onClick={() => setEditingPhone(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#9b9b9b' }} title="ביטול">✕</button>
+                <button type="button" onClick={savePhone} disabled={phoneSaving} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--k-accent)' }} title="שמירה">✓</button>
+                <button type="button" onClick={() => setEditingPhone(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--k-text-muted)' }} title="ביטול">✕</button>
               </div>
             ) : (
-              <div style={{ fontSize: 12, color: '#9b9b9b', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ fontSize: 12, color: 'var(--k-text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                 {currentPhone}
                 <button type="button" onClick={startEditPhone} title="תיקון מספר" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, opacity: 0.6 }}>✏️</button>
               </div>
@@ -130,7 +130,7 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
               onClick={handleSendTemplate}
               disabled={isPending || templates.length === 0}
               title={templates.length === 0 ? 'אין עדיין תבנית מאושרת מוגדרת' : 'שולח הודעת תבנית רשמית (למקרה של פתיחת שיחה חדשה, או שחלון 24 השעות נסגר)'}
-              style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 10px', fontSize: 11.5, cursor: templates.length === 0 ? 'default' : 'pointer', color: '#333', opacity: templates.length === 0 ? 0.5 : 1 }}
+              style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 12px', fontSize: 11.5, cursor: templates.length === 0 ? 'default' : 'pointer', color: 'var(--k-text)', opacity: templates.length === 0 ? 0.5 : 1 }}
             >
               📨 שליחת תבנית רשמית
             </button>
@@ -138,20 +138,20 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
         </div>
 
         {templates.length > 1 && (
-          <div style={{ padding: '10px 18px', borderBottom: '1px solid #e5e5e5', display: 'flex', gap: 8, alignItems: 'center', background: '#f9f9f9' }}>
-            <span style={{ fontSize: 11.5, color: '#9b9b9b', whiteSpace: 'nowrap' }}>📨 תבנית:</span>
-            <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} style={{ flex: 1, border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 }}>
+          <div style={{ padding: '10px 18px', borderBottom: '1px solid var(--k-border)', display: 'flex', gap: 8, alignItems: 'center', background: 'var(--k-pill-bg)' }}>
+            <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)', whiteSpace: 'nowrap' }}>📨 תבנית:</span>
+            <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} style={{ flex: 1, border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}>
               {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
-            <button onClick={handleSendTemplate} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+            <button onClick={handleSendTemplate} disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
               שליחה
             </button>
           </div>
         )}
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: 16, background: '#f5f3ee', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 200 }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 16, background: 'var(--k-bg)', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 200 }}>
           {sorted.length === 0 && (
-            <div style={{ fontSize: 12.5, color: '#9b9b9b', textAlign: 'center', marginTop: 20 }}>
+            <div style={{ fontSize: 12.5, color: 'var(--k-text-muted)', textAlign: 'center', marginTop: 20 }}>
               אין עדיין היסטוריית הודעות. שלח את התבנית הרשמית כדי לפתוח שיחה.
             </div>
           )}
@@ -159,11 +159,12 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
             <div key={m.id} style={{ display: 'flex', justifyContent: m.direction === 'in' ? 'flex-start' : 'flex-end' }}>
               <div style={{
                 maxWidth: '78%', padding: '8px 12px', borderRadius: 10, fontSize: 13, lineHeight: 1.5,
-                background: m.direction === 'in' ? '#fff' : '#dcf3d4',
-                border: m.direction === 'in' ? '1px solid #e5e5e5' : 'none',
+                background: m.direction === 'in' ? 'var(--k-surface)' : 'var(--k-ok-bg)',
+                color: m.direction === 'in' ? 'var(--k-text)' : 'var(--k-ok-text)',
+                border: m.direction === 'in' ? '1px solid var(--k-border)' : 'none',
               }}>
                 <div>{m.kind === 'template' ? `📨 ${m.message || `הודעת תבנית${m.reason ? ` — ${m.reason}` : ''}`}` : m.message}</div>
-                <div style={{ fontSize: 10, color: '#9b9b9b', marginTop: 4, textAlign: 'left' }}>
+                <div style={{ fontSize: 10, color: 'var(--k-text-muted)', marginTop: 4, textAlign: 'left' }}>
                   {new Date(m.sent_at).toLocaleDateString('he-IL')} {new Date(m.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
@@ -171,20 +172,20 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
           ))}
         </div>
 
-        {error && <div style={{ padding: '6px 18px', color: '#b23b2f', fontSize: 12.5 }}>שגיאה: {error}</div>}
+        {error && <div style={{ padding: '6px 18px', color: 'var(--k-danger-text)', fontSize: 12.5 }}>שגיאה: {error}</div>}
 
-        <div style={{ padding: 12, borderTop: '1px solid #e5e5e5', display: 'flex', gap: 8 }}>
+        <div style={{ padding: 12, borderTop: '1px solid var(--k-border)', display: 'flex', gap: 8 }}>
           <input
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSendChat(); }}
             placeholder="הודעה חופשית... (רק אם הלקוח כבר ענה בתוך 24 שעות)"
-            style={{ flex: 1, border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 13 }}
+            style={{ flex: 1, border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 14px', fontSize: 13, background: 'var(--k-surface)', color: 'var(--k-text)' }}
           />
           <button
             onClick={handleSendChat}
             disabled={isPending || !message.trim()}
-            style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer', opacity: isPending ? 0.6 : 1 }}
+            style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '8px 18px', fontSize: 13, cursor: 'pointer', opacity: isPending ? 0.6 : 1 }}
           >
             שליחה
           </button>
