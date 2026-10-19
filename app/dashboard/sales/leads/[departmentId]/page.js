@@ -107,6 +107,8 @@ export default async function LeadWorkPage({ params }) {
       department={department}
       stageLabel={pipeline.labels[department.stage] || department.stage}
       wonStageLabel={pipeline.wonStage ? (pipeline.labels[pipeline.wonStage] || pipeline.wonStage) : null}
+      stages={[...pipeline.order, ...pipeline.sideStages]}
+      stageLabels={pipeline.labels}
       workspaceId={deptRow.workspace_id}
       workspaceName={deptRow.workspaces?.name}
       courses={courses || []}

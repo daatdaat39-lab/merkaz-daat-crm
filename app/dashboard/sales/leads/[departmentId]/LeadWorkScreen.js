@@ -7,6 +7,7 @@ import ThreeColumnScreen from '../../../components/ThreeColumnScreen';
 import UnifiedTimeline from '../../../components/UnifiedTimeline';
 import ContactQuickActions from '../../../components/ContactQuickActions';
 import FillSection from '../../../components/FillSection';
+import QuickActivityLogForm from '../../../contacts/[id]/QuickActivityLogForm';
 import { PersonIcon, SparkleIcon, CheckIcon, CloseXIcon } from '../../../components/icons';
 import { updateDepartmentExtraField, updateLeadStage } from '../../../contacts/actions';
 import { CLOSE_REASONS } from '../../../components/pipelines';
@@ -22,7 +23,7 @@ const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted
 // סכנה בדיוק: הסתרת-טאב כשהנציג עובר לחייג מהנייד האישי שלו).
 export default function LeadWorkScreen({
   departmentId, aiActionText, timelineSummary, contact, department, stageLabel, wonStageLabel, workspaceId, workspaceName,
-  courses, playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps,
+  courses, playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps, stages = [], stageLabels = {},
 }) {
   const [lockState, setLockState] = useState('checking'); // checking | locked | denied
   const [courseId, setCourseId] = useState(department.extraFields?.course_id || '');
@@ -185,6 +186,9 @@ export default function LeadWorkScreen({
                 <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, lineHeight: 1.6, color: 'var(--k-text)' }}>{timelineSummary}</div>
               </div>
             )}
+            <QuickActivityLogForm
+              contactId={contact.id} department={department} stages={stages} labels={stageLabels} frozen={false}
+            />
             <UnifiedTimeline {...timelineProps} />
           </>
         }
