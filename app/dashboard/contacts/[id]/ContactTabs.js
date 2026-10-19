@@ -98,16 +98,16 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
   return (
     <div>
-      <div style={{ display: 'flex', borderBottom: '1px solid #e5e5e5', gap: 18, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--k-border)', gap: 18, marginBottom: 16, flexWrap: 'wrap' }}>
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             style={{
+              fontFamily: 'var(--k-font-display)',
               background: 'none', border: 'none', cursor: 'pointer', padding: '10px 0',
-              fontSize: 13, color: tab === t.id ? '#0a0a0a' : '#9b9b9b',
-              borderBottom: tab === t.id ? '2px solid #0a0a0a' : '2px solid transparent',
-              fontWeight: tab === t.id ? 500 : 400,
+              fontSize: 13.5, color: tab === t.id ? 'var(--k-accent)' : 'var(--k-text-muted)',
+              borderBottom: tab === t.id ? '2px solid var(--k-accent)' : '2px solid transparent',
             }}
           >
             {t.label}
@@ -120,21 +120,21 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           {
             key: 'inquiries', title: 'היסטוריית פניות — כל המחלקות', shortLabel: 'פניות', items: inquiries,
             renderItem: (inq, i) => (
-              <div key={i} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+              <div key={i} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <DeptTag name={inq.workspaceName} />
-                <span style={{ color: '#333' }}>{inq.reason}</span>
-                {inq.note && <span style={{ color: '#9b9b9b' }}> — {inq.note}</span>}
-                <span style={{ color: '#c0c0c0' }}> · {new Date(inq.created_at).toLocaleDateString('he-IL')}</span>
+                <span style={{ color: 'var(--k-text)' }}>{inq.reason}</span>
+                {inq.note && <span style={{ color: 'var(--k-text-muted)' }}> — {inq.note}</span>}
+                <span style={{ color: 'var(--k-text-muted)' }}> · {new Date(inq.created_at).toLocaleDateString('he-IL')}</span>
               </div>
             ),
           },
           {
             key: 'emails', title: 'מיילים שנשלחו — כל המחלקות', shortLabel: 'מיילים', items: sentEmails,
             renderItem: (e) => (
-              <div key={e.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+              <div key={e.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <DeptTag name={workspaceNameById[e.workspace_id]} />
                 <div style={{ fontWeight: 500 }}>{e.subject}</div>
-                <div style={{ color: '#9b9b9b', marginTop: 2 }}>
+                <div style={{ color: 'var(--k-text-muted)', marginTop: 2 }}>
                   מאת {e.from_address} · {new Date(e.sent_at).toLocaleDateString('he-IL')} {new Date(e.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
@@ -143,13 +143,13 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           {
             key: 'whatsapp', title: 'הודעות WhatsApp — כל המחלקות', shortLabel: 'הודעות WhatsApp', items: sentWhatsapp,
             renderItem: (w) => (
-              <div key={w.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+              <div key={w.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <DeptTag name={workspaceNameById[w.workspace_id]} />
                 <div style={{ fontWeight: 500 }}>
                   {w.direction === 'in' ? '⬅️ מהלקוח: ' : '➡️ נשלח: '}
                   {w.kind === 'chat' ? w.message : `הודעת תבנית${w.reason ? ` — ${w.reason}` : ''}`}
                 </div>
-                <div style={{ color: '#9b9b9b', marginTop: 2 }}>
+                <div style={{ color: 'var(--k-text-muted)', marginTop: 2 }}>
                   {w.phone} · {new Date(w.sent_at).toLocaleDateString('he-IL')} {new Date(w.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
@@ -158,13 +158,13 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           {
             key: 'donations', title: 'תשלומים ותרומות', shortLabel: 'תשלומים', items: donationTransactions,
             renderItem: (t) => (
-              <div key={t.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+              <div key={t.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <DeptTag name={workspaceNameById[t.workspace_id]} />
-                <span style={{ fontWeight: 600, color: '#15803d' }}>₪{Number(t.amount).toLocaleString('he-IL')}</span>
-                <span style={{ color: '#c0c0c0' }}> · {new Date(t.transaction_date).toLocaleDateString('he-IL')}</span>
-                {t.source_system && <span style={{ color: '#9b9b9b' }}> · {t.source_system}</span>}
+                <span style={{ fontWeight: 600, color: 'var(--k-ok-text)' }}>₪{Number(t.amount).toLocaleString('he-IL')}</span>
+                <span style={{ color: 'var(--k-text-muted)' }}> · {new Date(t.transaction_date).toLocaleDateString('he-IL')}</span>
+                {t.source_system && <span style={{ color: 'var(--k-text-muted)' }}> · {t.source_system}</span>}
                 {t.receipt_url && (
-                  <a href={t.receipt_url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 8, color: 'var(--accent, #1f4d3d)' }}>
+                  <a href={t.receipt_url} target="_blank" rel="noopener noreferrer" style={{ marginRight: 8, color: 'var(--k-accent)' }}>
                     📄 קבלה
                   </a>
                 )}
@@ -174,21 +174,21 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           {
             key: 'call_history', title: 'היסטוריית שיחות (מיובאת)', shortLabel: 'היסטוריית שיחות', items: callHistory,
             renderItem: (c) => (
-              <div key={c.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+              <div key={c.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <span style={{ fontWeight: 600 }}>📞 {c.response_text || 'שיחה'}</span>
-                {c.call_date && <span style={{ color: '#c0c0c0' }}> · {new Date(c.call_date).toLocaleDateString('he-IL')}</span>}
-                {c.source_system && <span style={{ color: '#9b9b9b' }}> · {c.source_system}</span>}
+                {c.call_date && <span style={{ color: 'var(--k-text-muted)' }}> · {new Date(c.call_date).toLocaleDateString('he-IL')}</span>}
+                {c.source_system && <span style={{ color: 'var(--k-text-muted)' }}> · {c.source_system}</span>}
               </div>
             ),
           },
           {
             key: 'phone_calls', title: 'שיחות טלפון (015)', shortLabel: 'שיחות טלפון', items: phoneCalls,
             renderItem: (c) => (
-              <div key={c.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+              <div key={c.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? '📤 יוצאת' : '📥 נכנסת'}</span>
                 <span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>
-                {c.duration_seconds ? <span style={{ color: '#9b9b9b' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}
-                {c.started_at && <span style={{ color: '#c0c0c0' }}> · {new Date(c.started_at).toLocaleDateString('he-IL')} {new Date(c.started_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>}
+                {c.duration_seconds ? <span style={{ color: 'var(--k-text-muted)' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}
+                {c.started_at && <span style={{ color: 'var(--k-text-muted)' }}> · {new Date(c.started_at).toLocaleDateString('he-IL')} {new Date(c.started_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>}
                 {c.recording_url && (
                   <div style={{ marginTop: 6 }}>
                     <audio controls src={c.recording_url} style={{ height: 32, maxWidth: '100%' }} />
@@ -200,17 +200,17 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           {
             key: 'meetings', title: 'פגישות — כל המחלקות', shortLabel: 'פגישות', items: meetings,
             renderItem: (m) => (
-              <div key={m.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
+              <div key={m.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px' }}>
                 <DeptTag name={workspaceNameById[m.workspace_id]} />
                 <div style={{ fontSize: 13, fontWeight: 500 }}>{m.title || 'פגישה'}</div>
-                <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 3 }}>
+                <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginTop: 3 }}>
                   {new Date(m.meeting_date).toLocaleDateString('he-IL')} · {m.meeting_time?.slice(0, 5)} · {m.type}
                   {m.location ? ` · ${m.location}` : ''}
                 </div>
                 {m.type === 'זום' && m.zoom_join_url && (
-                  <a href={m.zoom_join_url} target="_blank" rel="noreferrer" style={{ display: 'block', fontSize: 11.5, color: '#2563eb', marginTop: 4 }}>🔗 קישור Zoom</a>
+                  <a href={m.zoom_join_url} target="_blank" rel="noreferrer" style={{ display: 'block', fontSize: 11.5, color: 'var(--k-accent)', marginTop: 4 }}>🔗 קישור Zoom</a>
                 )}
-                {m.notes && <div style={{ fontSize: 12.5, marginTop: 6, color: '#333' }}>{m.notes}</div>}
+                {m.notes && <div style={{ fontSize: 12.5, marginTop: 6, color: 'var(--k-text)' }}>{m.notes}</div>}
               </div>
             ),
           },
@@ -224,7 +224,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
               <ActivityGroup key={g.key} title={g.title} items={g.items} renderItem={g.renderItem} />
             ))}
             {empty.length > 0 && (
-              <div style={{ fontSize: 12.5, color: '#9b9b9b' }}>
+              <div style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>
                 כאן תראה: {empty.map((g) => g.shortLabel).join(' · ')}
               </div>
             )}
@@ -234,65 +234,65 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
       {tab === 'tasks' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {error && <div style={{ color: '#b23b2f', fontSize: 12 }}>שגיאה: {error}</div>}
+          {error && <div style={{ color: 'var(--k-danger-text)', fontSize: 12 }}>שגיאה: {error}</div>}
 
           {!frozen && (addingTask ? (
             <form action={handleAddTask} style={{
-              display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', border: '1px solid #e5e5e5',
-              borderRadius: 8, padding: '10px 12px', background: '#f9f9f9',
+              display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', border: '1px solid var(--k-border)',
+              borderRadius: 12, padding: '10px 12px', background: 'var(--k-pill-bg)',
             }}>
               <input
                 name="title" placeholder="כותרת המשימה..." autoFocus required
-                style={{ flex: '1 1 160px', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 }}
+                style={{ flex: '1 1 160px', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}
               />
-              <input name="due_date" type="date" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 }} />
-              <input name="due_time" type="time" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 }} />
+              <input name="due_date" type="date" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }} />
+              <input name="due_time" type="time" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }} />
               {agents.length > 0 && (
-                <select name="assigned_to" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 }}>
+                <select name="assigned_to" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}>
                   <option value="">אני</option>
                   {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               )}
-              <button type="submit" disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
+              <button type="submit" disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
                 הוספה
               </button>
-              <button type="button" onClick={() => setAddingTask(false)} style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
+              <button type="button" onClick={() => setAddingTask(false)} style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>
                 ביטול
               </button>
             </form>
           ) : (
             <button
               onClick={() => setAddingTask(true)}
-              style={{ alignSelf: 'flex-start', background: 'var(--bg)', border: '1px dashed #d0d0d0', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, color: '#666', cursor: 'pointer' }}
+              style={{ alignSelf: 'flex-start', background: 'var(--k-surface)', border: '1px dashed var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, color: 'var(--k-text-muted)', cursor: 'pointer' }}
             >
               + משימה חדשה
             </button>
           ))}
 
-          {tasks.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין משימות</div>}
+          {tasks.length === 0 && <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין משימות</div>}
           {tasks.map((t) => (
             <div key={t.id} style={{
-              display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #e5e5e5',
+              display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--k-border)',
               borderRadius: 8, padding: '9px 14px',
             }}>
               <button
                 onClick={() => handleToggleTask(t.id, !t.done)}
                 disabled={isPending || frozen}
                 style={{
-                  width: 18, height: 18, borderRadius: 4, border: '1px solid #d0d0d0',
-                  background: t.done ? '#16a34a' : '#fff', color: '#fff', fontSize: 11,
+                  width: 18, height: 18, borderRadius: 5, border: '1px solid var(--k-border)',
+                  background: t.done ? 'var(--k-ok-text)' : 'var(--k-surface)', color: '#fff', fontSize: 11,
                   cursor: frozen ? 'default' : 'pointer', flexShrink: 0, opacity: frozen ? 0.5 : 1,
                 }}
               >
                 {t.done ? '✓' : ''}
               </button>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, textDecoration: t.done ? 'line-through' : 'none', color: t.done ? '#9b9b9b' : '#0a0a0a' }}>
+                <div style={{ fontSize: 13, textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--k-text-muted)' : 'var(--k-text)' }}>
                   <DeptTag name={workspaceNameById[t.workspace_id]} />
                   {t.title}
                 </div>
                 {t.due_date && (
-                  <div style={{ fontSize: 11, color: '#9b9b9b' }}>יעד: {new Date(t.due_date).toLocaleDateString('he-IL')}</div>
+                  <div style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>יעד: {new Date(t.due_date).toLocaleDateString('he-IL')}</div>
                 )}
               </div>
             </div>
@@ -302,7 +302,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
       {tab === 'notes' && (
         <form action={handleSaveNotes} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {error && <div style={{ color: '#b23b2f', fontSize: 12 }}>שגיאה: {error}</div>}
+          {error && <div style={{ color: 'var(--k-danger-text)', fontSize: 12 }}>שגיאה: {error}</div>}
           <textarea
             name="notes"
             value={notesValue}
@@ -310,14 +310,14 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             rows={8}
             disabled={frozen}
             style={{
-              width: '100%', border: '1px solid #e5e5e5', borderRadius: 8, padding: 12,
+              width: '100%', border: '1px solid var(--k-border)', borderRadius: 8, padding: 12,
               fontSize: 13, fontFamily: 'inherit', resize: 'vertical',
             }}
             placeholder="הערות פנימיות על איש הקשר..."
           />
           <button type="submit" disabled={isPending || frozen} style={{
-            alignSelf: 'flex-start', background: '#0a0a0a', color: '#fff', border: 'none',
-            borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: frozen ? 'default' : 'pointer', opacity: frozen ? 0.5 : 1,
+            alignSelf: 'flex-start', background: 'var(--k-accent)', color: '#fff', border: 'none',
+            borderRadius: 100, padding: '7px 16px', fontSize: 13, cursor: frozen ? 'default' : 'pointer', opacity: frozen ? 0.5 : 1,
           }}>
             שמירת הערות
           </button>
@@ -348,8 +348,8 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 420 }}>
           {activeDepartment.workspaceName === 'תרומות' && relatedContact?.donationsCount > 0 && (
             <div style={{
-              background: 'var(--accent-soft, #e4ede8)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8,
-              padding: '8px 10px', fontSize: 12.5, color: 'var(--accent, #1f4d3d)',
+              background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 10,
+              padding: '8px 10px', fontSize: 12.5, color: 'var(--k-accent)',
             }}>
               🔗 יש {relatedContact.donationsCount} תרומות בסך ₪{relatedContact.donationsTotal.toLocaleString('he-IL')} אצל {relatedContact.first} {relatedContact.last} - לא נספר בכספי הכרטיס הזה.
             </div>
@@ -365,9 +365,9 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           <SeminarParticipationsPanel participations={deptSeminarParticipations} />
           {visibleFieldDefs.map((f) => (
             <div key={f.key}>
-              <label style={{ display: 'block', fontSize: 11.5, color: 'var(--text-secondary)', marginBottom: 4 }}>{f.label}</label>
+              <label style={{ display: 'block', fontSize: 11.5, color: 'var(--k-text-muted)', marginBottom: 4 }}>{f.label}</label>
               {f.type === 'computed' ? (
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', padding: '7px 0' }}>{computeFieldValue(f, extraValues, fieldDefs, deptTransactions) || '—'}</div>
+                <div style={{ fontSize: 13, color: 'var(--k-text-muted)', padding: '7px 0' }}>{computeFieldValue(f, extraValues, fieldDefs, deptTransactions) || '—'}</div>
               ) : f.type === 'select' && f.allowMultiple ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', padding: '4px 0' }}>
                   {(f.options || []).map((o) => {
@@ -391,7 +391,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                   value={extraValues[f.key] || ''}
                   onChange={(e) => handleExtraFieldChange(f.key, e.target.value)}
                   disabled={frozen}
-                  style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
+                  style={{ width: '100%', border: '1px solid var(--k-border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
                 >
                   <option value="">—</option>
                   {(f.options || []).map((o) => <option key={o} value={o}>{o}</option>)}
@@ -403,7 +403,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                   onChange={(e) => setExtraValues((prev) => ({ ...prev, [f.key]: e.target.value }))}
                   onBlur={(e) => handleExtraFieldChange(f.key, e.target.value)}
                   disabled={frozen}
-                  style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
+                  style={{ width: '100%', border: '1px solid var(--k-border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
                 />
               )}
             </div>
@@ -414,10 +414,10 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
       {tab === 'phones' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {additionalPhones.map((p) => (
-            <div key={p.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '9px 14px', fontSize: 13 }}>
+            <div key={p.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '9px 14px', fontSize: 13 }}>
               <span style={{ fontWeight: 600 }}>{p.phone}</span>
-              {p.label && <span style={{ color: '#9b9b9b' }}> · {p.label}</span>}
-              {p.source && <span style={{ color: '#c0c0c0' }}> · {p.source}</span>}
+              {p.label && <span style={{ color: 'var(--k-text-muted)' }}> · {p.label}</span>}
+              {p.source && <span style={{ color: 'var(--k-text-muted)' }}> · {p.source}</span>}
             </div>
           ))}
         </div>
@@ -425,7 +425,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
       {tab === 'documents' && (
         <div>
-          <div style={{ fontSize: 13, color: '#9b9b9b', marginBottom: 10 }}>אין מסמכים</div>
+          <div style={{ fontSize: 13, color: 'var(--k-text-muted)', marginBottom: 10 }}>אין מסמכים</div>
           <NotConnectedButton
             label="העלאת מסמך"
             icon="📎"
@@ -437,13 +437,13 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
       {tab === 'recordings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {phoneCalls.filter((c) => c.recording_url).length === 0 && (
-            <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין הקלטות שיחה</div>
+            <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין הקלטות שיחה</div>
           )}
           {phoneCalls.filter((c) => c.recording_url).map((c) => (
-            <div key={c.id} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
+            <div key={c.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px' }}>
               <div style={{ fontSize: 12.5, marginBottom: 6 }}>
                 <span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? '📤 יוצאת' : '📥 נכנסת'}</span>
-                {c.started_at && <span style={{ color: '#9b9b9b' }}> · {new Date(c.started_at).toLocaleDateString('he-IL')} {new Date(c.started_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>}
+                {c.started_at && <span style={{ color: 'var(--k-text-muted)' }}> · {new Date(c.started_at).toLocaleDateString('he-IL')} {new Date(c.started_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>}
               </div>
               <audio controls src={c.recording_url} style={{ width: '100%' }} />
             </div>
@@ -460,7 +460,7 @@ function DeptTag({ name }) {
   if (!name) return null;
   return (
     <span style={{
-      display: 'inline-block', background: '#eef2f7', color: '#3b5878', fontSize: 10.5, fontWeight: 600,
+      display: 'inline-block', background: 'var(--k-pill-bg)', color: 'var(--k-pill-text)', fontSize: 10.5, fontWeight: 600,
       borderRadius: 4, padding: '2px 6px', marginInlineEnd: 6, verticalAlign: 'middle',
     }}>
       {name}
@@ -475,12 +475,12 @@ function ProcessCard({ title, label, concluded, onReopen }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-      border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px',
+      border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px',
     }}>
       <div>
         <div style={{ fontSize: 13, fontWeight: 500 }}>{title}</div>
-        <div style={{ fontSize: 12, color: '#9b9b9b', marginTop: 2 }}>
-          שלב נוכחי: <b style={{ color: concluded ? '#15803d' : '#0a0a0a' }}>{label}</b>
+        <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 2 }}>
+          שלב נוכחי: <b style={{ color: concluded ? 'var(--k-ok-text)' : 'var(--k-text)' }}>{label}</b>
           {concluded && ' · תהליך הסתיים'}
         </div>
       </div>
@@ -488,7 +488,7 @@ function ProcessCard({ title, label, concluded, onReopen }) {
         <button
           type="button"
           onClick={onReopen}
-          style={{ background: 'none', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 12px', fontSize: 12, color: '#6b6b6b', cursor: 'pointer', flexShrink: 0 }}
+          style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 6, padding: '5px 12px', fontSize: 12, color: 'var(--k-text-muted)', cursor: 'pointer', flexShrink: 0 }}
         >
           ↺ פתיחה מחדש
         </button>
@@ -510,7 +510,7 @@ function ActivityGroup({ title, items, renderItem }) {
 
   return (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--k-text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
         {title}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -520,8 +520,8 @@ function ActivityGroup({ title, items, renderItem }) {
         <button
           onClick={() => setExpanded(true)}
           style={{
-            marginTop: 8, background: 'none', border: '1px solid #e5e5e5', borderRadius: 6,
-            padding: '5px 12px', fontSize: 12, color: '#6b6b6b', cursor: 'pointer',
+            marginTop: 8, background: 'none', border: '1px solid var(--k-border)', borderRadius: 6,
+            padding: '5px 12px', fontSize: 12, color: 'var(--k-text-muted)', cursor: 'pointer',
           }}
         >
           הצג עוד ({hiddenCount})
@@ -531,7 +531,7 @@ function ActivityGroup({ title, items, renderItem }) {
         <button
           onClick={() => setExpanded(false)}
           style={{
-            marginTop: 8, background: 'none', border: 'none', fontSize: 12, color: '#6b6b6b', cursor: 'pointer',
+            marginTop: 8, background: 'none', border: 'none', fontSize: 12, color: 'var(--k-text-muted)', cursor: 'pointer',
           }}
         >
           הצג פחות
