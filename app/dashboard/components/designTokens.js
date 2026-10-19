@@ -3,9 +3,9 @@
 // משלו inline. לשימוש בקבצים חדשים ובמסכי המפתח שעברו שדרוג עיצובי;
 // לא מחליף את ה-inline styles הקיימים בכל הפרויקט (scope לא ריאלי).
 export const card = (extra = {}) => ({
-  background: 'var(--bg)',
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-lg)',
+  background: 'var(--k-surface)',
+  border: '1px solid var(--k-border)',
+  borderRadius: 14,
   boxShadow: 'var(--shadow-soft)',
   ...extra,
 });
@@ -29,8 +29,8 @@ export const iconBlock = (extra = {}) => ({
 
 export const sectionLabel = {
   fontSize: 11,
-  fontWeight: 600,
-  color: 'var(--text-muted)',
+  fontWeight: 700,
+  color: 'var(--k-text-muted)',
   textTransform: 'uppercase',
-  letterSpacing: 0.4,
+  letterSpacing: '.04em',
 };

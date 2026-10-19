@@ -182,16 +182,16 @@ export default async function DashboardHome() {
   ];
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px', background: 'var(--k-bg)', minHeight: '100%' }}>
       <div style={{ marginBottom: 22 }}>
-        <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: 0, fontSize: 20 }}>
+        <h1 style={{ fontFamily: 'var(--k-font-display)', margin: 0, fontSize: 30, color: 'var(--k-text)' }}>
           {timeGreeting()}, {profile?.name || ''} 👋
         </h1>
-        <p style={{ margin: '4px 0 0', color: '#6b6b6b', fontSize: 12.5 }}>
+        <p style={{ margin: '6px 0 0', color: 'var(--k-text-muted)', fontSize: 12.5 }}>
           {randomPraise()} · סקירה כללית של ה-workspace הפעיל
         </p>
         {totalYesterday > 0 && (
-          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: totalToday >= totalYesterday ? '#2f7d4f' : '#6b6b6b' }}>
+          <p style={{ margin: '6px 0 0', fontSize: 12.5, color: totalToday >= totalYesterday ? 'var(--k-ok-text)' : 'var(--k-text-muted)' }}>
             {totalToday >= totalYesterday
               ? `אתמול שלחת ${totalYesterday} פניות, היום כבר ${totalToday} — ${totalToday > totalYesterday ? 'קדימה, שוברים שיא! 🔥' : 'ממשיכים באותו קצב 👍'}`
               : `אתמול שלחת ${totalYesterday} פניות, היום ${totalToday} — יש עוד זמן ביום, בוא נתפוס תאוצה 💪`}
@@ -203,15 +203,15 @@ export default async function DashboardHome() {
         {statCards.map((s) => (
           <div key={s.label} style={kpiTile()}>
             <div style={sectionLabel}>{s.label}</div>
-            <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1, marginTop: 8 }}>{s.value}</div>
+            <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 30, lineHeight: 1, marginTop: 8, color: 'var(--k-text)' }}>{s.value}</div>
           </div>
         ))}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {/* פילוח לפי שלב */}
-        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
+        <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--k-border)', fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)' }}>
             פילוח לפי שלב בתהליך
           </div>
           <div style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -220,11 +220,11 @@ export default async function DashboardHome() {
               const pct = Math.round((stageCounts[s] / max) * 100);
               return (
                 <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 90, fontSize: 12, color: '#6b6b6b', flexShrink: 0 }}>{pipeline.labels[s]}</div>
-                  <div style={{ flex: 1, background: '#f2f2f2', borderRadius: 4, height: 8, overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, background: '#0a0a0a', height: '100%' }} />
+                  <div style={{ width: 90, fontSize: 12, color: 'var(--k-text-muted)', flexShrink: 0 }}>{pipeline.labels[s]}</div>
+                  <div style={{ flex: 1, background: 'var(--k-pill-bg)', borderRadius: 100, height: 8, overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, background: 'var(--k-accent)', height: '100%' }} />
                   </div>
-                  <div style={{ width: 24, textAlign: 'left', fontSize: 12, fontWeight: 600 }}>{stageCounts[s]}</div>
+                  <div style={{ width: 24, textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--k-text)' }}>{stageCounts[s]}</div>
                 </div>
               );
             })}
@@ -232,25 +232,26 @@ export default async function DashboardHome() {
         </div>
 
         {/* פגישות קרובות */}
-        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden' }}>
+        <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden' }}>
           <div
             style={{
               padding: '14px 18px',
-              borderBottom: '1px solid #e5e5e5',
-              fontSize: 14,
-              fontWeight: 600,
+              borderBottom: '1px solid var(--k-border)',
+              fontFamily: 'var(--k-font-display)',
+              fontSize: 16,
+              color: 'var(--k-text)',
               display: 'flex',
               justifyContent: 'space-between',
             }}
           >
             <span>פגישות קרובות</span>
-            <Link href="/dashboard/calendar" style={{ fontSize: 12, color: '#6b6b6b', textDecoration: 'none' }}>
+            <Link href="/dashboard/calendar" style={{ fontSize: 12, color: 'var(--k-text-muted)', textDecoration: 'none' }}>
               לכל הפגישות ←
             </Link>
           </div>
           <div>
             {meetings.length === 0 && (
-              <div style={{ padding: '14px 18px', fontSize: 13, color: '#9b9b9b' }}>אין פגישות קרובות</div>
+              <div style={{ padding: '14px 18px', fontSize: 13, color: 'var(--k-text-muted)' }}>אין פגישות קרובות</div>
             )}
             {meetings.map((m) => {
               const todayStr = new Date().toISOString().slice(0, 10);
@@ -259,12 +260,12 @@ export default async function DashboardHome() {
               const soon = isToday && minutesUntil > 0 && minutesUntil < 60;
               return (
                 <div key={m.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid #f2f2f2', fontSize: 13,
-                  background: soon ? '#fff7ed' : 'transparent',
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid var(--k-border)', fontSize: 13,
+                  background: soon ? 'var(--k-caution-bg)' : 'transparent',
                 }}>
                   <span style={{ fontSize: 14 }}>{soon ? '🔔' : isToday ? '📅' : '🗓️'}</span>
-                  <b>{m.contacts?.first} {m.contacts?.last}</b>
-                  <span style={{ color: soon ? '#c2760f' : '#9b9b9b', fontWeight: soon ? 600 : 400 }}>
+                  <b style={{ color: 'var(--k-text)' }}>{m.contacts?.first} {m.contacts?.last}</b>
+                  <span style={{ color: soon ? 'var(--k-caution-text)' : 'var(--k-text-muted)', fontWeight: soon ? 600 : 400 }}>
                     {isToday ? `היום · ${m.meeting_time?.slice(0, 5)}` : `${new Date(m.meeting_date).toLocaleDateString('he-IL')} · ${m.meeting_time?.slice(0, 5)}`}
                     {soon && ` (בעוד ${Math.round(minutesUntil)} דק')`}
                   </span>
@@ -276,35 +277,35 @@ export default async function DashboardHome() {
       </div>
 
       {isDonationsManager && (
-        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
+        <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden', marginTop: 12 }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--k-border)', fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)' }}>
             ⚠ דורש טיפול — מנהל מחלקה
           </div>
           <div>
             {pendingLeadsCount > 0 && (
               <Link href="/dashboard/sales/pending" style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px',
-                borderBottom: '1px solid #f2f2f2', fontSize: 13, textDecoration: 'none', color: 'inherit', background: '#fffbeb',
+                borderBottom: '1px solid var(--k-border)', fontSize: 13, textDecoration: 'none', color: 'var(--k-text)', background: 'var(--k-caution-bg)',
               }}>
                 <span style={{ fontSize: 14 }}>📥</span>
                 <b>{pendingLeadsCount} לידים ממתינים לאישור ושיוך נציג</b>
               </Link>
             )}
             {creditIssues.map((row) => (
-              <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid #f2f2f2', fontSize: 13, background: '#fef2f2' }}>
+              <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid var(--k-border)', fontSize: 13, background: 'var(--k-danger-bg)' }}>
                 <span style={{ fontSize: 14 }}>⚠</span>
-                <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
-                <span style={{ color: '#b23b2f', fontWeight: 600 }}>תקלה בחיוב / אשראי נכשל</span>
+                <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'var(--k-text)', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
+                <span style={{ color: 'var(--k-danger-text)', fontWeight: 600 }}>תקלה בחיוב / אשראי נכשל</span>
                 <span style={{ marginInlineStart: 'auto' }}>
                   <QuickAssignSelect contactId={row.contact_id} workspaceId={workspaceId} agents={attentionAgents} currentAgentId={row.agent_id} />
                 </span>
               </div>
             ))}
             {endingSoon.map((row) => (
-              <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid #f2f2f2', fontSize: 13, background: row.remaining <= 0 ? '#fef2f2' : 'transparent' }}>
+              <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid var(--k-border)', fontSize: 13, background: row.remaining <= 0 ? 'var(--k-danger-bg)' : 'transparent' }}>
                 <span style={{ fontSize: 14 }}>{row.remaining <= 0 ? '🔴' : '⏳'}</span>
-                <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
-                <span style={{ color: row.remaining <= 0 ? '#b23b2f' : '#c2760f', fontWeight: 600 }}>
+                <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'var(--k-text)', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
+                <span style={{ color: row.remaining <= 0 ? 'var(--k-danger-text)' : 'var(--k-caution-text)', fontWeight: 600 }}>
                   {row.remaining <= 0
                     ? `הוראת הקבע הסתיימה (${row.paid}/${row.total})`
                     : `נותרו ${row.remaining} תשלומים (${row.paid}/${row.total})`}
@@ -317,10 +318,10 @@ export default async function DashboardHome() {
             {silentDonors.map((row) => {
               const days = Math.floor((Date.now() - new Date(row.last_activity_at).getTime()) / 86400000);
               return (
-                <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid #f2f2f2', fontSize: 13 }}>
+                <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid var(--k-border)', fontSize: 13 }}>
                   <span style={{ fontSize: 14 }}>💤</span>
-                  <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'inherit', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
-                  <span style={{ color: '#9b9b9b' }}>{days} ימים בלי אינטראקציה</span>
+                  <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'var(--k-text)', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
+                  <span style={{ color: 'var(--k-text-muted)' }}>{days} ימים בלי אינטראקציה</span>
                   <span style={{ marginInlineStart: 'auto' }}>
                     <QuickAssignSelect contactId={row.contact_id} workspaceId={workspaceId} agents={attentionAgents} currentAgentId={row.agent_id} />
                   </span>
@@ -328,9 +329,9 @@ export default async function DashboardHome() {
               );
             })}
             {pendingLeadsCount === 0 && creditIssues.length === 0 && endingSoon.length === 0 && silentDonors.length === 0 && (
-              <div style={{ padding: '14px 18px', fontSize: 13, color: '#9b9b9b' }}>אין פריטים שדורשים טיפול</div>
+              <div style={{ padding: '14px 18px', fontSize: 13, color: 'var(--k-text-muted)' }}>אין פריטים שדורשים טיפול</div>
             )}
-            <div style={{ padding: '10px 18px', fontSize: 11.5, color: '#9b9b9b', background: '#fafafa' }}>
+            <div style={{ padding: '10px 18px', fontSize: 11.5, color: 'var(--k-text-muted)', background: 'var(--k-bg)' }}>
               ℹ️ תקלות אשראי מסומנות כרגע ידנית (שלב "תקלה בחיוב" בכרטיס) — זיהוי אוטומטי יתווסף לאחר חיבור מערכת "קשר" בחיות.
             </div>
           </div>
@@ -338,21 +339,21 @@ export default async function DashboardHome() {
       )}
 
       {isDonationsManager && openPledgesCount > 0 && (
-        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12, padding: '14px 18px' }}>
-          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>💰 צפי הכנסות פתוחות (הבטחות תרומה)</div>
-          <div style={{ fontSize: 22, fontWeight: 700 }}>₪{openPledgesTotal.toLocaleString('he-IL')}</div>
-          <div style={{ fontSize: 12, color: '#9b9b9b' }}>{openPledgesCount} הבטחות תרומה שטרם מומשו</div>
+        <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden', marginTop: 12, padding: '14px 18px' }}>
+          <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)', marginBottom: 4 }}>💰 צפי הכנסות פתוחות (הבטחות תרומה)</div>
+          <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 26, color: 'var(--k-accent)' }}>₪{openPledgesTotal.toLocaleString('he-IL')}</div>
+          <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>{openPledgesCount} הבטחות תרומה שטרם מומשו</div>
         </div>
       )}
 
       {isDonationsWorkspace && (
-        <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', marginTop: 12 }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid #e5e5e5', fontSize: 14, fontWeight: 600 }}>
+        <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden', marginTop: 12 }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--k-border)', fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)' }}>
             🔔 חיובי הוראת קבע קרובים (7 ימים)
           </div>
           <div>
             {upcomingCharges.length === 0 && (
-              <div style={{ padding: '14px 18px', fontSize: 13, color: '#9b9b9b' }}>אין חיובי הוראת קבע קרובים</div>
+              <div style={{ padding: '14px 18px', fontSize: 13, color: 'var(--k-text-muted)' }}>אין חיובי הוראת קבע קרובים</div>
             )}
             {upcomingCharges.map((row) => {
               const days = Math.round((new Date(row.nextChargeDate).getTime() - Date.now()) / 86400000);
@@ -362,14 +363,14 @@ export default async function DashboardHome() {
                   key={row.id}
                   href={`/dashboard/contacts/${row.contact_id}`}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid #f2f2f2',
-                    fontSize: 13, textDecoration: 'none', color: 'inherit',
-                    background: overdue ? '#fef2f2' : days <= 1 ? '#fff7ed' : 'transparent',
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid var(--k-border)',
+                    fontSize: 13, textDecoration: 'none', color: 'var(--k-text)',
+                    background: overdue ? 'var(--k-danger-bg)' : days <= 1 ? 'var(--k-caution-bg)' : 'transparent',
                   }}
                 >
                   <span style={{ fontSize: 14 }}>{overdue ? '⚠' : days <= 1 ? '🔔' : '💳'}</span>
                   <b>{row.contacts?.first} {row.contacts?.last}</b>
-                  <span style={{ color: overdue ? '#b23b2f' : days <= 1 ? '#c2760f' : '#9b9b9b', fontWeight: overdue || days <= 1 ? 600 : 400 }}>
+                  <span style={{ color: overdue ? 'var(--k-danger-text)' : days <= 1 ? 'var(--k-caution-text)' : 'var(--k-text-muted)', fontWeight: overdue || days <= 1 ? 600 : 400 }}>
                     {new Date(row.nextChargeDate).toLocaleDateString('he-IL')}
                     {overdue ? ` (עבר לפני ${Math.abs(days)} ימים)` : days === 0 ? ' (היום)' : ` (בעוד ${days} ימים)`}
                   </span>
