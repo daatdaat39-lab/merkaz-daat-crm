@@ -4,6 +4,7 @@ import { isMemberOfWorkspace } from '../../../lib/contactGuards';
 import { loadContactCardData } from '../../../contacts/[id]/loadContactCardData';
 import { getPipeline } from '../../../lib/pipelines';
 import { ensureLeadActionChip } from '../../../lib/aiActionChip';
+import { ensureLeadTimelineSummary } from '../../../lib/timelineSummary';
 import LeadWorkScreen from './LeadWorkScreen';
 
 // מסך-עבודה ייעודי לטיפול-בליד (שלב 3 ממודול מכירות/שירות) - route חדש
@@ -79,10 +80,25 @@ export default async function LeadWorkPage({ params }) {
     },
   });
 
+  // סיכום-ציר-זמן קצר ("מה קרה עד עכשיו") - קאש לפי מספר-הפריטים-הכולל
+  // (ר' lib/timelineSummary.js), לא ע"י stale/טריגר - אותם 7 מערכים
+  // שכבר נטענו-ממילא עבור UnifiedTimeline, בלי שאילתה נוספת.
+  const timelineItemCount = props.allInquiries.length + props.sentEmails.length + props.sentWhatsapp.length
+    + props.donationTransactions.length + props.callHistory.length + props.phoneCalls.length + props.meetings.length;
+  const timelineSummary = await ensureLeadTimelineSummary(supabase, {
+    id: departmentId, cachedSummary: department.aiTimelineSummary, cachedItemCount: department.aiTimelineSummaryItemCount,
+    currentItemCount: timelineItemCount, contactName: `${props.contact.first} ${props.contact.last}`,
+    communication: {
+      inquiries: department.inquiries, meetings: props.meetings, tasks: props.tasks,
+      sentEmails: props.sentEmails, sentWhatsapp: props.sentWhatsapp, callHistory: props.callHistory, phoneCalls: props.phoneCalls,
+    },
+  });
+
   return (
     <LeadWorkScreen
       departmentId={departmentId}
       aiActionText={aiActionText}
+      timelineSummary={timelineSummary}
       contact={{
         id: props.contact.id, first: props.contact.first, last: props.contact.last,
         phone: props.contact.phone, phone2: props.contact.phone2, email: props.contact.email,

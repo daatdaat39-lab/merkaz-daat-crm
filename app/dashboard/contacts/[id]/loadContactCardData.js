@@ -30,7 +30,7 @@ export async function loadContactCardData(contactId) {
   const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, tagRows, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }] = await Promise.all([
     supabase
       .from('contact_departments')
-      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, ai_action_summary, ai_action_summary_stale, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
+      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, ai_action_summary, ai_action_summary_stale, ai_timeline_summary, ai_timeline_summary_item_count, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
       .eq('contact_id', contact.id),
     supabase.from('workspaces').select('id, name').order('name'),
     supabase
@@ -222,6 +222,8 @@ export async function loadContactCardData(contactId) {
       openedProcess: row.opened_process !== false,
       aiActionSummary: row.ai_action_summary || null,
       aiActionSummaryStale: row.ai_action_summary_stale !== false,
+      aiTimelineSummary: row.ai_timeline_summary || null,
+      aiTimelineSummaryItemCount: row.ai_timeline_summary_item_count,
       inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
       campaignProcesses: campaignProcessesByWorkspace[row.workspace_id] || [],
       hiddenWidgetKeys: hiddenWidgetsByWorkspace[row.workspace_id] || [],

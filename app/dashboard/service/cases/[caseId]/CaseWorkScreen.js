@@ -20,7 +20,7 @@ const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted
 // לא lock_lead) ישירות על service_cases.id. אותה משמעת בדיוק כמו
 // LeadWorkScreen.js: heartbeat כל 5 דק', שחרור רק ב-beforeunload.
 export default function CaseWorkScreen({
-  caseId, aiActionText, caseData, contact, workspaceName, agents, kbItems, whatsappTemplates, emailTemplates = [], sendConnections = [], workspaceId, timelineProps,
+  caseId, aiActionText, timelineSummary, caseData, contact, workspaceName, agents, kbItems, whatsappTemplates, emailTemplates = [], sendConnections = [], workspaceId, timelineProps,
 }) {
   const [lockState, setLockState] = useState('checking');
   const [status, setStatus] = useState(caseData.status);
@@ -197,6 +197,12 @@ export default function CaseWorkScreen({
         center={
           <>
             <div style={{ ...sectionLabel, marginBottom: 10 }}>ציר זמן</div>
+            {timelineSummary && (
+              <div style={{ background: 'var(--k-bg)', border: '1px dashed var(--k-border)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--k-text-muted)', marginBottom: 4 }}>סיכום</div>
+                <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, lineHeight: 1.6, color: 'var(--k-text)' }}>{timelineSummary}</div>
+              </div>
+            )}
             <UnifiedTimeline {...timelineProps} />
           </>
         }

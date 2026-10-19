@@ -21,7 +21,7 @@ const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted
 // visibilitychange - ר' ההערה המתועדת ב-ActiveCallPanel.js על אותה
 // סכנה בדיוק: הסתרת-טאב כשהנציג עובר לחייג מהנייד האישי שלו).
 export default function LeadWorkScreen({
-  departmentId, aiActionText, contact, department, stageLabel, wonStageLabel, workspaceId, workspaceName,
+  departmentId, aiActionText, timelineSummary, contact, department, stageLabel, wonStageLabel, workspaceId, workspaceName,
   courses, playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps,
 }) {
   const [lockState, setLockState] = useState('checking'); // checking | locked | denied
@@ -179,6 +179,12 @@ export default function LeadWorkScreen({
         center={
           <>
             <div style={{ ...sectionLabel, marginBottom: 10 }}>ציר זמן</div>
+            {timelineSummary && (
+              <div style={{ background: 'var(--k-bg)', border: '1px dashed var(--k-border)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--k-text-muted)', marginBottom: 4 }}>סיכום</div>
+                <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, lineHeight: 1.6, color: 'var(--k-text)' }}>{timelineSummary}</div>
+              </div>
+            )}
             <UnifiedTimeline {...timelineProps} />
           </>
         }

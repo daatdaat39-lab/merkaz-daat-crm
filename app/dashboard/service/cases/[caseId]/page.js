@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { isMemberOfWorkspace } from '../../../lib/contactGuards';
 import { loadContactCardData } from '../../../contacts/[id]/loadContactCardData';
 import { ensureCaseActionChip } from '../../../lib/aiActionChip';
+import { ensureCaseTimelineSummary } from '../../../lib/timelineSummary';
 import CaseWorkScreen from './CaseWorkScreen';
 
 // מסך-עבודה לקריאת-שירות בודדת (שלב 4) - אותו שלד תלת-עמודות כמו מסך-
@@ -15,7 +16,7 @@ export default async function CaseWorkPage({ params }) {
 
   const { data: caseRow } = await supabase
     .from('service_cases')
-    .select('id, case_number, contact_id, workspace_id, course_id, subject, status, severity, sla_due_at, assigned_to, created_at, ai_action_summary, ai_action_summary_stale, workspaces:workspace_id (name)')
+    .select('id, case_number, contact_id, workspace_id, course_id, subject, status, severity, sla_due_at, assigned_to, created_at, ai_action_summary, ai_action_summary_stale, ai_timeline_summary, ai_timeline_summary_item_count, workspaces:workspace_id (name)')
     .eq('id', caseId)
     .maybeSingle();
 
@@ -57,10 +58,23 @@ export default async function CaseWorkPage({ params }) {
     },
   });
 
+  // סיכום-ציר-זמן קצר - אותו מנגנון כמו בליד, ר' lib/timelineSummary.js.
+  const timelineItemCount = props.allInquiries.length + props.sentEmails.length + props.sentWhatsapp.length
+    + props.donationTransactions.length + props.callHistory.length + props.phoneCalls.length + props.meetings.length;
+  const timelineSummary = await ensureCaseTimelineSummary(supabase, {
+    id: caseId, cachedSummary: caseRow.ai_timeline_summary, cachedItemCount: caseRow.ai_timeline_summary_item_count,
+    currentItemCount: timelineItemCount, contactName: `${props.contact.first} ${props.contact.last}`,
+    communication: {
+      inquiries: props.allInquiries, meetings: props.meetings, tasks: props.tasks,
+      sentEmails: props.sentEmails, sentWhatsapp: props.sentWhatsapp, callHistory: props.callHistory, phoneCalls: props.phoneCalls,
+    },
+  });
+
   return (
     <CaseWorkScreen
       caseId={caseId}
       aiActionText={aiActionText}
+      timelineSummary={timelineSummary}
       caseData={{
         caseNumber: caseRow.case_number, subject: caseRow.subject, status: caseRow.status,
         severity: caseRow.severity, slaDueAt: caseRow.sla_due_at, assignedTo: caseRow.assigned_to,
