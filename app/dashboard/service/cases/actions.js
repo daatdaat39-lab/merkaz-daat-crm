@@ -36,11 +36,11 @@ async function requireCaseAccess(supabase, userId, caseId) {
   return { row };
 }
 
-export async function updateCaseStatus(caseId, status) {
+export async function updateCaseStatus(caseId, status, closedReason) {
   const { supabase, user } = await requireUser();
   const { error } = await requireCaseAccess(supabase, user.id, caseId);
   if (error) return { error };
-  const update = { status };
+  const update = { status, closed_reason: status === 'closed' ? (closedReason || null) : null };
   if (status === 'closed') update.closed_at = new Date().toISOString();
   if (status !== 'closed') update.closed_at = null;
   const { error: updateError } = await supabase.from('service_cases').update(update).eq('id', caseId);

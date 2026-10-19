@@ -26,6 +26,18 @@ async function ensureActionChip(supabase, { table, id, stale, cachedSummary, con
       ai_action_summary_updated_at: new Date().toISOString(),
       ai_action_summary_stale: false,
     }).eq('id', id);
+
+    // אירועי "לא נמצא כלל מתאים" - תיעוד-קל-משקל ל-ai_unmatched_events,
+    // לניתוח-תבניות מאוחר יותר (settings/reference-content, "נתח כללים
+    // חדשים מה-AI"). fire-and-forget מכוון: כישלון כאן לעולם לא אמור
+    // לחסום את כתיבת ה-actionText שכבר הצליחה למעלה.
+    if (result.noMatchingRule) {
+      supabase.from('ai_unmatched_events').insert({
+        source_table: table, source_id: id, contact_name: contactName,
+        course_id: courseId || null, action_text: result.actionText,
+      }).then(() => {}, () => {});
+    }
+
     return result.actionText;
   } catch {
     return cachedSummary;

@@ -24,7 +24,7 @@ export default async function ReferenceContentPage() {
   }
 
   const [{ data: items }, { data: courses }] = await Promise.all([
-    supabase.from('reference_content').select('id, kind, course_id, tag, title, body, sort_order, is_active, trigger_condition, suggested_action, auto_suggested').order('kind').order('sort_order'),
+    supabase.from('reference_content').select('id, kind, course_id, tag, title, body, sort_order, is_active, trigger_condition, suggested_action, auto_suggested, approved, rejected').order('kind').order('sort_order'),
     supabase.from('courses').select('id, name').eq('is_active', true).order('sort_order').order('name'),
   ]);
 

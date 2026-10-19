@@ -9,6 +9,10 @@ import ContactQuickActions from '../../../components/ContactQuickActions';
 import FillSection from '../../../components/FillSection';
 import { PersonIcon, SparkleIcon, CheckIcon, TransferIcon } from '../../../components/icons';
 import { updateCaseStatus, updateCaseSeverity, assignCaseAgent } from '../actions';
+
+// נופל-חזרה אם לא הוגדרה רשימה דינמית (settings/picklists, list_key='case_close_reason') -
+// אותו עיקרון כמו CLOSE_REASONS של לידים ב-components/pipelines.js, רק סט-ברירת-מחדל שונה.
+const CASE_CLOSE_REASONS_FALLBACK = ['נפתר', 'לא ניתן לשחזר את הבעיה', 'הלקוח לא הגיב', 'כפול', 'אחר'];
 import { lockCase, heartbeatCaseLock, releaseCaseLock } from './caseLockActions';
 import { SEVERITY_LABELS, STATUS_LABELS, slaStatus } from '../../../lib/serviceSla';
 
@@ -20,7 +24,7 @@ const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted
 // לא lock_lead) ישירות על service_cases.id. אותה משמעת בדיוק כמו
 // LeadWorkScreen.js: heartbeat כל 5 דק', שחרור רק ב-beforeunload.
 export default function CaseWorkScreen({
-  caseId, aiActionText, timelineSummary, caseData, contact, workspaceName, agents, kbItems, whatsappTemplates, emailTemplates = [], sendConnections = [], workspaceId, timelineProps,
+  caseId, aiActionText, timelineSummary, caseData, contact, workspaceName, agents, kbItems, whatsappTemplates, emailTemplates = [], sendConnections = [], workspaceId, timelineProps, closeReasons,
 }) {
   const [lockState, setLockState] = useState('checking');
   const [status, setStatus] = useState(caseData.status);
@@ -29,6 +33,9 @@ export default function CaseWorkScreen({
   const [tagFilter, setTagFilter] = useState('');
   const [transferring, setTransferring] = useState(false);
   const [transferTo, setTransferTo] = useState('');
+  const reasons = closeReasons?.length ? closeReasons : CASE_CLOSE_REASONS_FALLBACK;
+  const [closing, setClosing] = useState(false);
+  const [closeReason, setCloseReason] = useState(reasons[0]);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -82,8 +89,13 @@ export default function CaseWorkScreen({
     setAssignedTo(value);
     startTransition(async () => { await assignCaseAgent(caseId, value || null); router.refresh(); });
   }
-  function handleClose() {
-    startTransition(async () => { await updateCaseStatus(caseId, 'closed'); setStatus('closed'); router.refresh(); });
+  function handleCloseConfirm() {
+    startTransition(async () => {
+      await updateCaseStatus(caseId, 'closed', closeReason);
+      setStatus('closed');
+      setClosing(false);
+      router.refresh();
+    });
   }
   function handleTransferConfirm() {
     startTransition(async () => {
@@ -236,16 +248,16 @@ export default function CaseWorkScreen({
       <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 20px 30px' }}>
         {status === 'closed' ? (
           <div style={{ background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', borderRadius: 12, padding: '14px 18px', fontWeight: 600, marginTop: 20 }}>
-            ✓ הקריאה סגורה.
+            ✓ הקריאה סגורה.{caseData.closedReason ? ` סיבה: ${caseData.closedReason}` : ''}
           </div>
         ) : (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--k-border)', justifyContent: 'flex-end' }}>
               <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginInlineEnd: 'auto' }}>
-                "בטיפול"/"ממתין ללקוח" נבחרים מהתפריט בראש; "סגירה" ו"העברה" כאן הן פעולות סופיות.
+                "בטיפול"/"ממתין ללקוח" נבחרים מהתפריט בראש; "סגירה" ו"שינוי נציג מטפל" כאן הן פעולות נפרדות ובולטות.
               </span>
               <button
-                type="button" onClick={handleClose} disabled={isPending}
+                type="button" onClick={() => setClosing((v) => !v)}
                 style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: 'none', borderRadius: 100, padding: '8px 18px', cursor: 'pointer', background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', display: 'flex', alignItems: 'center', gap: 6 }}
               >
                 <CheckIcon size={13} /> סגירת קריאה
@@ -254,20 +266,29 @@ export default function CaseWorkScreen({
                 type="button" onClick={() => setTransferring((v) => !v)}
                 style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 18px', cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}
               >
-                <TransferIcon size={13} /> העברה
+                <TransferIcon size={13} /> שינוי נציג מטפל
               </button>
             </div>
+            {closing && (
+              <div style={{ border: '1px dashed var(--k-border)', borderRadius: 10, padding: '10px 14px', marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--k-surface)' }}>
+                <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>סיבת-סגירה:</span>
+                <select value={closeReason} onChange={(e) => setCloseReason(e.target.value)} style={{ fontSize: 12.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 12px', background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+                  {reasons.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <button type="button" onClick={handleCloseConfirm} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, background: 'var(--k-ok-text)', color: '#fff', border: 'none', borderRadius: 100, padding: '5px 14px', cursor: 'pointer' }}>
+                  אישור סגירה
+                </button>
+              </div>
+            )}
             {transferring && (
               <div style={{ border: '1px dashed var(--k-border)', borderRadius: 10, padding: '10px 14px', marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--k-surface)' }}>
-                <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>
-                  העברה = קביעת נציג-מטפל אחר (אין עדיין נתיב להעברה בין-מחלקתית):
-                </span>
+                <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>נציג-מטפל חדש:</span>
                 <select value={transferTo} onChange={(e) => setTransferTo(e.target.value)} style={{ fontSize: 12.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 12px', background: 'var(--k-bg)', color: 'var(--k-text)' }}>
                   <option value="">ללא נציג</option>
                   {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
                 <button type="button" onClick={handleTransferConfirm} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, background: 'var(--k-text)', color: 'var(--k-bg)', border: 'none', borderRadius: 100, padding: '5px 14px', cursor: 'pointer' }}>
-                  אישור העברה
+                  אישור שינוי
                 </button>
               </div>
             )}

@@ -26,8 +26,9 @@ export default async function PicklistsPage() {
 
   const { data: donationsWs } = await supabase.from('workspaces').select('id').eq('name', 'תרומות').single();
 
-  const [closeReasons, campaignCategories, mappingDecisions] = await Promise.all([
+  const [closeReasons, caseCloseReasons, campaignCategories, mappingDecisions] = await Promise.all([
     getPicklistValues(supabase, 'close_reason', null),
+    getPicklistValues(supabase, 'case_close_reason', null),
     donationsWs ? getPicklistValues(supabase, 'campaign_category', donationsWs.id) : [],
     donationsWs ? getPicklistValues(supabase, 'mapping_decision', donationsWs.id) : [],
   ]);
@@ -41,6 +42,7 @@ export default async function PicklistsPage() {
       </p>
       <PicklistsClient
         closeReasons={closeReasons}
+        caseCloseReasons={caseCloseReasons}
         campaignCategories={campaignCategories}
         mappingDecisions={mappingDecisions}
         donationsWorkspaceId={donationsWs?.id || null}

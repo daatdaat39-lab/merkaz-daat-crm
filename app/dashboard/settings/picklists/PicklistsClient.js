@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { addPicklistValue, removePicklistValue } from './actions';
 
-export default function PicklistsClient({ closeReasons, campaignCategories, mappingDecisions, donationsWorkspaceId }) {
+export default function PicklistsClient({ closeReasons, caseCloseReasons, campaignCategories, mappingDecisions, donationsWorkspaceId }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <PicklistSection
@@ -13,6 +13,13 @@ export default function PicklistsClient({ closeReasons, campaignCategories, mapp
         listKey="close_reason"
         workspaceId={null}
         initialValues={closeReasons}
+      />
+      <PicklistSection
+        title="סיבות סגירה לקריאת-שירות"
+        subtitle="משותף לכל המחלקות - מוצג בסגירת קריאת-שירות במסך-הטיפול"
+        listKey="case_close_reason"
+        workspaceId={null}
+        initialValues={caseCloseReasons}
       />
       <PicklistSection
         title="קטגוריות קמפיין"
@@ -67,7 +74,7 @@ function PicklistSection({ title, subtitle, listKey, workspaceId, initialValues 
       <div style={{ fontSize: 14, fontWeight: 600 }}>{title}</div>
       <div style={{ fontSize: 11.5, color: 'var(--text-secondary, #9b9b9b)', marginBottom: 12 }}>{subtitle}</div>
 
-      {!workspaceId && listKey !== 'close_reason' && (
+      {!workspaceId && listKey !== 'close_reason' && listKey !== 'case_close_reason' && (
         <div style={{ fontSize: 12.5, color: '#9b9b9b' }}>לא נמצאה מחלקת תרומות - לא ניתן לערוך.</div>
       )}
 

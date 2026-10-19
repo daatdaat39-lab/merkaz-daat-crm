@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { addReferenceContent, updateReferenceContent, removeReferenceContent } from './actions';
+import { addReferenceContent, updateReferenceContent, removeReferenceContent, analyzeRuleProposals } from './actions';
 
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 10px', fontSize: 13 };
 
@@ -45,8 +45,29 @@ function KindSection({ kind, items: initialItems, courses }) {
   const [tag, setTag] = useState('');
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
+  const [analyzing, startAnalyzing] = useTransition();
+  const [analyzeMsg, setAnalyzeMsg] = useState('');
   const router = useRouter();
   const isRule = kind === 'rule';
+
+  function handleAnalyze() {
+    setAnalyzeMsg('');
+    startAnalyzing(async () => {
+      const res = await analyzeRuleProposals();
+      if (res?.error) { setAnalyzeMsg(res.error); return; }
+      setAnalyzeMsg(res.message || `נוספו ${res.proposed} הצעות חדשות`);
+      router.refresh();
+    });
+  }
+
+  function handleReviewProposal(item, approve) {
+    startTransition(async () => {
+      const res = await updateReferenceContent(item.id, approve ? { approved: true } : { rejected: true });
+      if (res?.error) { setError(res.error); return; }
+      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, approved: approve, rejected: !approve } : i)));
+      router.refresh();
+    });
+  }
 
   function resetForm() {
     setTitle(''); setBody(''); setTriggerCondition(''); setSuggestedAction(''); setCourseId(''); setTag(''); setAdding(false);
@@ -84,15 +105,61 @@ function KindSection({ kind, items: initialItems, courses }) {
     ? !isPending && title.trim() && triggerCondition.trim() && suggestedAction.trim()
     : !isPending && title.trim() && body.trim();
 
+  // הצעות-ממתינות (auto_suggested, עדיין לא אושרו/נדחו ע"י מנהל) מוצגות
+  // בנפרד מהכללים הפעילים - הצעה שנדחתה (rejected) נשארת מסומנת ב-DB
+  // (לא נמחקת, כדי שלא תוצע שוב) אבל כבר לא מוצגת כאן בכלל.
+  const pendingProposals = isRule ? items.filter((i) => !i.approved && !i.rejected) : [];
+  const visibleItems = isRule ? items.filter((i) => i.approved && !i.rejected) : items;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {error && <div style={{ color: '#b23b2f', fontSize: 12 }}>{error}</div>}
 
-      {items.length === 0 && !adding && (
+      {isRule && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <button type="button" onClick={handleAnalyze} disabled={analyzing} style={{ ...inputStyle, cursor: 'pointer' }}>
+            🔍 {analyzing ? 'מנתח...' : 'נתח כללים חדשים מה-AI'}
+          </button>
+          {analyzeMsg && <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{analyzeMsg}</span>}
+        </div>
+      )}
+
+      {pendingProposals.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 4 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#7c3aed', textTransform: 'uppercase' }}>הצעות ממתינות לאישור ({pendingProposals.length})</div>
+          {pendingProposals.map((item) => (
+            <div key={item.id} style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '12px 16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 600 }}>
+                  {item.title}
+                  <span style={{ marginInlineStart: 8, fontSize: 10, fontWeight: 600, color: '#7c3aed', background: '#fff', borderRadius: 100, padding: '1px 8px' }}>הוצע ע"י AI · ממתין לאישור</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
+                  <button type="button" onClick={() => handleReviewProposal(item, true)} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 100, padding: '4px 12px', fontSize: 11.5, cursor: 'pointer' }}>
+                    ✓ אישור
+                  </button>
+                  <button type="button" onClick={() => handleReviewProposal(item, false)} disabled={isPending} style={{ background: 'none', border: '1px solid var(--border, #e5e5e5)', borderRadius: 100, padding: '4px 12px', fontSize: 11.5, cursor: 'pointer' }}>
+                    דחייה
+                  </button>
+                </div>
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 6 }}>
+                <div><strong>תנאי:</strong> {item.trigger_condition}</div>
+                <div style={{ marginTop: 3 }}><strong>פעולה:</strong> {item.suggested_action}</div>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted, #9b9b9b)', marginTop: 8 }}>
+                {courses.find((c) => c.id === item.course_id)?.name || 'כל הקורסים'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {visibleItems.length === 0 && !adding && (
         <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>אין עדיין תוכן מהסוג הזה.</div>
       )}
 
-      {items.map((item) => (
+      {visibleItems.map((item) => (
         <div key={item.id} style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '12px 16px', opacity: item.is_active ? 1 : 0.5 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
             <div style={{ fontSize: 13.5, fontWeight: 600 }}>
