@@ -10,7 +10,7 @@ import TagFilterMultiSelect from '../components/TagFilterMultiSelect';
 import { contactMatchesAdvancedFilter } from '../components/advancedFilter';
 import { addContactTag } from './actions';
 
-const inputStyle = { border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5 };
+const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
 
 // רשימת אנשי קשר עם סינון/חיפוש/מיון בצד הלקוח - אותו דפוס בדיוק כמו
 // בעמוד הלידים (LeadsBoard.js), כדי שיהיה נוח לאתר איש קשר ספציפי גם
@@ -103,7 +103,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
 
   return (
     <div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 'var(--radius-lg)', padding: 14 }}>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -123,7 +123,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
         {(activeFilterCount > 0 || search) && (
           <button
             onClick={() => { setSearch(''); setTagFilters([]); setDeptFilter(''); }}
-            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)' }}
+            style={{ ...inputStyle, cursor: 'pointer', color: 'var(--k-text-muted)' }}
           >
             ניקוי סינון
           </button>
@@ -138,8 +138,8 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
       />
 
       {activeExtraFields.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
-          <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>סינון לפי שדות {deptFilter}:</span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 'var(--radius-lg)', padding: 12 }}>
+          <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>סינון לפי שדות {deptFilter}:</span>
           {activeExtraFields.map((f) => (
             f.type === 'select' ? (
               <select key={f.key} value={fieldFilters[f.key] || ''} onChange={(e) => setFieldFilter(f.key, e.target.value)} style={inputStyle}>
@@ -159,7 +159,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
         </div>
       )}
 
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginBottom: 12 }}>
         {filtered.length !== contacts.length
           ? <>מציג {visible.length} מתוך {filtered.length} תוצאות (מסונן מתוך {contacts.length} אנשי קשר)</>
           : <>מציג {visible.length} מתוך {contacts.length} אנשי קשר</>}
@@ -167,9 +167,9 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
 
       <BulkActionBar selected={selected} setSelected={setSelected} router={router} />
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden' }}>
         <thead>
-          <tr style={{ background: 'var(--bg-secondary)' }}>
+          <tr style={{ background: 'var(--k-bg)' }}>
             <th style={{ padding: '10px 8px', textAlign: 'center' }}>
               <input
                 type="checkbox"
@@ -186,7 +186,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
               />
             </th>
             {['שם', 'מחלקות', 'טלפון', 'מייל', 'תחום', 'מקור', 'תגיות', 'פעולות מהירות'].map((h) => (
-              <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>
+              <th key={h} style={{ textAlign: 'right', fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>
                 {h}
               </th>
             ))}
@@ -194,26 +194,26 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
         </thead>
         <tbody>
           {visible.map((c) => (
-            <tr key={c.id} style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
+            <tr key={c.id} style={{ borderBottom: '1px solid var(--k-border)' }}>
               <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                 <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} />
               </td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
-                <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
+                <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit' }}>
                   <span style={{
-                    width: 28, height: 28, background: 'var(--bg-tertiary)', border: '1px solid var(--border)', borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0,
+                    width: 28, height: 28, background: 'var(--k-pill-bg)', borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: 'var(--k-pill-text)', flexShrink: 0,
                   }}>
                     {initials(c.first, c.last)}
                   </span>
-                  {c.first} {c.last}
+                  <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 15, color: 'var(--k-text)' }}>{c.first} {c.last}</span>
                 </Link>
               </td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {c.departments.map((d) => (
                     <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{d.name}</span>
+                      <span style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>{d.name}</span>
                       {d.openedProcess ? (
                         <StageBadge stage={d.stage} labels={stageLabels} colors={stageColors} />
                       ) : (
@@ -223,20 +223,20 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
                         // מוצג (מידע שימושי), רק בלי הצבע/הנקודה שמרמזים "פעיל".
                         <span
                           title="שיוך היסטורי - לא נפתח לו תהליך/ליד"
-                          style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-secondary, #f4f4f5)', padding: '3px 9px', borderRadius: 4 }}
+                          style={{ fontSize: 11, color: 'var(--k-text-muted)', background: 'var(--k-pill-bg)', padding: '3px 9px', borderRadius: 100 }}
                         >
                           {stageLabels[d.stage] || d.stage} · היסטורי
                         </span>
                       )}
                     </div>
                   ))}
-                  {c.departments.length === 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>—</span>}
+                  {c.departments.length === 0 && <span style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>—</span>}
                 </div>
               </td>
-              <td style={{ padding: '12px 16px', fontSize: 13 }}>{c.phone || '—'}</td>
-              <td style={{ padding: '12px 16px', fontSize: 13 }}>{c.email || '—'}</td>
-              <td style={{ padding: '12px 16px', fontSize: 13 }}>{c.dept || '—'}</td>
-              <td style={{ padding: '12px 16px', fontSize: 13 }}>{c.source || '—'}</td>
+              <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--k-text)' }}>{c.phone || '—'}</td>
+              <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--k-text)' }}>{c.email || '—'}</td>
+              <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--k-text)' }}>{c.dept || '—'}</td>
+              <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--k-text)' }}>{c.source || '—'}</td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
                 {(c.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
                 {(!c.tags || c.tags.length === 0) && '—'}
@@ -253,7 +253,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
             </tr>
           ))}
           {filtered.length === 0 && (
-            <tr><td colSpan={9} style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>אין אנשי קשר התואמים את הסינון</td></tr>
+            <tr><td colSpan={9} style={{ padding: '12px 16px', fontSize: 13, color: 'var(--k-text-muted)' }}>אין אנשי קשר התואמים את הסינון</td></tr>
           )}
         </tbody>
       </table>
@@ -263,7 +263,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
           <button
             type="button"
             onClick={() => setDisplayLimit((n) => n + PAGE_SIZE)}
-            style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '8px 20px', fontSize: 13, background: 'var(--bg)', cursor: 'pointer' }}
+            style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 20px', fontSize: 13, background: 'var(--k-surface)', color: 'var(--k-text)', cursor: 'pointer' }}
           >
             טען עוד ({filtered.length - visible.length} נוספים)
           </button>
@@ -297,9 +297,9 @@ function BulkActionBar({ selected, setSelected, router }) {
   return (
     <div style={{
       display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 16,
-      background: '#eef2f7', border: '1px solid #c9d6e3', borderRadius: 8, padding: '10px 14px',
+      background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '10px 14px',
     }}>
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: '#3b5878' }}>נבחרו {selected.size} אנשי קשר</span>
+      <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 13, color: 'var(--k-text)' }}>נבחרו {selected.size} אנשי קשר</span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <input
@@ -308,7 +308,7 @@ function BulkActionBar({ selected, setSelected, router }) {
           placeholder="הוספת תגית לכולם..."
           style={{ ...inputStyle, fontSize: 12 }}
         />
-        <button type="button" onClick={applyTag} disabled={isPending || !tag.trim()} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+        <button type="button" onClick={applyTag} disabled={isPending || !tag.trim()} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
           הוספה
         </button>
       </div>
@@ -316,7 +316,7 @@ function BulkActionBar({ selected, setSelected, router }) {
       <button
         type="button"
         onClick={() => setSelected(new Set())}
-        style={{ background: 'none', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878', marginInlineStart: 'auto' }}
+        style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--k-text-muted)', marginInlineStart: 'auto' }}
       >
         ביטול בחירה
       </button>

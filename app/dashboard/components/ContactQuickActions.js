@@ -4,10 +4,11 @@ import { useState } from 'react';
 import EmailComposeModal from '../contacts/[id]/EmailComposeModal';
 import WhatsAppSendModal from '../contacts/[id]/WhatsAppSendModal';
 import NotConnectedButton from './NotConnectedButton';
+import { PhoneIcon, WhatsAppIcon, MailIcon } from './icons';
 
 const iconBtnStyle = {
   width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', cursor: 'pointer', fontSize: 14,
+  border: '1px solid var(--k-border)', borderRadius: 100, background: 'var(--k-surface)', color: 'var(--k-text)', cursor: 'pointer',
 };
 
 // כפתורי פעולה מהירה (חיוג/וואטסאפ/מייל) לשימוש בכל טבלת אנשי קשר/לידים
@@ -31,25 +32,25 @@ export default function ContactQuickActions({ contact, departments = [], sendCon
   return (
     <div style={{ display: 'flex', gap: 6 }}>
       {canCall ? (
-        <a href={`tel:${telDigits}`} title="חיוג" style={{ ...iconBtnStyle, textDecoration: 'none', color: 'inherit' }}>📞</a>
+        <a href={`tel:${telDigits}`} title="חיוג" style={{ ...iconBtnStyle, textDecoration: 'none' }}><PhoneIcon size={14} /></a>
       ) : (
-        <NotConnectedButton icon="📞" label="חיוג" variant="icon" message={!contact.phone ? 'לאיש הקשר אין טלפון שמור' : 'איש הקשר מוקפא'} />
+        <NotConnectedButton icon={<PhoneIcon size={14} />} label="חיוג" variant="icon" message={!contact.phone ? 'לאיש הקשר אין טלפון שמור' : 'איש הקשר מוקפא'} />
       )}
 
       {canWhatsapp ? (
-        <button onClick={() => setModal('whatsapp')} title="וואטסאפ" style={iconBtnStyle}>💬</button>
+        <button onClick={() => setModal('whatsapp')} title="וואטסאפ" style={iconBtnStyle}><WhatsAppIcon size={14} /></button>
       ) : (
         <NotConnectedButton
-          icon="💬" label="וואטסאפ" variant="icon"
+          icon={<WhatsAppIcon size={14} />} label="וואטסאפ" variant="icon"
           message={!contact.phone ? 'לאיש הקשר אין טלפון שמור' : !whatsappDept ? 'איש הקשר לא משויך למחלקה' : 'איש הקשר מוקפא'}
         />
       )}
 
       {canEmail ? (
-        <button onClick={() => setModal('email')} title="מייל" style={iconBtnStyle}>✉️</button>
+        <button onClick={() => setModal('email')} title="מייל" style={iconBtnStyle}><MailIcon size={14} /></button>
       ) : (
         <NotConnectedButton
-          icon="✉️" label="מייל" variant="icon"
+          icon={<MailIcon size={14} />} label="מייל" variant="icon"
           message={!contact.email ? 'לאיש הקשר אין מייל שמור' : !emailDept ? 'אין תיבת שליחה מחוברת למחלקות של איש הקשר' : 'איש הקשר מוקפא'}
         />
       )}

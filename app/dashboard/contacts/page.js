@@ -57,19 +57,19 @@ export default async function ContactsPage() {
   const extraFieldsByDept = await getAllExtraFields(supabase);
 
   return (
-    <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px' }}>
+    <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px', background: 'var(--k-bg)', minHeight: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-heading)', margin: 0, fontSize: 20 }}>אנשי קשר</h1>
-          <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: 12.5 }}>
+          <h1 style={{ fontFamily: 'var(--k-font-display)', margin: 0, fontSize: 30, color: 'var(--k-text)' }}>אנשי קשר</h1>
+          <p style={{ margin: '6px 0 0', color: 'var(--k-text-muted)', fontSize: 12.5 }}>
             {allContacts.length} אנשי קשר (כל המחלקות)
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <Link href="/dashboard/settings/import" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6,
-            fontSize: 13, fontWeight: 500, background: 'var(--bg)', color: 'var(--text-secondary)',
-            border: '1px solid var(--border)', textDecoration: 'none',
+            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 100,
+            fontSize: 13, background: 'var(--k-surface)', color: 'var(--k-text)',
+            border: '1px solid var(--k-border)', textDecoration: 'none',
           }}>
             📥 ייבוא נתונים
           </Link>
