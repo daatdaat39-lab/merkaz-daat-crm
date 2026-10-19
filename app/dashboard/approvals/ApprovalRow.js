@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 
 const STATUS_LABELS = { pending: 'ממתין', approved: 'אושר', needs_info: 'צריך פרטים נוספים' };
 const STATUS_COLORS = {
-  pending: { bg: '#fffbeb', color: '#d97706' },
-  approved: { bg: '#f0fdf4', color: '#16a34a' },
-  needs_info: { bg: '#fef2f2', color: '#dc2626' },
+  pending: { bg: 'var(--k-caution-bg)', color: 'var(--k-caution-text)' },
+  approved: { bg: 'var(--k-ok-bg)', color: 'var(--k-ok-text)' },
+  needs_info: { bg: 'var(--k-danger-bg)', color: 'var(--k-danger-text)' },
 };
 
 function subjectLabel(r) {
@@ -60,17 +60,17 @@ export default function ApprovalRow({ r, nameById, mode, respondAction, resendAc
   }
 
   return (
-    <div style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px' }}>
+    <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, padding: '10px 14px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 500 }}>{subjectLabel(r)}</div>
-          <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: 'var(--k-text)' }}>{subjectLabel(r)}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginTop: 2 }}>
             {mode === 'incoming' ? `מאת: ${nameById[r.requested_by] || 'משתמש'}` : `אל: ${nameById[r.requested_to] || 'משתמש'}`}
             {' · '}{new Date(r.created_at).toLocaleDateString('he-IL')}
           </div>
-          {r.note && <div style={{ fontSize: 12.5, marginTop: 6 }}>{r.note}</div>}
+          {r.note && <div style={{ fontSize: 12.5, marginTop: 6, color: 'var(--k-text)' }}>{r.note}</div>}
           {r.status === 'needs_info' && r.response_note && (
-            <div style={{ fontSize: 12, marginTop: 6, color: '#dc2626' }}>💬 {r.response_note}</div>
+            <div style={{ fontSize: 12, marginTop: 6, color: 'var(--k-danger-text)' }}>💬 {r.response_note}</div>
           )}
         </div>
         <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 999, background: colors.bg, color: colors.color, whiteSpace: 'nowrap' }}>
@@ -78,49 +78,49 @@ export default function ApprovalRow({ r, nameById, mode, respondAction, resendAc
         </span>
       </div>
 
-      {error && <div style={{ color: 'var(--danger, #a3392f)', fontSize: 12, marginTop: 8 }}>שגיאה: {error}</div>}
+      {error && <div style={{ color: 'var(--k-danger-text)', fontSize: 12, marginTop: 8 }}>שגיאה: {error}</div>}
 
       {mode === 'incoming' && r.status === 'pending' && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f0f0f0' }}>
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--k-border)' }}>
           {responding ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <input
                 value={responseNote}
                 onChange={(e) => setResponseNote(e.target.value)}
                 placeholder="מה צריך לעדכן?"
-                style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
+                style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}
               />
               <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={handleNeedsInfo} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>שליחה</button>
-                <button onClick={() => setResponding(false)} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>ביטול</button>
+                <button onClick={handleNeedsInfo} disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>שליחה</button>
+                <button onClick={() => setResponding(false)} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>ביטול</button>
               </div>
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 6 }}>
-              <button onClick={handleApprove} disabled={isPending} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>✓ אישור</button>
-              <button onClick={() => setResponding(true)} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>צריך פרטים נוספים</button>
+              <button onClick={handleApprove} disabled={isPending} style={{ background: 'var(--k-ok-text)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>✓ אישור</button>
+              <button onClick={() => setResponding(true)} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>צריך פרטים נוספים</button>
             </div>
           )}
         </div>
       )}
 
       {mode === 'outgoing' && r.status === 'needs_info' && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f0f0f0' }}>
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--k-border)' }}>
           {resending ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <input
                 value={resendNote}
                 onChange={(e) => setResendNote(e.target.value)}
                 placeholder="עדכון לבקשה..."
-                style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
+                style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}
               />
               <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={handleResend} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>שליחה מחדש</button>
-                <button onClick={() => setResending(false)} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>ביטול</button>
+                <button onClick={handleResend} disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>שליחה מחדש</button>
+                <button onClick={() => setResending(false)} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>ביטול</button>
               </div>
             </div>
           ) : (
-            <button onClick={() => setResending(true)} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
+            <button onClick={() => setResending(true)} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>
               עדכון ושליחה מחדש
             </button>
           )}

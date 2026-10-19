@@ -38,24 +38,24 @@ export default async function ApprovalsPage() {
   const otherIncoming = (incoming || []).filter((r) => r.status !== 'pending');
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px' }}>
-      <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>בקשות אישור</h1>
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px', background: 'var(--k-bg)', minHeight: '100%' }}>
+      <h1 style={{ fontFamily: 'var(--k-font-display)', margin: '0 0 20px', fontSize: 30, color: 'var(--k-text)' }}>בקשות אישור</h1>
 
-      <div style={{ fontSize: 12, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
         אוטומציות ממתינות לאישור ({pendingAutomations.length})
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-        {pendingAutomations.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין אוטומציות ממתינות</div>}
+        {pendingAutomations.length === 0 && <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין אוטומציות ממתינות</div>}
         {pendingAutomations.map((item) => (
           <PendingAutomationRow key={item.id} item={item} />
         ))}
       </div>
 
-      <div style={{ fontSize: 12, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
         ממתינות לאישור שלי ({pendingIncoming.length})
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
-        {pendingIncoming.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין בקשות ממתינות</div>}
+        {pendingIncoming.length === 0 && <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין בקשות ממתינות</div>}
         {pendingIncoming.map((r) => (
           <ApprovalRow key={r.id} r={r} nameById={nameById} mode="incoming" respondAction={respondApprovalRequest} resendAction={resendApprovalRequest} />
         ))}
@@ -63,7 +63,7 @@ export default async function ApprovalsPage() {
 
       {otherIncoming.length > 0 && (
         <>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
             טופלו על ידי ({otherIncoming.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
@@ -74,11 +74,11 @@ export default async function ApprovalsPage() {
         </>
       )}
 
-      <div style={{ fontSize: 12, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
         הבקשות ששלחתי ({(outgoing || []).length})
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {(outgoing || []).length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>לא שלחת עדיין בקשות אישור</div>}
+        {(outgoing || []).length === 0 && <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>לא שלחת עדיין בקשות אישור</div>}
         {(outgoing || []).map((r) => (
           <ApprovalRow key={r.id} r={r} nameById={nameById} mode="outgoing" respondAction={respondApprovalRequest} resendAction={resendApprovalRequest} />
         ))}
