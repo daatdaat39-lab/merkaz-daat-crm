@@ -69,3 +69,16 @@ export async function assignCaseAgent(caseId, agentId) {
   if (updateError) return { error: updateError.message };
   return { success: true };
 }
+
+// הערה/סיכום-שיחה על קריאת-שירות - נשמרת כפריט נפרד ב-service_case_notes
+// (לא lead_inquiries - שייכת למחלקה, לא לקריאה), מוצגת בציר-הזמן של המסך.
+export async function addCaseNote(caseId, note) {
+  const { supabase, user } = await requireUser();
+  const text = (note || '').trim();
+  if (!text) return { error: 'יש למלא סיכום שיחה' };
+  const { error } = await requireCaseAccess(supabase, user.id, caseId);
+  if (error) return { error };
+  const { error: insertError } = await supabase.from('service_case_notes').insert({ case_id: caseId, note: text, created_by: user.id });
+  if (insertError) return { error: insertError.message };
+  return { success: true };
+}

@@ -7,6 +7,7 @@ import ThreeColumnScreen from '../../../components/ThreeColumnScreen';
 import UnifiedTimeline from '../../../components/UnifiedTimeline';
 import ContactQuickActions from '../../../components/ContactQuickActions';
 import FillSection from '../../../components/FillSection';
+import CaseNoteForm from './CaseNoteForm';
 import { PersonIcon, SparkleIcon, CheckIcon, TransferIcon } from '../../../components/icons';
 import { updateCaseStatus, updateCaseSeverity, assignCaseAgent } from '../actions';
 
@@ -24,7 +25,7 @@ const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted
 // לא lock_lead) ישירות על service_cases.id. אותה משמעת בדיוק כמו
 // LeadWorkScreen.js: heartbeat כל 5 דק', שחרור רק ב-beforeunload.
 export default function CaseWorkScreen({
-  caseId, aiActionText, timelineSummary, caseData, contact, workspaceName, agents, kbItems, whatsappTemplates, emailTemplates = [], sendConnections = [], workspaceId, timelineProps, closeReasons,
+  caseId, aiActionText, timelineSummary, caseData, contact, workspaceName, agents, kbItems, whatsappTemplates, emailTemplates = [], sendConnections = [], workspaceId, timelineProps, closeReasons, caseNotes = [],
 }) {
   const [lockState, setLockState] = useState('checking');
   const [status, setStatus] = useState(caseData.status);
@@ -213,6 +214,19 @@ export default function CaseWorkScreen({
               <div style={{ background: 'var(--k-bg)', border: '1px dashed var(--k-border)', borderRadius: 10, padding: '10px 14px', marginBottom: 14 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--k-text-muted)', marginBottom: 4 }}>סיכום</div>
                 <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, lineHeight: 1.6, color: 'var(--k-text)' }}>{timelineSummary}</div>
+              </div>
+            )}
+            <CaseNoteForm caseId={caseId} />
+            {caseNotes.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                {caseNotes.map((n) => (
+                  <div key={n.id} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 10, padding: '9px 12px' }}>
+                    <div style={{ fontSize: 12.5, color: 'var(--k-text)', whiteSpace: 'pre-wrap' }}>{n.note}</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginTop: 4 }}>
+                      {n.authorName ? `${n.authorName} · ` : ''}{new Date(n.createdAt).toLocaleDateString('he-IL')} {new Date(n.createdAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             <UnifiedTimeline {...timelineProps} />

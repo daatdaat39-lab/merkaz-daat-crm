@@ -37,18 +37,21 @@ export default async function CaseWorkPage({ params }) {
   }
   const { props } = cardData;
 
-  const [{ data: kbItems }, { data: members }, { data: whatsappTemplates }, { data: sendConnections }, { data: emailTemplates }] = await Promise.all([
+  const [{ data: kbItems }, { data: members }, { data: whatsappTemplates }, { data: sendConnections }, { data: emailTemplates }, { data: caseNoteRows }] = await Promise.all([
     supabase.from('reference_content').select('id, course_id, tag, title, body').eq('kind', 'kb').eq('is_active', true).order('sort_order'),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', caseRow.workspace_id),
     supabase.from('whatsapp_templates').select('id, name, template_id, preview_text, course_id').order('sort_order').order('created_at'),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
+    supabase.from('service_case_notes').select('id, note, created_by, created_at').eq('case_id', caseId).order('created_at', { ascending: false }),
   ]);
   const memberIds = (members || []).map((m) => m.user_id);
   const { data: memberProfiles } = memberIds.length
     ? await supabase.from('profiles').select('id, name').in('id', memberIds)
     : { data: [] };
   const agents = (memberProfiles || []).map((p) => ({ id: p.id, name: p.name || 'משתמש' }));
+  const agentNameById = Object.fromEntries(agents.map((a) => [a.id, a.name]));
+  const caseNotes = (caseNoteRows || []).map((n) => ({ id: n.id, note: n.note, createdAt: n.created_at, authorName: agentNameById[n.created_by] || null }));
 
   const closeReasonRows = await getPicklistValues(supabase, 'case_close_reason', null);
   const closeReasons = closeReasonRows.length ? closeReasonRows.map((r) => r.value) : undefined;
@@ -85,6 +88,7 @@ export default async function CaseWorkPage({ params }) {
         courseId: caseRow.course_id, createdAt: caseRow.created_at, closedReason: caseRow.closed_reason,
       }}
       closeReasons={closeReasons}
+      caseNotes={caseNotes}
       contact={{
         id: props.contact.id, first: props.contact.first, last: props.contact.last,
         phone: props.contact.phone, phone2: props.contact.phone2, email: props.contact.email,
