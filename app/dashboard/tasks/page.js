@@ -56,30 +56,30 @@ export default async function TasksPage() {
   }).length;
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px' }}>
-      <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>משימות</h1>
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px', background: 'var(--k-bg)', minHeight: '100%' }}>
+      <h1 style={{ fontFamily: 'var(--k-font-display)', margin: '0 0 20px', fontSize: 30, color: 'var(--k-text)' }}>משימות</h1>
 
       <form action={addTask} style={{
-        display: 'flex', gap: 8, marginBottom: 24, background: 'var(--bg)', border: '1px solid #e5e5e5',
-        borderRadius: 8, padding: 14, flexWrap: 'wrap',
+        display: 'flex', gap: 8, marginBottom: 24, background: 'var(--k-surface)', border: '1px solid var(--k-border)',
+        borderRadius: 14, padding: 14, flexWrap: 'wrap',
       }}>
         <input name="title" placeholder="משימה חדשה..." required style={{
-          flex: 1, minWidth: 180, border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13,
+          flex: 1, minWidth: 180, border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)',
         }} />
-        <select name="contact_id" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }}>
+        <select name="contact_id" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
           <option value="">ללא איש קשר</option>
           {contacts.map((c) => (
             <option key={c.id} value={c.id}>{c.first} {c.last}</option>
           ))}
         </select>
-        <select name="assigned_to" defaultValue={user.id} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }}>
+        <select name="assigned_to" defaultValue={user.id} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
           {members.map((m) => (
             <option key={m.id} value={m.id}>{m.id === user.id ? `${m.name} (אני)` : m.name}</option>
           ))}
         </select>
-        <input type="date" name="due_date" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }} />
-        <input type="time" name="due_time" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }} />
-        <select name="remind_minutes_before" defaultValue="" style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '8px 10px', fontSize: 13 }}>
+        <input type="date" name="due_date" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
+        <input type="time" name="due_time" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
+        <select name="remind_minutes_before" defaultValue="" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
           <option value="">ללא תזכורת</option>
           <option value="15">15 דקות לפני</option>
           <option value="30">30 דקות לפני</option>
@@ -87,23 +87,23 @@ export default async function TasksPage() {
           <option value="1440">יום לפני</option>
         </select>
         <button type="submit" style={{
-          background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: 13, cursor: 'pointer',
+          background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '8px 20px', fontSize: 13, cursor: 'pointer',
         }}>
           הוספה
         </button>
       </form>
 
-      <div style={{ fontSize: 12, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
-        פתוחות ({openTasks.length}){overdueCount > 0 && <span style={{ color: 'var(--danger, #a3392f)' }}> · ⚠ {overdueCount} עברו את המועד</span>}
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
+        פתוחות ({openTasks.length}){overdueCount > 0 && <span style={{ color: 'var(--k-danger-text)' }}> · ⚠ {overdueCount} עברו את המועד</span>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
         {openTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} members={members} currentUserId={user.id} />)}
-        {openTasks.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין משימות פתוחות 🎉</div>}
+        {openTasks.length === 0 && <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין משימות פתוחות 🎉</div>}
       </div>
 
       {doneTasks.length > 0 && (
         <>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-text-muted)', textTransform: 'uppercase', marginBottom: 8 }}>
             הושלמו ({doneTasks.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

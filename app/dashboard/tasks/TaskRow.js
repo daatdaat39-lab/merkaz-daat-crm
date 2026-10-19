@@ -61,25 +61,25 @@ export default function TaskRow({ t, contacts, members = [], currentUserId }) {
 
   return (
     <div style={{
-      background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px',
-      borderColor: overdue ? 'var(--danger, #a3392f)' : '#e5e5e5',
+      background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, padding: '10px 14px',
+      borderColor: overdue ? 'var(--k-danger-text)' : 'var(--k-border)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <button
           onClick={handleToggle}
           disabled={isPending}
           style={{
-            width: 18, height: 18, borderRadius: 4, border: '1px solid #d0d0d0',
-            background: t.done ? '#16a34a' : '#fff', color: '#fff', fontSize: 11, cursor: 'pointer', flexShrink: 0,
+            width: 18, height: 18, borderRadius: 5, border: '1px solid var(--k-border)',
+            background: t.done ? 'var(--k-ok-text)' : 'var(--k-surface)', color: '#fff', fontSize: 11, cursor: 'pointer', flexShrink: 0,
           }}
         >
           {t.done ? '✓' : ''}
         </button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, textDecoration: t.done ? 'line-through' : 'none', color: t.done ? '#9b9b9b' : '#0a0a0a' }}>
+          <div style={{ fontSize: 13, textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--k-text-muted)' : 'var(--k-text)' }}>
             {t.title}
           </div>
-          <div style={{ fontSize: 11, color: overdue ? 'var(--danger, #a3392f)' : '#9b9b9b', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 11, color: overdue ? 'var(--k-danger-text)' : 'var(--k-text-muted)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {t.contacts && (
               <Link href={`/dashboard/contacts/${t.contacts.id}`} style={{ color: 'inherit' }}>
                 {t.contacts.first} {t.contacts.last}
@@ -91,7 +91,7 @@ export default function TaskRow({ t, contacts, members = [], currentUserId }) {
               </span>
             )}
             {overdue && <span style={{ fontWeight: 600 }}>⚠ עבר המועד</span>}
-            {reminderDue && <span style={{ color: '#a4691f', fontWeight: 600 }}>🔔 תזכורת</span>}
+            {reminderDue && <span style={{ color: 'var(--k-caution-text)', fontWeight: 600 }}>🔔 תזכורת</span>}
             {t.assignedName && <span>🎯 מוקצה ל: {t.assignedName}</span>}
             {t.createdName && <span>נוצר ע"י: {t.createdName}</span>}
           </div>
@@ -103,36 +103,36 @@ export default function TaskRow({ t, contacts, members = [], currentUserId }) {
         </div>
         <button
           onClick={() => setEditing((v) => !v)}
-          style={{ background: 'none', border: 'none', color: '#9b9b9b', fontSize: 12, cursor: 'pointer' }}
+          style={{ background: 'none', border: 'none', color: 'var(--k-text-muted)', fontSize: 12, cursor: 'pointer' }}
         >
           {editing ? 'סגירה' : '✎ עריכה'}
         </button>
       </div>
 
       {error && !editing && (
-        <div style={{ marginTop: 8, color: 'var(--danger, #a3392f)', fontSize: 12 }}>שגיאה: {error}</div>
+        <div style={{ marginTop: 8, color: 'var(--k-danger-text)', fontSize: 12 }}>שגיאה: {error}</div>
       )}
 
       {editing && (
-        <form action={handleSubmit} style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input name="title" defaultValue={t.title} required style={{ flex: 1, minWidth: 160, border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
-          <select name="contact_id" defaultValue={t.contacts?.id || ''} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}>
+        <form action={handleSubmit} style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--k-border)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input name="title" defaultValue={t.title} required style={{ flex: 1, minWidth: 160, border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
+          <select name="contact_id" defaultValue={t.contacts?.id || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
             <option value="">ללא איש קשר</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.first} {c.last}</option>)}
           </select>
-          <select name="assigned_to" defaultValue={t.assigned_to || ''} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}>
+          <select name="assigned_to" defaultValue={t.assigned_to || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
             <option value="">ללא הקצאה</option>
             {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
-          <input type="date" name="due_date" defaultValue={t.due_date || ''} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
-          <input type="time" name="due_time" defaultValue={t.due_time ? t.due_time.slice(0, 5) : ''} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
-          <select name="remind_minutes_before" defaultValue={t.remind_minutes_before || ''} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}>
+          <input type="date" name="due_date" defaultValue={t.due_date || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
+          <input type="time" name="due_time" defaultValue={t.due_time ? t.due_time.slice(0, 5) : ''} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
+          <select name="remind_minutes_before" defaultValue={t.remind_minutes_before || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
             {REMIND_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          <button type="submit" disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' }}>
+          <button type="submit" disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 16px', fontSize: 13, cursor: 'pointer' }}>
             שמירה
           </button>
-          {error && <div style={{ width: '100%', color: 'var(--danger, #a3392f)', fontSize: 12 }}>שגיאה: {error}</div>}
+          {error && <div style={{ width: '100%', color: 'var(--k-danger-text)', fontSize: 12 }}>שגיאה: {error}</div>}
         </form>
       )}
     </div>
