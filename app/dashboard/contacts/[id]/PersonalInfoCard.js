@@ -9,8 +9,8 @@ import TagPicker from '../TagPicker';
 import SourceMultiPicker from '../SourceMultiPicker';
 import FamilyRelationsPanel from './FamilyRelationsPanel';
 
-const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6, padding: '5px 8px', fontSize: 12.5 };
-const categoryLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', letterSpacing: '.03em', margin: '14px 0 8px' };
+const inputStyle = { width: '100%', border: '1px solid var(--k-border)', borderRadius: 8, padding: '5px 8px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
+const categoryLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', margin: '14px 0 8px' };
 
 // כרטיס "פרטים אישיים" - מחולק לקטגוריות (זהות, פרטי קשר, פעילות
 // ומעקב), עם עריכה ישירה של השדות עצמם (לא טופס נפרד למטה). לחיצה על
@@ -45,14 +45,14 @@ export default function PersonalInfoCard({
   }
 
   return (
-    <div style={{ background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: 16 }}>
+    <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--k-text-muted)', textTransform: 'uppercase' }}>
             פרטים אישיים
           </div>
           {contact.contact_number != null && (
-            <div style={{ fontSize: 11, color: '#9b9b9b', marginTop: 2 }} title="מספר מזהה יחודי של איש הקשר במערכת">
+            <div style={{ fontSize: 11, color: 'var(--k-text-muted)', marginTop: 2 }} title="מספר מזהה יחודי של איש הקשר במערכת">
               מס' לקוח: #{contact.contact_number}
             </div>
           )}
@@ -62,7 +62,7 @@ export default function PersonalInfoCard({
           disabled={contact.frozen}
           title="עריכת פרטים"
           style={{
-            background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, width: 26, height: 26,
+            background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 6, width: 26, height: 26,
             cursor: contact.frozen ? 'default' : 'pointer', fontSize: 12.5, opacity: contact.frozen ? 0.5 : 1,
           }}
         >
@@ -70,7 +70,7 @@ export default function PersonalInfoCard({
         </button>
       </div>
 
-      {error && <div style={{ color: '#b23b2f', fontSize: 12, marginTop: 8 }}>שגיאה: {error}</div>}
+      {error && <div style={{ color: 'var(--k-danger-text)', fontSize: 12, marginTop: 8 }}>שגיאה: {error}</div>}
 
       {editing ? (
         <form action={handleSubmit}>
@@ -81,7 +81,7 @@ export default function PersonalInfoCard({
           <SelectField label="מגדר" name="gender" defaultValue={contact.gender} options={[{ value: '', label: '—' }, { value: 'זכר', label: 'זכר' }, { value: 'נקבה', label: 'נקבה' }]} />
           <Field label="מספר ילדים" name="children_count" type="number" defaultValue={contact.children_count} />
           <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10.5, color: '#9b9b9b', marginBottom: 2 }}>מקור</div>
+            <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginBottom: 2 }}>מקור</div>
             <SourceMultiPicker existingSources={existingSources} defaultValue={contact.source} />
           </div>
 
@@ -108,10 +108,10 @@ export default function PersonalInfoCard({
           <TagPicker existingTags={existingTags} defaultTags={contact.tags || []} groups={tagGroups} />
 
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-            <button type="submit" disabled={isPending} style={{ flex: 1, background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 0', fontSize: 12.5, cursor: 'pointer' }}>
+            <button type="submit" disabled={isPending} style={{ flex: 1, background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 0', fontSize: 12.5, cursor: 'pointer' }}>
               שמירה
             </button>
-            <button type="button" onClick={() => setEditing(false)} style={{ flex: 1, background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 0', fontSize: 12.5, cursor: 'pointer' }}>
+            <button type="button" onClick={() => setEditing(false)} style={{ flex: 1, background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 0', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>
               ביטול
             </button>
           </div>
@@ -128,7 +128,7 @@ export default function PersonalInfoCard({
           <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
           {externalIds.length > 0 && (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 10.5, color: '#9b9b9b' }}>מזהים במערכות חיצוניות</div>
+              <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>מזהים במערכות חיצוניות</div>
               <div style={{ fontSize: 13 }}>
                 {externalIds.map((e) => `${e.source_system}: ${e.external_id}`).join(' · ')}
               </div>
@@ -137,12 +137,12 @@ export default function PersonalInfoCard({
           <FamilyRelationsPanel relatedContacts={relatedContacts} />
           {relatedContact && (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 10.5, color: '#9b9b9b' }}>{contact.relation_label || 'איש קשר קשור'}</div>
-              <Link href={`/dashboard/contacts/${relatedContact.id}`} style={{ fontSize: 13, color: '#1f4d3d' }}>
+              <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>{contact.relation_label || 'איש קשר קשור'}</div>
+              <Link href={`/dashboard/contacts/${relatedContact.id}`} style={{ fontSize: 13, color: 'var(--k-accent)' }}>
                 {relatedContact.first} {relatedContact.last} →
               </Link>
               {relatedContact.donationsCount > 0 && (
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                <div style={{ fontSize: 11, color: 'var(--k-text-muted)', marginTop: 2 }}>
                   🔗 {relatedContact.donationsCount} תרומות · ₪{relatedContact.donationsTotal.toLocaleString('he-IL')} אצל {relatedContact.first}
                 </div>
               )}
@@ -174,7 +174,7 @@ export default function PersonalInfoCard({
           />
           {activeWorkspaceId ? (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 10.5, color: '#9b9b9b', marginBottom: 2 }}>נציג מטפל</div>
+              <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginBottom: 2 }}>נציג מטפל</div>
               <select value={agentId || ''} onChange={handleAgentChange} disabled={isPending} style={inputStyle}>
                 <option value="">ללא נציג</option>
                 {(agents || []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -198,7 +198,7 @@ export default function PersonalInfoCard({
 function InfoRow({ label, value }) {
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 10.5, color: '#9b9b9b' }}>{label}</div>
+      <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>{label}</div>
       <div style={{ fontSize: 13 }}>{value || '—'}</div>
     </div>
   );
@@ -207,7 +207,7 @@ function InfoRow({ label, value }) {
 function Field({ label, name, type = 'text', defaultValue }) {
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 10.5, color: '#9b9b9b', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginBottom: 2 }}>{label}</div>
       <input name={name} type={type} defaultValue={defaultValue || ''} style={inputStyle} />
     </div>
   );
@@ -216,7 +216,7 @@ function Field({ label, name, type = 'text', defaultValue }) {
 function SelectField({ label, name, defaultValue, options }) {
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ fontSize: 10.5, color: '#9b9b9b', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginBottom: 2 }}>{label}</div>
       <select name={name} defaultValue={defaultValue || ''} style={inputStyle}>
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
@@ -269,7 +269,7 @@ function QuickTagAdd({ contactId, existingTags, groups = null, currentTags, onAd
       <button
         type="button"
         onClick={() => setOpen(true)}
-        style={{ background: 'var(--bg)', border: '1px dashed #d0d0d0', borderRadius: 4, padding: '2px 8px', fontSize: 12, color: '#666', cursor: 'pointer' }}
+        style={{ background: 'var(--k-surface)', border: '1px dashed var(--k-border)', borderRadius: 4, padding: '2px 8px', fontSize: 12, color: 'var(--k-text-muted)', cursor: 'pointer' }}
       >
         + תגית
       </button>
@@ -290,12 +290,12 @@ function QuickTagAdd({ contactId, existingTags, groups = null, currentTags, onAd
       />
       <div style={{
         position: 'absolute', top: '100%', insetInlineStart: 0, marginTop: 4, minWidth: 160,
-        border: '1px solid #e5e5e5', borderRadius: 8, background: 'var(--bg)', maxHeight: 200, overflowY: 'auto',
+        border: '1px solid var(--k-border)', borderRadius: 8, background: 'var(--k-surface)', maxHeight: 200, overflowY: 'auto',
         boxShadow: '0 6px 20px rgba(0,0,0,0.12)', zIndex: 60,
       }}>
         {groupedSuggestions ? groupedSuggestions.map((g) => (
           <div key={g.department || '__general__'}>
-            <div style={{ padding: '5px 10px 3px', fontSize: 9.5, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase' }}>
+            <div style={{ padding: '5px 10px 3px', fontSize: 9.5, fontWeight: 600, color: 'var(--k-text-muted)', textTransform: 'uppercase' }}>
               {g.department || 'כלליות'}
             </div>
             {g.tags.map((t) => (
@@ -303,7 +303,7 @@ function QuickTagAdd({ contactId, existingTags, groups = null, currentTags, onAd
                 key={t}
                 type="button"
                 onMouseDown={(e) => { e.preventDefault(); handleAdd(t); }}
-                style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid #f0f0f0', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}
+                style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid var(--k-border)', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}
               >
                 {t}
               </button>
@@ -314,7 +314,7 @@ function QuickTagAdd({ contactId, existingTags, groups = null, currentTags, onAd
             key={t}
             type="button"
             onMouseDown={(e) => { e.preventDefault(); handleAdd(t); }}
-            style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid #f0f0f0', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}
+            style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid var(--k-border)', padding: '6px 10px', fontSize: 12, cursor: 'pointer' }}
           >
             {t}
           </button>
@@ -323,13 +323,13 @@ function QuickTagAdd({ contactId, existingTags, groups = null, currentTags, onAd
           <button
             type="button"
             onMouseDown={(e) => { e.preventDefault(); handleAdd(query); }}
-            style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: '#1f4d3d', fontWeight: 600 }}
+            style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--k-accent)', fontWeight: 600 }}
           >
             + הוספת תגית חדשה: "{query.trim()}"
           </button>
         )}
         {suggestions.length === 0 && !query.trim() && (
-          <div style={{ padding: '8px 10px', fontSize: 12, color: '#9b9b9b' }}>הקלידו לחיפוש או הוספה</div>
+          <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--k-text-muted)' }}>הקלידו לחיפוש או הוספה</div>
         )}
       </div>
     </div>
@@ -358,7 +358,7 @@ function RelatedContactPicker({ contactId, related, setRelated }) {
     return (
       <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
         <span>{related.name}</span>
-        <button type="button" onClick={() => setRelated(null)} style={{ background: 'none', border: 'none', color: '#b23b2f', fontSize: 11, cursor: 'pointer' }}>
+        <button type="button" onClick={() => setRelated(null)} style={{ background: 'none', border: 'none', color: 'var(--k-danger-text)', fontSize: 11, cursor: 'pointer' }}>
           הסרה
         </button>
       </div>
@@ -378,11 +378,11 @@ function RelatedContactPicker({ contactId, related, setRelated }) {
       {dropdownOpen && query.trim().length >= 2 && (
         <div style={{
           position: 'absolute', top: '100%', insetInlineStart: 0, insetInlineEnd: 0, marginTop: 4,
-          border: '1px solid #e5e5e5', borderRadius: 8, background: 'var(--bg)', maxHeight: 160, overflowY: 'auto',
+          border: '1px solid var(--k-border)', borderRadius: 8, background: 'var(--k-surface)', maxHeight: 160, overflowY: 'auto',
           boxShadow: '0 6px 20px rgba(0,0,0,0.12)', zIndex: 60,
         }}>
           {results.length === 0 && (
-            <div style={{ padding: '8px 10px', fontSize: 12, color: '#9b9b9b' }}>אין תוצאות</div>
+            <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--k-text-muted)' }}>אין תוצאות</div>
           )}
           {results.map((r) => (
             <button
@@ -390,9 +390,9 @@ function RelatedContactPicker({ contactId, related, setRelated }) {
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => { setRelated({ id: r.id, name: `${r.first} ${r.last}` }); setQuery(''); setResults([]); setDropdownOpen(false); }}
-              style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid #f0f0f0', padding: '7px 10px', fontSize: 12, cursor: 'pointer' }}
+              style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid var(--k-border)', padding: '7px 10px', fontSize: 12, cursor: 'pointer' }}
             >
-              {r.first} {r.last} <span style={{ color: '#9b9b9b' }}>{r.phone || r.email || ''}</span>
+              {r.first} {r.last} <span style={{ color: 'var(--k-text-muted)' }}>{r.phone || r.email || ''}</span>
             </button>
           ))}
         </div>

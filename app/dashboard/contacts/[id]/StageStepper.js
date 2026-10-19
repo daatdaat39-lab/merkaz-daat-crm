@@ -22,7 +22,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
   const isSideActive = sideStages.includes(currentStage);
 
   const label = (key) => labels[key] || key;
-  const color = (key) => colors[key] || { bg: '#fef2f2', color: '#a3392f' };
+  const color = (key) => colors[key] || { bg: 'var(--k-danger-bg)', color: 'var(--k-danger-text)' };
 
   function handleDotClick(stage) {
     if (disabled) return;
@@ -52,8 +52,8 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
   return (
     <div>
       {progressPct !== null && (
-        <div style={{ height: 4, background: '#f2f2f2', borderRadius: 999, marginBottom: 10, overflow: 'hidden' }}>
-          <div style={{ height: '100%', width: `${progressPct}%`, background: '#0a0a0a', borderRadius: 999, transition: 'width 0.3s' }} />
+        <div style={{ height: 4, background: 'var(--k-pill-bg)', borderRadius: 999, marginBottom: 10, overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${progressPct}%`, background: 'var(--k-accent)', borderRadius: 999, transition: 'width 0.3s' }} />
         </div>
       )}
       {/* שתי שורות נפרדות (נקודות+קווים למעלה, תוויות למטה) - כך שאורך
@@ -67,7 +67,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
           return (
             <div key={stage} style={{ display: 'flex', alignItems: 'center', flex: i > 0 ? '1 1 0' : '0 0 auto', minWidth: 0 }}>
               {i > 0 && (
-                <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: done ? 'var(--text)' : 'var(--border)' }} />
+                <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: done ? 'var(--k-text)' : 'var(--k-border)' }} />
               )}
               <button
                 type="button"
@@ -78,9 +78,9 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
               >
                 <span style={{
                   width: isCurrent ? 14 : 10, height: isCurrent ? 14 : 10, borderRadius: '50%',
-                  background: done ? 'var(--text)' : 'var(--bg)',
-                  border: done ? 'none' : '2px solid var(--border-strong)',
-                  boxShadow: isCurrent ? '0 0 0 3px rgba(10,10,10,0.15)' : 'none',
+                  background: done ? 'var(--k-text)' : 'var(--k-surface)',
+                  border: done ? 'none' : '2px solid var(--k-border)',
+                  boxShadow: isCurrent ? '0 0 0 3px rgba(111,140,83,0.22)' : 'none',
                   flexShrink: 0,
                 }} />
               </button>
@@ -93,7 +93,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
           const c = color(stage);
           return (
             <div key={stage} style={{ display: 'flex', alignItems: 'center', flex: '1 1 0', minWidth: 0 }}>
-              <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: isCurrent ? c.color : 'var(--border)' }} />
+              <div style={{ flex: '1 1 0', minWidth: 8, height: 2, background: isCurrent ? c.color : 'var(--k-border)' }} />
               <button
                 type="button"
                 onClick={() => handleSideClick(stage)}
@@ -103,8 +103,8 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
               >
                 <span style={{
                   width: isCurrent ? 14 : 10, height: isCurrent ? 14 : 10, borderRadius: '50%',
-                  background: isCurrent ? c.color : 'var(--bg)',
-                  border: isCurrent ? 'none' : '2px solid #f0c0ba',
+                  background: isCurrent ? c.color : 'var(--k-surface)',
+                  border: isCurrent ? 'none' : '2px solid var(--k-danger-bg)',
                   flexShrink: 0,
                 }} />
               </button>
@@ -121,7 +121,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
               <span
                 title={label(stage)}
                 style={{
-                  fontSize: 10, lineHeight: 1.25, color: isCurrent ? 'var(--text)' : 'var(--text-muted)', fontWeight: isCurrent ? 600 : 400,
+                  fontSize: 10, lineHeight: 1.25, color: isCurrent ? 'var(--k-text)' : 'var(--k-text-muted)', fontWeight: isCurrent ? 600 : 400,
                   whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'center', maxWidth: i > 0 ? '100%' : 76,
                   display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                 }}
@@ -140,7 +140,7 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
               <span
                 title={label(stage)}
                 style={{
-                  fontSize: 10, lineHeight: 1.25, color: isCurrent ? c.color : '#c98a80', fontWeight: isCurrent ? 600 : 400,
+                  fontSize: 10, lineHeight: 1.25, color: isCurrent ? c.color : 'var(--k-danger-text)', fontWeight: isCurrent ? 600 : 400,
                   whiteSpace: 'normal', wordBreak: 'break-word', textAlign: 'center', maxWidth: '100%',
                   display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                 }}
@@ -153,18 +153,18 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
       </div>
 
       {currentStage === 'closed' && currentClosedReason && (
-        <div style={{ fontSize: 11, color: '#9b9b9b', marginTop: 6 }}>סיבת סגירה: {currentClosedReason}</div>
+        <div style={{ fontSize: 11, color: 'var(--k-text-muted)', marginTop: 6 }}>סיבת סגירה: {currentClosedReason}</div>
       )}
 
       {pendingClose && (
-        <div style={{ marginTop: 8, padding: 10, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6, width: 220 }}>
-          <div style={{ fontSize: 11.5, marginBottom: 6 }}>סיבת סגירה:</div>
-          <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 12, border: '1px solid var(--border)', borderRadius: 4, padding: '5px 6px', marginBottom: 8 }}>
+        <div style={{ marginTop: 8, padding: 10, background: 'var(--k-danger-bg)', border: 'none', borderRadius: 10, width: 220 }}>
+          <div style={{ fontSize: 11.5, marginBottom: 6, color: 'var(--k-danger-text)' }}>סיבת סגירה:</div>
+          <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 12, border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 8px', marginBottom: 8, background: 'var(--k-surface)' }}>
             {reasons.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={handleCloseConfirm} style={{ flex: 1, fontSize: 12, background: '#a3392f', color: '#fff', border: 'none', borderRadius: 4, padding: '5px 0', cursor: 'pointer' }}>סגירה</button>
-            <button onClick={() => setPendingClose(false)} style={{ flex: 1, fontSize: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '5px 0', cursor: 'pointer' }}>ביטול</button>
+            <button onClick={handleCloseConfirm} style={{ flex: 1, fontSize: 12, fontWeight: 600, background: 'var(--k-danger-text)', color: '#fff', border: 'none', borderRadius: 100, padding: '5px 0', cursor: 'pointer' }}>סגירה</button>
+            <button onClick={() => setPendingClose(false)} style={{ flex: 1, fontSize: 12, background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 0', cursor: 'pointer' }}>ביטול</button>
           </div>
         </div>
       )}

@@ -26,8 +26,9 @@ import AiSummaryButton from './AiSummaryButton';
 import ImportConflictsBanner from './ImportConflictsBanner';
 import { celebrate } from '../../components/celebrate';
 import { useFloatingWindows } from '../../components/FloatingWindows';
+import { PhoneIcon, WhatsAppIcon, MailIcon, WarningIcon } from '../../components/icons';
 
-const inputStyle = { border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 8px', fontSize: 12.5 };
+const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
 
 // מרכיב את כל הכרטיס בצד הלקוח, כי "איזו מחלקה פעילה כרגע" צריך
 // להישלט משותף בין הלשוניות שמתחת לשם, שורת השלבים, וטאב "פעילות"
@@ -134,19 +135,19 @@ export default function ContactDetailClient({
   const mainProcessConcluded = active ? isProcessConcluded(active.stage, activePipeline) : false;
 
   const outerStyle = isModal
-    ? { padding: '24px' }
-    : { maxWidth: 1000, margin: '0 auto', padding: '28px 24px' };
+    ? { padding: '24px', background: 'var(--k-bg)' }
+    : { maxWidth: 1000, margin: '0 auto', padding: '28px 24px', background: 'var(--k-bg)', minHeight: '100%' };
 
   return (
     <div style={outerStyle}>
       {!isModal && (
-        <a href="/dashboard/contacts" style={{ fontSize: 12.5, color: '#6b6b6b', textDecoration: 'none' }}>
+        <a href="/dashboard/contacts" style={{ fontSize: 12.5, color: 'var(--k-text-muted)', textDecoration: 'none' }}>
           ← חזרה לרשימת אנשי הקשר
         </a>
       )}
 
       {contact.frozen && (
-        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: 8, padding: '8px 14px', fontSize: 12.5, margin: isModal ? '0 0 16px' : '16px 0 0' }}>
+        <div style={{ background: 'var(--k-caution-bg)', color: 'var(--k-caution-text)', border: 'none', borderRadius: 10, padding: '8px 14px', fontSize: 12.5, margin: isModal ? '0 0 16px' : '16px 0 0' }}>
           ❄ איש הקשר מוקפא — לא ניתן לערוך, לשנות שלב, או להוסיף משימות עד הפשרה.
         </div>
       )}
@@ -158,7 +159,7 @@ export default function ContactDetailClient({
         <AvatarUpload contact={contact} />
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 18, fontWeight: 600 }}>{contact.first} {contact.last}</div>
+            <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 24, color: 'var(--k-text)' }}>{contact.first} {contact.last}</div>
             {active && <ReferrerPicker contactId={contact.id} department={active} frozen={contact.frozen} />}
           </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -167,23 +168,24 @@ export default function ContactDetailClient({
                 key={d.id}
                 onClick={() => setActiveId(d.id)}
                 style={{
-                  border: '1px solid ' + (active?.id === d.id ? '#0a0a0a' : '#e5e5e5'),
-                  background: active?.id === d.id ? '#0a0a0a' : '#fff',
-                  color: active?.id === d.id ? '#fff' : '#333',
-                  borderRadius: 999, padding: '4px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 500,
+                  fontFamily: 'var(--k-font-display)',
+                  border: '1px solid ' + (active?.id === d.id ? 'var(--k-text)' : 'var(--k-border)'),
+                  background: active?.id === d.id ? 'var(--k-text)' : 'var(--k-surface)',
+                  color: active?.id === d.id ? 'var(--k-bg)' : 'var(--k-text)',
+                  borderRadius: 999, padding: '4px 13px', fontSize: 12.5, cursor: 'pointer',
                 }}
               >
                 {d.workspaceName}
               </button>
             ))}
-            {visibleDepartments.length === 0 && <span style={{ fontSize: 12.5, color: '#9b9b9b' }}>לא משויך למחלקה שלך</span>}
+            {visibleDepartments.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>לא משויך למחלקה שלך</span>}
             {availableToAdd.length > 0 && (
               <button
                 onClick={() => setAdding((v) => !v)}
                 disabled={contact.frozen}
                 style={{
-                  border: '1px dashed #c0c0c0', background: 'none', borderRadius: 999, padding: '4px 12px',
-                  fontSize: 12, cursor: contact.frozen ? 'default' : 'pointer', color: '#6b6b6b', opacity: contact.frozen ? 0.5 : 1,
+                  border: '1px dashed var(--k-border)', background: 'none', borderRadius: 999, padding: '4px 12px',
+                  fontSize: 12, cursor: contact.frozen ? 'default' : 'pointer', color: 'var(--k-text-muted)', opacity: contact.frozen ? 0.5 : 1,
                 }}
               >
                 + מחלקה
@@ -198,7 +200,7 @@ export default function ContactDetailClient({
             title="פתיחה כחלון צף (אפשר להמשיך לעבוד במקום אחר ולפתוח אנשי קשר נוספים)"
             style={{
               width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, cursor: 'pointer', fontSize: 14, flexShrink: 0,
+              background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, cursor: 'pointer', fontSize: 14, flexShrink: 0,
             }}
           >
             🗗
@@ -209,7 +211,7 @@ export default function ContactDetailClient({
       </div>
 
       {adding && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 12, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: 10 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 12, background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 12, padding: 10 }}>
           <select value={newWorkspaceId} onChange={(e) => { setNewWorkspaceId(e.target.value); setNewReason(''); }} style={inputStyle}>
             <option value="">בחר מחלקה...</option>
             {availableToAdd.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -220,10 +222,10 @@ export default function ContactDetailClient({
               {newReasonOptions.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           )}
-          <button onClick={handleAdd} disabled={isPending || !newWorkspaceId || !newReason} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={handleAdd} disabled={isPending || !newWorkspaceId || !newReason} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
             הוספה
           </button>
-          <button onClick={() => { setAdding(false); setNewWorkspaceId(''); setNewReason(''); }} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={() => { setAdding(false); setNewWorkspaceId(''); setNewReason(''); }} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--k-text)' }}>
             ביטול
           </button>
         </div>
@@ -272,13 +274,13 @@ export default function ContactDetailClient({
           לגמרי (לא רק מקופלת) אם התהליך כבר הסתיים - ר' טאב "תהליכים"
           לפתיחה מחדש, וטאב "פעילות" להיסטוריה המלאה שנשארת שם. */}
       {active && !mainProcessConcluded && active.openedProcess !== false && (
-        <div style={{ marginBottom: 16, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px' }}>
+        <div style={{ marginBottom: 16, background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '12px 14px' }}>
           {pipelineOpen ? (
             <>
               <button
                 type="button"
                 onClick={() => setPipelineOpen(false)}
-                style={{ background: 'none', border: 'none', padding: 0, marginBottom: 10, fontSize: 12, color: '#6b6b6b', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', padding: 0, marginBottom: 10, fontSize: 12, color: 'var(--k-text-muted)', cursor: 'pointer' }}
               >
                 ▾ שלבי התהליך — הסתרה
               </button>
@@ -298,9 +300,9 @@ export default function ContactDetailClient({
             <button
               type="button"
               onClick={() => setPipelineOpen(true)}
-              style={{ background: 'none', border: 'none', padding: 0, fontSize: 12.5, color: '#6b6b6b', cursor: 'pointer' }}
+              style={{ background: 'none', border: 'none', padding: 0, fontSize: 12.5, color: 'var(--k-text-muted)', cursor: 'pointer' }}
             >
-              ▸ שלבי התהליך — שלב נוכחי: <b style={{ color: '#0a0a0a' }}>{(byWorkspace[active?.workspaceName] || FALLBACK_PIPELINE).labels[active.stage] || active.stage}</b>
+              ▸ שלבי התהליך — שלב נוכחי: <b style={{ color: 'var(--k-text)' }}>{(byWorkspace[active?.workspaceName] || FALLBACK_PIPELINE).labels[active.stage] || active.stage}</b>
             </button>
           )}
         </div>
@@ -311,8 +313,8 @@ export default function ContactDetailClient({
           תהליך קמפיין שהסתיים (שלב-ניצחון/שלב צדדי) מוסתר מכאן גם כן,
           באותו עיקרון בדיוק כמו התהליך הראשי - ר' טאב "תהליכים". */}
       {active?.campaignProcesses?.filter((cp) => !isProcessConcluded(cp.status, cp.stages)).map((cp) => (
-        <div key={cp.rowId} style={{ marginBottom: 16, background: '#f9f9f9', border: '1px solid #e5e5e5', borderRadius: 8, padding: '12px 14px' }}>
-          <div style={{ fontSize: 12, color: '#6b6b6b', marginBottom: 10 }}>🎯 קמפיין: <b style={{ color: '#0a0a0a' }}>{cp.campaignName}</b></div>
+        <div key={cp.rowId} style={{ marginBottom: 16, background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '12px 14px' }}>
+          <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginBottom: 10 }}>🎯 קמפיין: <b style={{ color: 'var(--k-text)' }}>{cp.campaignName}</b></div>
           <StageStepper
             currentStage={cp.status}
             stages={cp.stages.order}
@@ -325,34 +327,34 @@ export default function ContactDetailClient({
       ))}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        <NotConnectedButton label="חיוג" icon="📞" message="חיוג מתוך המערכת (ימות המשיח) — עדיין לא מחובר" />
+        <NotConnectedButton label="חיוג" icon={<PhoneIcon size={14} />} message="חיוג מתוך המערכת (ימות המשיח) — עדיין לא מחובר" />
         {contact.phone && active && !contact.frozen ? (
           <button
             onClick={() => { setWhatsappInitialMessage(''); setWhatsappOpen(true); }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: 'var(--bg)', color: '#333', border: '1px solid #e5e5e5' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 100, fontSize: 13, cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)' }}
           >
-            <span>💬</span><span>וואטסאפ</span>
+            <WhatsAppIcon size={14} /><span>וואטסאפ</span>
           </button>
         ) : (
-          <NotConnectedButton label="וואטסאפ" icon="💬" message={!contact.phone ? 'לאיש הקשר אין מספר טלפון שמור' : !active ? 'יש לבחור מחלקה קודם' : 'איש הקשר מוקפא'} />
+          <NotConnectedButton label="וואטסאפ" icon={<WhatsAppIcon size={14} />} message={!contact.phone ? 'לאיש הקשר אין מספר טלפון שמור' : !active ? 'יש לבחור מחלקה קודם' : 'איש הקשר מוקפא'} />
         )}
         {activeConnection && contact.email && !contact.frozen ? (
           <button
             onClick={() => setComposeOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: 'var(--bg)', color: '#333', border: '1px solid #e5e5e5' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 100, fontSize: 13, cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)' }}
           >
-            <span>✉️</span><span>מייל</span>
+            <MailIcon size={14} /><span>מייל</span>
           </button>
         ) : (
           <NotConnectedButton
             label="מייל"
-            icon="✉️"
+            icon={<MailIcon size={14} />}
             message={!active ? 'יש לבחור מחלקה קודם' : !activeConnection ? `תיבת המייל של מחלקת "${active.workspaceName}" עדיין לא מחוברת` : !contact.email ? 'לאיש הקשר אין כתובת מייל שמורה' : 'איש הקשר מוקפא'}
           />
         )}
         <button
           onClick={() => openWindow({ id: 'calendar', kind: 'calendar', title: 'יומן', props: { initialContactId: contact.id, autoOpenToday: true } })}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: 'var(--bg)', color: '#333', border: '1px solid #e5e5e5' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 100, fontSize: 13, cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)' }}
         >
           <span>📅</span><span>קביעת משימה/פגישה חדשה</span>
         </button>
@@ -363,9 +365,9 @@ export default function ContactDetailClient({
               setWhatsappInitialMessage(`שלום ${contact.first}, זיהינו שהחיוב האחרון בהוראת הקבע שלך לא עבר בהצלחה. נשמח אם תוכל/י לעדכן את פרטי אמצעי התשלום כדי שנוכל להמשיך בלי הפרעה. תודה!`);
               setWhatsappOpen(true);
             }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', background: '#fef2f2', color: '#a3392f', border: '1px solid #f0c0ba' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 100, fontSize: 13, cursor: 'pointer', background: 'var(--k-danger-bg)', color: 'var(--k-danger-text)', border: 'none' }}
           >
-            <span>⚠</span><span>עדכון אמצעי תשלום</span>
+            <WarningIcon size={13} /><span>עדכון אמצעי תשלום</span>
           </button>
         )}
       </div>
@@ -374,22 +376,22 @@ export default function ContactDetailClient({
         <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
           {openTasksCount > 0 && (
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 10, background: '#eff6ff', border: '1px solid #bfdbfe',
-              borderRadius: 10, padding: '10px 16px', flex: '1 1 200px',
+              display: 'flex', alignItems: 'center', gap: 10, background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)',
+              borderRadius: 12, padding: '10px 16px', flex: '1 1 200px',
             }}>
-              <span style={{ fontSize: 22, fontWeight: 700, color: '#1d4ed8' }}>{openTasksCount}</span>
-              <span style={{ fontSize: 13, color: '#1d4ed8', fontWeight: 500 }}>משימות פתוחות</span>
+              <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 22, color: 'var(--k-accent)' }}>{openTasksCount}</span>
+              <span style={{ fontSize: 13, color: 'var(--k-text)' }}>משימות פתוחות</span>
             </div>
           )}
           {nextMeeting && (
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 10, background: '#fff7ed', border: '1px solid #fde3b8',
-              borderRadius: 10, padding: '10px 16px', flex: '1 1 200px',
+              display: 'flex', alignItems: 'center', gap: 10, background: 'var(--k-caution-bg)', border: 'none',
+              borderRadius: 12, padding: '10px 16px', flex: '1 1 200px',
             }}>
               <span style={{ fontSize: 20 }}>🔔</span>
               <div>
-                <div style={{ fontSize: 10.5, fontWeight: 600, color: '#c2760f', textTransform: 'uppercase' }}>פגישה קרובה</div>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: '#8a5a1a' }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-caution-text)', textTransform: 'uppercase' }}>פגישה קרובה</div>
+                <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 14, color: 'var(--k-caution-text)' }}>
                   {new Date(nextMeeting.meeting_date).toLocaleDateString('he-IL')} · {nextMeeting.meeting_time?.slice(0, 5)}
                 </div>
               </div>
