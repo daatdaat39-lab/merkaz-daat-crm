@@ -22,11 +22,11 @@ export default function CoursePurchasesPanel({ purchases = [] }) {
   if (purchases.length === 0) return null;
 
   return (
-    <div style={{ background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 10, padding: '12px 14px', marginBottom: 16 }}>
+    <div style={{ marginBottom: 16 }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--k-text-muted, #9b9b9b)', textTransform: 'uppercase', marginBottom: 10 }}>
         קורסים ({purchases.length})
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
         {purchases.map((p) => {
           const badge = computeLifecycleBadge(p);
           const sub = [
@@ -37,18 +37,21 @@ export default function CoursePurchasesPanel({ purchases = [] }) {
             !p.cohort_label && !p.enrollment_start_date ? `נרכש ${new Date(p.created_at).toLocaleDateString('he-IL')}` : null,
           ].filter(Boolean).join(' · ');
           return (
-            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 12.5 }}>
-              <div>
-                <span>{p.courses?.name || 'קורס'}{p.courses?.code ? ` (${p.courses.code})` : ''}</span>
-                {sub && <div style={{ fontSize: 11, color: 'var(--k-text-muted, #9b9b9b)', marginTop: 1 }}>{sub}</div>}
+            <div key={p.id} style={{
+              background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)',
+              borderRadius: 10, padding: '10px 12px', fontSize: 12.5,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontWeight: 600 }}>{p.courses?.name || 'קורס'}{p.courses?.code ? ` (${p.courses.code})` : ''}</span>
+                <span style={{
+                  fontSize: 11, padding: '2px 8px', borderRadius: 100, whiteSpace: 'nowrap', flexShrink: 0,
+                  background: badge.tone === 'ok' ? 'var(--k-ok-bg, #e8f5e9)' : 'var(--k-pill-bg, #f0f0f0)',
+                  color: badge.tone === 'ok' ? 'var(--k-ok-text, #2e7d32)' : 'var(--k-text-muted, #6b6b6b)',
+                }}>
+                  {badge.label}
+                </span>
               </div>
-              <span style={{
-                fontSize: 11, padding: '2px 8px', borderRadius: 100, whiteSpace: 'nowrap',
-                background: badge.tone === 'ok' ? 'var(--k-ok-bg, #e8f5e9)' : 'var(--k-pill-bg, #f0f0f0)',
-                color: badge.tone === 'ok' ? 'var(--k-ok-text, #2e7d32)' : 'var(--k-text-muted, #6b6b6b)',
-              }}>
-                {badge.label}
-              </span>
+              {sub && <div style={{ fontSize: 11, color: 'var(--k-text-muted, #9b9b9b)' }}>{sub}</div>}
             </div>
           );
         })}

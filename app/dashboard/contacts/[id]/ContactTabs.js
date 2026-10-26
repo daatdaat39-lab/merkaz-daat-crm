@@ -8,6 +8,7 @@ import { addTask } from '../../tasks/actions';
 import { updateDepartmentExtraField } from '../actions';
 import { isProcessConcluded } from '../../lib/pipelineVisibility';
 import { computeFieldValue } from '../../lib/computedFields';
+import { LEGACY_COURSE_FIELD_KEYS } from '../../lib/extraFields';
 import KesherProjectPanel from './KesherProjectPanel';
 import CourseEnrollmentsPanel from './CourseEnrollmentsPanel';
 import CoursePurchasesPanel from './CoursePurchasesPanel';
@@ -16,7 +17,7 @@ import StageStepper from './StageStepper';
 import Link from 'next/link';
 import { STATUS_LABELS, SEVERITY_LABELS, slaStatus } from '../../lib/serviceSla';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, relatedContact = null }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, relatedContact = null, openRequest = null }) {
   const [tab, setTab] = useState('activity');
   const [currentFilter, setCurrentFilter] = useState('all'); // all | processes | cases | tasks | payments
   const [notesValue, setNotesValue] = useState(notes || '');
@@ -29,6 +30,15 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
   useEffect(() => {
     setExtraValues(activeDepartment?.extraFields || {});
   }, [activeDepartment?.id]);
+
+  // קוביית-הסיכום העליונה (GenericStatsTile) קוראת לפתוח את "פעילות
+  // נוכחית" עם צ'יפ-ספציפי - openRequest.nonce מבטיח שלחיצה-חוזרת-על-
+  // אותו-פילטר עדיין תפעיל (אחרת שינוי-state-זהה לא-מרנדר-מחדש).
+  useEffect(() => {
+    if (!openRequest) return;
+    setTab('current');
+    setCurrentFilter(openRequest.filter);
+  }, [openRequest?.nonce]);
 
   function handleExtraFieldChange(key, value) {
     if (!activeDepartment) return;
@@ -76,7 +86,13 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
   const fieldDefs = activeDepartment?.fieldDefs || [];
   // שליטת מנהל (visible_to_agents) - שדה חסום נעלם גם מטאב "שדות נוספים"
   // עצמו, לא רק מהקוביה, לכל מי שאינו owner/admin.
-  const visibleFieldDefs = fieldDefs.filter((f) => f.visibleToAgents !== false || isManager);
+  // שדות-קורסים-חופשיים-ישנים ב"דעת ותבונה" הוחלפו ע"י CoursePurchasesPanel
+  // (ר' extraFields.js) - מוגבל-למחלקה-הזו-בלבד כי אותם field_key-ים
+  // קיימים כשדות-אמיתיים-נפרדים ב"דעת למדני".
+  const isLegacyCourseWorkspace = activeDepartment?.workspaceName === 'דעת ותבונה';
+  const visibleFieldDefs = fieldDefs
+    .filter((f) => f.visibleToAgents !== false || isManager)
+    .filter((f) => !(isLegacyCourseWorkspace && LEGACY_COURSE_FIELD_KEYS.includes(f.key)));
   const deptTransactions = activeDepartment ? donationTransactions.filter((t) => t.workspace_id === activeDepartment.workspaceId) : [];
   const deptCommitments = activeDepartment ? commitments.filter((c) => c.workspace_id === activeDepartment.workspaceId) : [];
   const deptCourseEnrollments = activeDepartment ? courseEnrollments.filter((e) => e.workspace_id === activeDepartment.workspaceId) : [];

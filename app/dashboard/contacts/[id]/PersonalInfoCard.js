@@ -8,6 +8,8 @@ import { updateContact, searchContacts, assignAgent, addContactTag } from '../ac
 import TagPicker from '../TagPicker';
 import SourceMultiPicker from '../SourceMultiPicker';
 import FamilyRelationsPanel from './FamilyRelationsPanel';
+import FillSection from '../../components/FillSection';
+import { GENDER_OPTIONS } from '../../lib/contactFieldsList';
 
 const inputStyle = { width: '100%', border: '1px solid var(--k-border)', borderRadius: 8, padding: '5px 8px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
 const categoryLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', margin: '14px 0 8px' };
@@ -25,12 +27,20 @@ export default function PersonalInfoCard({
   const [related, setRelated] = useState(relatedContact ? { id: relatedContact.id, name: `${relatedContact.first} ${relatedContact.last}` } : null);
   const router = useRouter();
 
-  // שדות-ריקים לא מוצגים יותר כשורת-מקף (ר' InfoRow) - צ'יפ-מרוכז-אחד
-  // פותח את טופס-העריכה-המלא הקיים (לא בונה עוד מנגנון-מילוי-בנפרד).
-  const missingFieldsCount = [
-    contact.idnum, contact.birth_date, contact.gender, contact.children_count, contact.source,
-    contact.phone, contact.phone2, contact.email, contact.email2,
-  ].filter((v) => v === null || v === undefined || v === '').length;
+  // שדות-ריקים לא מוצגים יותר כשורת-מקף (ר' InfoRow) - צ'יפים נפרדים
+  // (FillSection, אותו דפוס כמו LeadWorkScreen/CaseWorkScreen) ממלאים
+  // את מקום צ'יפ-ההשלמה-המרוכז-הישן. source לא נכלל (multi-picker,
+  // לא נתמך ב-FillSection) - נשאר נגיש רק דרך הטופס-המלא (כפתור ✎).
+  const missingFields = [
+    { key: 'idnum', label: 'ת.ז / מזהה', currentValue: contact.idnum },
+    { key: 'birth_date', label: 'תאריך לידה', type: 'date', currentValue: contact.birth_date },
+    { key: 'gender', label: 'מגדר', type: 'select', options: GENDER_OPTIONS, currentValue: contact.gender },
+    { key: 'children_count', label: 'מספר ילדים', type: 'number', currentValue: contact.children_count },
+    { key: 'phone', label: 'טלפון', currentValue: contact.phone },
+    { key: 'phone2', label: 'טלפון נוסף', currentValue: contact.phone2 },
+    { key: 'email', label: 'מייל', type: 'email', currentValue: contact.email },
+    { key: 'email2', label: 'מייל נוסף', currentValue: contact.email2 },
+  ];
 
   function handleAgentChange(e) {
     if (!activeWorkspaceId) return;
@@ -85,7 +95,7 @@ export default function PersonalInfoCard({
           <Field label="שם משפחה" name="last" defaultValue={contact.last} />
           <Field label="ת.ז / מזהה" name="idnum" defaultValue={contact.idnum} />
           <Field label="תאריך לידה" name="birth_date" type="date" defaultValue={contact.birth_date} />
-          <SelectField label="מגדר" name="gender" defaultValue={contact.gender} options={[{ value: '', label: '—' }, { value: 'זכר', label: 'זכר' }, { value: 'נקבה', label: 'נקבה' }]} />
+          <SelectField label="מגדר" name="gender" defaultValue={contact.gender} options={[{ value: '', label: '—' }, ...GENDER_OPTIONS]} />
           <Field label="מספר ילדים" name="children_count" type="number" defaultValue={contact.children_count} />
           <div style={{ marginBottom: 8 }}>
             <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginBottom: 2 }}>מקור</div>
@@ -133,18 +143,7 @@ export default function PersonalInfoCard({
           <InfoRow label="מספר ילדים" value={contact.children_count} />
           <InfoRow label="מקור" value={contact.source} />
           <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
-          {!contact.frozen && missingFieldsCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--k-pill-bg)', border: '1px dashed var(--k-border)',
-                borderRadius: 100, padding: '4px 10px', fontSize: 11.5, color: 'var(--k-text-muted)', cursor: 'pointer', marginBottom: 8,
-              }}
-            >
-              + השלמת {missingFieldsCount} פרטים חסרים
-            </button>
-          )}
+          {!contact.frozen && <FillSection contactId={contact.id} fields={missingFields} />}
           {externalIds.length > 0 && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>מזהים במערכות חיצוניות</div>

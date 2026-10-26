@@ -37,12 +37,23 @@ export default function FillSection({ contactId, fields }) {
         {missing.map((f) => (
           openKey === f.key ? (
             <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1px solid var(--k-accent)', borderRadius: 8, padding: '4px 6px 4px 10px', background: 'var(--k-surface)' }}>
-              <input
-                autoFocus type={f.type || 'text'} value={value} onChange={(e) => setValue(e.target.value)}
-                placeholder={f.placeholder || `הקלדת ${f.label}...`}
-                onKeyDown={(e) => { if (e.key === 'Enter') save(f); if (e.key === 'Escape') setOpenKey(null); }}
-                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 12.5, background: 'none', color: 'var(--k-text)', minWidth: 0 }}
-              />
+              {f.type === 'select' ? (
+                <select
+                  autoFocus value={value} onChange={(e) => setValue(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') save(f); if (e.key === 'Escape') setOpenKey(null); }}
+                  style={{ flex: 1, border: 'none', outline: 'none', fontSize: 12.5, background: 'none', color: 'var(--k-text)', minWidth: 0 }}
+                >
+                  <option value="">—</option>
+                  {(f.options || []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              ) : (
+                <input
+                  autoFocus type={f.type || 'text'} value={value} onChange={(e) => setValue(e.target.value)}
+                  placeholder={f.placeholder || `הקלדת ${f.label}...`}
+                  onKeyDown={(e) => { if (e.key === 'Enter') save(f); if (e.key === 'Escape') setOpenKey(null); }}
+                  style={{ flex: 1, border: 'none', outline: 'none', fontSize: 12.5, background: 'none', color: 'var(--k-text)', minWidth: 0 }}
+                />
+              )}
               <button
                 type="button" onClick={() => save(f)} disabled={isPending}
                 style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--k-accent)', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}

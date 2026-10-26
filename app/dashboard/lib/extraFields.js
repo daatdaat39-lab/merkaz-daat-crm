@@ -5,6 +5,17 @@
 // שורות בטבלה - לא נמחק.
 import { getExtraFields as getExtraFieldsFallback } from '../components/pipelines';
 
+// שדות-קורסים-חופשיים-ישנים במחלקת "דעת ותבונה" בלבד - הוחלפו ע"י
+// course_purchases (קטלוג אמיתי) + CoursePurchasesPanel. מוחרגים
+// מתצוגת-הטופס-הרגילה (ContactTabs.js/GenericStatsTile.js) - שימו לב
+// ש-study_track/initial_payment_stage קיימים גם כשדות-אמיתיים-נפרדים
+// במחלקת "דעת למדני" (EXTRA_FIELDS ב-components/pipelines.js) - ההחרגה
+// חייבת להיות מוגבלת ל-workspaceName==='דעת ותבונה', לא גלובלית לפי key.
+export const LEGACY_COURSE_FIELD_KEYS = [
+  'study_track', 'initial_payment_stage', 'current_course',
+  'graduate_of', 'graduation_year', 'short_course_purchased', 'short_courses_summary',
+];
+
 export async function getAllExtraFields(supabase) {
   const { data: rows } = await supabase
     .from('workspace_extra_fields')

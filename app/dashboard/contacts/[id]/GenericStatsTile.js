@@ -6,6 +6,7 @@
 // (workspace_extra_fields) ועל היסטוריית תנועות אם קיימת - בלי שום
 // לוגיקה קשיחה לפי שם מחלקה. **תצוגה בלבד (read-only)**.
 import { computeFieldValue } from '../../lib/computedFields';
+import { LEGACY_COURSE_FIELD_KEYS } from '../../lib/extraFields';
 
 function formatValue(val, type) {
   if (val === null || val === undefined || val === '') return null;
@@ -17,12 +18,12 @@ function formatValue(val, type) {
   return String(val);
 }
 
-export default function GenericStatsTile({ department, stageOrder = [], labels = {}, transactions = [], commitments = [], isManager = false }) {
+export default function GenericStatsTile({
+  department, transactions = [], commitments = [], isManager = false,
+  openProcessesCount = 0, openServiceCasesCount = 0, openTasksCount = 0, onOpenCurrentTab,
+}) {
   const extra = department.extraFields || {};
   const fieldDefs = department.fieldDefs || [];
-  // "הורה"/"הורה של בוגר" מחושב מהתלמיד-המקושר (ר' loadContactCardData.js)
-  // גובר על תווית-השלב-הרגילה כשהוא קיים.
-  const currentStageLabel = department.parentDisplayStageLabel || labels[department.stage] || department.stage;
 
   const deptTransactions = transactions.filter((t) => t.workspace_id === department.workspaceId);
   const transactionsTotal = deptTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
@@ -41,12 +42,17 @@ export default function GenericStatsTile({ department, stageOrder = [], labels =
   // שליטת מנהל (visible_to_agents) שונה - כלל ארגוני קשיח, לא העדפה
   // אישית: שדה כזה נעלם לגמרי למי שאינו owner/admin.
   const hiddenKeys = department.hiddenExtraFieldKeys || [];
+  const isLegacyCourseWorkspace = department.workspaceName === 'דעת ותבונה';
   const filledFields = fieldDefs
     .filter((f) => !hiddenKeys.includes(f.key) && (f.visibleToAgents !== false || isManager))
+    .filter((f) => !(isLegacyCourseWorkspace && LEGACY_COURSE_FIELD_KEYS.includes(f.key)))
     .map((f) => ({ ...f, display: f.type === 'computed' ? computeFieldValue(f, extra, fieldDefs, deptTransactions) : formatValue(extra[f.key], f.type) }))
     .filter((f) => f.display !== null);
 
-  if (filledFields.length === 0 && deptTransactions.length === 0 && !activeCommitment && !department.stage) return null;
+  if (
+    filledFields.length === 0 && deptTransactions.length === 0 && !activeCommitment
+    && openProcessesCount === 0 && openServiceCasesCount === 0 && openTasksCount === 0
+  ) return null;
 
   return (
     <div style={{
@@ -54,11 +60,30 @@ export default function GenericStatsTile({ department, stageOrder = [], labels =
       background: 'var(--k-pill-bg)', border: 'none', borderRadius: 14,
       padding: '14px 18px', marginBottom: 16,
     }}>
-      {/* opened_process=false = שיוך-מידע-פסיבי (למשל תרומה/תשלום שזוהה
-          אוטומטית), לא ליד/תהליך-אמיתי - לא מציגים שלב כאילו מישהו מטפל בזה. */}
-      {department.openedProcess !== false && (
-        <Block label="שלב נוכחי">
-          <span style={value()}>{currentStageLabel}</span>
+      {/* "שלב נוכחי" הוחלף בסיכום-פעולה-לחיץ - שם-שלב-ספציפי היה מטעה
+          כש-יש-כמה-תהליכים-במקביל או opened_process=false. מוגבל-
+          למחלקה-הפעילה-בלבד (ר' ContactDetailClient.js). */}
+      {openProcessesCount > 0 && (
+        <Block label="תהליכים פתוחים">
+          <button type="button" onClick={() => onOpenCurrentTab?.('processes')} style={clickableValue()}>
+            {openProcessesCount}
+          </button>
+        </Block>
+      )}
+
+      {openServiceCasesCount > 0 && (
+        <Block label="קריאות שירות פתוחות">
+          <button type="button" onClick={() => onOpenCurrentTab?.('cases')} style={clickableValue()}>
+            {openServiceCasesCount}
+          </button>
+        </Block>
+      )}
+
+      {openTasksCount > 0 && (
+        <Block label="משימות פתוחות">
+          <button type="button" onClick={() => onOpenCurrentTab?.('tasks')} style={clickableValue()}>
+            {openTasksCount}
+          </button>
         </Block>
       )}
 
@@ -99,6 +124,10 @@ function Block({ label, children }) {
 
 function value() {
   return { fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-accent)' };
+}
+
+function clickableValue() {
+  return { ...value(), background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 };
 }
 
 function sub() {

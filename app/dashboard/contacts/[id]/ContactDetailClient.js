@@ -133,6 +133,24 @@ export default function ContactDetailClient({
   const activePipeline = byWorkspace[active?.workspaceName] || FALLBACK_PIPELINE;
   const mainProcessConcluded = active ? isProcessConcluded(active.stage, activePipeline) : false;
 
+  // קוביית-הסיכום העליונה (GenericStatsTile) - "N תהליכים/קריאות-שירות
+  // פתוחים" במקום שם-שלב-ספציפי. מוגבל-למחלקה-הפעילה-בלבד (אותה נוסחה
+  // כמו ContactTabs.js - לא-לגעת-בחישוב-שם, כפילות-קטנה-מקובלת כדי
+  // לא-לסכן-שבירה של הטאב הקיים). "משימות פתוחות" נשאר contact-wide
+  // (openTasksCount, מחושב כבר server-side) - אי-עקביות-קלה-ומודעת.
+  const activeDeptServiceCases = active ? (serviceCases || []).filter((c) => c.workspace_id === active.workspaceId) : [];
+  const openServiceCasesCountActive = activeDeptServiceCases.filter((c) => c.status !== 'closed').length;
+  const mainProcessOpenActive = active && !mainProcessConcluded && active.openedProcess !== false;
+  const openCampaignProcessesCountActive = (active?.campaignProcesses || []).filter((cp) => !isProcessConcluded(cp.status, cp.stages)).length;
+  const openProcessesCountActive = (mainProcessOpenActive ? 1 : 0) + openCampaignProcessesCountActive;
+
+  // מאפשר לקוביית-הסיכום לפתוח את טאב "פעילות נוכחית" עם הצ'יפ המתאים -
+  // nonce כדי שלחיצה-חוזרת-על-אותו-פילטר תפעיל שוב (ContactTabs.js מאזין).
+  const [tabOpenRequest, setTabOpenRequest] = useState(null);
+  function handleOpenCurrentTab(filter) {
+    setTabOpenRequest({ filter, nonce: Date.now() });
+  }
+
   const outerStyle = isModal
     ? { padding: '24px', background: 'var(--k-bg)' }
     : { maxWidth: 1000, margin: '0 auto', padding: '28px 24px', background: 'var(--k-bg)', minHeight: '100%' };
@@ -244,9 +262,11 @@ export default function ContactDetailClient({
           department={active}
           transactions={donationTransactions || []}
           commitments={commitments || []}
-          stageOrder={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order}
-          labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
           isManager={isManager}
+          openProcessesCount={openProcessesCountActive}
+          openServiceCasesCount={openServiceCasesCountActive}
+          openTasksCount={openTasksCount}
+          onOpenCurrentTab={handleOpenCurrentTab}
         />
       )}
 
@@ -353,18 +373,10 @@ export default function ContactDetailClient({
         )}
       </div>
 
-      {(openTasksCount > 0 || nextMeeting) && (
+      {/* "משימות פתוחות" זז לקוביית-הסיכום העליונה (GenericStatsTile) -
+          לא עוד pill נפרד-לא-לחיץ כאן. */}
+      {nextMeeting && (
         <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-          {openTasksCount > 0 && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 10, background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)',
-              borderRadius: 12, padding: '10px 16px', flex: '1 1 200px',
-            }}>
-              <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 22, color: 'var(--k-accent)' }}>{openTasksCount}</span>
-              <span style={{ fontSize: 13, color: 'var(--k-text)' }}>משימות פתוחות</span>
-            </div>
-          )}
-          {nextMeeting && (
             <div style={{
               display: 'flex', alignItems: 'center', gap: 10, background: 'var(--k-caution-bg)', border: 'none',
               borderRadius: 12, padding: '10px 16px', flex: '1 1 200px',
@@ -377,7 +389,6 @@ export default function ContactDetailClient({
                 </div>
               </div>
             </div>
-          )}
         </div>
       )}
 
@@ -432,6 +443,7 @@ export default function ContactDetailClient({
             activeDepartment={active}
             pipeline={activePipeline}
             mainProcessConcluded={mainProcessConcluded}
+            openRequest={tabOpenRequest}
             onReopenMain={reopenDepartment}
             onReopenCampaign={reopenCampaignProcess}
             onCampaignStageChange={handleCampaignStageChange}
