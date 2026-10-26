@@ -32,6 +32,15 @@ async function notifyOpenCampaignsOfDonation(supabase, contactId, amount) {
   }
 }
 
+// תשלום-הורה-אמיתי (parent_of_student) מקבל טקסט-רישום ספציפי ("תשלום
+// הורים") במקום הגנרי - כדי שהתהליך בכרטיס-איש-הקשר יהיה קריא-מיד, לא
+// רק "תשלום/התחייבות מקשר" סתמי.
+function getKesherReason(workspace, stage) {
+  if (workspace.name === 'תרומות') return 'תרומה/התחייבות מקשר';
+  if (stage === 'parent_of_student') return 'תשלום הורים';
+  return 'תשלום/התחייבות מקשר';
+}
+
 // מיפוי תת-מחרוזת משם ה-Project בקשר לשם מחלקה אצלנו - אומת מריצה חיה.
 const PROJECT_TO_WORKSPACE = [
   { match: 'תרומות', workspaceName: 'תרומות' },
@@ -195,7 +204,7 @@ async function createContactFromKesher(supabase, { name, idnum, phone, email }, 
   }).select('id, tags, phone, phone2, email, email2, idnum, birth_date, gender').single();
   if (!created) return null;
 
-  const reason = workspace.name === 'תרומות' ? 'תרומה/התחייבות מקשר' : 'תשלום/התחייבות מקשר';
+  const reason = getKesherReason(workspace, stage);
   // תשלום-אמיתי של הורה (שכר-לימוד/דמי-רישום) הוא כבר-עצמו סימן-חזק
   // ש"כנראה הורה פעיל" - בניגוד לתרומה/תשלום-אחר שנשאר opened_process=
   // false (ר' החלטת "ציון-הורה-מחושב"). קישור-לתלמיד-ספציפי (contact_
@@ -309,7 +318,7 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
       // workspace_id תקין, אבל בלי contact_departments - "נעלמת" מכל מסך
       // מחלקתי למרות שיש לו כסף אמיתי (נמצא בפועל - 68 מקרים בסריקה).
       if (contact) {
-        const reason = workspace.name === 'תרומות' ? 'תרומה/התחייבות מקשר' : 'תשלום/התחייבות מקשר';
+        const reason = getKesherReason(workspace, routing.stage);
         // ר' הערה ב-createContactFromKesher - תשלום-הורה-אמיתי כבר-עצמו
         // סימן-חזק ש"כנראה הורה פעיל", בניגוד לתרומה/תשלום-אחר.
         await upsertDepartmentMembership(supabase, contact.id, workspace, reason, null, 'קשר', null, { openProcess: routing.stage === 'parent_of_student', requiresApproval: false, stage: routing.stage || null });
@@ -423,7 +432,7 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
       // ר' הערה מקבילה בלולאת ההתחייבויות למעלה - איש קשר שהותאם צריך
       // שיוך-מחלקה מפורש גם אם זו הפעם הראשונה שהוא נוגע במחלקה הזו.
       if (contact) {
-        const reason = workspace.name === 'תרומות' ? 'תרומה/התחייבות מקשר' : 'תשלום/התחייבות מקשר';
+        const reason = getKesherReason(workspace, routing.stage);
         // ר' הערה ב-createContactFromKesher - תשלום-הורה-אמיתי כבר-עצמו
         // סימן-חזק ש"כנראה הורה פעיל", בניגוד לתרומה/תשלום-אחר.
         await upsertDepartmentMembership(supabase, contact.id, workspace, reason, null, 'קשר', null, { openProcess: routing.stage === 'parent_of_student', requiresApproval: false, stage: routing.stage || null });
