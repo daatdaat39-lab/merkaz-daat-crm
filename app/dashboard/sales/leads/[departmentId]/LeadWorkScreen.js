@@ -22,7 +22,7 @@ const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted
 // visibilitychange - ר' ההערה המתועדת ב-ActiveCallPanel.js על אותה
 // סכנה בדיוק: הסתרת-טאב כשהנציג עובר לחייג מהנייד האישי שלו).
 export default function LeadWorkScreen({
-  departmentId, aiActionText, timelineSummary, contact, department, stageLabel, wonStageLabel, workspaceId, workspaceName,
+  departmentId, aiActionText, aiConfidence, timelineSummary, contact, department, stageLabel, wonStageLabel, workspaceId, workspaceName,
   courses, playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps, stages = [], stageLabels = {},
 }) {
   const [lockState, setLockState] = useState('checking'); // checking | locked | denied
@@ -179,6 +179,12 @@ export default function LeadWorkScreen({
                 </button>
               ))}
             </div>
+            {aiConfidence && (
+              <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginTop: -10, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <SparkleIcon size={11} style={{ color: 'var(--k-accent)' }} />
+                הערכת-AI: {aiConfidence === 'hot' ? '🔥 חם' : aiConfidence === 'warm' ? '🙂 פושר' : '❄️ קר'}
+              </div>
+            )}
 
             <div style={sectionLabel}>פרטי יצירת קשר</div>
             <div style={{ margin: '8px 0 16px' }}>

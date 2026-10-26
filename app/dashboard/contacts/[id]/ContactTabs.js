@@ -18,6 +18,7 @@ import { STATUS_LABELS, SEVERITY_LABELS, slaStatus } from '../../lib/serviceSla'
 
 export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, relatedContact = null }) {
   const [tab, setTab] = useState('activity');
+  const [currentFilter, setCurrentFilter] = useState('all'); // all | processes | cases | tasks | payments
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
@@ -83,17 +84,21 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
   const deptSeminarParticipations = activeDepartment ? seminarParticipations.filter((p) => p.workspace_id === activeDepartment.workspaceId) : [];
   const deptServiceCases = activeDepartment ? serviceCases.filter((c) => c.workspace_id === activeDepartment.workspaceId) : [];
   const openServiceCasesCount = deptServiceCases.filter((c) => c.status !== 'closed').length;
+  const deptActiveCommitments = deptCommitments.filter((c) => c.status === 'active');
+  const mainProcessOpen = activeDepartment && !mainProcessConcluded && activeDepartment.openedProcess !== false;
+  const openCampaignProcessesCount = (activeDepartment?.campaignProcesses || []).filter((cp) => !isProcessConcluded(cp.status, cp.stages)).length;
+  const processesCount = (mainProcessOpen ? 1 : 0) + openCampaignProcessesCount;
+  // "פעילות נוכחית" מאחד-מה-שהיה-פעם 3 טאבים-נפרדים (תהליכים/קריאות-
+  // שירות/משימות) + סיכום-התחייבות-פעילה (שהיה-חלק-מ-KesherProjectPanel
+  // ב"שדות נוספים") - צ'יפ-סינון-פנימי במקום-ניווט-שטוח. "היסטוריה"
+  // (היה "פעילות") סופגת גם את "הקלטות שיחה" - זו הייתה ממילא-רק-תת-
+  // קבוצה-כפולה של קבוצת "שיחות טלפון" בתוכה (אותו player, אותם נתונים).
+  const currentCount = processesCount + openServiceCasesCount + tasks.filter((t) => !t.done).length;
   const tabs = [
-    { id: 'activity', label: 'פעילות' },
-    { id: 'tasks', label: `משימות${tasks.length ? ` (${tasks.length})` : ''}` },
+    { id: 'current', label: `פעילות נוכחית${currentCount ? ` (${currentCount})` : ''}` },
+    { id: 'activity', label: 'היסטוריה' },
     { id: 'notes', label: 'הערות' },
     { id: 'documents', label: 'מסמכים' },
-    { id: 'recordings', label: 'הקלטות שיחה' },
-    ...(activeDepartment ? [{ id: 'processes', label: 'תהליכים' }] : []),
-    // קריאות-שירות - עד-עכשיו לא הוצגו בשום-מקום בכרטיס-איש-קשר בכלל
-    // (service_cases, migration 0151) - טאב חדש-לגמרי, מוצג רק אם יש-בו-
-    // משהו (בניגוד ל"תהליכים" שתמיד מוצג - כאן זה לא "ברירת-המחדל" של כל-איש-קשר).
-    ...(deptServiceCases.length > 0 ? [{ id: 'cases', label: `קריאות שירות${openServiceCasesCount ? ` (${openServiceCasesCount})` : ''}` }] : []),
     // הטאב מוצג אם יש בו משהו להראות - לא רק שדות נוספים מוגדרים
     // (workspace_extra_fields), אלא גם פאנלים ייעודיים (KesherProjectPanel/
     // CourseEnrollmentsPanel/SeminarParticipationsPanel) שיכולים להכיל מידע
@@ -125,6 +130,174 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           </button>
         ))}
       </div>
+
+      {tab === 'current' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[
+              { v: 'all', l: 'הכל' },
+              ...(activeDepartment ? [{ v: 'processes', l: `תהליכים${processesCount ? ` (${processesCount})` : ''}` }] : []),
+              ...(deptServiceCases.length > 0 ? [{ v: 'cases', l: `קריאות שירות${openServiceCasesCount ? ` (${openServiceCasesCount})` : ''}` }] : []),
+              { v: 'tasks', l: `משימות${tasks.length ? ` (${tasks.length})` : ''}` },
+              ...(deptActiveCommitments.length > 0 ? [{ v: 'payments', l: 'תשלומים' }] : []),
+            ].map((f) => (
+              <button
+                key={f.v} type="button" onClick={() => setCurrentFilter(f.v)}
+                style={{
+                  fontSize: 12.5, padding: '5px 14px', borderRadius: 100, cursor: 'pointer',
+                  border: currentFilter === f.v ? '1px solid var(--k-accent)' : '1px solid var(--k-border)',
+                  background: currentFilter === f.v ? 'var(--k-pill-bg)' : 'var(--k-surface)',
+                  color: currentFilter === f.v ? 'var(--k-accent)' : 'var(--k-text-muted)',
+                }}
+              >
+                {f.l}
+              </button>
+            ))}
+          </div>
+
+          {(currentFilter === 'all' || currentFilter === 'processes') && activeDepartment && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {activeDepartment.openedProcess !== false && (
+                <ProcessCard
+                  title={`תהליך ראשי — ${activeDepartment.workspaceName}`}
+                  label={pipeline?.labels?.[activeDepartment.stage] || activeDepartment.stage}
+                  concluded={mainProcessConcluded}
+                  onReopen={onReopenMain}
+                />
+              )}
+              {(activeDepartment.campaignProcesses || []).map((cp) => (
+                <CampaignProcessCard
+                  key={cp.rowId}
+                  cp={cp}
+                  concluded={isProcessConcluded(cp.status, cp.stages)}
+                  onReopen={() => onReopenCampaign(cp.rowId, cp.stages)}
+                  onStageChange={onCampaignStageChange}
+                  disabled={frozen}
+                />
+              ))}
+            </div>
+          )}
+
+          {(currentFilter === 'all' || currentFilter === 'cases') && deptServiceCases.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {deptServiceCases.map((c) => {
+                const sla = c.status === 'closed' ? null : slaStatus(c.sla_due_at, c.severity);
+                return (
+                  <Link
+                    key={c.id}
+                    href={`/dashboard/service/cases/${c.id}`}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                      border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px', textDecoration: 'none', color: 'inherit',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--k-text)' }}>#{c.case_number} — {c.subject}</div>
+                      <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 2 }}>
+                        {STATUS_LABELS[c.status] || c.status} · חומרה {SEVERITY_LABELS[c.severity] || c.severity}
+                      </div>
+                    </div>
+                    {sla && (
+                      <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 100, background: sla.bg, color: sla.color, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        {sla.label}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {(currentFilter === 'all' || currentFilter === 'tasks') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {error && <div style={{ color: 'var(--k-danger-text)', fontSize: 12 }}>שגיאה: {error}</div>}
+
+              {!frozen && (addingTask ? (
+                <form action={handleAddTask} style={{
+                  display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', border: '1px solid var(--k-border)',
+                  borderRadius: 12, padding: '10px 12px', background: 'var(--k-pill-bg)',
+                }}>
+                  <input
+                    name="title" placeholder="כותרת המשימה..." autoFocus required
+                    style={{ flex: '1 1 160px', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}
+                  />
+                  <input name="due_date" type="date" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }} />
+                  <input name="due_time" type="time" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }} />
+                  {agents.length > 0 && (
+                    <select name="assigned_to" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}>
+                      <option value="">אני</option>
+                      {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                  )}
+                  <button type="submit" disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
+                    הוספה
+                  </button>
+                  <button type="button" onClick={() => setAddingTask(false)} style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>
+                    ביטול
+                  </button>
+                </form>
+              ) : (
+                <button
+                  onClick={() => setAddingTask(true)}
+                  style={{ alignSelf: 'flex-start', background: 'var(--k-surface)', border: '1px dashed var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, color: 'var(--k-text-muted)', cursor: 'pointer' }}
+                >
+                  + משימה חדשה
+                </button>
+              ))}
+
+              {tasks.length === 0 && <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין משימות</div>}
+              {tasks.map((t) => (
+                <div key={t.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--k-border)',
+                  borderRadius: 8, padding: '9px 14px',
+                }}>
+                  <button
+                    onClick={() => handleToggleTask(t.id, !t.done)}
+                    disabled={isPending || frozen}
+                    style={{
+                      width: 18, height: 18, borderRadius: 5, border: '1px solid var(--k-border)',
+                      background: t.done ? 'var(--k-ok-text)' : 'var(--k-surface)', color: '#fff', fontSize: 11,
+                      cursor: frozen ? 'default' : 'pointer', flexShrink: 0, opacity: frozen ? 0.5 : 1,
+                    }}
+                  >
+                    {t.done ? '✓' : ''}
+                  </button>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--k-text-muted)' : 'var(--k-text)' }}>
+                      <DeptTag name={workspaceNameById[t.workspace_id]} />
+                      {t.title}
+                    </div>
+                    {t.due_date && (
+                      <div style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>יעד: {new Date(t.due_date).toLocaleDateString('he-IL')}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {(currentFilter === 'all' || currentFilter === 'payments') && deptActiveCommitments.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {deptActiveCommitments.map((c) => (
+                <div key={c.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--k-ok-text)' }}>
+                    הוראת-קבע פעילה — ₪{Number(c.total_amount).toLocaleString('he-IL')}
+                    {c.frequency ? ` · ${c.frequency}` : ''}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 2 }}>
+                    {c.installments_count ? `${c.installments_count} תשלומים · ` : ''}
+                    {c.start_date ? `מתחילה ${new Date(c.start_date).toLocaleDateString('he-IL')}` : ''}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {currentFilter === 'all' && processesCount === 0 && openServiceCasesCount === 0 && tasks.length === 0 && deptActiveCommitments.length === 0 && (
+            <div style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>אין כרגע תהליכים, קריאות-שירות, משימות או תשלומים פתוחים.</div>
+          )}
+        </div>
+      )}
 
       {tab === 'activity' && (() => {
         const groups = [
@@ -243,74 +416,6 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
         );
       })()}
 
-      {tab === 'tasks' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {error && <div style={{ color: 'var(--k-danger-text)', fontSize: 12 }}>שגיאה: {error}</div>}
-
-          {!frozen && (addingTask ? (
-            <form action={handleAddTask} style={{
-              display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', border: '1px solid var(--k-border)',
-              borderRadius: 12, padding: '10px 12px', background: 'var(--k-pill-bg)',
-            }}>
-              <input
-                name="title" placeholder="כותרת המשימה..." autoFocus required
-                style={{ flex: '1 1 160px', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}
-              />
-              <input name="due_date" type="date" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }} />
-              <input name="due_time" type="time" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }} />
-              {agents.length > 0 && (
-                <select name="assigned_to" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}>
-                  <option value="">אני</option>
-                  {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
-              )}
-              <button type="submit" disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
-                הוספה
-              </button>
-              <button type="button" onClick={() => setAddingTask(false)} style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>
-                ביטול
-              </button>
-            </form>
-          ) : (
-            <button
-              onClick={() => setAddingTask(true)}
-              style={{ alignSelf: 'flex-start', background: 'var(--k-surface)', border: '1px dashed var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, color: 'var(--k-text-muted)', cursor: 'pointer' }}
-            >
-              + משימה חדשה
-            </button>
-          ))}
-
-          {tasks.length === 0 && <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין משימות</div>}
-          {tasks.map((t) => (
-            <div key={t.id} style={{
-              display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--k-border)',
-              borderRadius: 8, padding: '9px 14px',
-            }}>
-              <button
-                onClick={() => handleToggleTask(t.id, !t.done)}
-                disabled={isPending || frozen}
-                style={{
-                  width: 18, height: 18, borderRadius: 5, border: '1px solid var(--k-border)',
-                  background: t.done ? 'var(--k-ok-text)' : 'var(--k-surface)', color: '#fff', fontSize: 11,
-                  cursor: frozen ? 'default' : 'pointer', flexShrink: 0, opacity: frozen ? 0.5 : 1,
-                }}
-              >
-                {t.done ? '✓' : ''}
-              </button>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--k-text-muted)' : 'var(--k-text)' }}>
-                  <DeptTag name={workspaceNameById[t.workspace_id]} />
-                  {t.title}
-                </div>
-                {t.due_date && (
-                  <div style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>יעד: {new Date(t.due_date).toLocaleDateString('he-IL')}</div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
       {tab === 'notes' && (
         <form action={handleSaveNotes} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {error && <div style={{ color: 'var(--k-danger-text)', fontSize: 12 }}>שגיאה: {error}</div>}
@@ -333,60 +438,6 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             שמירת הערות
           </button>
         </form>
-      )}
-
-      {tab === 'processes' && activeDepartment && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {/* opened_process=false = שיוך-מידע-פסיבי, לא תהליך-אמיתי - לא מוצג כאן בכלל. */}
-          {activeDepartment.openedProcess !== false && (
-            <ProcessCard
-              title={`תהליך ראשי — ${activeDepartment.workspaceName}`}
-              label={pipeline?.labels?.[activeDepartment.stage] || activeDepartment.stage}
-              concluded={mainProcessConcluded}
-              onReopen={onReopenMain}
-            />
-          )}
-          {(activeDepartment.campaignProcesses || []).map((cp) => (
-            <CampaignProcessCard
-              key={cp.rowId}
-              cp={cp}
-              concluded={isProcessConcluded(cp.status, cp.stages)}
-              onReopen={() => onReopenCampaign(cp.rowId, cp.stages)}
-              onStageChange={onCampaignStageChange}
-              disabled={frozen}
-            />
-          ))}
-        </div>
-      )}
-
-      {tab === 'cases' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {deptServiceCases.map((c) => {
-            const sla = c.status === 'closed' ? null : slaStatus(c.sla_due_at, c.severity);
-            return (
-              <Link
-                key={c.id}
-                href={`/dashboard/service/cases/${c.id}`}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-                  border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px', textDecoration: 'none', color: 'inherit',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--k-text)' }}>#{c.case_number} — {c.subject}</div>
-                  <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 2 }}>
-                    {STATUS_LABELS[c.status] || c.status} · חומרה {SEVERITY_LABELS[c.severity] || c.severity}
-                  </div>
-                </div>
-                {sla && (
-                  <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 100, background: sla.bg, color: sla.color, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                    {sla.label}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </div>
       )}
 
       {tab === 'fields' && activeDepartment && (
@@ -480,22 +531,9 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
         </div>
       )}
 
-      {tab === 'recordings' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {phoneCalls.filter((c) => c.recording_url).length === 0 && (
-            <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין הקלטות שיחה</div>
-          )}
-          {phoneCalls.filter((c) => c.recording_url).map((c) => (
-            <div key={c.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px' }}>
-              <div style={{ fontSize: 12.5, marginBottom: 6 }}>
-                <span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? '📤 יוצאת' : '📥 נכנסת'}</span>
-                {c.started_at && <span style={{ color: 'var(--k-text-muted)' }}> · {new Date(c.started_at).toLocaleDateString('he-IL')} {new Date(c.started_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>}
-              </div>
-              <audio controls src={c.recording_url} style={{ width: '100%' }} />
-            </div>
-          ))}
-        </div>
-      )}
+      {/* "הקלטות שיחה" הוסר כטאב-נפרד - היה בדיוק תת-קבוצה-כפולה של
+          קבוצת "שיחות טלפון" בטאב "היסטוריה" (אותו player, אותם נתונים,
+          ר' phoneCalls group למעלה ב-tab==='activity'). */}
     </div>
   );
 }

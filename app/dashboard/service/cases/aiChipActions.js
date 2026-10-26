@@ -39,7 +39,7 @@ export async function refreshStaleCaseActionChips(workspaceId) {
         sentEmails: props.sentEmails, sentWhatsapp: props.sentWhatsapp, callHistory: props.callHistory, phoneCalls: props.phoneCalls,
       },
     });
-    if (result) refreshed += 1;
+    if (result?.actionText) refreshed += 1;
   }
   return { success: true, refreshed, attempted: staleRows.length };
 }

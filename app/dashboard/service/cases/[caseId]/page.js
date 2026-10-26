@@ -56,7 +56,7 @@ export default async function CaseWorkPage({ params }) {
   const closeReasonRows = await getPicklistValues(supabase, 'case_close_reason', null);
   const closeReasons = closeReasonRows.length ? closeReasonRows.map((r) => r.value) : undefined;
 
-  const aiActionText = await ensureCaseActionChip(supabase, {
+  const { actionText: aiActionText } = await ensureCaseActionChip(supabase, {
     id: caseId, stale: caseRow.ai_action_summary_stale !== false, cachedSummary: caseRow.ai_action_summary,
     contactName: `${props.contact.first} ${props.contact.last}`, courseId: caseRow.course_id,
     communication: {

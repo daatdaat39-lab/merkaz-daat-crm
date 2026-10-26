@@ -30,7 +30,7 @@ export async function loadContactCardData(contactId) {
   const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, tagRows, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }, { data: coursePurchaseRows }, { data: serviceCaseRows }] = await Promise.all([
     supabase
       .from('contact_departments')
-      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, ai_action_summary, ai_action_summary_stale, ai_timeline_summary, ai_timeline_summary_item_count, rep_confidence, rep_confidence_updated_at, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
+      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, ai_action_summary, ai_action_summary_stale, ai_timeline_summary, ai_timeline_summary_item_count, rep_confidence, rep_confidence_updated_at, ai_confidence, ai_confidence_updated_at, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
       .eq('contact_id', contact.id),
     supabase.from('workspaces').select('id, name').order('name'),
     supabase
@@ -240,6 +240,8 @@ export async function loadContactCardData(contactId) {
       aiTimelineSummaryItemCount: row.ai_timeline_summary_item_count,
       repConfidence: row.rep_confidence || null,
       repConfidenceUpdatedAt: row.rep_confidence_updated_at || null,
+      aiConfidence: row.ai_confidence || null,
+      aiConfidenceUpdatedAt: row.ai_confidence_updated_at || null,
       inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
       campaignProcesses: campaignProcessesByWorkspace[row.workspace_id] || [],
       hiddenWidgetKeys: hiddenWidgetsByWorkspace[row.workspace_id] || [],

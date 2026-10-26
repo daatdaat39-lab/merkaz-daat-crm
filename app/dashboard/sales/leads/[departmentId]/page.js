@@ -71,8 +71,9 @@ export default async function LeadWorkPage({ params }) {
   // צ'יפ-AI "מה-לעשות-עכשיו" - נוצר/מתרענן אוטומטית כאן אם stale (ר'
   // הטריגר ב-migration 0156), בלי להסתמך על cron. ברשימה (page.js של
   // הלוח) זה לא קורה בטעינה - שם מוצג רק הערך-השמור, ר' aiChipActions.js.
-  const aiActionText = await ensureLeadActionChip(supabase, {
+  const { actionText: aiActionText, confidence: aiConfidence } = await ensureLeadActionChip(supabase, {
     id: departmentId, stale: department.aiActionSummaryStale, cachedSummary: department.aiActionSummary,
+    cachedConfidence: department.aiConfidence,
     contactName: `${props.contact.first} ${props.contact.last}`, courseId: department.extraFields?.course_id,
     communication: {
       inquiries: department.inquiries, meetings: props.meetings, tasks: props.tasks,
@@ -98,6 +99,7 @@ export default async function LeadWorkPage({ params }) {
     <LeadWorkScreen
       departmentId={departmentId}
       aiActionText={aiActionText}
+      aiConfidence={aiConfidence}
       timelineSummary={timelineSummary}
       contact={{
         id: props.contact.id, first: props.contact.first, last: props.contact.last,

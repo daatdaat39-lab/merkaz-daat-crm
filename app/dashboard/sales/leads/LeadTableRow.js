@@ -106,6 +106,12 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
                   {c.repConfidence === 'hot' ? '🔥' : c.repConfidence === 'warm' ? '🙂' : '❄️'}
                 </span>
               )}
+              {c.aiConfidence && (
+                <span title="סבירות-לסגור (הערכת-AI)" style={{ fontSize: 10, display: 'flex', alignItems: 'center', gap: 2, color: 'var(--k-text-muted)' }}>
+                  <SparkleIcon size={9} style={{ color: 'var(--k-accent)' }} />
+                  {c.aiConfidence === 'hot' ? '🔥' : c.aiConfidence === 'warm' ? '🙂' : '❄️'}
+                </span>
+              )}
             </Link>
             <Link
               href={`/dashboard/sales/leads/${c.departmentRowId}`} title="התקשרות - פותח את מסך-הטיפול (תסריטים + ציר-זמן + המרה)"

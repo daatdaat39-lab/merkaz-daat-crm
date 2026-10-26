@@ -15,17 +15,24 @@ async function fetchActiveRules(supabase, courseId) {
 // בטעינת-עמוד, וכפתור-הרענון-הידני ברשימה) עם אותה לוגיקה בדיוק, רק
 // טבלת-היעד שונה. fail-soft תמיד: בכישלון, משאיר stale=true (ינסה
 // שוב בפעם הבאה) ומחזיר את הערך-הקודם-מהקאש בלי לשבור רינדור.
-async function ensureActionChip(supabase, { table, id, stale, cachedSummary, contactName, courseId, communication }) {
-  if (!stale) return cachedSummary;
+async function ensureActionChip(supabase, { table, id, stale, cachedSummary, cachedConfidence, contactName, courseId, communication, withConfidence = false }) {
+  if (!stale) return { actionText: cachedSummary, confidence: cachedConfidence || null };
   try {
     const rules = await fetchActiveRules(supabase, courseId);
     const result = await suggestActionChip({ name: contactName, ...communication, rules });
-    if (!result) return cachedSummary;
-    await supabase.from(table).update({
+    if (!result) return { actionText: cachedSummary, confidence: cachedConfidence || null };
+    const update = {
       ai_action_summary: result.actionText,
       ai_action_summary_updated_at: new Date().toISOString(),
       ai_action_summary_stale: false,
-    }).eq('id', id);
+    };
+    // confidence רק-ל-leads (contact_departments) - ל-service_cases אין
+    // את העמודה הזו בכלל (migration 0163), ולא רלוונטי-מושגית לקריאת-שירות.
+    if (withConfidence && result.confidence) {
+      update.ai_confidence = result.confidence;
+      update.ai_confidence_updated_at = new Date().toISOString();
+    }
+    await supabase.from(table).update(update).eq('id', id);
 
     // אירועי "לא נמצא כלל מתאים" - תיעוד-קל-משקל ל-ai_unmatched_events,
     // לניתוח-תבניות מאוחר יותר (settings/reference-content, "נתח כללים
@@ -38,14 +45,14 @@ async function ensureActionChip(supabase, { table, id, stale, cachedSummary, con
       }).then(() => {}, () => {});
     }
 
-    return result.actionText;
+    return { actionText: result.actionText, confidence: withConfidence ? (result.confidence || cachedConfidence || null) : null };
   } catch {
-    return cachedSummary;
+    return { actionText: cachedSummary, confidence: cachedConfidence || null };
   }
 }
 
 export async function ensureLeadActionChip(supabase, args) {
-  return ensureActionChip(supabase, { ...args, table: 'contact_departments' });
+  return ensureActionChip(supabase, { ...args, table: 'contact_departments', withConfidence: true });
 }
 
 export async function ensureCaseActionChip(supabase, args) {
