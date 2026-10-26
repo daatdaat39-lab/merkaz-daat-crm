@@ -7,6 +7,7 @@ import { shouldOpenPipeline, isProcessConcluded } from '../../lib/pipelineVisibi
 import { updateDepartmentStage, addDepartmentMembership } from '../actions';
 import { updateCampaignContact } from '../../sales/campaigns/actions';
 import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
+import { LEGACY_COURSE_FIELD_KEYS } from '../../lib/extraFields';
 import StageStepper from './StageStepper';
 import QuickActionLauncher from './QuickActionLauncher';
 import ReferrerPicker from './ReferrerPicker';
@@ -251,7 +252,14 @@ export default function ContactDetailClient({
       {active && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           {!active.hiddenWidgetKeys?.includes('stats_tile') && (
-            <ExtraFieldVisibilityToggle workspaceId={active.workspaceId} fields={active.fieldDefs} hiddenKeys={active.hiddenExtraFieldKeys} />
+            <ExtraFieldVisibilityToggle
+              workspaceId={active.workspaceId}
+              // שדות-קורסים-ישנים ב"דעת ותבונה" מוחרגים-תמיד מהקוביה (ר'
+              // extraFields.js) - לא מציגים אותם כאן כברי-הפעלה/כיבוי,
+              // כי הסימון שלהם כבר לא-משפיע-על-כלום.
+              fields={(active.fieldDefs || []).filter((f) => !(active.workspaceName === 'דעת ותבונה' && LEGACY_COURSE_FIELD_KEYS.includes(f.key)))}
+              hiddenKeys={active.hiddenExtraFieldKeys}
+            />
           )}
           <WidgetVisibilityToggle workspaceId={active.workspaceId} hiddenKeys={active.hiddenWidgetKeys} />
         </div>
