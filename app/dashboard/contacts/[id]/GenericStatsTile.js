@@ -20,7 +20,9 @@ function formatValue(val, type) {
 export default function GenericStatsTile({ department, stageOrder = [], labels = {}, transactions = [], commitments = [], isManager = false }) {
   const extra = department.extraFields || {};
   const fieldDefs = department.fieldDefs || [];
-  const currentStageLabel = labels[department.stage] || department.stage;
+  // "הורה"/"הורה של בוגר" מחושב מהתלמיד-המקושר (ר' loadContactCardData.js)
+  // גובר על תווית-השלב-הרגילה כשהוא קיים.
+  const currentStageLabel = department.parentDisplayStageLabel || labels[department.stage] || department.stage;
 
   const deptTransactions = transactions.filter((t) => t.workspace_id === department.workspaceId);
   const transactionsTotal = deptTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);

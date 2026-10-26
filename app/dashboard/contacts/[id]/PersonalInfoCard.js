@@ -153,7 +153,7 @@ export default function PersonalInfoCard({
               </div>
             </div>
           )}
-          <FamilyRelationsPanel relatedContacts={relatedContacts} />
+          <FamilyRelationsPanel contactId={contact.id} relatedContacts={relatedContacts} frozen={contact.frozen} />
           {relatedContact && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>{contact.relation_label || 'איש קשר קשור'}</div>

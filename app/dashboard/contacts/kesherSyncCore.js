@@ -171,10 +171,11 @@ async function autoFillPaymentRef(supabase, contact, workspace, o) {
 // יוצר איש קשר חדש עבור רשומת קשר (עסקה/התחייבות) שלא הותאמה לאף איש
 // קשר קיים - קורה רק אם יש שם שמיש (Name); בלי שם, לא ניתן ליצור כרטיס
 // תקין (contacts.first חובה), אז מחזירים null וממשיכים לנתיב "לא הותאם"
-// הקיים. איש קשר חדש נוצר עם opened_process=false (לא נכנס ללוח
-// הלידים) ונרשם לקמפיין "נכנס ממערכת קשר" של המחלקה - כך שהצוות יכול
-// לעקוב אחריו בלי להציף את לוח הלידים הרגיל בכל תרומה חד-פעמית שקשר
-// מזהה. הערה: לא מאומת מריצה חיה אם קשר בפועל מחזירה שדה Name בתשובת
+// הקיים. איש קשר חדש נוצר בדרך-כלל עם opened_process=false (לא נכנס
+// ללוח-הלידים) ונרשם לקמפיין "נכנס ממערכת קשר" של המחלקה - כך שהצוות
+// יכול לעקוב אחריו בלי להציף את לוח הלידים הרגיל בכל תרומה חד-פעמית
+// שקשר מזהה. חריג: תשלום-הורה-אמיתי (parent_of_student) מקבל opened_
+// process=true ישר - ר' ההערה למטה. הערה: לא מאומת מריצה חיה אם קשר בפועל מחזירה שדה Name בתשובת
 // GetTrans/GetObligations - אם לא, הפונקציה פשוט לא יוצרת כלום (בלי
 // שגיאה) וההתנהגות נשארת זהה למה שהיה לפני השינוי הזה.
 async function createContactFromKesher(supabase, { name, idnum, phone, email }, workspace, userId, stage = null) {
@@ -195,7 +196,12 @@ async function createContactFromKesher(supabase, { name, idnum, phone, email }, 
   if (!created) return null;
 
   const reason = workspace.name === 'תרומות' ? 'תרומה/התחייבות מקשר' : 'תשלום/התחייבות מקשר';
-  await upsertDepartmentMembership(supabase, created.id, workspace, reason, null, 'קשר', null, { openProcess: false, requiresApproval: false, stage });
+  // תשלום-אמיתי של הורה (שכר-לימוד/דמי-רישום) הוא כבר-עצמו סימן-חזק
+  // ש"כנראה הורה פעיל" - בניגוד לתרומה/תשלום-אחר שנשאר opened_process=
+  // false (ר' החלטת "ציון-הורה-מחושב"). קישור-לתלמיד-ספציפי (contact_
+  // relations) עדיין נפרד ונעשה ידנית ע"י נציג כשרלוונטי.
+  const isParentPayment = stage === 'parent_of_student';
+  await upsertDepartmentMembership(supabase, created.id, workspace, reason, null, 'קשר', null, { openProcess: isParentPayment, requiresApproval: false, stage });
   await enrollInKesherCampaign(supabase, workspace.id, created.id, userId);
   return created;
 }
@@ -304,7 +310,9 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
       // מחלקתי למרות שיש לו כסף אמיתי (נמצא בפועל - 68 מקרים בסריקה).
       if (contact) {
         const reason = workspace.name === 'תרומות' ? 'תרומה/התחייבות מקשר' : 'תשלום/התחייבות מקשר';
-        await upsertDepartmentMembership(supabase, contact.id, workspace, reason, null, 'קשר', null, { openProcess: false, requiresApproval: false, stage: routing.stage || null });
+        // ר' הערה ב-createContactFromKesher - תשלום-הורה-אמיתי כבר-עצמו
+        // סימן-חזק ש"כנראה הורה פעיל", בניגוד לתרומה/תשלום-אחר.
+        await upsertDepartmentMembership(supabase, contact.id, workspace, reason, null, 'קשר', null, { openProcess: routing.stage === 'parent_of_student', requiresApproval: false, stage: routing.stage || null });
       } else if (createNewContacts) {
         contact = await createContactFromKesher(supabase, { name: o.Name, idnum, phone }, workspace, user.id, routing.stage || null);
       }
@@ -416,7 +424,9 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
       // שיוך-מחלקה מפורש גם אם זו הפעם הראשונה שהוא נוגע במחלקה הזו.
       if (contact) {
         const reason = workspace.name === 'תרומות' ? 'תרומה/התחייבות מקשר' : 'תשלום/התחייבות מקשר';
-        await upsertDepartmentMembership(supabase, contact.id, workspace, reason, null, 'קשר', null, { openProcess: false, requiresApproval: false, stage: routing.stage || null });
+        // ר' הערה ב-createContactFromKesher - תשלום-הורה-אמיתי כבר-עצמו
+        // סימן-חזק ש"כנראה הורה פעיל", בניגוד לתרומה/תשלום-אחר.
+        await upsertDepartmentMembership(supabase, contact.id, workspace, reason, null, 'קשר', null, { openProcess: routing.stage === 'parent_of_student', requiresApproval: false, stage: routing.stage || null });
       } else if (createNewContacts) {
         contact = await createContactFromKesher(supabase, { name: t.Name, idnum, phone, email }, workspace, user.id, routing.stage || null);
       }

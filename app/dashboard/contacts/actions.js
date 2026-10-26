@@ -219,6 +219,36 @@ export async function addContactTag(contactId, tag) {
   return { success: true, tags };
 }
 
+// קישור ידני בין שני אנשי-קשר (contact_relations, many-to-many אמיתי -
+// לא contacts.related_contact_id הישן שהוא 1:1 בלבד) - למשל הורה↔תלמיד,
+// כדי ש"הורה" ב"ישיבת דעת" יחושב "הורה של בוגר" לפי שלב-התלמיד-המקושר
+// (ר' loadContactCardData.js, computeParentDisplayStage). נציג מקשר
+// ידנית בלבד - בכוונה לא הצעה-אוטומטית-לפי-שם/טלפון (נדחה במפורש).
+export async function addContactRelation(contactId, relatedContactId, relationLabel) {
+  const { supabase } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+  const label = (relationLabel || '').trim();
+  if (!label) return { error: 'יש לבחור סוג-קרבה' };
+  if (contactId === relatedContactId) return { error: 'לא ניתן לקשר איש-קשר לעצמו' };
+
+  const { error } = await supabase.from('contact_relations').upsert(
+    { contact_id: contactId, related_contact_id: relatedContactId, relation_label: label },
+    { onConflict: 'contact_id,related_contact_id,relation_label', ignoreDuplicates: true }
+  );
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+export async function removeContactRelation(relationId, contactId) {
+  const { supabase } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+  const { error } = await supabase.from('contact_relations').delete().eq('id', relationId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
 // סיכום AI של מצב איש הקשר - לפי הערות פנימיות והיסטוריית פעילות בפועל
 // (במקום להמתין לחיבור הקלטות שיחה, שעדיין לא קיים במערכת)
 export async function getAiContactSummary(contactId) {

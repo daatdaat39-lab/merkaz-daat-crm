@@ -160,7 +160,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
               {activeDepartment.openedProcess !== false && (
                 <ProcessCard
                   title={`תהליך ראשי — ${activeDepartment.workspaceName}`}
-                  label={pipeline?.labels?.[activeDepartment.stage] || activeDepartment.stage}
+                  label={activeDepartment.parentDisplayStageLabel || pipeline?.labels?.[activeDepartment.stage] || activeDepartment.stage}
                   concluded={mainProcessConcluded}
                   onReopen={onReopenMain}
                 />

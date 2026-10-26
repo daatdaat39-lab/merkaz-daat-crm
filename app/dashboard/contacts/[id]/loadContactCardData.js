@@ -258,6 +258,33 @@ export async function loadContactCardData(contactId) {
     d.referrer = refId ? { id: refId, name: referrerNameById[refId] || 'איש קשר' } : null;
   }
 
+  // "הורה"/"הורה של בוגר" מחושב (לא נשמר) מהשלב-של-התלמיד-המקושר
+  // (contact_relations, קישור-ידני-בלבד ע"י נציג - ר' addContactRelation
+  // ב-actions.js) - חל רק על שיוך 'ישיבת דעת' בשלב-הצד 'parent_of_student'.
+  // בלי קישור - נשאר "הורה" כללי (ברירת-המחדל הקיימת, ללא שינוי).
+  const yeshivaParentDept = departments.find((d) => d.workspaceName === 'ישיבת דעת' && d.stage === 'parent_of_student');
+  if (yeshivaParentDept) {
+    const yeshivaWorkspaceId = yeshivaParentDept.workspaceId;
+    const relatedIds = Array.from(new Set([
+      ...(relationRowsForward || []).map((r) => r.related_contact_id),
+      ...(relationRowsReverse || []).map((r) => r.contact_id),
+    ].filter(Boolean)));
+    if (relatedIds.length > 0) {
+      const { data: studentRows } = await supabase
+        .from('contact_departments')
+        .select('contact_id, stage')
+        .eq('workspace_id', yeshivaWorkspaceId)
+        .in('contact_id', relatedIds)
+        .in('stage', ['active_student', 'graduate']);
+      // אם יש כמה תלמידים-מקושרים - "בוגר" מנצח (המידע-החשוב-יותר: לפחות
+      // אחד-מהילדים כבר סיים, לא שכולם-עדיין-לומדים).
+      const hasGraduate = (studentRows || []).some((r) => r.stage === 'graduate');
+      const hasActive = (studentRows || []).some((r) => r.stage === 'active_student');
+      if (hasGraduate) yeshivaParentDept.parentDisplayStageLabel = 'הורה של בוגר';
+      else if (hasActive) yeshivaParentDept.parentDisplayStageLabel = 'הורה';
+    }
+  }
+
   const workspaceNameById = Object.fromEntries((allWorkspaces || []).map((w) => [w.id, w.name]));
   const allInquiries = departments
     .flatMap((d) => (d.inquiries || []).map((inq) => ({ ...inq, workspaceName: d.workspaceName })))
