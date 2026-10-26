@@ -11,9 +11,15 @@ import { getExtraFields as getExtraFieldsFallback } from '../components/pipeline
 // ש-study_track/initial_payment_stage קיימים גם כשדות-אמיתיים-נפרדים
 // במחלקת "דעת למדני" (EXTRA_FIELDS ב-components/pipelines.js) - ההחרגה
 // חייבת להיות מוגבלת ל-workspaceName==='דעת ותבונה', לא גלובלית לפי key.
+// learner_status/payment_status כלולים כאן למרות שהם לא-עצמם-שדה-קורס:
+// הם שדות-מחושבים שהנוסחה שלהם (ב-DB) קוראת בדיוק את current_course/
+// initial_payment_stage - בלי הטופס-להזנתם הם יישארו קפואים-לנצח על
+// הערך-ההיסטורי-האחרון, אז מיותרים באותה מידה. seniority_in_system
+// (מחושב מ-orbit_registration_date, שדה-אורביט נפרד) לא קשור ונשאר.
 export const LEGACY_COURSE_FIELD_KEYS = [
   'study_track', 'initial_payment_stage', 'current_course',
   'graduate_of', 'graduation_year', 'short_course_purchased', 'short_courses_summary',
+  'learner_status', 'payment_status',
 ];
 
 export async function getAllExtraFields(supabase) {
