@@ -143,7 +143,6 @@ export default function PersonalInfoCard({
           <InfoRow label="מספר ילדים" value={contact.children_count} />
           <InfoRow label="מקור" value={contact.source} />
           <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
-          {!contact.frozen && <FillSection contactId={contact.id} fields={missingFields} />}
           {externalIds.length > 0 && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>מזהים במערכות חיצוניות</div>
@@ -212,6 +211,10 @@ export default function PersonalInfoCard({
             {(contact.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
             {!contact.frozen && <QuickTagAdd contactId={contact.id} existingTags={existingTags} groups={tagGroups} currentTags={contact.tags || []} onAdded={() => router.refresh()} />}
           </div>
+
+          {/* בתחתית-הכרטיס, אחרי כל-הפרטים-הקיימים - אותו מיקום כמו
+              LeadWorkScreen.js/CaseWorkScreen.js (לא למעלה, קוטע-את-הזרימה). */}
+          {!contact.frozen && <FillSection contactId={contact.id} fields={missingFields} />}
         </>
       )}
     </div>
