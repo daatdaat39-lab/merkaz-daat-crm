@@ -27,6 +27,8 @@ export default function PersonalInfoCard({
   const [related, setRelated] = useState(relatedContact ? { id: relatedContact.id, name: `${relatedContact.first} ${relatedContact.last}` } : null);
   const router = useRouter();
 
+  const hasFamilyRelations = (relatedContacts.forward?.length || 0) > 0 || (relatedContacts.reverse?.length || 0) > 0;
+
   // שדות-ריקים לא מוצגים יותר כשורת-מקף (ר' InfoRow) - צ'יפים נפרדים
   // (FillSection, אותו דפוס כמו LeadWorkScreen/CaseWorkScreen) ממלאים
   // את מקום צ'יפ-ההשלמה-המרוכז-הישן. source לא נכלל (multi-picker,
@@ -151,7 +153,9 @@ export default function PersonalInfoCard({
               </div>
             </div>
           )}
-          <FamilyRelationsPanel contactId={contact.id} relatedContacts={relatedContacts} frozen={contact.frozen} />
+          {/* כש-אין-קשרים-קיימים, הכפתור-להוספה זז לתחתית-הכרטיס (יחד עם
+              "להשלמה בשיחה") - פה למעלה נשאר רק מידע-אמיתי-שכבר-קיים. */}
+          {hasFamilyRelations && <FamilyRelationsPanel contactId={contact.id} relatedContacts={relatedContacts} frozen={contact.frozen} />}
           {relatedContact && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>{contact.relation_label || 'איש קשר קשור'}</div>
@@ -214,6 +218,7 @@ export default function PersonalInfoCard({
 
           {/* בתחתית-הכרטיס, אחרי כל-הפרטים-הקיימים - אותו מיקום כמו
               LeadWorkScreen.js/CaseWorkScreen.js (לא למעלה, קוטע-את-הזרימה). */}
+          {!hasFamilyRelations && <FamilyRelationsPanel contactId={contact.id} relatedContacts={relatedContacts} frozen={contact.frozen} />}
           {!contact.frozen && <FillSection contactId={contact.id} fields={missingFields} />}
         </>
       )}
