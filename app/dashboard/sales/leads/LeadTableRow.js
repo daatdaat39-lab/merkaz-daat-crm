@@ -101,6 +101,11 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
                   איש קשר קיים
                 </span>
               )}
+              {c.repConfidence && (
+                <span title="סבירות-לסגור (הערכת-נציג)" style={{ fontSize: 13 }}>
+                  {c.repConfidence === 'hot' ? '🔥' : c.repConfidence === 'warm' ? '🙂' : '❄️'}
+                </span>
+              )}
             </Link>
             <Link
               href={`/dashboard/sales/leads/${c.departmentRowId}`} title="התקשרות - פותח את מסך-הטיפול (תסריטים + ציר-זמן + המרה)"

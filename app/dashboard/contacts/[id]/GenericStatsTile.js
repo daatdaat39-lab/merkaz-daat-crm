@@ -52,9 +52,13 @@ export default function GenericStatsTile({ department, stageOrder = [], labels =
       background: 'var(--k-pill-bg)', border: 'none', borderRadius: 14,
       padding: '14px 18px', marginBottom: 16,
     }}>
-      <Block label="שלב נוכחי">
-        <span style={value()}>{currentStageLabel}</span>
-      </Block>
+      {/* opened_process=false = שיוך-מידע-פסיבי (למשל תרומה/תשלום שזוהה
+          אוטומטית), לא ליד/תהליך-אמיתי - לא מציגים שלב כאילו מישהו מטפל בזה. */}
+      {department.openedProcess !== false && (
+        <Block label="שלב נוכחי">
+          <span style={value()}>{currentStageLabel}</span>
+        </Block>
+      )}
 
       {deptTransactions.length > 0 && (
         <Block label="היסטוריית תנועות">

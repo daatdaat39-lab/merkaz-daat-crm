@@ -271,7 +271,7 @@ function evalNode(ast, ctx) {
         });
         const filledValues = names.map((n) => getRaw(n)).filter((v) => v !== undefined && v !== null && v !== '');
         if (ast.name === 'count_filled') return filledValues.length;
-        return filledValues.length ? filledValues.join(', ') : null; // list_filled
+        return filledValues.length ? filledValues.join(', ') : ''; // list_filled - מחרוזת ריקה, לא null (אחרת "X: " + list_filled(...) מדפיס המילה "null")
       }
       const args = ast.args.map((a) => evalNode(a, ctx));
       switch (ast.name) {

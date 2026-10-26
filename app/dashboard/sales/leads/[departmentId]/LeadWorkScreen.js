@@ -11,7 +11,7 @@ import QuickActivityLogForm from '../../../contacts/[id]/QuickActivityLogForm';
 import { PersonIcon, SparkleIcon, CheckIcon, CloseXIcon } from '../../../components/icons';
 import { updateDepartmentExtraField, updateLeadStage } from '../../../contacts/actions';
 import { CLOSE_REASONS } from '../../../components/pipelines';
-import { lockLead, heartbeatLeadLock, releaseLeadLock, convertLead } from './leadLockActions';
+import { lockLead, heartbeatLeadLock, releaseLeadLock, convertLead, setRepConfidence } from './leadLockActions';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
 const cardStyle = { background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 };
@@ -26,8 +26,13 @@ export default function LeadWorkScreen({
   courses, playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps, stages = [], stageLabels = {},
 }) {
   const [lockState, setLockState] = useState('checking'); // checking | locked | denied
+  const [repConfidence, setRepConfidenceState] = useState(department.repConfidence || null);
+  const [confidencePending, setConfidencePending] = useState(false);
   const [courseId, setCourseId] = useState(department.extraFields?.course_id || '');
   const [price, setPrice] = useState('');
+  const [cohortLabel, setCohortLabel] = useState('');
+  const [enrollmentStartDate, setEnrollmentStartDate] = useState('');
+  const [enrollmentEndDate, setEnrollmentEndDate] = useState('');
   const [converting, setConverting] = useState(false);
   const [converted, setConverted] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -84,11 +89,21 @@ export default function LeadWorkScreen({
     setError('');
     setConverting(true);
     startTransition(async () => {
-      const res = await convertLead(departmentId, { price });
+      const res = await convertLead(departmentId, { price, cohortLabel, enrollmentStartDate, enrollmentEndDate });
       setConverting(false);
       if (res?.error) { setError(res.error); return; }
       setConverted(true);
       router.refresh();
+    });
+  }
+
+  function handleSetConfidence(value) {
+    const next = repConfidence === value ? null : value; // לחיצה-חוזרת על אותו-ערך מנקה
+    setConfidencePending(true);
+    setRepConfidenceState(next);
+    startTransition(async () => {
+      await setRepConfidence(departmentId, next);
+      setConfidencePending(false);
     });
   }
 
@@ -144,6 +159,26 @@ export default function LeadWorkScreen({
                 <SparkleIcon size={14} style={{ color: 'var(--k-accent)' }} /><span>{aiActionText}</span>
               </div>
             )}
+
+            {/* ציון-סבירות-לסגור - הערכת-נציג ידנית (חם/פושר/קר), נפרד-
+                בכוונה מהערכת-AI (לא ממוזגים) - ר' דיון "ציון-סבירות-לסגור". */}
+            <div style={sectionLabel}>סבירות לסגור (הערכתך)</div>
+            <div style={{ display: 'flex', gap: 6, margin: '8px 0 16px' }}>
+              {[{ v: 'hot', l: '🔥 חם' }, { v: 'warm', l: '🙂 פושר' }, { v: 'cold', l: '❄️ קר' }].map((opt) => (
+                <button
+                  key={opt.v} type="button" disabled={confidencePending}
+                  onClick={() => handleSetConfidence(opt.v)}
+                  style={{
+                    flex: 1, fontSize: 12.5, padding: '6px 0', borderRadius: 100, cursor: 'pointer',
+                    border: repConfidence === opt.v ? '1px solid var(--k-accent)' : '1px solid var(--k-border)',
+                    background: repConfidence === opt.v ? 'var(--k-pill-bg)' : 'var(--k-surface)',
+                    color: repConfidence === opt.v ? 'var(--k-accent)' : 'var(--k-text-muted)',
+                  }}
+                >
+                  {opt.l}
+                </button>
+              ))}
+            </div>
 
             <div style={sectionLabel}>פרטי יצירת קשר</div>
             <div style={{ margin: '8px 0 16px' }}>
@@ -242,6 +277,23 @@ export default function LeadWorkScreen({
               <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginInlineEnd: 'auto' }}>
                 שינוי-שלב רגיל נעשה מהרשימה הראשית; שתי האפשרויות כאן הן סגירה סופית של הליד.
               </span>
+              {selectedCourse?.duration_type === 'fixed_dates' && (
+                <>
+                  <input
+                    type="text" value={cohortLabel} onChange={(e) => setCohortLabel(e.target.value)}
+                    placeholder="שם מחזור (אופציונלי)"
+                    style={{ ...inputStyle, width: 140 }}
+                  />
+                  <input
+                    type="date" value={enrollmentStartDate} onChange={(e) => setEnrollmentStartDate(e.target.value)}
+                    title="תאריך התחלה" style={{ ...inputStyle, width: 140 }}
+                  />
+                  <input
+                    type="date" value={enrollmentEndDate} onChange={(e) => setEnrollmentEndDate(e.target.value)}
+                    title="תאריך סיום" style={{ ...inputStyle, width: 140 }}
+                  />
+                </>
+              )}
               <input
                 type="number" value={price} onChange={(e) => setPrice(e.target.value)}
                 placeholder={selectedCourse?.price ? `₪${selectedCourse.price}` : 'מחיר (אופציונלי)'}

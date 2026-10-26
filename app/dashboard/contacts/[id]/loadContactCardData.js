@@ -27,10 +27,10 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, tagRows, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, tagRows, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }, { data: coursePurchaseRows }, { data: serviceCaseRows }] = await Promise.all([
     supabase
       .from('contact_departments')
-      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, ai_action_summary, ai_action_summary_stale, ai_timeline_summary, ai_timeline_summary_item_count, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
+      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, ai_action_summary, ai_action_summary_stale, ai_timeline_summary, ai_timeline_summary_item_count, rep_confidence, rep_confidence_updated_at, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
       .eq('contact_id', contact.id),
     supabase.from('workspaces').select('id, name').order('name'),
     supabase
@@ -121,6 +121,20 @@ export async function loadContactCardData(contactId) {
       .select('id, workspace_id, field_key, field_label, existing_value, new_value, source_system, batch_label, created_at, workspaces:workspace_id (name)')
       .eq('contact_id', contact.id)
       .eq('status', 'pending')
+      .order('created_at', { ascending: false }),
+    // הרשמות-קורס חיות (migration 0148) - עד-היום לא הוצגו בשום-מקום
+    // בכרטיס, רק נגעו-בהן ב-mergeContacts. courses הוא קטלוג גלובלי.
+    supabase
+      .from('course_purchases')
+      .select('id, workspace_id, contact_department_id, price, status, created_at, cohort_label, enrollment_start_date, enrollment_end_date, courses:course_id (id, name, code)')
+      .eq('contact_id', contact.id)
+      .order('created_at', { ascending: false }),
+    // קריאות-שירות (migration 0151) - גם הן לא הוצגו-מעולם בכרטיס-איש-
+    // קשר (רק נגעו-בהן ב-mergeContacts), למרות שהן ישות-נפרדת-לגמרי מתהליכים.
+    supabase
+      .from('service_cases')
+      .select('id, case_number, workspace_id, subject, status, severity, sla_due_at, created_at, closed_at')
+      .eq('contact_id', contact.id)
       .order('created_at', { ascending: false }),
   ]);
 
@@ -224,6 +238,8 @@ export async function loadContactCardData(contactId) {
       aiActionSummaryStale: row.ai_action_summary_stale !== false,
       aiTimelineSummary: row.ai_timeline_summary || null,
       aiTimelineSummaryItemCount: row.ai_timeline_summary_item_count,
+      repConfidence: row.rep_confidence || null,
+      repConfidenceUpdatedAt: row.rep_confidence_updated_at || null,
       inquiries: [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
       campaignProcesses: campaignProcessesByWorkspace[row.workspace_id] || [],
       hiddenWidgetKeys: hiddenWidgetsByWorkspace[row.workspace_id] || [],
@@ -313,6 +329,8 @@ export async function loadContactCardData(contactId) {
       pipelinesByWorkspace,
       additionalPhones: additionalPhoneRows || [],
       courseEnrollments: courseEnrollmentRows || [],
+      coursePurchases: coursePurchaseRows || [],
+      serviceCases: serviceCaseRows || [],
       seminarParticipations: seminarParticipationRows || [],
       relatedContacts: {
         forward: (relationRowsForward || []).map((r) => ({ id: r.id, label: r.relation_label, contact: r.related })),

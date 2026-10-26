@@ -41,7 +41,7 @@ export default async function SalesLeadsPage() {
     // (פתוחים/בתהליך/הצליחו/נפלו) מסננות בצד לקוח, כמו contacts/page.js
     const { data } = await supabase
       .from('contact_departments')
-      .select('id, stage, agent_id, last_activity_at, extra_fields, created_by_manager, ai_action_summary, ai_action_summary_stale, contacts:contact_id (id, first, last, phone, email, source, dept, tags, frozen), lead_inquiries (reason, created_at)')
+      .select('id, stage, agent_id, last_activity_at, extra_fields, created_by_manager, ai_action_summary, ai_action_summary_stale, rep_confidence, contacts:contact_id (id, first, last, phone, email, source, dept, tags, frozen), lead_inquiries (reason, created_at)')
       .eq('workspace_id', workspaceId)
       // לידים שממתינים לאישור המנהל לא מוצגים לנציגים - ר' sales/pending
       .eq('approval_status', 'approved')
@@ -62,6 +62,7 @@ export default async function SalesLeadsPage() {
           inquiryCount: inquiries.length,
           aiActionSummary: row.ai_action_summary || null,
           aiActionSummaryStale: row.ai_action_summary_stale !== false,
+          repConfidence: row.rep_confidence || null,
         };
       });
 

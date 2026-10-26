@@ -53,7 +53,10 @@ export async function releaseLeadLock(departmentId) {
 
 // כפתור "המרה": קריאה אחת ל-RPC אטומי (migration 0150) - מעדכן את השלב
 // לשלב-הניצחון ויוצר שורת course_purchases יחד, לא שתי כתיבות נפרדות.
-export async function convertLead(departmentId, { price } = {}) {
+// cohort_label/enrollment_*_date (migration 0161) נכתבים בעדכון-המשך
+// קטן מיד-אחרי (לא בתוך ה-RPC עצמו, כדי לא לשנות-חתימה של פונקציה
+// קיימת-וחיה) - "בוגר"/"פעיל" מחושב מהם ברינדור, לא נשמר כסטטוס.
+export async function convertLead(departmentId, { price, cohortLabel, enrollmentStartDate, enrollmentEndDate } = {}) {
   const { supabase, user } = await requireUser();
   const { row, error } = await requireMemberOfLead(supabase, user.id, departmentId);
   if (error) return { error };
@@ -71,10 +74,41 @@ export async function convertLead(departmentId, { price } = {}) {
   });
   if (rpcError) return { error: rpcError.message };
 
+  const { data: course } = await supabase.from('courses').select('duration_type, duration_days').eq('id', courseId).maybeSingle();
+  const enrollmentPatch = {};
+  if (course?.duration_type === 'fixed_dates') {
+    if (cohortLabel) enrollmentPatch.cohort_label = cohortLabel;
+    if (enrollmentStartDate) enrollmentPatch.enrollment_start_date = enrollmentStartDate;
+    if (enrollmentEndDate) enrollmentPatch.enrollment_end_date = enrollmentEndDate;
+  } else if (course?.duration_type === 'duration_from_purchase' && course.duration_days) {
+    const end = new Date();
+    end.setDate(end.getDate() + Number(course.duration_days));
+    enrollmentPatch.enrollment_end_date = end.toISOString().slice(0, 10);
+  }
+  if (Object.keys(enrollmentPatch).length > 0) {
+    await supabase.from('course_purchases').update(enrollmentPatch).eq('id', purchaseId);
+  }
+
   await applyStageAutomations(supabase, {
     workspaceId: row.workspace_id, stageKey: pipeline.wonStage, contactId: row.contact_id,
     userId: user.id, contactDepartmentId: departmentId,
   });
 
   return { success: true, purchaseId };
+}
+
+// ציון-סבירות-לסגור (הערכת-נציג, migration 0162) - חם/פושר/קר, נפרד
+// מהערכת-AI (לא נבנתה-עדיין). rep_confidence_updated_at נכתב תמיד-יחד
+// כדי שה-UI יוכל להציג "מעודכן לפני X ימים" (staleness).
+export async function setRepConfidence(departmentId, confidence) {
+  const { supabase, user } = await requireUser();
+  const { error } = await requireMemberOfLead(supabase, user.id, departmentId);
+  if (error) return { error };
+  if (!['hot', 'warm', 'cold', null].includes(confidence)) return { error: 'ערך לא תקין' };
+
+  const { error: updateError } = await supabase.from('contact_departments')
+    .update({ rep_confidence: confidence, rep_confidence_updated_at: confidence ? new Date().toISOString() : null })
+    .eq('id', departmentId);
+  if (updateError) return { error: updateError.message };
+  return { success: true };
 }

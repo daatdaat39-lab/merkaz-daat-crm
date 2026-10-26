@@ -10,9 +10,13 @@ import { isProcessConcluded } from '../../lib/pipelineVisibility';
 import { computeFieldValue } from '../../lib/computedFields';
 import KesherProjectPanel from './KesherProjectPanel';
 import CourseEnrollmentsPanel from './CourseEnrollmentsPanel';
+import CoursePurchasesPanel from './CoursePurchasesPanel';
 import SeminarParticipationsPanel from './SeminarParticipationsPanel';
+import StageStepper from './StageStepper';
+import Link from 'next/link';
+import { STATUS_LABELS, SEVERITY_LABELS, slaStatus } from '../../lib/serviceSla';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, isManager = false, relatedContact = null }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, relatedContact = null }) {
   const [tab, setTab] = useState('activity');
   const [notesValue, setNotesValue] = useState(notes || '');
   const [isPending, startTransition] = useTransition();
@@ -75,7 +79,10 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
   const deptTransactions = activeDepartment ? donationTransactions.filter((t) => t.workspace_id === activeDepartment.workspaceId) : [];
   const deptCommitments = activeDepartment ? commitments.filter((c) => c.workspace_id === activeDepartment.workspaceId) : [];
   const deptCourseEnrollments = activeDepartment ? courseEnrollments.filter((e) => e.workspace_id === activeDepartment.workspaceId) : [];
+  const deptCoursePurchases = activeDepartment ? coursePurchases.filter((p) => p.workspace_id === activeDepartment.workspaceId) : [];
   const deptSeminarParticipations = activeDepartment ? seminarParticipations.filter((p) => p.workspace_id === activeDepartment.workspaceId) : [];
+  const deptServiceCases = activeDepartment ? serviceCases.filter((c) => c.workspace_id === activeDepartment.workspaceId) : [];
+  const openServiceCasesCount = deptServiceCases.filter((c) => c.status !== 'closed').length;
   const tabs = [
     { id: 'activity', label: 'פעילות' },
     { id: 'tasks', label: `משימות${tasks.length ? ` (${tasks.length})` : ''}` },
@@ -83,13 +90,17 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
     { id: 'documents', label: 'מסמכים' },
     { id: 'recordings', label: 'הקלטות שיחה' },
     ...(activeDepartment ? [{ id: 'processes', label: 'תהליכים' }] : []),
+    // קריאות-שירות - עד-עכשיו לא הוצגו בשום-מקום בכרטיס-איש-קשר בכלל
+    // (service_cases, migration 0151) - טאב חדש-לגמרי, מוצג רק אם יש-בו-
+    // משהו (בניגוד ל"תהליכים" שתמיד מוצג - כאן זה לא "ברירת-המחדל" של כל-איש-קשר).
+    ...(deptServiceCases.length > 0 ? [{ id: 'cases', label: `קריאות שירות${openServiceCasesCount ? ` (${openServiceCasesCount})` : ''}` }] : []),
     // הטאב מוצג אם יש בו משהו להראות - לא רק שדות נוספים מוגדרים
     // (workspace_extra_fields), אלא גם פאנלים ייעודיים (KesherProjectPanel/
     // CourseEnrollmentsPanel/SeminarParticipationsPanel) שיכולים להכיל מידע
     // אמיתי גם במחלקה בלי שום שדה נוסף מוגדר (כמו "סמינרים" - אין לה
     // extra fields בכלל, כל המידע שלה ב-contact_seminar_participations).
     ...(activeDepartment && (
-      visibleFieldDefs.length > 0 || deptCourseEnrollments.length > 0 || deptSeminarParticipations.length > 0 ||
+      visibleFieldDefs.length > 0 || deptCourseEnrollments.length > 0 || deptCoursePurchases.length > 0 || deptSeminarParticipations.length > 0 ||
       deptCommitments.length > 0 || deptTransactions.length > 0 ||
       (activeDepartment.workspaceName === 'תרומות' && relatedContact?.donationsCount > 0)
     ) ? [{ id: 'fields', label: `שדות נוספים — ${activeDepartment.workspaceName}` }] : []),
@@ -326,21 +337,55 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
       {tab === 'processes' && activeDepartment && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <ProcessCard
-            title={`תהליך ראשי — ${activeDepartment.workspaceName}`}
-            label={pipeline?.labels?.[activeDepartment.stage] || activeDepartment.stage}
-            concluded={mainProcessConcluded}
-            onReopen={onReopenMain}
-          />
-          {(activeDepartment.campaignProcesses || []).map((cp) => (
+          {/* opened_process=false = שיוך-מידע-פסיבי, לא תהליך-אמיתי - לא מוצג כאן בכלל. */}
+          {activeDepartment.openedProcess !== false && (
             <ProcessCard
+              title={`תהליך ראשי — ${activeDepartment.workspaceName}`}
+              label={pipeline?.labels?.[activeDepartment.stage] || activeDepartment.stage}
+              concluded={mainProcessConcluded}
+              onReopen={onReopenMain}
+            />
+          )}
+          {(activeDepartment.campaignProcesses || []).map((cp) => (
+            <CampaignProcessCard
               key={cp.rowId}
-              title={`קמפיין — ${cp.campaignName}`}
-              label={cp.stages?.labels?.[cp.status] || cp.status}
+              cp={cp}
               concluded={isProcessConcluded(cp.status, cp.stages)}
               onReopen={() => onReopenCampaign(cp.rowId, cp.stages)}
+              onStageChange={onCampaignStageChange}
+              disabled={frozen}
             />
           ))}
+        </div>
+      )}
+
+      {tab === 'cases' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {deptServiceCases.map((c) => {
+            const sla = c.status === 'closed' ? null : slaStatus(c.sla_due_at, c.severity);
+            return (
+              <Link
+                key={c.id}
+                href={`/dashboard/service/cases/${c.id}`}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                  border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px', textDecoration: 'none', color: 'inherit',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--k-text)' }}>#{c.case_number} — {c.subject}</div>
+                  <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 2 }}>
+                    {STATUS_LABELS[c.status] || c.status} · חומרה {SEVERITY_LABELS[c.severity] || c.severity}
+                  </div>
+                </div>
+                {sla && (
+                  <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 100, background: sla.bg, color: sla.color, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                    {sla.label}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
         </div>
       )}
 
@@ -362,6 +407,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             extraValues={extraValues}
           />
           <CourseEnrollmentsPanel enrollments={deptCourseEnrollments} />
+          <CoursePurchasesPanel purchases={deptCoursePurchases} />
           <SeminarParticipationsPanel participations={deptSeminarParticipations} />
           {visibleFieldDefs.map((f) => (
             <div key={f.key}>
@@ -492,6 +538,56 @@ function ProcessCard({ title, label, concluded, onReopen }) {
         >
           ↺ פתיחה מחדש
         </button>
+      )}
+    </div>
+  );
+}
+
+// כמו ProcessCard, אבל לתהליך-קמפיין: לחיצה-על-השורה פותחת/סוגרת StageStepper
+// חי לשינוי-שלב - זה מה שעבר לכאן מגוף-הכרטיס (היה שם-תמיד-גלוי, עכשיו
+// רק בטאב "תהליכים"), כדי לא לאבד את היכולת לשנות שלב-קמפיין מתוך הכרטיס.
+function CampaignProcessCard({ cp, concluded, onReopen, onStageChange, disabled }) {
+  const [open, setOpen] = useState(false);
+  const label = cp.stages?.labels?.[cp.status] || cp.status;
+  return (
+    <div style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'right', flex: 1 }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--k-text)' }}>🎯 קמפיין — {cp.campaignName}</div>
+          <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 2 }}>
+            שלב נוכחי: <b style={{ color: concluded ? 'var(--k-ok-text)' : 'var(--k-text)' }}>{label}</b>
+            {concluded && ' · תהליך הסתיים'}
+          </div>
+        </button>
+        {concluded ? (
+          <button
+            type="button"
+            onClick={onReopen}
+            style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 6, padding: '5px 12px', fontSize: 12, color: 'var(--k-text-muted)', cursor: 'pointer', flexShrink: 0 }}
+          >
+            ↺ פתיחה מחדש
+          </button>
+        ) : (
+          <button type="button" onClick={() => setOpen((v) => !v)} style={{ background: 'none', border: 'none', fontSize: 12, color: 'var(--k-text-muted)', cursor: 'pointer', flexShrink: 0 }}>
+            {open ? '▴ הסתרה' : '▾ שינוי שלב'}
+          </button>
+        )}
+      </div>
+      {open && !concluded && (
+        <div style={{ marginTop: 10 }}>
+          <StageStepper
+            currentStage={cp.status}
+            stages={cp.stages.order}
+            labels={cp.stages.labels}
+            colors={cp.stages.colors}
+            disabled={disabled}
+            action={(fd) => onStageChange(cp.rowId, fd)}
+          />
+        </div>
       )}
     </div>
   );

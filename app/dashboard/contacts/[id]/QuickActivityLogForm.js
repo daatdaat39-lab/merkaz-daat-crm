@@ -7,8 +7,8 @@ import { logQuickActivity } from '../actions';
 // "סיכום שיחה מהיר" - תיעוד שיחה/וואטסאפ/פגישה ישירות מהכרטיס: כותבים
 // סיכום קצר, בוחרים (אופציונלי) שלב חדש, ושמירה אחת גם רושמת פנייה
 // חדשה בהיסטוריה וגם מאפסת את שעון "טיפול אחרון".
-export default function QuickActivityLogForm({ contactId, department, stages, labels = {}, frozen }) {
-  const [open, setOpen] = useState(false);
+export default function QuickActivityLogForm({ contactId, department, stages, labels = {}, frozen, forceOpen = false, onDone }) {
+  const [open, setOpen] = useState(forceOpen);
   const [note, setNote] = useState('');
   const [stage, setStage] = useState(department.stage);
   const [error, setError] = useState(null);
@@ -22,8 +22,16 @@ export default function QuickActivityLogForm({ contactId, department, stages, la
       if (res?.error) { setError(res.error); return; }
       setNote('');
       setOpen(false);
+      onDone?.();
       router.refresh();
     });
+  }
+
+  function handleCancel() {
+    setOpen(false);
+    setNote('');
+    setError(null);
+    onDone?.();
   }
 
   if (frozen) return null;
@@ -61,7 +69,7 @@ export default function QuickActivityLogForm({ contactId, department, stages, la
         <button type="button" onClick={handleSave} disabled={isPending || !note.trim()} style={{ background: 'var(--k-accent, #0a0a0a)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
           {isPending ? 'שומר...' : 'שמירה בציר-הזמן'}
         </button>
-        <button type="button" onClick={() => { setOpen(false); setNote(''); setError(null); }} style={{ background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 100, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text, inherit)' }}>
+        <button type="button" onClick={handleCancel} style={{ background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 100, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text, inherit)' }}>
           ביטול
         </button>
       </div>

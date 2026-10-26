@@ -61,7 +61,7 @@ export default async function LeadWorkPage({ params }) {
   }
 
   const [{ data: courses }, { data: playbookItems }, pipeline, { data: sendConnections }, { data: emailTemplates }] = await Promise.all([
-    supabase.from('courses').select('id, name, price').eq('is_active', true).order('sort_order').order('name'),
+    supabase.from('courses').select('id, name, price, duration_type').eq('is_active', true).order('sort_order').order('name'),
     supabase.from('reference_content').select('id, course_id, tag, title, body').eq('kind', 'playbook').eq('is_active', true).order('sort_order'),
     getPipeline(supabase, deptRow.workspaces?.name),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),

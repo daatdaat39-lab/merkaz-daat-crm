@@ -8,8 +8,7 @@ import { updateDepartmentStage, addDepartmentMembership } from '../actions';
 import { updateCampaignContact } from '../../sales/campaigns/actions';
 import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
 import StageStepper from './StageStepper';
-import QuickActivityLogForm from './QuickActivityLogForm';
-import NewInquiryForm from './NewInquiryForm';
+import QuickActionLauncher from './QuickActionLauncher';
 import ReferrerPicker from './ReferrerPicker';
 import GenericStatsTile from './GenericStatsTile';
 import WidgetVisibilityToggle from './WidgetVisibilityToggle';
@@ -38,7 +37,7 @@ export default function ContactDetailClient({
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
   callHistory, externalIds, closeReasons, isManager, phoneCalls, pipelinesByWorkspace,
-  commitments, additionalPhones, courseEnrollments, seminarParticipations, relatedContacts, importConflicts = [],
+  commitments, additionalPhones, courseEnrollments, coursePurchases, serviceCases, seminarParticipations, relatedContacts, importConflicts = [],
 }) {
   const FALLBACK_PIPELINE = { order: [], leadStages: [], wonStage: null, sideStages: [], labels: {}, colors: {} };
   const byWorkspace = pipelinesByWorkspace || {};
@@ -253,15 +252,11 @@ export default function ContactDetailClient({
 
       {active && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <QuickActivityLogForm
+          <QuickActionLauncher
             contactId={contact.id}
             department={active}
             stages={[...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order, ...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).sideStages]}
             labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
-            frozen={contact.frozen}
-          />
-          <NewInquiryForm
-            contactId={contact.id}
             workspaceId={active.workspaceId}
             workspaceName={active.workspaceName}
             frozen={contact.frozen}
@@ -308,23 +303,9 @@ export default function ContactDetailClient({
         </div>
       )}
 
-      {/* תהליכים נוספים מקמפיינים פעילים (לא הקדשה) שאיש הקשר חבר בהם
-          באותה מחלקה - ריבוי תהליכים במקביל, כל אחד עם השלבים שלו.
-          תהליך קמפיין שהסתיים (שלב-ניצחון/שלב צדדי) מוסתר מכאן גם כן,
-          באותו עיקרון בדיוק כמו התהליך הראשי - ר' טאב "תהליכים". */}
-      {active?.campaignProcesses?.filter((cp) => !isProcessConcluded(cp.status, cp.stages)).map((cp) => (
-        <div key={cp.rowId} style={{ marginBottom: 16, background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '12px 14px' }}>
-          <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginBottom: 10 }}>🎯 קמפיין: <b style={{ color: 'var(--k-text)' }}>{cp.campaignName}</b></div>
-          <StageStepper
-            currentStage={cp.status}
-            stages={cp.stages.order}
-            labels={cp.stages.labels}
-            colors={cp.stages.colors}
-            disabled={contact.frozen}
-            action={(fd) => handleCampaignStageChange(cp.rowId, fd)}
-          />
-        </div>
-      ))}
+      {/* תהליכים נוספים מקמפיינים פעילים - הועבר לטאב "תהליכים" (לא
+          מוצג יותר תמיד-גלוי בגוף הכרטיס), כדי לא להציף את הכרטיס
+          בתהליכים-משניים. שינוי-שלב עדיין אפשרי משם (CampaignProcessCard). */}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         <NotConnectedButton label="חיוג" icon={<PhoneIcon size={14} />} message="חיוג מתוך המערכת (ימות המשיח) — עדיין לא מחובר" />
@@ -440,6 +421,8 @@ export default function ContactDetailClient({
             commitments={commitments || []}
             additionalPhones={additionalPhones || []}
             courseEnrollments={courseEnrollments || []}
+            coursePurchases={coursePurchases || []}
+            serviceCases={serviceCases || []}
             seminarParticipations={seminarParticipations || []}
             callHistory={callHistory || []}
             phoneCalls={phoneCalls || []}
@@ -451,6 +434,7 @@ export default function ContactDetailClient({
             mainProcessConcluded={mainProcessConcluded}
             onReopenMain={reopenDepartment}
             onReopenCampaign={reopenCampaignProcess}
+            onCampaignStageChange={handleCampaignStageChange}
             isManager={isManager}
           />
         </div>

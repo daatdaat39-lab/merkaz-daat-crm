@@ -16,7 +16,7 @@ const categoryLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-mute
 // ומעקב), עם עריכה ישירה של השדות עצמם (לא טופס נפרד למטה). לחיצה על
 // ✎ הופכת את שורות הזהות/פרטי הקשר לשדות קלט במקום, עם שמירה/ביטול.
 export default function PersonalInfoCard({
-  contact, existingTags, tagGroups = null, existingSources = [], age, hebrewDate, nextMeeting, openTasksCount, agentId, agentName, agents, activeWorkspaceId,
+  contact, existingTags, tagGroups = null, existingSources = [], age, hebrewDate, nextMeeting, agentId, agentName, agents, activeWorkspaceId,
   lastActivityAt, relatedContact, relatedContacts = { forward: [], reverse: [] }, externalIds = [],
 }) {
   const [editing, setEditing] = useState(false);
@@ -24,6 +24,13 @@ export default function PersonalInfoCard({
   const [isPending, startTransition] = useTransition();
   const [related, setRelated] = useState(relatedContact ? { id: relatedContact.id, name: `${relatedContact.first} ${relatedContact.last}` } : null);
   const router = useRouter();
+
+  // שדות-ריקים לא מוצגים יותר כשורת-מקף (ר' InfoRow) - צ'יפ-מרוכז-אחד
+  // פותח את טופס-העריכה-המלא הקיים (לא בונה עוד מנגנון-מילוי-בנפרד).
+  const missingFieldsCount = [
+    contact.idnum, contact.birth_date, contact.gender, contact.children_count, contact.source,
+    contact.phone, contact.phone2, contact.email, contact.email2,
+  ].filter((v) => v === null || v === undefined || v === '').length;
 
   function handleAgentChange(e) {
     if (!activeWorkspaceId) return;
@@ -126,6 +133,18 @@ export default function PersonalInfoCard({
           <InfoRow label="מספר ילדים" value={contact.children_count} />
           <InfoRow label="מקור" value={contact.source} />
           <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
+          {!contact.frozen && missingFieldsCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--k-pill-bg)', border: '1px dashed var(--k-border)',
+                borderRadius: 100, padding: '4px 10px', fontSize: 11.5, color: 'var(--k-text-muted)', cursor: 'pointer', marginBottom: 8,
+              }}
+            >
+              + השלמת {missingFieldsCount} פרטים חסרים
+            </button>
+          )}
           {externalIds.length > 0 && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>מזהים במערכות חיצוניות</div>
@@ -149,11 +168,15 @@ export default function PersonalInfoCard({
             </div>
           )}
 
-          <div style={categoryLabel}>פרטי קשר</div>
-          <InfoRow label="טלפון" value={contact.phone} />
-          <InfoRow label="טלפון נוסף" value={contact.phone2} />
-          <InfoRow label="מייל" value={contact.email} />
-          <InfoRow label="מייל נוסף" value={contact.email2} />
+          {(contact.phone || contact.phone2 || contact.email || contact.email2) && (
+            <>
+              <div style={categoryLabel}>פרטי קשר</div>
+              <InfoRow label="טלפון" value={contact.phone} />
+              <InfoRow label="טלפון נוסף" value={contact.phone2} />
+              <InfoRow label="מייל" value={contact.email} />
+              <InfoRow label="מייל נוסף" value={contact.email2} />
+            </>
+          )}
 
           {(contact.city || contact.street || contact.zip_code || contact.neighborhood || contact.country) && (
             <>
@@ -183,7 +206,8 @@ export default function PersonalInfoCard({
           ) : (
             <InfoRow label="נציג מטפל" value={agentName} />
           )}
-          <InfoRow label="משימות פתוחות" value={openTasksCount > 0 ? openTasksCount : null} />
+          {/* הוסר - כפול עם קוביית "משימות פתוחות" שכבר מוצגת למעלה
+              (ContactDetailClient.js), שם כבר מותנית-ב->0 בדיוק כמו כאן. */}
 
           <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             {(contact.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
@@ -195,11 +219,14 @@ export default function PersonalInfoCard({
   );
 }
 
+// שדה-ריק לא מוצג בכלל (לא עוד שורת "—") - ר' missingFieldsCount למעלה
+// לצ'יפ-המרוכז-היחיד שפותח עריכה-מלאה במקום.
 function InfoRow({ label, value }) {
+  if (value === null || value === undefined || value === '') return null;
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>{label}</div>
-      <div style={{ fontSize: 13 }}>{value || '—'}</div>
+      <div style={{ fontSize: 13 }}>{value}</div>
     </div>
   );
 }

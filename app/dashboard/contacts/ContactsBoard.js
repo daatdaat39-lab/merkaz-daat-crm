@@ -185,7 +185,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
                 }}
               />
             </th>
-            {['שם', 'מחלקות', 'טלפון', 'מייל', 'תחום', 'מקור', 'תגיות', 'פעולות מהירות'].map((h) => (
+            {['שם', 'מחלקות', 'טלפון', 'מייל', 'מקור', 'תגיות', 'פעולות מהירות'].map((h) => (
               <th key={h} style={{ textAlign: 'right', fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>
                 {h}
               </th>
@@ -214,20 +214,11 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
                   {c.departments.map((d) => (
                     <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>{d.name}</span>
-                      {d.openedProcess ? (
-                        <StageBadge stage={d.stage} labels={stageLabels} colors={stageColors} />
-                      ) : (
-                        // אין תהליך פתוח (ייבוא היסטורי - opened_process=false) -
-                        // תג אפור נייטרלי במקום ה-StageBadge הצבעוני, כדי שלא
-                        // ייראה כמו ליד פעיל שמישהו אמור לטפל בו. שם השלב עדיין
-                        // מוצג (מידע שימושי), רק בלי הצבע/הנקודה שמרמזים "פעיל".
-                        <span
-                          title="שיוך היסטורי - לא נפתח לו תהליך/ליד"
-                          style={{ fontSize: 11, color: 'var(--k-text-muted)', background: 'var(--k-pill-bg)', padding: '3px 9px', borderRadius: 100 }}
-                        >
-                          {stageLabels[d.stage] || d.stage} · היסטורי
-                        </span>
-                      )}
+                      {/* אין תהליך פתוח (ייבוא היסטורי - opened_process=false) - לא
+                          מוצג שום תג-שלב, רק שם-המחלקה למעלה. הצגת שלב (גם באפור)
+                          הייתה נקראת כהחלטה-עסקית-אמיתית ("לא רלוונטי") במקום
+                          שיוך-מידע-פסיבי. הפירוט המלא נשאר בכרטיס איש-הקשר עצמו. */}
+                      {d.openedProcess && <StageBadge stage={d.stage} labels={stageLabels} colors={stageColors} />}
                     </div>
                   ))}
                   {c.departments.length === 0 && <span style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>—</span>}
@@ -235,7 +226,6 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
               </td>
               <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--k-text)' }}>{c.phone || '—'}</td>
               <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--k-text)' }}>{c.email || '—'}</td>
-              <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--k-text)' }}>{c.dept || '—'}</td>
               <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--k-text)' }}>{c.source || '—'}</td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
                 {(c.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
