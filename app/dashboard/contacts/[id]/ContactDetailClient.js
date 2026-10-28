@@ -416,6 +416,7 @@ export default function ContactDetailClient({
             agentName={active?.agentName}
             agents={active ? (agentsByWorkspace?.[active.workspaceId] || []) : []}
             activeWorkspaceId={active?.workspaceId}
+            activeDepartmentId={active?.id}
             lastActivityAt={active?.lastActivityAt}
             relatedContact={relatedContact}
             relatedContacts={relatedContacts}

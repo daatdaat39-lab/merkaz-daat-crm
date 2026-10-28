@@ -158,12 +158,16 @@ async function autoFillPaymentRef(supabase, contact, workspace, o) {
   const isCredit = (o.ChargeOptionType || '').toString().includes('אשראי');
   const key = isCredit ? 'card_last4' : 'bank_account_ref';
 
-  const { data: deptRow } = await supabase
+  // .maybeSingle() היה-זורק-שגיאה-אם-לאיש-הקשר-כמה-שורות-באותה-מחלקה
+  // (ר' course_id, migration 0164) - לוקחים-את-הפעילה-ביותר, זה-שדה-
+  // best-effort (לא-עסקי-קריטי) כך-שבחירה-כלשהי-מספיקה.
+  const { data: deptRows } = await supabase
     .from('contact_departments')
-    .select('id, extra_fields')
+    .select('id, extra_fields, last_activity_at')
     .eq('contact_id', contact.id)
     .eq('workspace_id', workspace.id)
-    .maybeSingle();
+    .order('last_activity_at', { ascending: false });
+  const deptRow = (deptRows || [])[0];
   if (!deptRow) return;
 
   const existingValue = (deptRow.extra_fields || {})[key];

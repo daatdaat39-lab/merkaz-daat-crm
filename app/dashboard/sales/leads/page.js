@@ -41,7 +41,7 @@ export default async function SalesLeadsPage() {
     // (פתוחים/בתהליך/הצליחו/נפלו) מסננות בצד לקוח, כמו contacts/page.js
     const { data } = await supabase
       .from('contact_departments')
-      .select('id, stage, agent_id, last_activity_at, extra_fields, created_by_manager, ai_action_summary, ai_action_summary_stale, rep_confidence, ai_confidence, contacts:contact_id (id, first, last, phone, email, source, dept, tags, frozen), lead_inquiries (reason, created_at)')
+      .select('id, stage, agent_id, last_activity_at, extra_fields, created_by_manager, ai_action_summary, ai_action_summary_stale, rep_confidence, ai_confidence, course_id, courses:course_id (id, name), contacts:contact_id (id, first, last, phone, email, source, dept, tags, frozen), lead_inquiries (reason, created_at)')
       .eq('workspace_id', workspaceId)
       // לידים שממתינים לאישור המנהל לא מוצגים לנציגים - ר' sales/pending
       .eq('approval_status', 'approved')
@@ -53,10 +53,17 @@ export default async function SalesLeadsPage() {
       .filter((row) => row.contacts)
       .map((row) => {
         const inquiries = [...(row.lead_inquiries || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        // lead.id הוא מזהה-שורת-המחלקה (לא מזהה-איש-הקשר!) - איש-קשר
+        // יכול-להיות-בעל-כמה-שורות-באותה-מחלקה (ליד-לכל-קורס, ר' course_id
+        // migration 0164), ו-id-משותף היה-גורם-למפתחות-כפולים/בחירה-
+        // משותפת/שיוך-נציג-שפוגע-בשתי-השורות-בטעות. contactId נפרד
+        // לפעולות-שבאמת-צריכות-את-איש-הקשר (קישור-לכרטיס, תגיות, שיחה/מייל).
         return {
           ...row.contacts,
-          departmentRowId: row.id, stage: row.stage, agent_id: row.agent_id, last_activity_at: row.last_activity_at,
+          id: row.id, contactId: row.contacts.id, departmentRowId: row.id,
+          stage: row.stage, agent_id: row.agent_id, last_activity_at: row.last_activity_at,
           extra_fields: row.extra_fields || {},
+          courseId: row.course_id || null, courseName: row.courses?.name || null,
           createdByManager: !!row.created_by_manager,
           latestReason: inquiries[0]?.reason || null,
           inquiryCount: inquiries.length,
@@ -85,10 +92,10 @@ export default async function SalesLeadsPage() {
       const { data: otherDeptRows } = await supabase
         .from('contact_departments')
         .select('contact_id, workspace_id')
-        .in('contact_id', leads.map((l) => l.id))
+        .in('contact_id', leads.map((l) => l.contactId))
         .neq('workspace_id', workspaceId);
       existingElsewhereIds = new Set((otherDeptRows || []).map((r) => r.contact_id));
-      leads = leads.map((l) => ({ ...l, existingElsewhere: existingElsewhereIds.has(l.id) }));
+      leads = leads.map((l) => ({ ...l, existingElsewhere: existingElsewhereIds.has(l.contactId) }));
     }
 
     // פניות חדשות מאנשי קשר שכבר התקדמו מעבר לשלבי הליד המוקדמים (למשל

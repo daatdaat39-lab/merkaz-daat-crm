@@ -102,12 +102,15 @@ export async function POST(request) {
       let departmentId = null;
       let agentId = null;
       if (contactId) {
-        const { data: dept } = await supabase
+        // .maybeSingle() היה-זורק-שגיאה-אם-לאיש-הקשר-כמה-שורות-באותה-
+        // מחלקה (ר' course_id, migration 0164) - לוקחים-את-הפעילה-ביותר.
+        const { data: deptRows } = await supabase
           .from('contact_departments')
-          .select('id, agent_id')
+          .select('id, agent_id, last_activity_at')
           .eq('contact_id', contactId)
           .eq('workspace_id', routing.workspace_id)
-          .maybeSingle();
+          .order('last_activity_at', { ascending: false });
+        const dept = (deptRows || [])[0];
         departmentId = dept?.id || null;
         agentId = dept?.agent_id || null;
       }

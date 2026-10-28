@@ -297,7 +297,7 @@ export default async function DashboardHome() {
                 <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'var(--k-text)', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
                 <span style={{ color: 'var(--k-danger-text)', fontWeight: 600 }}>תקלה בחיוב / אשראי נכשל</span>
                 <span style={{ marginInlineStart: 'auto' }}>
-                  <QuickAssignSelect contactId={row.contact_id} workspaceId={workspaceId} agents={attentionAgents} currentAgentId={row.agent_id} />
+                  <QuickAssignSelect departmentRowId={row.id} agents={attentionAgents} currentAgentId={row.agent_id} />
                 </span>
               </div>
             ))}
@@ -311,7 +311,7 @@ export default async function DashboardHome() {
                     : `נותרו ${row.remaining} תשלומים (${row.paid}/${row.total})`}
                 </span>
                 <span style={{ marginInlineStart: 'auto' }}>
-                  <QuickAssignSelect contactId={row.contact_id} workspaceId={workspaceId} agents={attentionAgents} currentAgentId={row.agent_id} />
+                  <QuickAssignSelect departmentRowId={row.id} agents={attentionAgents} currentAgentId={row.agent_id} />
                 </span>
               </div>
             ))}
@@ -323,7 +323,7 @@ export default async function DashboardHome() {
                   <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'var(--k-text)', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
                   <span style={{ color: 'var(--k-text-muted)' }}>{days} ימים בלי אינטראקציה</span>
                   <span style={{ marginInlineStart: 'auto' }}>
-                    <QuickAssignSelect contactId={row.contact_id} workspaceId={workspaceId} agents={attentionAgents} currentAgentId={row.agent_id} />
+                    <QuickAssignSelect departmentRowId={row.id} agents={attentionAgents} currentAgentId={row.agent_id} />
                   </span>
                 </div>
               );

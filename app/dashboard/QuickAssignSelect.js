@@ -2,19 +2,21 @@
 
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { assignAgent } from './contacts/actions';
+import { assignAgentForLead } from './contacts/actions';
 
 // בורר נציג מהיר בתוך שורת ווידג'ט בדשבורד (למשל "דורש טיפול") - מאפשר
 // למנהל להקצות ישירות משם, בלי לפתוח את הכרטיס. עוצר הפצת קליק כדי
-// שלא יפעיל ניווט של קישור עוטף (אם יש).
-export default function QuickAssignSelect({ contactId, workspaceId, agents = [], currentAgentId }) {
+// שלא יפעיל ניווט של קישור עוטף (אם יש). departmentRowId (לא
+// contactId+workspaceId) - איש-קשר יכול-להיות-בעל-כמה-שורות-באותה-
+// מחלקה (ליד-לכל-קורס, ר' course_id migration 0164).
+export default function QuickAssignSelect({ departmentRowId, agents = [], currentAgentId }) {
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
   function handleChange(e) {
     const value = e.target.value;
     startTransition(async () => {
-      await assignAgent(contactId, workspaceId, value || null);
+      await assignAgentForLead(departmentRowId, value || null);
       router.refresh();
     });
   }

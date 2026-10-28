@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEPT_KEYWORDS, contactMatchesDept } from '../../components/ui';
 import TagFilterMultiSelect from '../../components/TagFilterMultiSelect';
-import { addContactTag, assignAgent } from '../../contacts/actions';
+import { addContactTag, assignAgentForLead } from '../../contacts/actions';
 import { refreshStaleActionChips } from './aiChipActions';
 import LeadTableRow from './LeadTableRow';
 import { RefreshIcon } from '../../components/icons';
@@ -48,7 +48,12 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [overdueHours, setOverdueHours] = useState(24);
   const [sortBy, setSortBy] = useState('activity_desc');
-  const [selected, setSelected] = useState(() => new Set());
+  // selected: Map<departmentRowId, contactId> - לא Set פשוט, כי שתי
+  // הפעולות-הקבוציות-למטה צריכות-מזהים-שונים: שינוי-נציג פועל-על-שורת-
+  // הליד-הספציפית (ר' assignAgentForLead), הוספת-תגית פועלת-על-איש-
+  // הקשר (תגית שייכת-לאיש-הקשר, לא לליד). איש-קשר עם-כמה-ליד-קורסים
+  // פתוחים (course_id, migration 0164) יכול-להיות-נבחר-כמה-פעמים-בנפרד.
+  const [selected, setSelected] = useState(() => new Map());
   const [refreshing, startRefresh] = useTransition();
   const [refreshMsg, setRefreshMsg] = useState('');
   const router = useRouter();
@@ -78,10 +83,10 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
     [leadsWithTab, activeTab]
   );
 
-  function toggleSelect(id) {
+  function toggleSelect(id, contactId) {
     setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      const next = new Map(prev);
+      if (next.has(id)) next.delete(id); else next.set(id, contactId);
       return next;
     });
   }
@@ -251,21 +256,21 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
   function applyTag() {
     const t = tag.trim();
     if (!t) return;
-    const ids = Array.from(selected);
+    const contactIds = Array.from(new Set(selected.values()));
     startTransition(async () => {
-      await Promise.all(ids.map((id) => addContactTag(id, t)));
+      await Promise.all(contactIds.map((contactId) => addContactTag(contactId, t)));
       setTag('');
-      setSelected(new Set());
+      setSelected(new Map());
       router.refresh();
     });
   }
 
   function applyAgent() {
-    const ids = Array.from(selected);
+    const departmentRowIds = Array.from(selected.keys());
     startTransition(async () => {
-      await Promise.all(ids.map((id) => assignAgent(id, workspaceId, bulkAgent || null)));
+      await Promise.all(departmentRowIds.map((id) => assignAgentForLead(id, bulkAgent || null)));
       setBulkAgent('');
-      setSelected(new Set());
+      setSelected(new Map());
       router.refresh();
     });
   }
@@ -301,7 +306,7 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
 
       <button
         type="button"
-        onClick={() => setSelected(new Set())}
+        onClick={() => setSelected(new Map())}
         style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--k-text-muted)', marginInlineStart: 'auto' }}
       >
         ביטול בחירה
@@ -316,9 +321,9 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
 
   function toggleSelectAll() {
     setSelected((prev) => {
-      const next = new Set(prev);
+      const next = new Map(prev);
       if (allSelected) leads.forEach((l) => next.delete(l.id));
-      else leads.forEach((l) => next.add(l.id));
+      else leads.forEach((l) => next.set(l.id, l.contactId));
       return next;
     });
   }

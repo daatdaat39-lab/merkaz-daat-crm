@@ -757,8 +757,12 @@ async function applyImportConflictResolution(supabase, conflict, resolution) {
   if (resolution === 'used_new') {
     if (conflict.field_key.startsWith('extra:')) {
       const key = conflict.field_key.slice(6);
-      const { data: dept } = await supabase.from('contact_departments').select('id, extra_fields')
-        .eq('contact_id', conflict.contact_id).eq('workspace_id', conflict.workspace_id).single();
+      // .single() היה-זורק-שגיאה-אם-לאיש-הקשר-כמה-שורות-באותה-מחלקה
+      // (ר' course_id, migration 0164) - לוקחים-את-הפעילה-ביותר.
+      const { data: deptRows } = await supabase.from('contact_departments').select('id, extra_fields, last_activity_at')
+        .eq('contact_id', conflict.contact_id).eq('workspace_id', conflict.workspace_id)
+        .order('last_activity_at', { ascending: false });
+      const dept = (deptRows || [])[0];
       if (dept) {
         const extra_fields = { ...(dept.extra_fields || {}), [key]: conflict.new_value };
         await supabase.from('contact_departments').update({ extra_fields }).eq('id', dept.id);
@@ -1142,6 +1146,26 @@ export async function assignAgent(contactId, workspaceId, agentId) {
     .update({ agent_id: agentId || null, last_activity_at: new Date().toISOString() })
     .eq('contact_id', contactId)
     .eq('workspace_id', workspaceId);
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// כמו assignAgent, אבל ממוקד-שורה-ספציפית (departmentRowId) - מאז
+// שנוסף course_id (migration 0164), איש-קשר יכול-להיות-בעל-כמה-שורות
+// באותה-מחלקה (ליד-לכל-קורס) - assignAgent(contactId, workspaceId,...)
+// היה-משנה-את-כולן-בבת-אחת-בטעות. כל-קריאה-חדשה-מלוח-הלידים/הכרטיס
+// צריכה-להשתמש-בזו; assignAgent נשאר-קיים-רק-לתאימות-אם-יש-עוד-קוראים.
+export async function assignAgentForLead(departmentRowId, agentId) {
+  const { supabase } = await requireUser();
+  const { data: row } = await supabase.from('contact_departments').select('contact_id').eq('id', departmentRowId).single();
+  if (!row) return { error: 'שיוך מחלקה לא נמצא' };
+  const frozenError = await requireNotFrozen(supabase, row.contact_id);
+  if (frozenError) return frozenError;
+
+  const { error } = await supabase
+    .from('contact_departments')
+    .update({ agent_id: agentId || null, last_activity_at: new Date().toISOString() })
+    .eq('id', departmentRowId);
   if (error) return { error: error.message };
   return { success: true };
 }

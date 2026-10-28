@@ -135,8 +135,12 @@ export async function splitMultiValueField(workspaceId, fieldKey, conflictIds) {
     const { data: conflicts } = await supabase.from('import_conflicts')
       .select('id, contact_id, new_value').in('id', conflictIds).eq('status', 'pending');
     for (const conflict of conflicts || []) {
-      const { data: dept } = await supabase.from('contact_departments').select('id, extra_fields')
-        .eq('contact_id', conflict.contact_id).eq('workspace_id', workspaceId).maybeSingle();
+      // .maybeSingle() היה-זורק-שגיאה-אם-לאיש-הקשר-כמה-שורות-באותה-מחלקה
+      // (ר' course_id, migration 0164) - לוקחים-את-הפעילה-ביותר.
+      const { data: deptRows } = await supabase.from('contact_departments').select('id, extra_fields, last_activity_at')
+        .eq('contact_id', conflict.contact_id).eq('workspace_id', workspaceId)
+        .order('last_activity_at', { ascending: false });
+      const dept = (deptRows || [])[0];
       if (dept) {
         const extra_fields = { ...(dept.extra_fields || {}), [newKey]: conflict.new_value };
         await supabase.from('contact_departments').update({ extra_fields }).eq('id', dept.id);

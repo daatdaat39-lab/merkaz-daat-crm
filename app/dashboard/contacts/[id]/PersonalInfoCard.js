@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Tag } from '../../components/ui';
-import { updateContact, searchContacts, assignAgent, addContactTag } from '../actions';
+import { updateContact, searchContacts, assignAgentForLead, addContactTag } from '../actions';
 import TagPicker from '../TagPicker';
 import SourceMultiPicker from '../SourceMultiPicker';
 import FamilyRelationsPanel from './FamilyRelationsPanel';
@@ -19,7 +19,7 @@ const categoryLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-mute
 // ✎ הופכת את שורות הזהות/פרטי הקשר לשדות קלט במקום, עם שמירה/ביטול.
 export default function PersonalInfoCard({
   contact, existingTags, tagGroups = null, existingSources = [], age, hebrewDate, nextMeeting, agentId, agentName, agents, activeWorkspaceId,
-  lastActivityAt, relatedContact, relatedContacts = { forward: [], reverse: [] }, externalIds = [],
+  activeDepartmentId, lastActivityAt, relatedContact, relatedContacts = { forward: [], reverse: [] }, externalIds = [],
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState(null);
@@ -45,9 +45,9 @@ export default function PersonalInfoCard({
   ];
 
   function handleAgentChange(e) {
-    if (!activeWorkspaceId) return;
+    if (!activeDepartmentId) return;
     startTransition(async () => {
-      await assignAgent(contact.id, activeWorkspaceId, e.target.value || null);
+      await assignAgentForLead(activeDepartmentId, e.target.value || null);
       router.refresh();
     });
   }

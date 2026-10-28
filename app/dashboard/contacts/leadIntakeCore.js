@@ -126,12 +126,30 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
     }
   }
 
-  const { data: existingRow } = await supabase
+  // שליפת-כל-השורות (לא .single()) - מאז שנוסף course_id, איש-קשר יכול
+  // להיות-בעל-כמה-שורות-פתוחות-באותה-מחלקה (ר' openAdditionalCourseLead),
+  // ו-.single() היה-זורק-שגיאה-במקום-לבחור-שורה. options.courseId
+  // (מועבר-רק-מ-openAdditionalCourseLead) מאתר-שורה-ספציפית-לקורס; בלי-
+  // courseId (כל-הקוראים-הקיימים - ייבוא/API/ידני/קשר) נשארת-ברירת-
+  // המחדל-הישנה - שורה אחת, עם-בחירה-בין-כמה-אם-יש (לא-אמור-לקרות
+  // מהנתיבים-האלה, רק הגנה-מקריסה).
+  const { data: existingRows } = await supabase
     .from('contact_departments')
-    .select('id, stage, extra_fields, opened_process')
+    .select('id, stage, extra_fields, opened_process, course_id, last_activity_at')
     .eq('contact_id', contactId)
-    .eq('workspace_id', workspace.id)
-    .single();
+    .eq('workspace_id', workspace.id);
+
+  let existingRow = null;
+  if (existingRows && existingRows.length) {
+    if (options.courseId !== undefined) {
+      existingRow = existingRows.find((r) => (r.course_id || null) === (options.courseId || null)) || null;
+    } else if (existingRows.length === 1) {
+      existingRow = existingRows[0];
+    } else {
+      const sorted = [...existingRows].sort((a, b) => new Date(b.last_activity_at) - new Date(a.last_activity_at));
+      existingRow = sorted.find((r) => r.stage !== 'closed') || sorted[0];
+    }
+  }
 
   let rowId;
   let extraConflictCount = 0;
@@ -222,6 +240,7 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
     const { data: created, error: createError } = await supabase.from('contact_departments').insert({
       contact_id: contactId, workspace_id: workspace.id, stage: options.stage || pipeline.order[0], last_activity_at: new Date().toISOString(),
       extra_fields: extraFields || {},
+      course_id: options.courseId || null,
       approval_status: options.requiresApproval ? 'pending' : 'approved',
       created_by_manager: !!options.createdByManager,
       // רק ביצירת שיוך חדש - שיוך קיים לעולם לא נוגעים ב-opened_process

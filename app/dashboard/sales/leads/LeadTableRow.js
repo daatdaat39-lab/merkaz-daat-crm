@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { initials } from '../../components/ui';
 import { CLOSE_REASONS } from '../../components/pipelines';
-import { assignAgent, updateLeadStage, updateDepartmentExtraField } from '../../contacts/actions';
+import { assignAgentForLead, updateLeadStage, updateDepartmentExtraField } from '../../contacts/actions';
 import ContactQuickActions from '../../components/ContactQuickActions';
 import ExtraFieldCell from '../../components/ExtraFieldCell';
 import { computeFieldValue } from '../../lib/computedFields';
@@ -49,7 +49,7 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
 
   function handleAgentChange(e) {
     startTransition(async () => {
-      await assignAgent(c.id, workspaceId, e.target.value || null);
+      await assignAgentForLead(c.departmentRowId, e.target.value || null);
       router.refresh();
     });
   }
@@ -87,15 +87,20 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
     <>
       <tr style={{ borderBottom: '1px solid var(--k-border)', background: overdue ? 'var(--k-caution-bg)' : 'transparent' }}>
         <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-          <input type="checkbox" checked={selected} onChange={() => onToggleSelect?.(c.id)} />
+          <input type="checkbox" checked={selected} onChange={() => onToggleSelect?.(c.id, c.contactId)} />
         </td>
         <td style={{ padding: '10px 16px', fontSize: 13 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit' }}>
+            <Link href={`/dashboard/contacts/${c.contactId}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit' }}>
               <span style={{ width: 24, height: 24, background: 'var(--k-pill-bg)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600, color: 'var(--k-pill-text)', flexShrink: 0 }}>
                 {initials(c.first, c.last)}
               </span>
               <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)' }}>{c.first} {c.last}</span>
+              {c.courseName && (
+                <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--k-accent)', background: 'var(--k-pill-bg)', borderRadius: 100, padding: '1px 8px' }}>
+                  {c.courseName}
+                </span>
+              )}
               {c.existingElsewhere && (
                 <span title="איש הקשר הזה כבר מוכר למערכת ממחלקה אחרת" style={{ fontSize: 10, fontWeight: 600, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 100, padding: '1px 8px' }}>
                   איש קשר קיים
@@ -205,7 +210,7 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
                 ))}
 
                 <ContactQuickActions
-                  contact={{ id: c.id, first: c.first, phone: c.phone, email: c.email, frozen: c.frozen, latestReason: c.latestReason }}
+                  contact={{ id: c.contactId, first: c.first, phone: c.phone, email: c.email, frozen: c.frozen, latestReason: c.latestReason }}
                   departments={workspaceId ? [{ workspaceId, workspaceName }] : []}
                   sendConnections={sendConnections}
                   whatsappTemplates={whatsappTemplates}
