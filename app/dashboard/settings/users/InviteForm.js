@@ -62,8 +62,8 @@ export default function InviteForm() {
 
       {result?.error && (
         <div style={{
-          marginTop: 10, background: 'var(--red-bg)', border: '1px solid #fca5a5', borderRadius: 8,
-          padding: '12px 16px', fontSize: 12.5, color: '#991b1b',
+          marginTop: 10, background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 8,
+          padding: '12px 16px', fontSize: 12.5, color: 'var(--red)',
         }}>
           שגיאה: {result.error}
         </div>
@@ -71,7 +71,7 @@ export default function InviteForm() {
 
       {result?.success && result.password && (
         <div style={{
-          marginTop: 10, background: 'var(--amber-bg)', border: '1px solid #fde68a', borderRadius: 8,
+          marginTop: 10, background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 8,
           padding: '14px 16px', fontSize: 13,
         }}>
           <div style={{ fontWeight: 600, marginBottom: 8 }}>
@@ -81,7 +81,7 @@ export default function InviteForm() {
             <div>אימייל: {result.email}</div>
             <div>סיסמה זמנית: <b>{result.password}</b></div>
           </div>
-          <div style={{ fontSize: 11.5, color: '#92400e' }}>
+          <div style={{ fontSize: 11.5, color: 'var(--amber)' }}>
             ⚠️ הסיסמה מוצגת פעם אחת בלבד ולא תישמר — תעתיק אותה עכשיו. המשתמש יוכל להתחבר עם הפרטים האלה ולשנות סיסמה בהמשך.
           </div>
         </div>
@@ -89,8 +89,8 @@ export default function InviteForm() {
 
       {result?.success && !result.password && (
         <div style={{
-          marginTop: 10, background: 'var(--green-bg)', border: '1px solid #86efac', borderRadius: 8,
-          padding: '12px 16px', fontSize: 12.5, color: '#166534',
+          marginTop: 10, background: 'var(--green-bg)', border: '1px solid var(--green)', borderRadius: 8,
+          padding: '12px 16px', fontSize: 12.5, color: 'var(--green)',
         }}>
           ✅ המשתמש כבר קיים במערכת — הוא **נוסף כמחלקה נוספת** ל-workspace הזה (החברות שלו במחלקות אחרות לא נפגעה).
         </div>

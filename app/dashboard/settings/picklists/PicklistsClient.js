@@ -75,7 +75,7 @@ function PicklistSection({ title, subtitle, listKey, workspaceId, initialValues 
       <div style={{ fontSize: 11.5, color: 'var(--text-secondary, #9b9b9b)', marginBottom: 12 }}>{subtitle}</div>
 
       {!workspaceId && listKey !== 'close_reason' && listKey !== 'case_close_reason' && (
-        <div style={{ fontSize: 12.5, color: '#9b9b9b' }}>לא נמצאה מחלקת תרומות - לא ניתן לערוך.</div>
+        <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>לא נמצאה מחלקת תרומות - לא ניתן לערוך.</div>
       )}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
@@ -90,14 +90,14 @@ function PicklistSection({ title, subtitle, listKey, workspaceId, initialValues 
               onClick={() => handleRemove(v.id)}
               disabled={isPending}
               title="הסרה"
-              style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 12, padding: '2px 4px' }}
+              style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 12, padding: '2px 4px' }}
             >✕</button>
           </span>
         ))}
-        {values.length === 0 && <span style={{ fontSize: 12.5, color: '#9b9b9b' }}>אין ערכים עדיין</span>}
+        {values.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>אין ערכים עדיין</span>}
       </div>
 
-      {error && <div style={{ color: '#b23b2f', fontSize: 12, marginBottom: 8 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: 8 }}>
         <input
@@ -108,7 +108,7 @@ function PicklistSection({ title, subtitle, listKey, workspaceId, initialValues 
           style={{ flex: 1, border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 10px', fontSize: 13 }}
         />
         <button type="button" onClick={handleAdd} disabled={isPending || !newValue.trim()} style={{
-          background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer',
+          background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer',
         }}>
           הוספה
         </button>

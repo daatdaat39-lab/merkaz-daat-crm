@@ -177,14 +177,14 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
 
         <div style={{ position: 'fixed', bottom: 16, left: 16, zIndex: 1100, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
           {helpStatus === 'success' || helpStatus?.success ? (
-            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', color: '#166534', borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>✓ בקשת-העזרה נשלחה</div>
+            <div style={{ background: 'var(--green-bg)', border: '1px solid var(--green)', color: 'var(--green)', borderRadius: 8, padding: '6px 12px', fontSize: 12 }}>✓ בקשת-העזרה נשלחה</div>
           ) : helpStatus?.error ? (
-            <div style={{ background: '#fdecea', border: '1px solid #f5c6cb', color: '#c62828', borderRadius: 8, padding: '6px 12px', fontSize: 12, maxWidth: 220 }}>{helpStatus.error}</div>
+            <div style={{ background: 'var(--red-bg)', border: '1px solid var(--red)', color: 'var(--red)', borderRadius: 8, padding: '6px 12px', fontSize: 12, maxWidth: 220 }}>{helpStatus.error}</div>
           ) : null}
           <button
             type="button" onClick={handleSendHelp} disabled={helpStatus === 'sending'}
             style={{
-              background: '#c8791f', color: '#fff', border: 'none', borderRadius: 999, padding: '10px 18px',
+              background: 'var(--amber)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px',
               fontSize: 13, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
             }}
           >
@@ -193,7 +193,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
         </div>
 
         {error && (
-          <div style={{ marginBottom: 14, background: '#fdecea', border: '1px solid #f5c6cb', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: '#c62828' }}>
+          <div style={{ marginBottom: 14, background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: 'var(--red)' }}>
             {error}
           </div>
         )}
@@ -239,7 +239,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
               {summary ? `${summary.total} אנשי קשר ממתינים לשיחה` : 'טוען...'}
             </span>
             {summary?.personalCount > 0 && (
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#8a5a00', background: '#fff3d6', border: '1px solid #f0d78c', borderRadius: 20, padding: '3px 10px' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--amber)', background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 20, padding: '3px 10px' }}>
                 🎯 {summary.personalCount} מהרשימה האישית שלך ממתינים
               </span>
             )}
@@ -325,7 +325,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
                 placeholder="שם, טלפון או ת.ז..." style={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }}
               />
               {searching && <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>מחפש...</div>}
-              {searchError && <div style={{ fontSize: 11.5, color: '#c62828', marginTop: 6 }}>{searchError}</div>}
+              {searchError && <div style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 6 }}>{searchError}</div>}
               {!searching && searchQuery.trim().length >= 2 && searchResults.length === 0 && similarResults.length === 0 && !searchError && (
                 <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 6 }}>לא נמצא אף אחד ברשימת הקמפיין הזה</div>
               )}
@@ -344,7 +344,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
                         <span style={{ fontWeight: 600, fontSize: 13 }}>{r.name || '—'}</span>
                         <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}> · {r.phone || '—'}</span>
                       </span>
-                      <span style={{ fontSize: 11, color: r.claimedByName ? '#b26a00' : 'var(--text-muted)' }}>
+                      <span style={{ fontSize: 11, color: r.claimedByName ? 'var(--amber)' : 'var(--text-muted)' }}>
                         {r.claimedByName ? `בשיחה אצל ${r.claimedByName}` : (r.category || '')}
                       </span>
                     </button>
@@ -368,7 +368,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
                           <span style={{ fontWeight: 600, fontSize: 13 }}>{r.name || '—'}</span>
                           <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}> · {r.phone || '—'}</span>
                         </span>
-                        <span style={{ fontSize: 11, color: r.claimedByName ? '#b26a00' : 'var(--text-muted)' }}>
+                        <span style={{ fontSize: 11, color: r.claimedByName ? 'var(--amber)' : 'var(--text-muted)' }}>
                           {r.claimedByName ? `בשיחה אצל ${r.claimedByName}` : (r.category || '')}
                         </span>
                       </button>
@@ -393,7 +393,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
   return (
     <div>
       {error && (
-        <div style={{ marginBottom: 14, background: '#fdecea', border: '1px solid #f5c6cb', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: '#c62828' }}>
+        <div style={{ marginBottom: 14, background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: 'var(--red)' }}>
           {error}
         </div>
       )}
@@ -415,7 +415,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
           {summary ? `${summary.total} אנשי קשר ממתינים לשיחה` : 'טוען...'}
         </span>
         {summary?.personalCount > 0 && (
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: '#8a5a00', background: '#fff3d6', border: '1px solid #f0d78c', borderRadius: 20, padding: '3px 10px' }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--amber)', background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 20, padding: '3px 10px' }}>
             🎯 {summary.personalCount} מהרשימה האישית שלך
           </span>
         )}
@@ -442,7 +442,7 @@ export default function CallQueueClient({ campaignId, stages, workspaceId, whats
                   <td style={{ padding: '8px 12px' }}>{r.name}</td>
                   <td style={{ padding: '8px 12px' }}>{r.phone}</td>
                   <td style={{ padding: '8px 12px' }}>{stages.find((s) => s.stageKey === r.status)?.label || r.status}</td>
-                  <td style={{ padding: '8px 12px', color: r.claimedByName ? '#b26a00' : 'var(--text-muted)' }}>
+                  <td style={{ padding: '8px 12px', color: r.claimedByName ? 'var(--amber)' : 'var(--text-muted)' }}>
                     {r.claimedByName || '—'}
                   </td>
                 </tr>

@@ -26,7 +26,7 @@ export default function PendingLeadsClient({ initialPending, agents = [] }) {
 
   if (pending.length === 0) {
     return (
-      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 24, textAlign: 'center', fontSize: 14, color: '#15803d' }}>
+      <div style={{ background: 'var(--green-bg)', border: '1px solid var(--green)', borderRadius: 8, padding: 24, textAlign: 'center', fontSize: 14, color: 'var(--green)' }}>
         🎉 אין לידים שממתינים לאישור
       </div>
     );
@@ -34,7 +34,7 @@ export default function PendingLeadsClient({ initialPending, agents = [] }) {
 
   return (
     <div>
-      {error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>שגיאה: {error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12.5, marginBottom: 10 }}>שגיאה: {error}</div>}
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
@@ -46,12 +46,12 @@ export default function PendingLeadsClient({ initialPending, agents = [] }) {
           </thead>
           <tbody>
             {pending.map((p) => (
-              <tr key={p.departmentRowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
+              <tr key={p.departmentRowId} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '10px 14px' }}>
                   <Link href={`/dashboard/contacts/${p.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>
                     {p.name || '—'}
                   </Link>
-                  <div style={{ fontSize: 11, color: '#9b9b9b' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                     התקבל {new Date(p.createdAt).toLocaleDateString('he-IL')}
                   </div>
                 </td>
@@ -75,7 +75,7 @@ export default function PendingLeadsClient({ initialPending, agents = [] }) {
                     type="button"
                     onClick={() => handleApprove(p.departmentRowId)}
                     disabled={isPending}
-                    style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', whiteSpace: 'nowrap' }}
                   >
                     ✓ אשר ושגר
                   </button>

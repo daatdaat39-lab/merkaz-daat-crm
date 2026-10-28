@@ -14,7 +14,7 @@ export default async function ChatPage() {
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: 0, fontSize: 20 }}>
+        <h1 style={{ fontFamily: 'var(--font-heading)', margin: 0, fontSize: 20 }}>
           צ'אט צוות{workspaceId ? ` — ${workspaceName}` : ''}
         </h1>
         {workspaceId && (
@@ -28,7 +28,7 @@ export default async function ChatPage() {
       </div>
 
       {!workspaceId ? (
-        <div style={{ fontSize: 13, color: '#9b9b9b' }}>יש לבחור מחלקה פעילה כדי לצ'וט</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>יש לבחור מחלקה פעילה כדי לצ'וט</div>
       ) : (
         <ChatPanel {...data.props} sendAction={sendChatMessage} />
       )}

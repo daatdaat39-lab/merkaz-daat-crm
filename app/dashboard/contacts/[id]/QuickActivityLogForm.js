@@ -39,7 +39,7 @@ export default function QuickActivityLogForm({ contactId, department, stages, la
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} style={{
-        background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 100, padding: '7px 16px',
+        background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 8, padding: '7px 16px',
         fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 16, color: 'var(--k-text, inherit)',
       }}>
         📝 סיכום שיחה מהיר
@@ -60,16 +60,16 @@ export default function QuickActivityLogForm({ contactId, department, stages, la
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <span style={{ fontSize: 12, color: 'var(--k-text-muted, #6b6b6b)' }}>שינוי שלב (אופציונלי):</span>
-        <select value={stage} onChange={(e) => setStage(e.target.value)} style={{ border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 100, padding: '5px 10px', fontSize: 12.5, background: 'var(--k-surface, var(--bg))', color: 'var(--k-text, inherit)' }}>
+        <select value={stage} onChange={(e) => setStage(e.target.value)} style={{ border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 8, padding: '5px 10px', fontSize: 12.5, background: 'var(--k-surface, var(--bg))', color: 'var(--k-text, inherit)' }}>
           {stages.map((s) => <option key={s} value={s}>{labels[s] || s}</option>)}
         </select>
       </div>
       {error && <div style={{ color: 'var(--k-danger-text, #b23b2f)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" onClick={handleSave} disabled={isPending || !note.trim()} style={{ background: 'var(--k-accent, #0a0a0a)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
+        <button type="button" onClick={handleSave} disabled={isPending || !note.trim()} style={{ background: 'var(--k-accent, #0a0a0a)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
           {isPending ? 'שומר...' : 'שמירה בציר-הזמן'}
         </button>
-        <button type="button" onClick={handleCancel} style={{ background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 100, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text, inherit)' }}>
+        <button type="button" onClick={handleCancel} style={{ background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 8, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text, inherit)' }}>
           ביטול
         </button>
       </div>

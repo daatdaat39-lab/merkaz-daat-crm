@@ -21,8 +21,8 @@ export default function FloatingChat() {
     return () => { cancelled = true; };
   }, []);
 
-  if (!data) return <div style={{ fontSize: 13, color: '#9b9b9b' }}>טוען...</div>;
-  if (!data.workspaceId) return <div style={{ fontSize: 13, color: '#9b9b9b' }}>יש לבחור מחלקה פעילה כדי לצ'וט</div>;
+  if (!data) return <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>טוען...</div>;
+  if (!data.workspaceId) return <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>יש לבחור מחלקה פעילה כדי לצ'וט</div>;
 
   return <ChatPanel {...data} sendAction={sendChatMessage} />;
 }

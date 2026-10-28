@@ -70,19 +70,19 @@ export default function Sidebar({
     <aside
       style={{
         width: 240,
-        borderLeft: '1px solid #e5e5e5',
+        borderLeft: '1px solid var(--border)',
         display: 'flex',
         flexDirection: 'column',
         height: '100vh',
         flexShrink: 0,
-        background: '#ffffff',
+        background: 'var(--bg)',
       }}
     >
       {/* לוגו */}
       <div
         style={{
           padding: '20px 16px 16px',
-          borderBottom: '1px solid #e5e5e5',
+          borderBottom: '1px solid var(--border)',
           borderTop: `3px solid ${WS_COLORS[currentIndex >= 0 ? currentIndex % WS_COLORS.length : 0]}`,
           display: 'flex',
           alignItems: 'center',
@@ -93,7 +93,7 @@ export default function Sidebar({
           style={{
             width: 32,
             height: 32,
-            background: '#0a0a0a',
+            background: 'var(--accent)',
             borderRadius: 8,
             display: 'flex',
             alignItems: 'center',
@@ -108,12 +108,12 @@ export default function Sidebar({
         </div>
         <div>
           <div style={{ fontSize: 15, fontWeight: 600 }}>מרכז דעת</div>
-          <div style={{ fontSize: 11, color: '#9b9b9b' }}>CRM</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>CRM</div>
         </div>
       </div>
 
       {/* בורר workspace */}
-      <div style={{ padding: '12px 8px', borderBottom: '1px solid #e5e5e5', position: 'relative' }}>
+      <div style={{ padding: '12px 8px', borderBottom: '1px solid var(--border)', position: 'relative' }}>
         <button
           onClick={() => setWsOpen((o) => !o)}
           style={{
@@ -125,11 +125,11 @@ export default function Sidebar({
             cursor: 'pointer',
             width: '100%',
             border: 'none',
-            background: '#f2f2f2',
+            background: 'var(--bg-tertiary)',
             textAlign: 'right',
             fontSize: 13,
             fontWeight: 500,
-            color: '#0a0a0a',
+            color: 'var(--text)',
           }}
         >
           <span
@@ -144,7 +144,7 @@ export default function Sidebar({
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
             {current?.name || 'אין workspace'}
           </span>
-          <span style={{ color: '#9b9b9b', fontSize: 10 }}>▾</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>▾</span>
         </button>
 
         {wsOpen && workspaces.length > 0 && (
@@ -155,9 +155,9 @@ export default function Sidebar({
               right: 8,
               left: 8,
               background: 'var(--bg)',
-              border: '1px solid #e5e5e5',
+              border: '1px solid var(--border)',
               borderRadius: 8,
-              boxShadow: '0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05)',
+              boxShadow: 'var(--shadow-md)',
               zIndex: 100,
               marginTop: 4,
               overflow: 'hidden',
@@ -175,12 +175,12 @@ export default function Sidebar({
                     padding: '9px 12px',
                     width: '100%',
                     border: 'none',
-                    background: w.id === currentWorkspaceId ? '#f2f2f2' : 'transparent',
+                    background: w.id === currentWorkspaceId ? 'var(--bg-tertiary)' : 'transparent',
                     cursor: 'pointer',
                     fontSize: 13,
                     fontWeight: w.id === currentWorkspaceId ? 500 : 400,
                     textAlign: 'right',
-                    color: '#0a0a0a',
+                    color: 'var(--text)',
                   }}
                 >
                   <span
@@ -209,7 +209,7 @@ export default function Sidebar({
               style={{
                 fontSize: 10,
                 fontWeight: 600,
-                color: '#9b9b9b',
+                color: 'var(--text-muted)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
                 padding: '8px 8px 4px',
@@ -229,10 +229,10 @@ export default function Sidebar({
                     gap: 9,
                     padding: '7px 10px',
                     borderRadius: 6,
-                    color: active ? '#0a0a0a' : '#6b6b6b',
+                    color: active ? 'var(--text)' : 'var(--text-secondary)',
                     fontSize: 13.5,
                     textDecoration: 'none',
-                    background: active ? '#f2f2f2' : 'transparent',
+                    background: active ? 'var(--bg-tertiary)' : 'transparent',
                     fontWeight: active ? 500 : 400,
                   }}
                 >
@@ -246,10 +246,10 @@ export default function Sidebar({
       </nav>
 
       {/* כרטיס משתמש */}
-      <div style={{ marginTop: 'auto', padding: '12px 8px', borderTop: '1px solid #e5e5e5' }}>
+      <div style={{ marginTop: 'auto', padding: '12px 8px', borderTop: '1px solid var(--border)' }}>
         <Link
           href="/dashboard/settings/my-preferences"
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', fontSize: 12, color: '#6b6b6b', textDecoration: 'none' }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none' }}
         >
           <span>⚙</span> ההעדפות שלי
         </Link>
@@ -258,7 +258,7 @@ export default function Sidebar({
             style={{
               width: 28,
               height: 28,
-              background: '#0a0a0a',
+              background: 'var(--accent)',
               color: '#fff',
               borderRadius: '50%',
               display: 'flex',
@@ -283,7 +283,7 @@ export default function Sidebar({
             >
               {profile?.name || userEmail}
             </div>
-            <div style={{ fontSize: 11, color: '#9b9b9b' }}>{profile?.role || '—'}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{profile?.role || '—'}</div>
           </div>
           <LogoutButton
               logoutAction={logoutAction}
@@ -293,10 +293,10 @@ export default function Sidebar({
                 alignItems: 'center',
                 gap: 6,
                 background: 'transparent',
-                border: '1px solid #e5e5e5',
+                border: '1px solid var(--border)',
                 borderRadius: 6,
                 cursor: 'pointer',
-                color: '#6b6b6b',
+                color: 'var(--text-secondary)',
                 fontSize: 12,
                 padding: '5px 10px',
                 whiteSpace: 'nowrap',

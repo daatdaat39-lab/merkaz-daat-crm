@@ -638,23 +638,23 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
     <div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
         <button type="button" onClick={() => setViewMode('table')} style={{
-          padding: '7px 16px', borderRadius: 999, fontSize: 12.5, cursor: 'pointer',
-          border: viewMode === 'table' ? '1px solid #0a0a0a' : '1px solid var(--border, #e5e5e5)',
-          background: viewMode === 'table' ? '#0a0a0a' : 'var(--bg)', color: viewMode === 'table' ? '#fff' : 'inherit',
+          padding: '7px 16px', borderRadius: 8, fontSize: 12.5, cursor: 'pointer',
+          border: viewMode === 'table' ? '1px solid var(--text)' : '1px solid var(--border, #e5e5e5)',
+          background: viewMode === 'table' ? 'var(--text)' : 'var(--bg)', color: viewMode === 'table' ? '#fff' : 'inherit',
         }}>
           טבלה
         </button>
         <button type="button" onClick={() => setViewMode('mapping')} style={{
-          padding: '7px 16px', borderRadius: 999, fontSize: 12.5, cursor: 'pointer',
-          border: viewMode === 'mapping' ? '1px solid #0a0a0a' : '1px solid var(--border, #e5e5e5)',
-          background: viewMode === 'mapping' ? '#0a0a0a' : 'var(--bg)', color: viewMode === 'mapping' ? '#fff' : 'inherit',
+          padding: '7px 16px', borderRadius: 8, fontSize: 12.5, cursor: 'pointer',
+          border: viewMode === 'mapping' ? '1px solid var(--text)' : '1px solid var(--border, #e5e5e5)',
+          background: viewMode === 'mapping' ? 'var(--text)' : 'var(--bg)', color: viewMode === 'mapping' ? '#fff' : 'inherit',
         }}>
           🗺 מיפוי
         </button>
         <button type="button" onClick={() => setViewMode('segment')} style={{
-          padding: '7px 16px', borderRadius: 999, fontSize: 12.5, cursor: 'pointer',
-          border: viewMode === 'segment' ? '1px solid #0a0a0a' : '1px solid var(--border, #e5e5e5)',
-          background: viewMode === 'segment' ? '#0a0a0a' : 'var(--bg)', color: viewMode === 'segment' ? '#fff' : 'inherit',
+          padding: '7px 16px', borderRadius: 8, fontSize: 12.5, cursor: 'pointer',
+          border: viewMode === 'segment' ? '1px solid var(--text)' : '1px solid var(--border, #e5e5e5)',
+          background: viewMode === 'segment' ? 'var(--text)' : 'var(--bg)', color: viewMode === 'segment' ? '#fff' : 'inherit',
         }}>
           🔍 בניית קבוצה
         </button>
@@ -722,10 +722,10 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               onChange={setAdvancedFilters}
             />
             {!showPickerList && (
-              <div style={{ fontSize: 12.5, color: '#9b9b9b' }}>הקלידו לפחות 2 תווים לחיפוש, או בחרו מחלקה/תגית לסינון</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>הקלידו לפחות 2 תווים לחיפוש, או בחרו מחלקה/תגית לסינון</div>
             )}
             {showPickerList && filtered.length === 0 && (
-              <div style={{ fontSize: 12.5, color: '#9b9b9b' }}>אין תוצאות (או שכולם כבר בקמפיין)</div>
+              <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>אין תוצאות (או שכולם כבר בקמפיין)</div>
             )}
             {filtered.length > 0 && (
               <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6 }}>
@@ -740,13 +740,13 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               </div>
             )}
             {filtered.length > 0 && (
-              <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #f0f0f0', borderRadius: 6 }}>
+              <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--bg-tertiary)', borderRadius: 6 }}>
                 {filtered.map((c) => (
-                  <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', fontSize: 12.5, cursor: 'pointer', borderBottom: '1px solid #f5f5f5' }}>
+                  <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', fontSize: 12.5, cursor: 'pointer', borderBottom: '1px solid var(--bg-tertiary)' }}>
                     <input type="checkbox" checked={pickIds.has(c.id)} onChange={() => togglePick(c.id)} />
                     <span style={{ fontWeight: 600 }}>{c.name}</span>
-                    <span style={{ color: '#9b9b9b' }}>{c.phone || c.email || ''}</span>
-                    {(c.departments || []).length > 0 && <span style={{ color: '#9b9b9b', fontSize: 11 }}>· {c.departments.join(', ')}</span>}
+                    <span style={{ color: 'var(--text-muted)' }}>{c.phone || c.email || ''}</span>
+                    {(c.departments || []).length > 0 && <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>· {c.departments.join(', ')}</span>}
                   </label>
                 ))}
               </div>
@@ -788,7 +788,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               <button type="button" onClick={handleRegenerateCategoryTabs} disabled={sheetBusy} style={ghostBtn()} title="יוצר לשונית נפרדת לכל קטגוריה שעדיין אין לה אחת">🗂 עדכון לשוניות קטגוריה</button>
               <button type="button" onClick={handleRegenerateResponsiblePersonTabs} disabled={sheetBusy} style={ghostBtn()} title="יוצר לשונית נפרדת לכל אחראי שעדיין אין לו אחת">🗂 עדכון לשוניות אחראי</button>
               <button type="button" onClick={handleBackfillSheetColumns} disabled={sheetBusy} style={ghostBtn()} title="מתקן את שורת הכותרות וממלא עמודות חדשות (בתור-שיחות/קורסים תשפ&quot;ו/מחזור/שנות לימוד/אחראי) בשורות שכבר קיימות בגיליון">🔄 מילוי-לאחור עמודות חדשות</button>
-              <button type="button" onClick={handleDisconnectSheet} disabled={sheetBusy} style={{ ...ghostBtn(), color: '#b23b2f' }}>נתק</button>
+              <button type="button" onClick={handleDisconnectSheet} disabled={sheetBusy} style={{ ...ghostBtn(), color: 'var(--red)' }}>נתק</button>
               {sheetConnection.last_pushed_at && (
                 <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>נדחף לאחרונה: {new Date(sheetConnection.last_pushed_at).toLocaleString('he-IL')}</span>
               )}
@@ -801,17 +801,17 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               🔗 חבר גיליון Google
             </a>
           )}
-          {sheetMessage?.error && <span style={{ fontSize: 12, color: '#b23b2f' }}>{sheetMessage.error}</span>}
-          {sheetMessage?.success && <span style={{ fontSize: 12, color: '#1f7a3d' }}>✓ {sheetMessage.success}</span>}
+          {sheetMessage?.error && <span style={{ fontSize: 12, color: 'var(--red)' }}>{sheetMessage.error}</span>}
+          {sheetMessage?.success && <span style={{ fontSize: 12, color: 'var(--green)' }}>✓ {sheetMessage.success}</span>}
         </div>
       )}
 
       <div style={{ position: 'relative', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', background: 'var(--bg-secondary, #fafafa)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>🆘 אחראים לעזרה:</span>
         {helpContacts.map((c) => (
-          <span key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, background: '#fff3d6', border: '1px solid #f0d78c', borderRadius: 20, padding: '3px 10px' }}>
+          <span key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 20, padding: '3px 10px' }}>
             {c.first} {c.last}{c.phone ? ` · ${c.phone}` : ''}
-            <button type="button" onClick={() => removeHelpContact(c.id)} disabled={helpSaving} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, color: '#8a5a00' }}>✕</button>
+            <button type="button" onClick={() => removeHelpContact(c.id)} disabled={helpSaving} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, padding: 0, color: 'var(--amber)' }}>✕</button>
           </span>
         ))}
         <input
@@ -833,28 +833,28 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
         {helpContacts.length === 0 && <span style={{ fontSize: 11.5, color: 'var(--text-muted, #9b9b9b)' }}>לא הוגדרו - כפתור-העזרה של הטלפנים לא יעבוד</span>}
       </div>
 
-      {importResult?.error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>{importResult.error}</div>}
+      {importResult?.error && <div style={{ color: 'var(--red)', fontSize: 12.5, marginBottom: 10 }}>{importResult.error}</div>}
       {importResult?.success && (
-        <div style={{ color: '#1f7a3d', fontSize: 12.5, marginBottom: 10 }}>
+        <div style={{ color: 'var(--green)', fontSize: 12.5, marginBottom: 10 }}>
           ✓ עודכנו {importResult.updated} שורות{importResult.skipped > 0 ? `, דולגו ${importResult.skipped}` : ''}
         </div>
       )}
       {pendingImport && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', background: '#eef2f7', border: '1px solid #c9d6e3', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
-          <span style={{ fontSize: 12.5, color: '#3b5878' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', background: 'var(--blue-bg)', border: '1px solid var(--blue)', borderRadius: 8, padding: '10px 14px', marginBottom: 14 }}>
+          <span style={{ fontSize: 12.5, color: 'var(--blue)' }}>
             נמצאו {pendingImport.updates.length} שינויים לעדכון מהקובץ
             {pendingImport.unmatched > 0 ? ` (${pendingImport.unmatched} שורות בקובץ לא זוהו ודולגו)` : ''} - לאשר?
           </span>
-          <button type="button" onClick={confirmImport} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+          <button type="button" onClick={confirmImport} disabled={isPending} style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
             אישור עדכון
           </button>
-          <button type="button" onClick={() => setPendingImport(null)} style={{ background: 'none', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}>
+          <button type="button" onClick={() => setPendingImport(null)} style={{ background: 'none', border: '1px solid var(--blue)', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--blue)' }}>
             ביטול
           </button>
         </div>
       )}
 
-      {error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>שגיאה: {error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12.5, marginBottom: 10 }}>שגיאה: {error}</div>}
 
       <BulkAssignBar selected={selectedRows} setSelected={setSelectedRows} agents={agents} categories={CATEGORIES} onBulkApply={handleBulkChange} rows={rows} workspaceId={workspaceId} isDonationsWorkspace={isDonationsWorkspace} />
 
@@ -910,9 +910,9 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               type="button" onClick={() => setShowRecentActiveDonors((v) => !v)}
               style={{
                 ...ghostBtn(), padding: '5px 10px', fontSize: 12,
-                background: showRecentActiveDonors ? '#fff7ed' : 'var(--bg)',
-                borderColor: showRecentActiveDonors ? '#fed7aa' : 'var(--border, #e5e5e5)',
-                color: showRecentActiveDonors ? '#9a5b0c' : 'inherit',
+                background: showRecentActiveDonors ? 'var(--amber-bg)' : 'var(--bg)',
+                borderColor: showRecentActiveDonors ? 'var(--amber)' : 'var(--border, #e5e5e5)',
+                color: showRecentActiveDonors ? 'var(--amber)' : 'inherit',
               }}
               title="תורם עם הוראת-קבע פעילה שתרם ב-40 הימים האחרונים - חסום אוטומטית מהתור"
             >
@@ -924,9 +924,9 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               type="button" onClick={() => setEmptyPhoneOnly((v) => !v)}
               style={{
                 ...ghostBtn(), padding: '5px 10px', fontSize: 12,
-                background: emptyPhoneOnly ? '#fdecea' : 'var(--bg)',
-                borderColor: emptyPhoneOnly ? '#f5c6cb' : 'var(--border, #e5e5e5)',
-                color: emptyPhoneOnly ? '#c62828' : 'inherit',
+                background: emptyPhoneOnly ? 'var(--red-bg)' : 'var(--bg)',
+                borderColor: emptyPhoneOnly ? 'var(--red)' : 'var(--border, #e5e5e5)',
+                color: emptyPhoneOnly ? 'var(--red)' : 'inherit',
               }}
               title="אין טלפון ראשי או משני - סנן כדי לבחור ולהוציא מהתור בבת-אחת"
             >
@@ -938,9 +938,9 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               type="button" onClick={() => setShowNoAnswerBucket((v) => !v)}
               style={{
                 ...ghostBtn(), padding: '5px 10px', fontSize: 12,
-                background: showNoAnswerBucket ? '#fff7ed' : 'var(--bg)',
-                borderColor: showNoAnswerBucket ? '#fed7aa' : 'var(--border, #e5e5e5)',
-                color: showNoAnswerBucket ? '#9a5b0c' : 'inherit',
+                background: showNoAnswerBucket ? 'var(--amber-bg)' : 'var(--bg)',
+                borderColor: showNoAnswerBucket ? 'var(--amber)' : 'var(--border, #e5e5e5)',
+                color: showNoAnswerBucket ? 'var(--amber)' : 'inherit',
               }}
               title='יצאו אוטומטית מהתור מיד אחרי "לא ענה" - חוזרים לתור רק ידנית ע"י מנהל'
             >
@@ -952,9 +952,9 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               type="button" onClick={() => setShowCallbackBucket((v) => !v)}
               style={{
                 ...ghostBtn(), padding: '5px 10px', fontSize: 12,
-                background: showCallbackBucket ? '#eef2f7' : 'var(--bg)',
-                borderColor: showCallbackBucket ? '#c9d6e3' : 'var(--border, #e5e5e5)',
-                color: showCallbackBucket ? '#3b5878' : 'inherit',
+                background: showCallbackBucket ? 'var(--blue-bg)' : 'var(--bg)',
+                borderColor: showCallbackBucket ? 'var(--blue)' : 'var(--border, #e5e5e5)',
+                color: showCallbackBucket ? 'var(--blue)' : 'inherit',
               }}
               title='יצאו מהתור מיד כשביקשו שיחת-חזרה - חוזרים לתור רק ידנית ע"י מנהל'
             >
@@ -966,9 +966,9 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
               type="button" onClick={() => setShowSpouseBucket((v) => !v)}
               style={{
                 ...ghostBtn(), padding: '5px 10px', fontSize: 12,
-                background: showSpouseBucket ? '#eef2f7' : 'var(--bg)',
-                borderColor: showSpouseBucket ? '#c9d6e3' : 'var(--border, #e5e5e5)',
-                color: showSpouseBucket ? '#3b5878' : 'inherit',
+                background: showSpouseBucket ? 'var(--blue-bg)' : 'var(--bg)',
+                borderColor: showSpouseBucket ? 'var(--blue)' : 'var(--border, #e5e5e5)',
+                color: showSpouseBucket ? 'var(--blue)' : 'inherit',
               }}
               title='יצאו אוטומטית מהתור כי בן/בת-הזוג נענה/תה - חוזרים לתור רק ידנית ע"י מנהל'
             >
@@ -1008,7 +1008,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
       )}
 
       {rows.length === 0 && (
-        <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px', fontSize: 13, color: '#9b9b9b' }}>
+        <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px', fontSize: 13, color: 'var(--text-muted)' }}>
           עדיין לא נוספו אנשי קשר לקמפיין
         </div>
       )}
@@ -1039,7 +1039,7 @@ export default function CampaignDetailClient({ campaignId, workspaceId, isDonati
                 {group.counts.other > 0 ? ` · ${group.counts.other} מישהו אחר` : ''}
                 {group.counts.notRelevant > 0 ? ` · ${group.counts.notRelevant} לא רלוונטי${mappingFilter === 'notRelevant' ? '' : ' (לא מוצג בסינון הנוכחי)'}` : ''}
               </span>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: '#3b5878', marginInlineStart: 'auto', cursor: 'pointer' }} onClick={(e) => e.stopPropagation()}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--blue)', marginInlineStart: 'auto', cursor: 'pointer' }} onClick={(e) => e.stopPropagation()}>
                 <input type="checkbox" checked={groupSelected} onChange={() => toggleSelectGroup(group.rows)} />
                 בחר קבוצה
               </label>
@@ -1160,7 +1160,7 @@ function MultiValueFilter({ label, values, selected, onSelectedChange, text, onT
 
 function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelected, onToggleSelect, onChange, onRemove }) {
   return (
-    <tr style={{ borderBottom: '1px solid #f2f2f2' }}>
+    <tr style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
       <td style={{ padding: '8px 8px', textAlign: 'center', position: 'sticky', insetInlineStart: 0, zIndex: 1, background: 'var(--bg)' }}>
         <input type="checkbox" checked={isSelected} onChange={onToggleSelect} />
       </td>
@@ -1170,7 +1170,7 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
         </Link>
         {r.isRecentActiveDonor && (
           <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: '#fff7ed', color: '#9a5b0c', border: '1px solid #fed7aa' }}>
+            <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber)' }}>
               🔒 תורם פעיל אחרון
             </span>
             {!r.allowRecentDonorCall && (
@@ -1185,7 +1185,7 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
         )}
       </td>
       <td style={{ padding: '8px 8px', whiteSpace: 'nowrap' }}>{r.phone || '—'}</td>
-      <td style={{ padding: '8px 8px', fontSize: 12, color: r.spouseName ? 'inherit' : '#c8c8c8', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.spouseName ? `${r.spouseName}${r.relationLabel ? ` (${r.relationLabel})` : ''}` : ''}>
+      <td style={{ padding: '8px 8px', fontSize: 12, color: r.spouseName ? 'inherit' : 'var(--text-muted)', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.spouseName ? `${r.spouseName}${r.relationLabel ? ` (${r.relationLabel})` : ''}` : ''}>
         {r.spouseName ? `${r.spouseName}${r.relationLabel ? ` (${r.relationLabel})` : ''}` : '—'}
       </td>
       <td style={{ padding: '8px 8px' }}>
@@ -1231,7 +1231,7 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
       {/* יומן-שיחות הטלפנים (note) - תצוגה בלבד, לא ניתן לעריכה כאן בכוונה.
           עריכה ישירה בטבלה הזו על אותה עמודה היא בדיוק מה שגרם לדריסת יומן-
           שיחות שלם בתקרית ה-31/08 (ר' migration 0117/0120). */}
-      <td style={{ padding: '8px 8px', fontSize: 12, color: r.note ? 'inherit' : '#c8c8c8', maxWidth: 130 }}>
+      <td style={{ padding: '8px 8px', fontSize: 12, color: r.note ? 'inherit' : 'var(--text-muted)', maxWidth: 130 }}>
         <span title={r.note || ''} style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {r.note ? r.note.split('\n')[0] : '—'}
         </span>
@@ -1259,7 +1259,7 @@ function CampaignRow({ r, CATEGORIES, agents, campaignStages, isPending, isSelec
       </td>
       <td style={{ padding: '8px 4px' }}>
         <button type="button" onClick={onRemove} disabled={isPending} title="הסרה מהקמפיין"
-          style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 13 }}>✕</button>
+          style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 13 }}>✕</button>
       </td>
     </tr>
   );
@@ -1278,10 +1278,10 @@ function NoAnswerBucket({ rows, minStreak, onMinStreakChange, selected, onSelect
     onSelectedChange((prev) => { const next = new Set(prev); if (next.has(rowId)) next.delete(rowId); else next.add(rowId); return next; });
   }
   return (
-    <div style={{ marginBottom: 14, border: '1px solid #fed7aa', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff7ed', padding: '9px 14px', flexWrap: 'wrap' }}>
-        <strong style={{ fontSize: 13, color: '#9a5b0c' }}>🔁 לא ענו - יצאו מהתור</strong>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#9a5b0c' }}>
+    <div style={{ marginBottom: 14, border: '1px solid var(--amber)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--amber-bg)', padding: '9px 14px', flexWrap: 'wrap' }}>
+        <strong style={{ fontSize: 13, color: 'var(--amber)' }}>🔁 לא ענו - יצאו מהתור</strong>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--amber)' }}>
           מינימום רצף:
           <select value={minStreak} onChange={(e) => onMinStreakChange(Number(e.target.value))} style={{ ...cellSelect(), padding: '4px 8px' }}>
             {[1, 2, 3, 5, 10].map((n) => <option key={n} value={n}>{n}+</option>)}
@@ -1294,7 +1294,7 @@ function NoAnswerBucket({ rows, minStreak, onMinStreakChange, selected, onSelect
         )}
       </div>
       {rows.length === 0 ? (
-        <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b', background: 'var(--bg)' }}>אין שורות בסף הזה</div>
+        <div style={{ padding: '12px 14px', fontSize: 12.5, color: 'var(--text-muted)', background: 'var(--bg)' }}>אין שורות בסף הזה</div>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: 'var(--bg)' }}>
           <thead>
@@ -1307,7 +1307,7 @@ function NoAnswerBucket({ rows, minStreak, onMinStreakChange, selected, onSelect
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.rowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
+              <tr key={r.rowId} style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
                 <td style={{ padding: '8px', textAlign: 'center' }}><input type="checkbox" checked={selected.has(r.rowId)} onChange={() => toggleOne(r.rowId)} /></td>
                 <td style={{ padding: '8px 14px' }}>
                   <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.name || '—'}</Link>
@@ -1336,12 +1336,12 @@ function NoAnswerBucket({ rows, minStreak, onMinStreakChange, selected, onSelect
 function CallbackBucket({ rows, isPending, onReturnOne }) {
   const fmt = (iso) => iso ? new Date(iso).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
   return (
-    <div style={{ marginBottom: 14, border: '1px solid #c9d6e3', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ background: '#eef2f7', padding: '9px 14px' }}>
-        <strong style={{ fontSize: 13, color: '#3b5878' }}>📅 ביקשו לחזור אליהם - יצאו מהתור</strong>
+    <div style={{ marginBottom: 14, border: '1px solid var(--blue)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--blue-bg)', padding: '9px 14px' }}>
+        <strong style={{ fontSize: 13, color: 'var(--blue)' }}>📅 ביקשו לחזור אליהם - יצאו מהתור</strong>
       </div>
       {rows.length === 0 ? (
-        <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b', background: 'var(--bg)' }}>אין כרגע</div>
+        <div style={{ padding: '12px 14px', fontSize: 12.5, color: 'var(--text-muted)', background: 'var(--bg)' }}>אין כרגע</div>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: 'var(--bg)' }}>
           <thead>
@@ -1353,7 +1353,7 @@ function CallbackBucket({ rows, isPending, onReturnOne }) {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.rowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
+              <tr key={r.rowId} style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
                 <td style={{ padding: '8px 14px' }}>
                   <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.name || '—'}</Link>
                 </td>
@@ -1380,12 +1380,12 @@ function CallbackBucket({ rows, isPending, onReturnOne }) {
 // בחירה-מרובה (כמו שם, לא כמו NoAnswerBucket).
 function SpouseReachedBucket({ rows, isPending, onReturnOne }) {
   return (
-    <div style={{ marginBottom: 14, border: '1px solid #c9d6e3', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ background: '#eef2f7', padding: '9px 14px' }}>
-        <strong style={{ fontSize: 13, color: '#3b5878' }}>💑 בן/בת הזוג נענה/תה - יצאו מהתור</strong>
+    <div style={{ marginBottom: 14, border: '1px solid var(--blue)', borderRadius: 8, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--blue-bg)', padding: '9px 14px' }}>
+        <strong style={{ fontSize: 13, color: 'var(--blue)' }}>💑 בן/בת הזוג נענה/תה - יצאו מהתור</strong>
       </div>
       {rows.length === 0 ? (
-        <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b', background: 'var(--bg)' }}>אין כרגע</div>
+        <div style={{ padding: '12px 14px', fontSize: 12.5, color: 'var(--text-muted)', background: 'var(--bg)' }}>אין כרגע</div>
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, background: 'var(--bg)' }}>
           <thead>
@@ -1397,7 +1397,7 @@ function SpouseReachedBucket({ rows, isPending, onReturnOne }) {
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.rowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
+              <tr key={r.rowId} style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
                 <td style={{ padding: '8px 14px' }}>
                   <Link href={`/dashboard/contacts/${r.contactId}`} style={{ fontWeight: 600, color: 'inherit', textDecoration: 'none' }}>{r.name || '—'}</Link>
                 </td>
@@ -1441,39 +1441,39 @@ function CampaignOverviewDashboard({ rows, agents, campaignStages, groups }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
         <div style={{ flex: '1 1 120px', background: 'var(--bg-secondary, #fafafa)', borderRadius: 8, padding: '10px 14px' }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{total}</div>
-          <div style={{ fontSize: 11, color: '#9b9b9b' }}>סה"כ אנשי קשר</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>סה"כ אנשי קשר</div>
         </div>
         <div style={{ flex: '1 1 120px', background: 'var(--bg-secondary, #fafafa)', borderRadius: 8, padding: '10px 14px' }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{namedGroups.length}</div>
-          <div style={{ fontSize: 11, color: '#9b9b9b' }}>קבוצות מסווגות</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>קבוצות מסווגות</div>
         </div>
         {byStatus.map((s) => (
           <div key={s.key} style={{ flex: '1 1 120px', background: 'var(--bg-secondary, #fafafa)', borderRadius: 8, padding: '10px 14px' }}>
             <div style={{ fontSize: 20, fontWeight: 700 }}>{s.count}</div>
-            <div style={{ fontSize: 11, color: '#9b9b9b' }}>{s.label}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.label}</div>
           </div>
         ))}
-        <div style={{ flex: '1 1 120px', background: '#f0fdf4', borderRadius: 8, padding: '10px 14px' }}>
-          <div style={{ fontSize: 20, fontWeight: 700, color: '#16a34a' }}>{total ? Math.round((wonCount / total) * 100) : 0}%</div>
-          <div style={{ fontSize: 11, color: '#16a34a' }}>אחוז הצלחה</div>
+        <div style={{ flex: '1 1 120px', background: 'var(--green-bg)', borderRadius: 8, padding: '10px 14px' }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--green)' }}>{total ? Math.round((wonCount / total) * 100) : 0}%</div>
+          <div style={{ fontSize: 11, color: 'var(--green)' }}>אחוז הצלחה</div>
         </div>
       </div>
 
       {namedGroups.length > 0 && (
         <div style={{ marginBottom: byAgent.length > 0 ? 14 : 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 6 }}>פילוח לפי קבוצה</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>פילוח לפי קבוצה</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {namedGroups.map((g) => (
               <div key={g.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
                 <span style={{ width: 140, flexShrink: 0 }}>{g.label}</span>
-                <div style={{ flex: 1, height: 8, background: '#f2f2f2', borderRadius: 999, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${(g.rows.length / total) * 100}%`, background: '#1f4d3d', borderRadius: 999 }} />
+                <div style={{ flex: 1, height: 8, background: 'var(--bg-tertiary)', borderRadius: 999, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${(g.rows.length / total) * 100}%`, background: 'var(--green)', borderRadius: 999 }} />
                 </div>
-                <span style={{ width: 60, textAlign: 'left', color: '#6b6b6b' }}>{g.rows.length} ({Math.round((g.rows.length / total) * 100)}%)</span>
+                <span style={{ width: 60, textAlign: 'left', color: 'var(--text-secondary)' }}>{g.rows.length} ({Math.round((g.rows.length / total) * 100)}%)</span>
               </div>
             ))}
             {uncategorizedGroup && (
-              <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>{uncategorizedGroup.rows.length} ללא קטגוריה</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>{uncategorizedGroup.rows.length} ללא קטגוריה</div>
             )}
           </div>
         </div>
@@ -1481,19 +1481,19 @@ function CampaignOverviewDashboard({ rows, agents, campaignStages, groups }) {
 
       {byAgent.length > 0 && (
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', marginBottom: 6 }}>פילוח לפי נציג</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 6 }}>פילוח לפי נציג</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {byAgent.map((a) => (
               <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
                 <span style={{ width: 120, flexShrink: 0 }}>{a.name}</span>
-                <div style={{ flex: 1, height: 8, background: '#f2f2f2', borderRadius: 999, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${(a.count / total) * 100}%`, background: '#0a0a0a', borderRadius: 999 }} />
+                <div style={{ flex: 1, height: 8, background: 'var(--bg-tertiary)', borderRadius: 999, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${(a.count / total) * 100}%`, background: 'var(--text)', borderRadius: 999 }} />
                 </div>
-                <span style={{ width: 60, textAlign: 'left', color: '#6b6b6b' }}>{a.count} ({Math.round((a.count / total) * 100)}%)</span>
+                <span style={{ width: 60, textAlign: 'left', color: 'var(--text-secondary)' }}>{a.count} ({Math.round((a.count / total) * 100)}%)</span>
               </div>
             ))}
             {unassignedCount > 0 && (
-              <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 4 }}>{unassignedCount} ללא נציג משויך</div>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 4 }}>{unassignedCount} ללא נציג משויך</div>
             )}
           </div>
         </div>
@@ -1552,16 +1552,16 @@ function BulkAssignBar({ selected, setSelected, agents, categories, onBulkApply,
   return (
     <div style={{
       display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 14,
-      background: '#eef2f7', border: '1px solid #c9d6e3', borderRadius: 8, padding: '10px 14px',
+      background: 'var(--blue-bg)', border: '1px solid var(--blue)', borderRadius: 8, padding: '10px 14px',
     }}>
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: '#3b5878' }}>נבחרו {selected.size} אנשי קשר</span>
+      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--blue)' }}>נבחרו {selected.size} אנשי קשר</span>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <select value={categoryValue} onChange={(e) => setCategoryValue(e.target.value)} style={{ ...inputStyle, fontSize: 12 }}>
           <option value="">— בחרו קבוצה —</option>
           {categories.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
-        <button type="button" onClick={applyCategory} disabled={isPending || !categoryValue} style={{ background: '#1f4d3d', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+        <button type="button" onClick={applyCategory} disabled={isPending || !categoryValue} style={{ background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
           העברה לקבוצה
         </button>
       </div>
@@ -1571,7 +1571,7 @@ function BulkAssignBar({ selected, setSelected, agents, categories, onBulkApply,
           <option value="">— ללא —</option>
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
-        <button type="button" onClick={applyAgent} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+        <button type="button" onClick={applyAgent} disabled={isPending} style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
           שליחה לנציג
         </button>
       </div>
@@ -1581,7 +1581,7 @@ function BulkAssignBar({ selected, setSelected, agents, categories, onBulkApply,
           type="text" value={responsibleValue} onChange={(e) => setResponsibleValue(e.target.value)}
           placeholder="מי אחראי..." style={{ ...inputStyle, fontSize: 12, width: 120 }}
         />
-        <button type="button" onClick={applyResponsible} disabled={isPending} style={{ background: '#1f4d3d', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
+        <button type="button" onClick={applyResponsible} disabled={isPending} style={{ background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}>
           סימון אחראי
         </button>
       </div>
@@ -1591,7 +1591,7 @@ function BulkAssignBar({ selected, setSelected, agents, categories, onBulkApply,
           type="button"
           onClick={() => { const ids = Array.from(selected); startTransition(async () => { await onBulkApply(ids, { inCallQueue: true }); setSelected(new Set()); }); }}
           disabled={isPending}
-          style={{ background: '#fff', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}
+          style={{ background: 'var(--bg)', border: '1px solid var(--blue)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--blue)' }}
         >
           הכנס לתור
         </button>
@@ -1599,17 +1599,17 @@ function BulkAssignBar({ selected, setSelected, agents, categories, onBulkApply,
           type="button"
           onClick={() => { const ids = Array.from(selected); startTransition(async () => { await onBulkApply(ids, { inCallQueue: false }); setSelected(new Set()); }); }}
           disabled={isPending}
-          style={{ background: '#fff', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878' }}
+          style={{ background: 'var(--bg)', border: '1px solid var(--blue)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--blue)' }}
         >
           הוצא מהתור
         </button>
-        {isPending && <span style={{ fontSize: 11.5, color: '#3b5878' }}>מעדכן...</span>}
+        {isPending && <span style={{ fontSize: 11.5, color: 'var(--blue)' }}>מעדכן...</span>}
       </div>
 
       <button
         type="button"
         onClick={() => setSelected(new Set())}
-        style={{ background: 'none', border: '1px solid #c9d6e3', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: '#3b5878', marginInlineStart: 'auto' }}
+        style={{ background: 'none', border: '1px solid var(--blue)', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', color: 'var(--blue)', marginInlineStart: 'auto' }}
       >
         ביטול בחירה
       </button>
@@ -1618,7 +1618,7 @@ function BulkAssignBar({ selected, setSelected, agents, categories, onBulkApply,
 }
 
 function primaryBtn() {
-  return { background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' };
+  return { background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' };
 }
 function ghostBtn() {
   return { background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' };

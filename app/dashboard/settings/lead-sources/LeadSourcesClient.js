@@ -22,9 +22,9 @@ export default function LeadSourcesClient({ workspaces = [], connectionsByWorksp
             key={w.id}
             onClick={() => setWorkspaceId(w.id)}
             style={{
-              border: workspaceId === w.id ? '1px solid #0a0a0a' : '1px solid var(--border, #e5e5e5)',
-              background: workspaceId === w.id ? '#0a0a0a' : 'var(--bg)',
-              color: workspaceId === w.id ? '#fff' : '#333',
+              border: workspaceId === w.id ? '1px solid var(--text)' : '1px solid var(--border, #e5e5e5)',
+              background: workspaceId === w.id ? 'var(--text)' : 'var(--bg)',
+              color: workspaceId === w.id ? '#fff' : 'var(--text)',
               borderRadius: 999, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', fontWeight: 500,
             }}
           >
@@ -173,7 +173,7 @@ function CampaignRoutingRow({ campaign, workspace, dedicatedConnection, defaultI
           <button type="button" onClick={handleSave} disabled={isPending} style={primaryBtnSmall()}>
             {isPending ? 'שומר...' : 'שמירה'}
           </button>
-          {error && <div style={{ color: '#b23b2f', fontSize: 11.5, marginTop: 6 }}>{error}</div>}
+          {error && <div style={{ color: 'var(--red)', fontSize: 11.5, marginTop: 6 }}>{error}</div>}
         </>
       )}
     </div>
@@ -223,7 +223,7 @@ function LeadSourcesSection({ workspace, sources }) {
           <input value={linkPattern} onChange={(e) => setLinkPattern(e.target.value)} placeholder="קישור/דפוס מזהה (אופציונלי)" style={{ ...inputStyle(), flex: 1, minWidth: 200 }} />
           <button type="button" onClick={handleAdd} disabled={isPending || !name.trim()} style={primaryBtnSmall()}>הוספה</button>
         </div>
-        {error && <div style={{ color: '#b23b2f', fontSize: 11.5, marginTop: 6 }}>{error}</div>}
+        {error && <div style={{ color: 'var(--red)', fontSize: 11.5, marginTop: 6 }}>{error}</div>}
       </div>
     </div>
   );
@@ -233,11 +233,11 @@ function inputStyle() {
   return { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '6px 10px', fontSize: 12.5, boxSizing: 'border-box' };
 }
 function linkBtn() {
-  return { display: 'inline-flex', alignItems: 'center', gap: 4, background: '#1f4d3d', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, textDecoration: 'none', cursor: 'pointer' };
+  return { display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, textDecoration: 'none', cursor: 'pointer' };
 }
 function primaryBtnSmall() {
-  return { background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' };
+  return { background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' };
 }
 function dangerBtn() {
-  return { background: 'none', border: '1px solid var(--border, #e5e5e5)', color: '#b23b2f', borderRadius: 6, padding: '4px 10px', fontSize: 11.5, cursor: 'pointer' };
+  return { background: 'none', border: '1px solid var(--border, #e5e5e5)', color: 'var(--red)', borderRadius: 6, padding: '4px 10px', fontSize: 11.5, cursor: 'pointer' };
 }

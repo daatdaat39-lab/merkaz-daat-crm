@@ -262,7 +262,7 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
             </div>
           </div>
           <button type="button" onClick={handleSearch} disabled={isPending} style={{
-            background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '9px 20px', fontSize: 13, cursor: 'pointer',
+            background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '9px 20px', fontSize: 13, cursor: 'pointer',
           }}>
             {isPending ? 'מחפש...' : 'הצג תוצאות'}
           </button>
@@ -272,8 +272,8 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
         </p>
       </div>
 
-      {error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>{error}</div>}
-      {addedMsg && <div style={{ color: '#1f7a3d', fontSize: 12.5, marginBottom: 10 }}>✓ {addedMsg}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12.5, marginBottom: 10 }}>{error}</div>}
+      {addedMsg && <div style={{ color: 'var(--green)', fontSize: 12.5, marginBottom: 10 }}>✓ {addedMsg}</div>}
 
       {rows && (
         <>
@@ -301,7 +301,7 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
               <tbody>
                 {rows.map((r) => (
                   <Fragment key={r.contact_id}>
-                    <tr style={{ borderBottom: '1px solid #f2f2f2' }}>
+                    <tr style={{ borderBottom: '1px solid var(--bg-tertiary)' }}>
                       <td style={{ padding: '8px 8px', textAlign: 'center' }}>
                         <input type="checkbox" checked={selected.has(r.contact_id)} onChange={() => toggleSelect(r.contact_id)} />
                       </td>
@@ -351,11 +351,11 @@ export default function SegmentFinder({ campaignId, pipelinesByWorkspace = {} })
           </div>
 
           {selected.size > 0 && (
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: '#eef2f7', border: '1px solid #c9d6e3', borderRadius: 8, padding: '10px 14px' }}>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: '#3b5878' }}>נבחרו {selected.size}</span>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', background: 'var(--blue-bg)', border: '1px solid var(--blue)', borderRadius: 8, padding: '10px 14px' }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--blue)' }}>נבחרו {selected.size}</span>
               <input value={category} onChange={(e) => setCategory(e.target.value)} placeholder="קטגוריה (אופציונלי)" style={{ ...inputStyle, flex: 1 }} />
               <button type="button" onClick={handleAddToCampaign} disabled={isPending} style={{
-                background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: 12.5, cursor: 'pointer',
+                background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: 12.5, cursor: 'pointer',
               }}>
                 הוספה לקמפיין
               </button>

@@ -92,8 +92,8 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
                 onClick={() => setCalendarMode(m.id)}
                 style={{
                   padding: '5px 12px', borderRadius: 6, fontSize: 11.5, cursor: 'pointer',
-                  border: calendarMode === m.id ? '1px solid #1f4d3d' : '1px solid #e5e5e5',
-                  background: calendarMode === m.id ? '#1f4d3d' : '#fff', color: calendarMode === m.id ? '#fff' : '#666',
+                  border: calendarMode === m.id ? '1px solid var(--text)' : '1px solid var(--border)',
+                  background: calendarMode === m.id ? 'var(--text)' : 'var(--bg)', color: calendarMode === m.id ? '#fff' : 'var(--text-secondary)',
                 }}
               >
                 {m.label}
@@ -109,8 +109,8 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
               onClick={() => setView(v.id)}
               style={{
                 padding: '6px 14px', borderRadius: 6, fontSize: 12.5, cursor: 'pointer',
-                border: view === v.id ? '1px solid #0a0a0a' : '1px solid #e5e5e5',
-                background: view === v.id ? '#0a0a0a' : '#fff', color: view === v.id ? '#fff' : '#333',
+                border: view === v.id ? '1px solid var(--text)' : '1px solid var(--border)',
+                background: view === v.id ? 'var(--text)' : 'var(--bg)', color: view === v.id ? '#fff' : 'var(--text)',
               }}
             >
               {v.label}
@@ -120,7 +120,7 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
 
         <button
           onClick={() => setModalDate(toDateStr(anchor))}
-          style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', fontSize: 12.5, cursor: 'pointer' }}
+          style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 14px', fontSize: 12.5, cursor: 'pointer' }}
         >
           + אירוע חדש
         </button>
@@ -145,7 +145,7 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
 
       {undatedTasks.length > 0 && (
         <details style={{ marginTop: 24 }}>
-          <summary style={{ fontSize: 12, color: '#9b9b9b', cursor: 'pointer' }}>משימות ללא תאריך יעד ({undatedTasks.length})</summary>
+          <summary style={{ fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>משימות ללא תאריך יעד ({undatedTasks.length})</summary>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
             {undatedTasks.map((t) => <TaskRow key={t.id} t={t} contacts={contacts} members={members} currentUserId={currentUserId} />)}
           </div>
@@ -169,7 +169,7 @@ export default function CalendarBoard({ meetings, tasks, contacts, members, curr
 }
 
 function navBtnStyle() {
-  return { width: 32, height: 32, borderRadius: 6, border: '1px solid #e5e5e5', background: 'var(--bg)', cursor: 'pointer', fontSize: 14 };
+  return { width: 32, height: 32, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg)', cursor: 'pointer', fontSize: 14 };
 }
 
 function EventChip({ ev }) {
@@ -181,7 +181,7 @@ function EventChip({ ev }) {
     <div style={{
       fontSize: 10.5, padding: '2px 6px', borderRadius: 4, marginBottom: 2, overflow: 'hidden',
       whiteSpace: 'nowrap', textOverflow: 'ellipsis',
-      background: isMeeting ? '#eff6ff' : '#f5f3ff', color: isMeeting ? '#2563eb' : '#7c3aed',
+      background: isMeeting ? 'var(--blue-bg)' : 'var(--purple-bg)', color: isMeeting ? 'var(--blue)' : 'var(--purple)',
       textDecoration: ev.kind === 'task' && ev.raw.done ? 'line-through' : 'none',
     }}>
       {isMeeting ? '📅 ' : '✅ '}{label}
@@ -196,10 +196,10 @@ function MonthGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventClick })
   const currentMonth = anchor.getMonth();
 
   return (
-    <div style={{ border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', background: 'var(--bg)' }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg)' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg-secondary, #f5f5f5)' }}>
         {WEEKDAY_LABELS.map((d) => (
-          <div key={d} style={{ padding: '8px 10px', fontSize: 11, fontWeight: 600, color: '#9b9b9b', textAlign: 'center' }}>{d}</div>
+          <div key={d} style={{ padding: '8px 10px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textAlign: 'center' }}>{d}</div>
         ))}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
@@ -215,15 +215,15 @@ function MonthGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventClick })
               key={dateStr}
               onClick={() => onDayClick(dateStr)}
               style={{
-                minHeight: 92, borderTop: '1px solid #f0f0f0', borderInlineStart: '1px solid #f0f0f0',
+                minHeight: 92, borderTop: '1px solid var(--border)', borderInlineStart: '1px solid var(--border)',
                 padding: 6, cursor: 'pointer', opacity: inMonth ? 1 : 0.4,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 4 }}>
                 <div style={{
                   fontSize: 11.5, fontWeight: isToday ? 700 : 400,
-                  color: isToday ? '#fff' : '#333',
-                  background: isToday ? '#0a0a0a' : 'transparent',
+                  color: isToday ? '#fff' : 'var(--text)',
+                  background: isToday ? 'var(--text)' : 'transparent',
                   display: 'inline-flex', width: 20, height: 20, alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
                 }}>
                   {day.getDate()}
@@ -236,7 +236,7 @@ function MonthGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventClick })
                 </div>
               ))}
               {hidden > 0 && (
-                <div style={{ fontSize: 10, color: '#9b9b9b' }}>+{hidden} עוד</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>+{hidden} עוד</div>
               )}
             </div>
           );
@@ -256,15 +256,15 @@ function HebrewMonthGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventCl
   const leadingBlanks = days.length > 0 ? days[0].greg.getDay() : 0;
 
   return (
-    <div style={{ border: '1px solid #e5e5e5', borderRadius: 8, overflow: 'hidden', background: 'var(--bg)' }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--bg)' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg-secondary, #f5f5f5)' }}>
         {WEEKDAY_LABELS.map((d) => (
-          <div key={d} style={{ padding: '8px 10px', fontSize: 11, fontWeight: 600, color: '#9b9b9b', textAlign: 'center' }}>{d}</div>
+          <div key={d} style={{ padding: '8px 10px', fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textAlign: 'center' }}>{d}</div>
         ))}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
         {Array.from({ length: leadingBlanks }, (_, i) => (
-          <div key={`blank-${i}`} style={{ minHeight: 92, borderTop: '1px solid #f0f0f0', borderInlineStart: '1px solid #f0f0f0', opacity: 0.4 }} />
+          <div key={`blank-${i}`} style={{ minHeight: 92, borderTop: '1px solid var(--border)', borderInlineStart: '1px solid var(--border)', opacity: 0.4 }} />
         ))}
         {days.map(({ hebrewDay, greg }) => {
           const dateStr = toDateStr(greg);
@@ -277,15 +277,15 @@ function HebrewMonthGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventCl
               key={dateStr}
               onClick={() => onDayClick(dateStr)}
               style={{
-                minHeight: 92, borderTop: '1px solid #f0f0f0', borderInlineStart: '1px solid #f0f0f0',
+                minHeight: 92, borderTop: '1px solid var(--border)', borderInlineStart: '1px solid var(--border)',
                 padding: 6, cursor: 'pointer',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 4 }}>
                 <div style={{
                   fontSize: 11.5, fontWeight: isToday ? 700 : 400,
-                  color: isToday ? '#fff' : '#333',
-                  background: isToday ? '#0a0a0a' : 'transparent',
+                  color: isToday ? '#fff' : 'var(--text)',
+                  background: isToday ? 'var(--text)' : 'transparent',
                   display: 'inline-flex', minWidth: 20, height: 20, padding: '0 3px', alignItems: 'center', justifyContent: 'center', borderRadius: 10,
                 }}>
                   {hebrewDay}
@@ -298,7 +298,7 @@ function HebrewMonthGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventCl
                 </div>
               ))}
               {hidden > 0 && (
-                <div style={{ fontSize: 10, color: '#9b9b9b' }}>+{hidden} עוד</div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>+{hidden} עוד</div>
               )}
             </div>
           );
@@ -319,12 +319,12 @@ function WeekGrid({ anchor, eventsByDate, todayStr, onDayClick, onEventClick }) 
         const events = eventsByDate.get(dateStr) || [];
         const isToday = dateStr === todayStr;
         return (
-          <div key={dateStr} style={{ border: '1px solid #e5e5e5', borderRadius: 8, background: 'var(--bg)', minHeight: 220, display: 'flex', flexDirection: 'column' }}>
+          <div key={dateStr} style={{ border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg)', minHeight: 220, display: 'flex', flexDirection: 'column' }}>
             <div
               onClick={() => onDayClick(dateStr)}
               style={{
                 padding: '8px 10px', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', textAlign: 'center',
-                color: isToday ? '#fff' : '#6b6b6b', background: isToday ? '#0a0a0a' : 'var(--bg-secondary, #f5f5f5)',
+                color: isToday ? '#fff' : 'var(--text-secondary)', background: isToday ? 'var(--text)' : 'var(--bg-secondary, #f5f5f5)',
                 borderRadius: '8px 8px 0 0',
               }}
             >
@@ -355,11 +355,11 @@ function DayList({ anchor, eventsByDate, contacts, members, currentUserId, onAdd
     <div>
       <button
         onClick={onAdd}
-        style={{ marginBottom: 14, background: 'var(--bg)', border: '1px dashed #d0d0d0', borderRadius: 6, padding: '7px 14px', fontSize: 12.5, color: '#666', cursor: 'pointer' }}
+        style={{ marginBottom: 14, background: 'var(--bg)', border: '1px dashed var(--border-strong)', borderRadius: 6, padding: '7px 14px', fontSize: 12.5, color: 'var(--text-secondary)', cursor: 'pointer' }}
       >
         + הוספת אירוע ליום זה
       </button>
-      {events.length === 0 && <div style={{ fontSize: 13, color: '#9b9b9b' }}>אין אירועים ביום זה</div>}
+      {events.length === 0 && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין אירועים ביום זה</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {events.map((ev) => (
           ev.kind === 'meeting'

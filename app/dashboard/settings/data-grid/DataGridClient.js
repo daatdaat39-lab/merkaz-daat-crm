@@ -235,7 +235,7 @@ export default function DataGridClient({ workspaces = [] }) {
         />
       )}
 
-      {error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 10 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12.5, marginBottom: 10 }}>{error}</div>}
       {isPending && !data && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>טוען...</div>}
 
       {data && (
@@ -343,16 +343,16 @@ function AddColumnForm({ workspaceId, existingExtraFields, onDone }) {
           </>
         )}
         <button type="button" onClick={handleCreate} disabled={isPending || !fieldKey.trim() || !label.trim() || computedMissingDeps}
-          style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 12.5, cursor: 'pointer' }}>
+          style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 12.5, cursor: 'pointer' }}>
           {isPending ? 'שומר...' : 'הוספה'}
         </button>
       </div>
       {type === 'computed' && (dateFields.length === 0 || numberFields.length === 0) && (
-        <div style={{ fontSize: 11.5, color: '#92400e', marginTop: 8 }}>
+        <div style={{ fontSize: 11.5, color: 'var(--amber)', marginTop: 8 }}>
           שדה מחושב דורש שכבר יהיו במחלקה זו שדה מסוג "תאריך" ושדה מסוג "מספר" - יש ליצור אותם קודם.
         </div>
       )}
-      {error && <div style={{ color: '#b23b2f', fontSize: 12, marginTop: 8 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 8 }}>{error}</div>}
     </div>
   );
 }
@@ -415,7 +415,7 @@ function selectStyle() {
 
 function modeBtnStyle(active) {
   return {
-    border: 'none', background: active ? '#0a0a0a' : 'var(--bg)', color: active ? '#fff' : 'var(--text-secondary)',
+    border: 'none', background: active ? 'var(--text)' : 'var(--bg)', color: active ? '#fff' : 'var(--text-secondary)',
     padding: '7px 12px', fontSize: 12, cursor: 'pointer',
   };
 }

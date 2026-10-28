@@ -136,7 +136,7 @@ export default function CaseWorkScreen({
                 <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 22, color: 'var(--k-text)' }}>#{caseData.caseNumber} · {caseData.subject}</span>
                 <Link
                   href={`/dashboard/contacts/${contact.id}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--k-accent)', background: 'var(--k-pill-bg)', borderRadius: 100, padding: '3px 11px', textDecoration: 'none' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--k-accent)', background: 'var(--k-pill-bg)', borderRadius: 8, padding: '3px 11px', textDecoration: 'none' }}
                 >
                   <PersonIcon size={11} /> כרטיס מלא
                 </Link>
@@ -272,13 +272,13 @@ export default function CaseWorkScreen({
               </span>
               <button
                 type="button" onClick={() => setClosing((v) => !v)}
-                style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: 'none', borderRadius: 100, padding: '8px 18px', cursor: 'pointer', background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', display: 'flex', alignItems: 'center', gap: 6 }}
+                style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: 'none', borderRadius: 8, padding: '8px 18px', cursor: 'pointer', background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', display: 'flex', alignItems: 'center', gap: 6 }}
               >
                 <CheckIcon size={13} /> סגירת קריאה
               </button>
               <button
                 type="button" onClick={() => setTransferring((v) => !v)}
-                style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 18px', cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}
+                style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 18px', cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}
               >
                 <TransferIcon size={13} /> שינוי נציג מטפל
               </button>
@@ -286,10 +286,10 @@ export default function CaseWorkScreen({
             {closing && (
               <div style={{ border: '1px dashed var(--k-border)', borderRadius: 10, padding: '10px 14px', marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--k-surface)' }}>
                 <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>סיבת-סגירה:</span>
-                <select value={closeReason} onChange={(e) => setCloseReason(e.target.value)} style={{ fontSize: 12.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 12px', background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+                <select value={closeReason} onChange={(e) => setCloseReason(e.target.value)} style={{ fontSize: 12.5, border: '1px solid var(--k-border)', borderRadius: 8, padding: '5px 12px', background: 'var(--k-bg)', color: 'var(--k-text)' }}>
                   {reasons.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
-                <button type="button" onClick={handleCloseConfirm} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, background: 'var(--k-ok-text)', color: '#fff', border: 'none', borderRadius: 100, padding: '5px 14px', cursor: 'pointer' }}>
+                <button type="button" onClick={handleCloseConfirm} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, background: 'var(--k-ok-text)', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 14px', cursor: 'pointer' }}>
                   אישור סגירה
                 </button>
               </div>
@@ -297,11 +297,11 @@ export default function CaseWorkScreen({
             {transferring && (
               <div style={{ border: '1px dashed var(--k-border)', borderRadius: 10, padding: '10px 14px', marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--k-surface)' }}>
                 <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>נציג-מטפל חדש:</span>
-                <select value={transferTo} onChange={(e) => setTransferTo(e.target.value)} style={{ fontSize: 12.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 12px', background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+                <select value={transferTo} onChange={(e) => setTransferTo(e.target.value)} style={{ fontSize: 12.5, border: '1px solid var(--k-border)', borderRadius: 8, padding: '5px 12px', background: 'var(--k-bg)', color: 'var(--k-text)' }}>
                   <option value="">ללא נציג</option>
                   {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
-                <button type="button" onClick={handleTransferConfirm} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, background: 'var(--k-text)', color: 'var(--k-bg)', border: 'none', borderRadius: 100, padding: '5px 14px', cursor: 'pointer' }}>
+                <button type="button" onClick={handleTransferConfirm} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, background: 'var(--k-text)', color: 'var(--k-bg)', border: 'none', borderRadius: 8, padding: '5px 14px', cursor: 'pointer' }}>
                   אישור שינוי
                 </button>
               </div>

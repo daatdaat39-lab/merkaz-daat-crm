@@ -167,7 +167,7 @@ export default async function SalesLeadsPage() {
           {isManager && (
             <Link href="/dashboard/sales/campaigns" style={{
               background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)', textDecoration: 'none',
-              fontSize: 13, padding: '8px 16px', borderRadius: 100,
+              fontSize: 13, padding: '8px 16px', borderRadius: 8,
             }}>
               🎯 קמפיינים
             </Link>
@@ -175,7 +175,7 @@ export default async function SalesLeadsPage() {
           {isManager && pendingCount > 0 && (
             <Link href="/dashboard/sales/pending" style={{
               background: 'var(--k-caution-bg)', color: 'var(--k-caution-text)', border: 'none', textDecoration: 'none',
-              fontSize: 13, fontWeight: 600, padding: '8px 16px', borderRadius: 100,
+              fontSize: 13, fontWeight: 600, padding: '8px 16px', borderRadius: 8,
             }}>
               📥 {pendingCount} ממתינים לאישורך
             </Link>

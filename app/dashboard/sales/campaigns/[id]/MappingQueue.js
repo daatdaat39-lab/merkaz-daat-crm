@@ -215,7 +215,7 @@ export default function MappingQueue({ campaignId, categories = [] }) {
                   <td style={{ ...td(), minWidth: 220 }}>
                     <ContactInsightsPanel insights={card.insights} compact />
                     {card.linkedSpouse && card.spouseAlsoInCampaign && (
-                      <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 6, padding: '6px 8px', marginTop: 6, fontSize: 10.5, color: '#9a5b0c' }}>
+                      <div style={{ background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 6, padding: '6px 8px', marginTop: 6, fontSize: 10.5, color: 'var(--amber)' }}>
                         🔗 בן/בת זוג: <b>{card.linkedSpouse.first} {card.linkedSpouse.last}</b> — גם ברשימה.
                         <label style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
                           <input type="checkbox" checked={extra.jointWithSpouse} onChange={(e) => setExtra(card.rowId, { jointWithSpouse: e.target.checked })} />
@@ -277,7 +277,7 @@ export default function MappingQueue({ campaignId, categories = [] }) {
                               <button
                                 key={b} type="button" onClick={() => setExtra(card.rowId, { expectationBucket: extra.expectationBucket === b ? '' : b })}
                                 style={{
-                                  fontSize: 10.5, padding: '4px 9px', borderRadius: 999, cursor: 'pointer',
+                                  fontSize: 10.5, padding: '4px 9px', borderRadius: 8, cursor: 'pointer',
                                   border: extra.expectationBucket === b ? '1px solid var(--accent, #1f4d3d)' : '1px solid var(--border)',
                                   background: extra.expectationBucket === b ? 'var(--accent-soft, #e4ede8)' : 'var(--bg)',
                                 }}
@@ -288,7 +288,7 @@ export default function MappingQueue({ campaignId, categories = [] }) {
                         </div>
                       </div>
                     </details>
-                    {errors[card.rowId] && <div style={{ color: '#b23b2f', fontSize: 10.5, marginTop: 6 }}>{errors[card.rowId]}</div>}
+                    {errors[card.rowId] && <div style={{ color: 'var(--red)', fontSize: 10.5, marginTop: 6 }}>{errors[card.rowId]}</div>}
                   </td>
                 </tr>
               );

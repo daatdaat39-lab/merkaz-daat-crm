@@ -42,7 +42,7 @@ export default function LoginPage() {
         background: '#FFFDF6', border: '1px solid #DFD2AC', borderRadius: 12,
         padding: 32, width: 340, boxShadow: '0 6px 18px rgba(36,31,24,.08)',
       }}>
-        <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', textAlign: 'center', marginTop: 0 }}>מרכז דעת</h1>
+        <h1 style={{ fontFamily: 'var(--font-heading)', textAlign: 'center', marginTop: 0 }}>מרכז דעת</h1>
         <p style={{ textAlign: 'center', color: '#6B6151', fontSize: 13, marginTop: -8 }}>התחברות למערכת</p>
         <label style={{ fontSize: 12, color: '#6B6151' }}>אימייל</label>
         <input type="email" required value={email} onChange={e => setEmail(e.target.value)}

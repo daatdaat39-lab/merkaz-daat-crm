@@ -26,7 +26,7 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="he" dir="rtl" data-theme={theme === 'system' ? undefined : theme}>
       <head>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;600;700;900&family=Secular+One&display=swap" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Heebo:wght@400;500;600;700;900&display=swap" />
         <script dangerouslySetInnerHTML={{ __html: themeInitScript(theme) }} />
       </head>
       <body>

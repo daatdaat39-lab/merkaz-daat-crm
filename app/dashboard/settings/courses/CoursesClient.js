@@ -31,7 +31,7 @@ export default function CoursesClient({ courses }) {
 
   return (
     <div>
-      {error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 12 }}>שגיאה: {error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12.5, marginBottom: 12 }}>שגיאה: {error}</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {courses.map((c) => <CourseRow key={c.id} course={c} />)}
@@ -41,7 +41,7 @@ export default function CoursesClient({ courses }) {
       </div>
 
       {adding ? (
-        <form action={handleCreate} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: 14 }}>
+        <form action={handleCreate} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <LabeledInput label="שם קורס *" name="name" required />
             <LabeledInput label="קוד" name="code" />
@@ -95,8 +95,8 @@ function CourseRow({ course }) {
 
   if (editing) {
     return (
-      <form action={handleSave} style={{ border: '1px solid #e5e5e5', borderRadius: 8, padding: 14 }}>
-        {error && <div style={{ color: '#b23b2f', fontSize: 12, marginBottom: 8 }}>{error}</div>}
+      <form action={handleSave} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14 }}>
+        {error && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
           <LabeledInput label="שם קורס" name="name" defaultValue={course.name} />
           <LabeledInput label="קוד" name="code" defaultValue={course.code} />
@@ -119,11 +119,11 @@ function CourseRow({ course }) {
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px', opacity: course.is_active ? 1 : 0.55 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', opacity: course.is_active ? 1 : 0.55 }}>
       <div>
         <div style={{ fontSize: 13.5, fontWeight: 500 }}>
           {course.name} {course.code && <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>({course.code})</span>}
-          {!course.is_active && <span style={{ marginInlineStart: 8, fontSize: 11, color: '#b23b2f' }}>לא פעיל</span>}
+          {!course.is_active && <span style={{ marginInlineStart: 8, fontSize: 11, color: 'var(--red)' }}>לא פעיל</span>}
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
           {course.price != null && `₪${Number(course.price).toLocaleString('he-IL')} · `}
@@ -139,9 +139,9 @@ function CourseRow({ course }) {
   );
 }
 
-const inputStyle = { width: '100%', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 10px', fontSize: 13, boxSizing: 'border-box' };
-const primaryBtn = { background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' };
-const secondaryBtn = { background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' };
+const inputStyle = { width: '100%', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', fontSize: 13, boxSizing: 'border-box' };
+const primaryBtn = { background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' };
+const secondaryBtn = { background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' };
 
 function LabeledInput({ label, ...props }) {
   return (

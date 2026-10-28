@@ -69,7 +69,7 @@ export default function MemberRow({ userId, name, role, workspaceId, email, allM
   }
 
   return (
-    <div style={{ borderBottom: '1px solid #f2f2f2' }}>
+    <div style={{ borderBottom: '1px solid var(--border)' }}>
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         padding: '10px 18px', gap: 12, flexWrap: 'wrap',
@@ -213,11 +213,11 @@ export default function MemberRow({ userId, name, role, workspaceId, email, allM
 
           {resetResult?.success && (
             <div style={{
-              background: 'var(--amber-bg)', border: '1px solid #fde68a',
+              background: 'var(--amber-bg)', border: '1px solid var(--amber)',
               borderRadius: 8, padding: '10px 14px', fontSize: 12.5,
             }}>
               הסיסמה עבור {name}: <b style={{ fontFamily: 'monospace' }}>{resetResult.password}</b>
-              <div style={{ fontSize: 11, color: '#92400e', marginTop: 3 }}>מוצגת פעם אחת — תעתיק ותשלח עכשיו.</div>
+              <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 3 }}>מוצגת פעם אחת — תעתיק ותשלח עכשיו.</div>
             </div>
           )}
           {resetResult?.error && (

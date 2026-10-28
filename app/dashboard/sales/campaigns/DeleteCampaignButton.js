@@ -35,9 +35,9 @@ export default function DeleteCampaignButton({ campaignId, campaignName }) {
   if (confirming) {
     return (
       <span style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={(e) => e.stopPropagation()}>
-        <span style={{ fontSize: 11.5, color: '#b23b2f' }}>למחוק את "{campaignName}"?</span>
+        <span style={{ fontSize: 11.5, color: 'var(--red)' }}>למחוק את "{campaignName}"?</span>
         <button type="button" onClick={handleClick} disabled={isPending} style={{
-          background: '#b23b2f', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11.5, cursor: 'pointer',
+          background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11.5, cursor: 'pointer',
         }}>
           {isPending ? 'מוחק...' : 'כן, מחק'}
         </button>
@@ -53,11 +53,11 @@ export default function DeleteCampaignButton({ campaignId, campaignName }) {
   return (
     <>
       <button type="button" onClick={handleClick} title="מחיקת קמפיין" style={{
-        background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 13, padding: '4px 6px',
+        background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 13, padding: '4px 6px',
       }}>
         🗑
       </button>
-      {error && <span style={{ fontSize: 11, color: '#b23b2f' }}>{error}</span>}
+      {error && <span style={{ fontSize: 11, color: 'var(--red)' }}>{error}</span>}
     </>
   );
 }

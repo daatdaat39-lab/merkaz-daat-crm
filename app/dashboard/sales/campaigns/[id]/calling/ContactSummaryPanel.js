@@ -5,7 +5,7 @@ import { formatIsraeliDateTime } from '../../../../lib/dateFormat';
 import { EDITABLE_CONTACT_FIELDS } from '../../../../lib/editableContactFields';
 import { submitContactEditSuggestion } from '../../../../lib/contactEditSuggestions';
 
-const sectionLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', letterSpacing: '.03em', margin: '18px 0 8px' };
+const sectionLabel = { fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.03em', margin: '18px 0 8px' };
 const card = { background: 'var(--bg-secondary, #f7f7f7)', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 };
 const fieldRow = { display: 'flex', gap: 6, fontSize: 12.5 };
 const fieldLabel = { color: 'var(--text-secondary)', flexShrink: 0 };
@@ -51,30 +51,30 @@ function EditSuggestionForm({ contact, onDone }) {
 
   if (status === 'sent') {
     return (
-      <div style={{ background: '#fbf1de', border: '1px solid #e6c98a', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: '#a85c00' }}>
+      <div style={{ background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 8, padding: '10px 12px', fontSize: 12.5, color: 'var(--amber)' }}>
         ✓ ההצעה נשלחה למנהל לאישור.
       </div>
     );
   }
 
   return (
-    <div style={{ background: '#fbf1de', border: '1px dashed #e6c98a', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontSize: 11, color: '#a85c00' }}>✏️ הצעה לאישור מנהל - לא נשמר ישירות</div>
+    <div style={{ background: 'var(--amber-bg)', border: '1px dashed var(--amber)', borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontSize: 11, color: 'var(--amber)' }}>✏️ הצעה לאישור מנהל - לא נשמר ישירות</div>
       {[{ key: 'first', label: 'שם פרטי' }, { key: 'last', label: 'שם משפחה' }, { key: 'phone', label: 'טלפון' }, { key: 'email', label: 'מייל' }, ...EDITABLE_CONTACT_FIELDS.filter((f) => !['phone', 'email'].includes(f.key))].map((f) => (
         <div key={f.key}>
           <label style={{ display: 'block', fontSize: 10.5, marginBottom: 2, color: 'var(--text-secondary)' }}>{f.label}</label>
           <input value={values[f.key] ?? ''} onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))} style={inputStyle} />
         </div>
       ))}
-      {error && <div style={{ fontSize: 11.5, color: '#c62828' }}>{error}</div>}
+      {error && <div style={{ fontSize: 11.5, color: 'var(--red)' }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
         <button
           type="button" onClick={handleSubmit} disabled={isPending}
-          style={{ background: '#a85c00', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}
+          style={{ background: 'var(--amber)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}
         >
           שלח הצעה
         </button>
-        <button type="button" onClick={onDone} disabled={isPending} style={{ background: 'none', border: '1px solid #e6c98a', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+        <button type="button" onClick={onDone} disabled={isPending} style={{ background: 'none', border: '1px solid var(--amber)', borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
           ביטול
         </button>
       </div>

@@ -39,7 +39,7 @@ export default function DonationCelebrationToast({ campaignId }) {
     <div
       style={{
         position: 'fixed', bottom: 28, insetInlineStart: 28, zIndex: 1200,
-        background: '#c8791f', color: '#fff', border: '2px solid #e0954a', borderRadius: 14,
+        background: 'var(--amber)', color: '#fff', border: '2px solid var(--amber)', borderRadius: 14,
         padding: '18px 24px', fontSize: 13, textAlign: 'right',
         boxShadow: '0 12px 40px rgba(200,121,31,0.45), 0 0 0 6px rgba(224,149,74,0.18)',
         display: 'flex', alignItems: 'center', gap: 14, minWidth: 280,

@@ -53,7 +53,7 @@ export default function DataGridRow({ row, workspaceId, baseFields, extraFields,
           🔗
         </Link>
         {row.frozen && <span title="מוקפא" style={{ marginInlineStart: 4 }}>❄</span>}
-        {error && <div style={{ color: '#b23b2f', fontSize: 10, marginTop: 2, maxWidth: 90 }}>{error}</div>}
+        {error && <div style={{ color: 'var(--red)', fontSize: 10, marginTop: 2, maxWidth: 90 }}>{error}</div>}
       </td>
       {baseFields.map((f) => (
         <td key={f.key} style={{ padding: '8px 10px' }}>
@@ -67,8 +67,8 @@ export default function DataGridRow({ row, workspaceId, baseFields, extraFields,
           disabled={isPending || row.frozen}
           style={{
             border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 500, cursor: 'pointer',
-            background: (pipeline.colors[stage] || {}).bg || '#f4f4f5',
-            color: (pipeline.colors[stage] || {}).color || '#52525b',
+            background: (pipeline.colors[stage] || {}).bg || 'var(--bg-tertiary)',
+            color: (pipeline.colors[stage] || {}).color || 'var(--text-secondary)',
           }}
         >
           {pipeline.order.map((s) => <option key={s} value={s}>{pipeline.labels[s] || s}</option>)}

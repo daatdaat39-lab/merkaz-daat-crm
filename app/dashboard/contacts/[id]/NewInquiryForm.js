@@ -42,7 +42,7 @@ export default function NewInquiryForm({ contactId, workspaceId, workspaceName, 
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} style={{
-        background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 100, padding: '7px 16px',
+        background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 8, padding: '7px 16px',
         fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 16, color: 'var(--k-text, inherit)',
       }}>
         📩 פנייה חדשה
@@ -73,10 +73,10 @@ export default function NewInquiryForm({ contactId, workspaceId, workspaceName, 
       )}
       {error && <div style={{ color: 'var(--k-danger-text, #b23b2f)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" onClick={handleSave} disabled={isPending || !reason} style={{ background: 'var(--k-accent, #0a0a0a)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
+        <button type="button" onClick={handleSave} disabled={isPending || !reason} style={{ background: 'var(--k-accent, #0a0a0a)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
           {isPending ? 'שומר...' : 'רישום פנייה'}
         </button>
-        <button type="button" onClick={handleCancel} style={{ background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 100, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text, inherit)' }}>
+        <button type="button" onClick={handleCancel} style={{ background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 8, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text, inherit)' }}>
           ביטול
         </button>
       </div>

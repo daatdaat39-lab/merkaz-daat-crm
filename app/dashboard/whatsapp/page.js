@@ -24,7 +24,7 @@ export default async function WhatsappPage() {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px' }}>
-      <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 6px', fontSize: 20 }}>WhatsApp — ממתינים לתגובה</h1>
+      <h1 style={{ fontFamily: 'var(--font-heading)', margin: '0 0 6px', fontSize: 20 }}>WhatsApp — ממתינים לתגובה</h1>
       <p style={{ margin: '0 0 20px', color: 'var(--text-secondary)', fontSize: 12.5 }}>
         {pending.length} שיחות שההודעה האחרונה בהן הגיעה מהלקוח ועדיין לא נענתה
       </p>

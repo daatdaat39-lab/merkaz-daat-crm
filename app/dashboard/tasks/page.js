@@ -64,22 +64,22 @@ export default async function TasksPage() {
         borderRadius: 14, padding: 14, flexWrap: 'wrap',
       }}>
         <input name="title" placeholder="משימה חדשה..." required style={{
-          flex: 1, minWidth: 180, border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)',
+          flex: 1, minWidth: 180, border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)',
         }} />
-        <select name="contact_id" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+        <select name="contact_id" style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
           <option value="">ללא איש קשר</option>
           {contacts.map((c) => (
             <option key={c.id} value={c.id}>{c.first} {c.last}</option>
           ))}
         </select>
-        <select name="assigned_to" defaultValue={user.id} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+        <select name="assigned_to" defaultValue={user.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
           {members.map((m) => (
             <option key={m.id} value={m.id}>{m.id === user.id ? `${m.name} (אני)` : m.name}</option>
           ))}
         </select>
-        <input type="date" name="due_date" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
-        <input type="time" name="due_time" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
-        <select name="remind_minutes_before" defaultValue="" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+        <input type="date" name="due_date" style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
+        <input type="time" name="due_time" style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
+        <select name="remind_minutes_before" defaultValue="" style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
           <option value="">ללא תזכורת</option>
           <option value="15">15 דקות לפני</option>
           <option value="30">30 דקות לפני</option>
@@ -87,7 +87,7 @@ export default async function TasksPage() {
           <option value="1440">יום לפני</option>
         </select>
         <button type="submit" style={{
-          background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '8px 20px', fontSize: 13, cursor: 'pointer',
+          background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 20px', fontSize: 13, cursor: 'pointer',
         }}>
           הוספה
         </button>

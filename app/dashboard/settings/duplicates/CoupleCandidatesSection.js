@@ -69,7 +69,7 @@ function CoupleCandidateRow({ candidate, onDone }) {
         <input value={nameB} onChange={(e) => setNameB(e.target.value)} placeholder="שם ב'" style={input()} />
         <input value={surname} onChange={(e) => setSurname(e.target.value)} placeholder="שם משפחה משותף" style={input()} />
       </div>
-      {error && <div style={{ color: '#b23b2f', fontSize: 12, marginBottom: 8 }}>שגיאה: {error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 8 }}>שגיאה: {error}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
         <button type="button" onClick={handleSplit} disabled={isPending} style={primaryBtn()}>✂ פצל לשני אנשי קשר</button>
         <button type="button" onClick={handleDismiss} disabled={isPending} style={ghostBtn()}>✕ לא זוג</button>

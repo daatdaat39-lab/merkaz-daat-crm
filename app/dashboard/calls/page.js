@@ -6,8 +6,8 @@ import { initials } from '../components/ui';
 // 015 שולחת direction כ-"inbound"/"outbound" (אומת מריצה חיה - לא
 // "in"/"out" כמו שהונח בהתחלה).
 function statusPill(call) {
-  if (call.direction === 'inbound' && !call.answered) return { label: 'לא נענתה', bg: '#fdecea', fg: '#c62828' };
-  if (call.answered) return { label: 'נענתה', bg: '#e8f5e9', fg: '#2e7d32' };
+  if (call.direction === 'inbound' && !call.answered) return { label: 'לא נענתה', bg: 'var(--red-bg)', fg: 'var(--red)' };
+  if (call.answered) return { label: 'נענתה', bg: 'var(--green-bg)', fg: 'var(--green)' };
   return { label: call.status || 'לא ידוע', bg: 'var(--bg-secondary, #f0f0f0)', fg: 'var(--text-secondary)' };
 }
 
@@ -36,7 +36,7 @@ export default async function CallsPage() {
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px' }}>
-      <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 6px', fontSize: 20 }}>שיחות (015)</h1>
+      <h1 style={{ fontFamily: 'var(--font-heading)', margin: '0 0 6px', fontSize: 20 }}>שיחות (015)</h1>
       <p style={{ margin: '0 0 20px', color: 'var(--text-secondary)', fontSize: 12.5 }}>
         {calls.length} שיחות אחרונות שהתקבלו ממערכת הטלפוניה
       </p>

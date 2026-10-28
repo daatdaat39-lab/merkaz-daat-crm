@@ -55,7 +55,7 @@ export default async function SalesDashboardPage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
-      <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>דשבורד מכירות</h1>
+      <h1 style={{ fontFamily: 'var(--font-heading)', margin: '0 0 20px', fontSize: 20 }}>דשבורד מכירות</h1>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
         {cards.map((s) => (

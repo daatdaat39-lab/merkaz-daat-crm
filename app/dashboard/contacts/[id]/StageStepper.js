@@ -159,12 +159,12 @@ export default function StageStepper({ currentStage, currentClosedReason, stages
       {pendingClose && (
         <div style={{ marginTop: 8, padding: 10, background: 'var(--k-danger-bg)', border: 'none', borderRadius: 10, width: 220 }}>
           <div style={{ fontSize: 11.5, marginBottom: 6, color: 'var(--k-danger-text)' }}>סיבת סגירה:</div>
-          <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 12, border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 8px', marginBottom: 8, background: 'var(--k-surface)' }}>
+          <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 12, border: '1px solid var(--k-border)', borderRadius: 8, padding: '5px 8px', marginBottom: 8, background: 'var(--k-surface)' }}>
             {reasons.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
           <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={handleCloseConfirm} style={{ flex: 1, fontSize: 12, fontWeight: 600, background: 'var(--k-danger-text)', color: '#fff', border: 'none', borderRadius: 100, padding: '5px 0', cursor: 'pointer' }}>סגירה</button>
-            <button onClick={() => setPendingClose(false)} style={{ flex: 1, fontSize: 12, background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 0', cursor: 'pointer' }}>ביטול</button>
+            <button onClick={handleCloseConfirm} style={{ flex: 1, fontSize: 12, fontWeight: 600, background: 'var(--k-danger-text)', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 0', cursor: 'pointer' }}>סגירה</button>
+            <button onClick={() => setPendingClose(false)} style={{ flex: 1, fontSize: 12, background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '5px 0', cursor: 'pointer' }}>ביטול</button>
           </div>
         </div>
       )}

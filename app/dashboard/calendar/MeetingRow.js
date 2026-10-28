@@ -44,7 +44,7 @@ export default function MeetingRow({ m, compact, members = [], currentUserId }) 
 
   return (
     <div style={{
-      background: compact ? '#f9f9f9' : '#fff', border: '1px solid #e5e5e5', borderRadius: 8, padding: '10px 14px',
+      background: compact ? 'var(--bg-secondary)' : 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px',
       opacity: compact ? 0.85 : 1,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -55,14 +55,14 @@ export default function MeetingRow({ m, compact, members = [], currentUserId }) 
           <Link href={`/dashboard/contacts/${m.contacts?.id}`} style={{ fontSize: 13, fontWeight: 500, textDecoration: 'none', color: 'inherit' }}>
             {m.contacts?.first} {m.contacts?.last}
           </Link>
-          <div style={{ fontSize: 11, color: '#9b9b9b' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
             {m.type}{m.location ? ` · ${m.location}` : ''}
           </div>
           {m.type === 'זום' && (
             m.zoom_join_url ? (
-              <a href={m.zoom_join_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#2563eb' }}>🔗 קישור Zoom</a>
+              <a href={m.zoom_join_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--blue)' }}>🔗 קישור Zoom</a>
             ) : (
-              <div style={{ fontSize: 11, color: '#c0a060' }}>Zoom לא מחובר</div>
+              <div style={{ fontSize: 11, color: 'var(--amber)' }}>Zoom לא מחובר</div>
             )
           )}
           {currentUserId && (
@@ -94,23 +94,23 @@ export default function MeetingRow({ m, compact, members = [], currentUserId }) 
               style={iconStyle()}
             >💌</a>
           )}
-          <button onClick={() => setEditing((v) => !v)} style={{ ...iconStyle(), border: '1px solid #e5e5e5' }}>✎</button>
-          <button onClick={handleDelete} disabled={isPending} style={{ ...iconStyle(), border: '1px solid #e5e5e5', color: 'var(--danger, #a3392f)' }}>🗑</button>
+          <button onClick={() => setEditing((v) => !v)} style={{ ...iconStyle(), border: '1px solid var(--border)' }}>✎</button>
+          <button onClick={handleDelete} disabled={isPending} style={{ ...iconStyle(), border: '1px solid var(--border)', color: 'var(--danger, #a3392f)' }}>🗑</button>
         </div>
       </div>
 
       {editing && (
-        <form action={handleSubmit} style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #f0f0f0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input type="date" name="meeting_date" defaultValue={m.meeting_date} required style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
-          <input type="time" name="meeting_time" defaultValue={m.meeting_time?.slice(0, 5)} required style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
-          <select name="type" defaultValue={m.type} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}>
+        <form action={handleSubmit} style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input type="date" name="meeting_date" defaultValue={m.meeting_date} required style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
+          <input type="time" name="meeting_time" defaultValue={m.meeting_time?.slice(0, 5)} required style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
+          <select name="type" defaultValue={m.type} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}>
             <option value="פרונטלי">פרונטלי</option>
             <option value="טלפוני">טלפוני</option>
             <option value="זום">זום</option>
           </select>
-          <input name="location" placeholder="מיקום" defaultValue={m.location || ''} style={{ border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
-          <input name="notes" placeholder="הערות" defaultValue={m.notes || ''} style={{ flex: 1, minWidth: 140, border: '1px solid #e5e5e5', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
-          <button type="submit" disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' }}>
+          <input name="location" placeholder="מיקום" defaultValue={m.location || ''} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
+          <input name="notes" placeholder="הערות" defaultValue={m.notes || ''} style={{ flex: 1, minWidth: 140, border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
+          <button type="submit" disabled={isPending} style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' }}>
             שמירה
           </button>
           {error && <div style={{ width: '100%', color: 'var(--danger, #a3392f)', fontSize: 12 }}>שגיאה: {error}</div>}
@@ -123,6 +123,6 @@ export default function MeetingRow({ m, compact, members = [], currentUserId }) 
 function iconStyle() {
   return {
     width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
-    borderRadius: 6, border: 'none', background: '#f2f2f2', fontSize: 13, cursor: 'pointer', textDecoration: 'none',
+    borderRadius: 6, border: 'none', background: 'var(--bg-tertiary)', fontSize: 13, cursor: 'pointer', textDecoration: 'none',
   };
 }

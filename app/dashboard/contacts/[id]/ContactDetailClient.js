@@ -28,7 +28,7 @@ import { celebrate } from '../../components/celebrate';
 import { useFloatingWindows } from '../../components/FloatingWindows';
 import { PhoneIcon, WhatsAppIcon, MailIcon, WarningIcon } from '../../components/icons';
 
-const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
+const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
 
 // מרכיב את כל הכרטיס בצד הלקוח, כי "איזו מחלקה פעילה כרגע" צריך
 // להישלט משותף בין הלשוניות שמתחת לשם, שורת השלבים, וטאב "פעילות"
@@ -190,7 +190,7 @@ export default function ContactDetailClient({
                   border: '1px solid ' + (active?.id === d.id ? 'var(--k-text)' : 'var(--k-border)'),
                   background: active?.id === d.id ? 'var(--k-text)' : 'var(--k-surface)',
                   color: active?.id === d.id ? 'var(--k-bg)' : 'var(--k-text)',
-                  borderRadius: 999, padding: '4px 13px', fontSize: 12.5, cursor: 'pointer',
+                  borderRadius: 8, padding: '4px 13px', fontSize: 12.5, cursor: 'pointer',
                 }}
               >
                 {d.workspaceName}
@@ -202,7 +202,7 @@ export default function ContactDetailClient({
                 onClick={() => setAdding((v) => !v)}
                 disabled={contact.frozen}
                 style={{
-                  border: '1px dashed var(--k-border)', background: 'none', borderRadius: 999, padding: '4px 12px',
+                  border: '1px dashed var(--k-border)', background: 'none', borderRadius: 8, padding: '4px 12px',
                   fontSize: 12, cursor: contact.frozen ? 'default' : 'pointer', color: 'var(--k-text-muted)', opacity: contact.frozen ? 0.5 : 1,
                 }}
               >
@@ -218,7 +218,7 @@ export default function ContactDetailClient({
             title="פתיחה כחלון צף (אפשר להמשיך לעבוד במקום אחר ולפתוח אנשי קשר נוספים)"
             style={{
               width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, cursor: 'pointer', fontSize: 14, flexShrink: 0,
+              background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 8, cursor: 'pointer', fontSize: 14, flexShrink: 0,
             }}
           >
             🗗
@@ -240,10 +240,10 @@ export default function ContactDetailClient({
               {newReasonOptions.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           )}
-          <button onClick={handleAdd} disabled={isPending || !newWorkspaceId || !newReason} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+          <button onClick={handleAdd} disabled={isPending || !newWorkspaceId || !newReason} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
             הוספה
           </button>
-          <button onClick={() => { setAdding(false); setNewWorkspaceId(''); setNewReason(''); }} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--k-text)' }}>
+          <button onClick={() => { setAdding(false); setNewWorkspaceId(''); setNewReason(''); }} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--k-text)' }}>
             ביטול
           </button>
         </div>
@@ -340,7 +340,7 @@ export default function ContactDetailClient({
         {contact.phone && active && !contact.frozen ? (
           <button
             onClick={() => { setWhatsappInitialMessage(''); setWhatsappOpen(true); }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 100, fontSize: 13, cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)' }}
           >
             <WhatsAppIcon size={14} /><span>וואטסאפ</span>
           </button>
@@ -350,7 +350,7 @@ export default function ContactDetailClient({
         {activeConnection && contact.email && !contact.frozen ? (
           <button
             onClick={() => setComposeOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 100, fontSize: 13, cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)' }}
           >
             <MailIcon size={14} /><span>מייל</span>
           </button>
@@ -363,7 +363,7 @@ export default function ContactDetailClient({
         )}
         <button
           onClick={() => openWindow({ id: 'calendar', kind: 'calendar', title: 'יומן', props: { initialContactId: contact.id, autoOpenToday: true } })}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 100, fontSize: 13, cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)' }}
         >
           <span>📅</span><span>קביעת משימה/פגישה חדשה</span>
         </button>
@@ -374,7 +374,7 @@ export default function ContactDetailClient({
               setWhatsappInitialMessage(`שלום ${contact.first}, זיהינו שהחיוב האחרון בהוראת הקבע שלך לא עבר בהצלחה. נשמח אם תוכל/י לעדכן את פרטי אמצעי התשלום כדי שנוכל להמשיך בלי הפרעה. תודה!`);
               setWhatsappOpen(true);
             }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 100, fontSize: 13, cursor: 'pointer', background: 'var(--k-danger-bg)', color: 'var(--k-danger-text)', border: 'none' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'var(--k-danger-bg)', color: 'var(--k-danger-text)', border: 'none' }}
           >
             <WarningIcon size={13} /><span>עדכון אמצעי תשלום</span>
           </button>

@@ -20,7 +20,7 @@ export default async function CallDashboardPage({ params }) {
     return (
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 24px' }}>
         <a href={`/dashboard/sales/campaigns/${campaign.id}`} style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה</a>
-        <div style={{ marginTop: 20, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: '#92400e' }}>
+        <div style={{ marginTop: 20, background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: 'var(--amber)' }}>
           רק בעלים או מנהל של המחלקה יכולים לראות דשבורד זה.
         </div>
       </div>
@@ -37,7 +37,7 @@ export default async function CallDashboardPage({ params }) {
       <a href={`/dashboard/sales/campaigns/${campaign.id}`} style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה לקמפיין</a>
       <h1 style={{ fontFamily: 'var(--font-heading)', margin: '14px 0 20px', fontSize: 20 }}>📊 דשבורד טלפניה - {campaign.name}</h1>
       {stats.error ? (
-        <div style={{ background: '#fdecea', border: '1px solid #f5c6cb', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: '#c62828' }}>{stats.error}</div>
+        <div style={{ background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: 'var(--red)' }}>{stats.error}</div>
       ) : (
         <CallDashboardClient campaignId={campaign.id} stats={stats} donationsByAgent={donations?.byAgent || []} />
       )}

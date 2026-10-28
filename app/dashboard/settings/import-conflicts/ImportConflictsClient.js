@@ -65,7 +65,7 @@ export default function ImportConflictsClient({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {error && <div style={{ color: '#b23b2f', fontSize: 12.5 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12.5 }}>{error}</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {groups.map((g) => {
@@ -96,7 +96,7 @@ export default function ImportConflictsClient({
               <option value="used_new">החלף בחדש</option>
               {TWIN_ELIGIBLE.has(selectedGroup.fieldKey) && <option value="kept_both">שמור את שניהם</option>}
             </select>
-            <button type="button" disabled={isPending} onClick={handleGroupResolve} style={{ ...btnStyle(), background: '#111', color: '#fff', border: 'none' }}>
+            <button type="button" disabled={isPending} onClick={handleGroupResolve} style={{ ...btnStyle(), background: 'var(--text)', color: '#fff', border: 'none' }}>
               בצע לכל הקבוצה ({selectedGroup.count})
             </button>
           </div>
@@ -126,7 +126,7 @@ export default function ImportConflictsClient({
                   </span>
                 </div>
                 <div style={{ fontSize: 12.5, marginTop: 6 }}>
-                  <b>{label}</b>: קיים <span style={{ color: 'var(--text-secondary)' }}>"{c.existing_value}"</span> ← בקובץ <span style={{ color: '#b45309' }}>"{c.new_value}"</span>
+                  <b>{label}</b>: קיים <span style={{ color: 'var(--text-secondary)' }}>"{c.existing_value}"</span> ← בקובץ <span style={{ color: 'var(--amber)' }}>"{c.new_value}"</span>
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                   <button type="button" disabled={isPending} onClick={() => handleResolve(c.id, 'kept_existing')} style={btnStyle()}>השאר קיים</button>

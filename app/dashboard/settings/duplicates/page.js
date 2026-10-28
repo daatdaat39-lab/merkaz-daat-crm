@@ -23,7 +23,7 @@ export default async function DuplicatesPage() {
     return (
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 24px' }}>
         <a href="/dashboard/settings" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה להגדרות</a>
-        <div style={{ marginTop: 20, background: 'var(--amber-bg, #fffbeb)', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: '#92400e' }}>
+        <div style={{ marginTop: 20, background: 'var(--amber-bg, #fffbeb)', border: '1px solid var(--amber)', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: 'var(--amber)' }}>
           רק owner או admin יכולים לגשת לבדיקת כפליות.
         </div>
       </div>
@@ -66,7 +66,7 @@ export default async function DuplicatesPage() {
         סריקה של כל אנשי הקשר במערכת — זוגות עם ת"ז/טלפון/מייל זהים, או שם דומה מאוד. עברו זוג-זוג ומזגו, או סמנו "לא כפילות".
       </p>
       {namePairsError && (
-        <div style={{ margin: '10px 0', background: 'var(--amber-bg, #fffbeb)', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: '#92400e' }}>
+        <div style={{ margin: '10px 0', background: 'var(--amber-bg, #fffbeb)', border: '1px solid var(--amber)', borderRadius: 8, padding: '10px 14px', fontSize: 12.5, color: 'var(--amber)' }}>
           ⚠ בדיקת "שם דומה" נכשלה זמנית (שגיאת שרת) - התור למטה מציג רק התאמות מדויקות (ת"ז/טלפון/מייל/אותם רכיבי שם). רעננו את העמוד כדי לנסות שוב.
         </div>
       )}

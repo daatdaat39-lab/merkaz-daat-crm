@@ -160,7 +160,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
               <button
                 key={f.v} type="button" onClick={() => setCurrentFilter(f.v)}
                 style={{
-                  fontSize: 12.5, padding: '5px 14px', borderRadius: 100, cursor: 'pointer',
+                  fontSize: 12.5, padding: '5px 14px', borderRadius: 8, cursor: 'pointer',
                   border: currentFilter === f.v ? '1px solid var(--k-accent)' : '1px solid var(--k-border)',
                   background: currentFilter === f.v ? 'var(--k-pill-bg)' : 'var(--k-surface)',
                   color: currentFilter === f.v ? 'var(--k-accent)' : 'var(--k-text-muted)',
@@ -235,27 +235,27 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                 }}>
                   <input
                     name="title" placeholder="כותרת המשימה..." autoFocus required
-                    style={{ flex: '1 1 160px', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}
+                    style={{ flex: '1 1 160px', border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}
                   />
-                  <input name="due_date" type="date" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }} />
-                  <input name="due_time" type="time" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }} />
+                  <input name="due_date" type="date" style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }} />
+                  <input name="due_time" type="time" style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }} />
                   {agents.length > 0 && (
-                    <select name="assigned_to" style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}>
+                    <select name="assigned_to" style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}>
                       <option value="">אני</option>
                       {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </select>
                   )}
-                  <button type="submit" disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
+                  <button type="submit" disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
                     הוספה
                   </button>
-                  <button type="button" onClick={() => setAddingTask(false)} style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>
+                  <button type="button" onClick={() => setAddingTask(false)} style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>
                     ביטול
                   </button>
                 </form>
               ) : (
                 <button
                   onClick={() => setAddingTask(true)}
-                  style={{ alignSelf: 'flex-start', background: 'var(--k-surface)', border: '1px dashed var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, color: 'var(--k-text-muted)', cursor: 'pointer' }}
+                  style={{ alignSelf: 'flex-start', background: 'var(--k-surface)', border: '1px dashed var(--k-border)', borderRadius: 8, padding: '6px 14px', fontSize: 12.5, color: 'var(--k-text-muted)', cursor: 'pointer' }}
                 >
                   + משימה חדשה
                 </button>
@@ -449,7 +449,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           />
           <button type="submit" disabled={isPending || frozen} style={{
             alignSelf: 'flex-start', background: 'var(--k-accent)', color: '#fff', border: 'none',
-            borderRadius: 100, padding: '7px 16px', fontSize: 13, cursor: frozen ? 'default' : 'pointer', opacity: frozen ? 0.5 : 1,
+            borderRadius: 8, padding: '7px 16px', fontSize: 13, cursor: frozen ? 'default' : 'pointer', opacity: frozen ? 0.5 : 1,
           }}>
             שמירת הערות
           </button>

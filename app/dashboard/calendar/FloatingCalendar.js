@@ -40,7 +40,7 @@ export default function FloatingCalendar({ initialContactId, autoOpenToday }) {
   }, [load]);
 
   if (error) return <div style={{ fontSize: 13, color: 'var(--danger, #a3392f)' }}>{error}</div>;
-  if (!data) return <div style={{ fontSize: 13, color: '#9b9b9b' }}>טוען...</div>;
+  if (!data) return <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>טוען...</div>;
 
   return (
     <CalendarBoard

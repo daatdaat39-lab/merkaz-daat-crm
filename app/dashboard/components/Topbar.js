@@ -91,7 +91,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
           <div style={{
             position: 'absolute', top: '100%', insetInlineStart: 0, insetInlineEnd: 0, marginTop: 4, minWidth: 320,
             background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, maxHeight: 360, overflowY: 'auto',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.14)', zIndex: 300,
+            boxShadow: 'var(--shadow-md)', zIndex: 300,
           }}>
             {!results && <div style={{ padding: '10px 14px', fontSize: 12.5, color: 'var(--text-muted)' }}>מחפש...</div>}
             {results && results.contacts.length === 0 && results.tasks.length === 0 && (
@@ -105,7 +105,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
                     key={c.id}
                     type="button"
                     onMouseDown={(e) => { e.preventDefault(); goTo(`/dashboard/contacts/${c.id}`); }}
-                    style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid #f0f0f0', padding: '8px 14px', fontSize: 12.5, cursor: 'pointer' }}
+                    style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', padding: '8px 14px', fontSize: 12.5, cursor: 'pointer' }}
                   >
                     <div style={{ fontWeight: 500 }}>{c.name}</div>
                     <div style={{ color: 'var(--text-muted)', fontSize: 11, display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
@@ -124,7 +124,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
                     key={t.id}
                     type="button"
                     onMouseDown={(e) => { e.preventDefault(); goTo('/dashboard/tasks'); }}
-                    style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid #f0f0f0', padding: '8px 14px', fontSize: 12.5, cursor: 'pointer' }}
+                    style={{ display: 'block', width: '100%', textAlign: 'right', background: 'none', border: 'none', borderBottom: '1px solid var(--border)', padding: '8px 14px', fontSize: 12.5, cursor: 'pointer' }}
                   >
                     <div style={{ fontWeight: 500, textDecoration: t.done ? 'line-through' : 'none' }}>{t.title}</div>
                     <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>
@@ -152,7 +152,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
           🔔
           {unreadShareCount > 0 && (
             <span style={{
-              position: 'absolute', top: -5, insetInlineEnd: -5, background: 'var(--danger, #a3392f)', color: '#fff',
+              position: 'absolute', top: -5, insetInlineEnd: -5, background: 'var(--red)', color: '#fff',
               borderRadius: 999, fontSize: 10, fontWeight: 700, minWidth: 16, height: 16, display: 'flex',
               alignItems: 'center', justifyContent: 'center', padding: '0 3px', lineHeight: 1,
             }}>
@@ -171,7 +171,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
           💬
           {pendingWhatsappReplies > 0 && (
             <span style={{
-              position: 'absolute', top: -5, insetInlineEnd: -5, background: 'var(--danger, #a3392f)', color: '#fff',
+              position: 'absolute', top: -5, insetInlineEnd: -5, background: 'var(--red)', color: '#fff',
               borderRadius: 999, fontSize: 10, fontWeight: 700, minWidth: 16, height: 16, display: 'flex',
               alignItems: 'center', justifyContent: 'center', padding: '0 3px', lineHeight: 1,
             }}>

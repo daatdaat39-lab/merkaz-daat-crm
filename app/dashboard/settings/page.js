@@ -105,10 +105,10 @@ export default async function SettingsPage() {
             <div>
               <div style={{ fontSize: 13, fontWeight: 500 }}>{item.label}</div>
               <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>{item.desc}</div>
-              {item.note && <div style={{ fontSize: 11, color: '#b45309', marginTop: 2 }}>⚠ {item.note}</div>}
+              {item.note && <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 2 }}>⚠ {item.note}</div>}
             </div>
             {item.configured ? (
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--green)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 ✓ מחובר
               </span>
             ) : (

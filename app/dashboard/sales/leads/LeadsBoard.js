@@ -11,7 +11,7 @@ import { RefreshIcon } from '../../components/icons';
 
 // עיצוב-pill רך לסרגל-הסינון (שלב 1 מתוכנית-העיצוב-מחדש) - תמיד גלוי
 // (סוכם מפורשות שלא מאחורי כפתור), בכיוון "קינטי/מרווה" (ר' plan).
-const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
+const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 14px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
 
 // לוח לידים עם סינון ומיון בצד הלקוח - הנתונים כבר נטענו מהשרת, אז
 // כל הסינון/מיון כאן מיידי בלי בקשות נוספות. הקיבוץ לפי תגית (תרומות/
@@ -206,7 +206,7 @@ export default function LeadsBoard({ leads, agents, workspaceId, workspaceName, 
               fontFamily: 'var(--k-font-display)',
               background: activeTab === t.key ? 'var(--k-text)' : 'none',
               border: '1px solid ' + (activeTab === t.key ? 'var(--k-text)' : 'var(--k-border)'),
-              borderRadius: 100, padding: '6px 16px', fontSize: 13,
+              borderRadius: 8, padding: '6px 16px', fontSize: 13,
               color: activeTab === t.key ? 'var(--k-bg)' : 'var(--k-text-muted)', cursor: 'pointer',
             }}
           >
@@ -289,7 +289,7 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
           placeholder="הוספת תגית לכולם..."
           style={{ ...inputStyle, fontSize: 12 }}
         />
-        <button type="button" onClick={applyTag} disabled={isPending || !tag.trim()} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+        <button type="button" onClick={applyTag} disabled={isPending || !tag.trim()} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
           הוספה
         </button>
       </div>
@@ -299,7 +299,7 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
           <option value="">ללא נציג</option>
           {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
-        <button type="button" onClick={applyAgent} disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+        <button type="button" onClick={applyAgent} disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
           שינוי נציג לכולם
         </button>
       </div>
@@ -307,7 +307,7 @@ function BulkActionBar({ selected, setSelected, agents, workspaceId, router }) {
       <button
         type="button"
         onClick={() => setSelected(new Map())}
-        style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--k-text-muted)', marginInlineStart: 'auto' }}
+        style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--k-text-muted)', marginInlineStart: 'auto' }}
       >
         ביטול בחירה
       </button>

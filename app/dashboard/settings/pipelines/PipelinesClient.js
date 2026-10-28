@@ -28,9 +28,9 @@ export default function PipelinesClient({ workspaces, stagesByWorkspaceId, autom
             key={w.id}
             onClick={() => setActiveId(w.id)}
             style={{
-              border: '1px solid ' + (activeId === w.id ? '#0a0a0a' : 'var(--border, #e5e5e5)'),
-              background: activeId === w.id ? '#0a0a0a' : '#fff',
-              color: activeId === w.id ? '#fff' : '#333',
+              border: '1px solid ' + (activeId === w.id ? 'var(--text)' : 'var(--border, #e5e5e5)'),
+              background: activeId === w.id ? 'var(--text)' : 'var(--bg)',
+              color: activeId === w.id ? '#fff' : 'var(--text)',
               borderRadius: 999, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', fontWeight: 500,
             }}
           >
@@ -176,10 +176,10 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {error && <div style={{ color: '#b23b2f', fontSize: 12.5, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6, padding: '8px 12px' }}>{error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12.5, background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 6, padding: '8px 12px' }}>{error}</div>}
 
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border, #e5e5e5)', background: '#f9f9f9', fontSize: 12.5, fontWeight: 600 }}>
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border, #e5e5e5)', background: 'var(--bg-secondary)', fontSize: 12.5, fontWeight: 600 }}>
           רצף השלבים הראשי
         </div>
         {mainStages.map((s, i) => (
@@ -206,11 +206,11 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
             refresh={refresh}
           />
         ))}
-        {mainStages.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b' }}>אין שלבים ברצף הראשי</div>}
+        {mainStages.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: 'var(--text-muted)' }}>אין שלבים ברצף הראשי</div>}
       </div>
 
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
-        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border, #e5e5e5)', background: '#f9f9f9', fontSize: 12.5, fontWeight: 600 }}>
+        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border, #e5e5e5)', background: 'var(--bg-secondary)', fontSize: 12.5, fontWeight: 600 }}>
           שלבי-צד (מחוץ לרצף, כמו "סגור" / "תקלה בחיוב")
         </div>
         {sideStages.map((s) => (
@@ -227,7 +227,7 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
             refresh={refresh}
           />
         ))}
-        {sideStages.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b' }}>אין שלבי-צד</div>}
+        {sideStages.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: 'var(--text-muted)' }}>אין שלבי-צד</div>}
       </div>
 
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px 16px' }}>
@@ -251,7 +251,7 @@ function WorkspacePipelineEditor({ workspaceId, initialStages, automationsByStag
             שלב-צד
           </label>
           <button type="button" onClick={handleCreate} disabled={isPending || !newStage.stageKey.trim() || !newStage.label.trim()}
-            style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
+            style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
             הוספה
           </button>
         </div>
@@ -288,7 +288,7 @@ function ReassignStageDialog({ stage, contactCount, otherStages, isPending, onCo
         </select>
         <div style={{ display: 'flex', gap: 8 }}>
           <button type="button" onClick={() => onConfirm(target)} disabled={isPending || !target}
-            style={{ flex: 1, background: '#b23b2f', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 0', fontSize: 12.5, cursor: target ? 'pointer' : 'default', opacity: target ? 1 : 0.5 }}>
+            style={{ flex: 1, background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 0', fontSize: 12.5, cursor: target ? 'pointer' : 'default', opacity: target ? 1 : 0.5 }}>
             העברה ומחיקה
           </button>
           <button type="button" onClick={onCancel} disabled={isPending}
@@ -306,7 +306,7 @@ function StageRow({ stage, reorderable, canMoveUp, canMoveDown, onMoveUp, onMove
   const [automationOpen, setAutomationOpen] = useState(false);
 
   return (
-    <div style={{ borderBottom: '1px solid #f2f2f2' }}>
+    <div style={{ borderBottom: '1px solid var(--border)' }}>
     <div
       draggable={reorderable && !disabled}
       onDragStart={reorderable ? onDragStart : undefined}
@@ -333,7 +333,7 @@ function StageRow({ stage, reorderable, canMoveUp, canMoveDown, onMoveUp, onMove
       }}>
         {stage.label}
       </span>
-      <code style={{ fontSize: 10.5, color: '#9b9b9b' }}>{stage.stage_key}</code>
+      <code style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{stage.stage_key}</code>
       <input
         value={label}
         onChange={(e) => setLabel(e.target.value)}
@@ -344,7 +344,7 @@ function StageRow({ stage, reorderable, canMoveUp, canMoveDown, onMoveUp, onMove
       <input type="color" value={stage.color_bg} onChange={(e) => onUpdate({ color_bg: e.target.value })} disabled={disabled} title="צבע רקע" />
       <input type="color" value={stage.color_fg} onChange={(e) => onUpdate({ color_fg: e.target.value })} disabled={disabled} title="צבע טקסט" />
       {onSetWon && (
-        <label style={{ fontSize: 11.5, display: 'flex', alignItems: 'center', gap: 4, color: stage.is_won_stage ? '#0d9488' : '#9b9b9b' }}>
+        <label style={{ fontSize: 11.5, display: 'flex', alignItems: 'center', gap: 4, color: stage.is_won_stage ? 'var(--green)' : 'var(--text-muted)' }}>
           <input type="checkbox" checked={stage.is_won_stage} onChange={onSetWon} disabled={disabled} />
           שלב-ניצחון
         </label>
@@ -356,15 +356,15 @@ function StageRow({ stage, reorderable, canMoveUp, canMoveDown, onMoveUp, onMove
         </label>
       )}
       <label style={{ fontSize: 11.5, display: 'flex', alignItems: 'center', gap: 4 }}>
-        <span style={{ color: '#9b9b9b' }}>טאב לידים:</span>
+        <span style={{ color: 'var(--text-muted)' }}>טאב לידים:</span>
         <select value={stage.lead_tab || 'auto'} onChange={(e) => onUpdate({ lead_tab: e.target.value })} disabled={disabled} style={{ ...inputStyle, padding: '3px 6px', fontSize: 11.5 }}>
           {LEAD_TAB_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </label>
-      <button type="button" onClick={() => setAutomationOpen((v) => !v)} disabled={disabled} style={{ background: 'none', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '3px 9px', fontSize: 11.5, color: automations.length > 0 ? '#0d9488' : '#6b6b6b', cursor: 'pointer' }}>
+      <button type="button" onClick={() => setAutomationOpen((v) => !v)} disabled={disabled} style={{ background: 'none', border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '3px 9px', fontSize: 11.5, color: automations.length > 0 ? 'var(--green)' : 'var(--text-secondary)', cursor: 'pointer' }}>
         ⚡ אוטומציה{automations.length > 0 ? ` (${automations.length})` : ''}
       </button>
-      <button type="button" onClick={onDelete} disabled={disabled} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: '#b23b2f', fontSize: 12, cursor: 'pointer' }}>
+      <button type="button" onClick={onDelete} disabled={disabled} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>
         🗑 מחיקה
       </button>
     </div>
@@ -425,12 +425,12 @@ function StageAutomationPanel({ workspaceId, stageKey, automations, whatsappTemp
 
   return (
     <div style={{ padding: '10px 14px 14px', background: 'var(--surface-hover, #f4f5f7)' }}>
-      {error && <div style={{ color: '#b23b2f', fontSize: 11.5, marginBottom: 8 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 11.5, marginBottom: 8 }}>{error}</div>}
       {automations.map((a) => (
         <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 6 }}>
           <span style={{ fontWeight: 500 }}>{actionLabel(a.action_type)}</span>
-          <span style={{ color: '#6b6b6b' }}>{templateName(a)}</span>
-          <button type="button" onClick={() => handleDelete(a.id)} disabled={disabled || isPending} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: '#b23b2f', fontSize: 11, cursor: 'pointer' }}>הסרה</button>
+          <span style={{ color: 'var(--text-secondary)' }}>{templateName(a)}</span>
+          <button type="button" onClick={() => handleDelete(a.id)} disabled={disabled || isPending} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: 'var(--red)', fontSize: 11, cursor: 'pointer' }}>הסרה</button>
         </div>
       ))}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginTop: 8 }}>
@@ -454,11 +454,11 @@ function StageAutomationPanel({ workspaceId, stageKey, automations, whatsappTemp
           <>
             <input placeholder="כותרת המשימה" value={draft.taskTitle} onChange={(e) => setDraft((p) => ({ ...p, taskTitle: e.target.value }))} style={{ ...inputStyle, width: 160 }} />
             <input type="number" min={0} value={draft.taskDueOffsetDays} onChange={(e) => setDraft((p) => ({ ...p, taskDueOffsetDays: Number(e.target.value) }))} title="יעד בעוד כמה ימים" style={{ ...inputStyle, width: 60 }} />
-            <span style={{ fontSize: 11, color: '#6b6b6b' }}>ימים</span>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ימים</span>
           </>
         )}
         {draft.actionType && (
-          <button type="button" onClick={handleSave} disabled={disabled || isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>
+          <button type="button" onClick={handleSave} disabled={disabled || isPending} style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '5px 12px', fontSize: 12, cursor: 'pointer' }}>
             שמירה
           </button>
         )}

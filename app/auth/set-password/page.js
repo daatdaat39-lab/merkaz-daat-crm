@@ -40,7 +40,7 @@ export default function SetPasswordPage() {
         background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 12,
         padding: 32, width: 340, boxShadow: '0 6px 18px rgba(0,0,0,.08)',
       }}>
-        <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', textAlign: 'center', marginTop: 0, fontSize: 20 }}>
+        <h1 style={{ fontFamily: 'var(--font-heading)', textAlign: 'center', marginTop: 0, fontSize: 20 }}>
           ברוכים הבאים למרכז דעת
         </h1>
         <p style={{ textAlign: 'center', color: '#6b6b6b', fontSize: 13, marginTop: -8 }}>

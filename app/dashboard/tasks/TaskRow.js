@@ -115,21 +115,21 @@ export default function TaskRow({ t, contacts, members = [], currentUserId }) {
 
       {editing && (
         <form action={handleSubmit} style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--k-border)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input name="title" defaultValue={t.title} required style={{ flex: 1, minWidth: 160, border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
-          <select name="contact_id" defaultValue={t.contacts?.id || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+          <input name="title" defaultValue={t.title} required style={{ flex: 1, minWidth: 160, border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
+          <select name="contact_id" defaultValue={t.contacts?.id || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
             <option value="">ללא איש קשר</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.first} {c.last}</option>)}
           </select>
-          <select name="assigned_to" defaultValue={t.assigned_to || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+          <select name="assigned_to" defaultValue={t.assigned_to || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
             <option value="">ללא הקצאה</option>
             {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
-          <input type="date" name="due_date" defaultValue={t.due_date || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
-          <input type="time" name="due_time" defaultValue={t.due_time ? t.due_time.slice(0, 5) : ''} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
-          <select name="remind_minutes_before" defaultValue={t.remind_minutes_before || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+          <input type="date" name="due_date" defaultValue={t.due_date || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
+          <input type="time" name="due_time" defaultValue={t.due_time ? t.due_time.slice(0, 5) : ''} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }} />
+          <select name="remind_minutes_before" defaultValue={t.remind_minutes_before || ''} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 12px', fontSize: 13, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
             {REMIND_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-          <button type="submit" disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 16px', fontSize: 13, cursor: 'pointer' }}>
+          <button type="submit" disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 13, cursor: 'pointer' }}>
             שמירה
           </button>
           {error && <div style={{ width: '100%', color: 'var(--k-danger-text)', fontSize: 12 }}>שגיאה: {error}</div>}

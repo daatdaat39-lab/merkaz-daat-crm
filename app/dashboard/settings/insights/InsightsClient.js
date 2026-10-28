@@ -47,7 +47,7 @@ export default function InsightsClient({ workspaceId, workspaceName }) {
         {isPending ? 'מנתח...' : suggestions ? '🔄 נתח מחדש' : '💡 נתח כעת'}
       </button>
 
-      {error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginBottom: 16 }}>שגיאה: {error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12.5, marginBottom: 16 }}>שגיאה: {error}</div>}
 
       {suggestions && suggestions.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אין כרגע תובנות משמעותיות - הנתונים נראים תקינים.</div>
@@ -63,8 +63,8 @@ export default function InsightsClient({ workspaceId, workspaceName }) {
                 onClick={() => handleApply(s, idx)}
                 disabled={isPending || applied.has(idx)}
                 style={{
-                  marginTop: 10, background: applied.has(idx) ? '#f0fdf4' : 'var(--text)', color: applied.has(idx) ? '#16a34a' : '#fff',
-                  border: applied.has(idx) ? '1px solid #bbf7d0' : 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5,
+                  marginTop: 10, background: applied.has(idx) ? 'var(--green-bg)' : 'var(--text)', color: applied.has(idx) ? 'var(--green)' : '#fff',
+                  border: applied.has(idx) ? '1px solid var(--green)' : 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5,
                   cursor: applied.has(idx) ? 'default' : 'pointer',
                 }}
               >
@@ -76,8 +76,8 @@ export default function InsightsClient({ workspaceId, workspaceName }) {
                 onClick={() => handleApplyUnassigned(s, idx)}
                 disabled={isPending || applied.has(idx)}
                 style={{
-                  marginTop: 10, background: applied.has(idx) ? '#f0fdf4' : 'var(--text)', color: applied.has(idx) ? '#16a34a' : '#fff',
-                  border: applied.has(idx) ? '1px solid #bbf7d0' : 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5,
+                  marginTop: 10, background: applied.has(idx) ? 'var(--green-bg)' : 'var(--text)', color: applied.has(idx) ? 'var(--green)' : '#fff',
+                  border: applied.has(idx) ? '1px solid var(--green)' : 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12.5,
                   cursor: applied.has(idx) ? 'default' : 'pointer',
                 }}
               >

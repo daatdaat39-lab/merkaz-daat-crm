@@ -35,7 +35,7 @@ export default function CtiRoutingClient({ routings, workspaces }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {error && <div style={{ color: '#b23b2f', fontSize: 12 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12 }}>{error}</div>}
 
       {routings.length === 0 && !adding && (
         <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>אין עדיין ניתוב מוגדר - התראות-שיחה לא יישלחו לאף מחלקה.</div>
@@ -47,7 +47,7 @@ export default function CtiRoutingClient({ routings, workspaces }) {
             <div style={{ fontSize: 13.5, fontWeight: 600 }} dir="ltr">{r.dnumber}</div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{r.workspaces?.name || 'מחלקה'}{r.label ? ` · ${r.label}` : ''}</div>
           </div>
-          <button type="button" onClick={() => handleRemove(r.id)} disabled={isPending} style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 12 }}>✕</button>
+          <button type="button" onClick={() => handleRemove(r.id)} disabled={isPending} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 12 }}>✕</button>
         </div>
       ))}
 
@@ -60,7 +60,7 @@ export default function CtiRoutingClient({ routings, workspaces }) {
           <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="תווית (אופציונלי, לדוג׳ 'קו מכירות')" style={inputStyle} />
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button type="button" onClick={() => setAdding(false)} style={{ ...inputStyle, cursor: 'pointer' }}>ביטול</button>
-            <button type="button" onClick={handleAdd} disabled={isPending || !dnumber.trim() || !workspaceId} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
+            <button type="button" onClick={handleAdd} disabled={isPending || !dnumber.trim() || !workspaceId} style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
               שמירה
             </button>
           </div>

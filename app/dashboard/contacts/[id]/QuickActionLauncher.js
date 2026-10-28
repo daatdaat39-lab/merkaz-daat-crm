@@ -24,13 +24,13 @@ export default function QuickActionLauncher({ contactId, department, stages, lab
     return (
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <button type="button" onClick={() => setMode('summary')} style={{
-          background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 100, padding: '7px 16px',
+          background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 8, padding: '7px 16px',
           fontSize: 13, fontWeight: 500, cursor: 'pointer', color: 'var(--k-text, inherit)',
         }}>
           📝 סיכום חופשי
         </button>
         <button type="button" onClick={() => setMode('inquiry')} style={{
-          background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 100, padding: '7px 16px',
+          background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 8, padding: '7px 16px',
           fontSize: 13, fontWeight: 500, cursor: 'pointer', color: 'var(--k-text, inherit)',
         }}>
           📩 פנייה מסודרת
@@ -46,7 +46,7 @@ export default function QuickActionLauncher({ contactId, department, stages, lab
 
   return (
     <button type="button" onClick={() => setMode('choosing')} style={{
-      background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 100, padding: '7px 16px',
+      background: 'var(--k-surface, var(--bg))', border: '1px solid var(--k-border, #e5e5e5)', borderRadius: 8, padding: '7px 16px',
       fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 16, color: 'var(--k-text, inherit)',
     }}>
       + תיעוד פעילות

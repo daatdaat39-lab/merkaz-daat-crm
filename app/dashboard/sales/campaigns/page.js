@@ -22,7 +22,7 @@ export default async function CampaignsPage() {
     return (
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 24px' }}>
         <a href="/dashboard/sales/leads" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה ללידים</a>
-        <div style={{ marginTop: 20, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: '#92400e' }}>
+        <div style={{ marginTop: 20, background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: 'var(--amber)' }}>
           רק בעלים או מנהל של המחלקה יכולים לנהל קמפיינים.
         </div>
       </div>
@@ -58,7 +58,7 @@ export default async function CampaignsPage() {
 
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
         {(campaigns || []).length === 0 && (
-          <div style={{ padding: '16px 18px', fontSize: 13, color: '#9b9b9b' }}>עדיין לא נוצרו קמפיינים</div>
+          <div style={{ padding: '16px 18px', fontSize: 13, color: 'var(--text-muted)' }}>עדיין לא נוצרו קמפיינים</div>
         )}
         {(campaigns || []).map((c) => (
           <Link
@@ -66,21 +66,21 @@ export default async function CampaignsPage() {
             href={`/dashboard/sales/campaigns/${c.id}`}
             style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px',
-              borderBottom: '1px solid #f2f2f2', textDecoration: 'none', color: 'inherit',
+              borderBottom: '1px solid var(--bg-tertiary)', textDecoration: 'none', color: 'inherit',
             }}
           >
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{c.name}</div>
-              <div style={{ fontSize: 11.5, color: '#9b9b9b', marginTop: 2 }}>
+              <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginTop: 2 }}>
                 נוצר {new Date(c.created_at).toLocaleDateString('he-IL')}
                 {c.channel && ` · ערוץ: ${c.channel}`}
               </div>
             </div>
-            <span style={{ fontSize: 12.5, color: '#6b6b6b' }}>{c.contactCount} אנשי קשר</span>
+            <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>{c.contactCount} אנשי קשר</span>
             <span style={{
               fontSize: 11, fontWeight: 600, borderRadius: 100, padding: '3px 10px',
-              background: c.status === 'closed' ? '#f3f4f6' : '#f0fdf4',
-              color: c.status === 'closed' ? '#6b7280' : '#15803d',
+              background: c.status === 'closed' ? 'var(--pill-bg)' : 'var(--green-bg)',
+              color: c.status === 'closed' ? 'var(--pill-text)' : 'var(--green)',
             }}>
               {c.status === 'closed' ? 'סגור' : 'פעיל'}
             </span>

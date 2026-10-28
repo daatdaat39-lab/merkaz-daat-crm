@@ -28,7 +28,7 @@ export default function NewCampaignForm({ workspaceId }) {
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} style={{
-        background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6,
+        background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6,
         padding: '7px 16px', fontSize: 13, cursor: 'pointer',
       }}>
         + קמפיין חדש
@@ -53,7 +53,7 @@ export default function NewCampaignForm({ workspaceId }) {
         {CAMPAIGN_CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
       </select>
       <button type="button" onClick={handleCreate} disabled={isPending} style={{
-        background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, cursor: 'pointer',
+        background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 13, cursor: 'pointer',
       }}>
         יצירה
       </button>
@@ -62,7 +62,7 @@ export default function NewCampaignForm({ workspaceId }) {
       }}>
         ביטול
       </button>
-      {error && <span style={{ color: '#b23b2f', fontSize: 12 }}>{error}</span>}
+      {error && <span style={{ color: 'var(--red)', fontSize: 12 }}>{error}</span>}
     </div>
   );
 }

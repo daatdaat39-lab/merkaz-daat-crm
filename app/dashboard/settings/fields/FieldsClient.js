@@ -27,9 +27,9 @@ export default function FieldsClient({ workspaces, fieldsByWorkspaceId }) {
             key={w.id}
             onClick={() => setActiveId(w.id)}
             style={{
-              border: '1px solid ' + (activeId === w.id ? '#0a0a0a' : 'var(--border, #e5e5e5)'),
-              background: activeId === w.id ? '#0a0a0a' : '#fff',
-              color: activeId === w.id ? '#fff' : '#333',
+              border: '1px solid ' + (activeId === w.id ? 'var(--text)' : 'var(--border, #e5e5e5)'),
+              background: activeId === w.id ? 'var(--text)' : 'var(--bg)',
+              color: activeId === w.id ? '#fff' : 'var(--text)',
               borderRadius: 999, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer', fontWeight: 500,
             }}
           >
@@ -121,7 +121,7 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {error && <div style={{ color: '#b23b2f', fontSize: 12.5, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6, padding: '8px 12px' }}>{error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12.5, background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 6, padding: '8px 12px' }}>{error}</div>}
 
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
         {fields.map((f) => (
@@ -137,7 +137,7 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
             disabled={isPending}
           />
         ))}
-        {fields.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b' }}>אין שדות למחלקה זו</div>}
+        {fields.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: 'var(--text-muted)' }}>אין שדות למחלקה זו</div>}
       </div>
 
       {useAiWizard ? (
@@ -198,13 +198,13 @@ function WorkspaceFieldsEditor({ workspaceId, initialFields }) {
             type="button"
             onClick={handleCreate}
             disabled={isPending || !newField.fieldKey.trim() || !newField.label.trim() || (newField.type === 'computed' && (!newField.dateField || !newField.durationField))}
-            style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}
+            style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}
           >
             הוספה
           </button>
         </div>
         {newField.type === 'computed' && (dateFields.length === 0 || numberFields.length === 0) && (
-          <div style={{ fontSize: 11.5, color: '#92400e', marginTop: 8 }}>
+          <div style={{ fontSize: 11.5, color: 'var(--amber)', marginTop: 8 }}>
             שדה מחושב דורש שכבר יהיו במחלקה זו שדה מסוג "תאריך" ושדה מסוג "מספר" - יש ליצור אותם קודם.
           </div>
         )}
@@ -226,13 +226,13 @@ function FieldRow({ field, isDragging, onDragStart, onDragEnd, onDropOn, onUpdat
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => { e.preventDefault(); onDropOn(); }}
       style={{
-        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid #f2f2f2', flexWrap: 'wrap',
+        display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap',
         opacity: isDragging ? 0.4 : 1, background: isDragging ? 'var(--surface-hover)' : 'transparent',
       }}
     >
       <span title="גרירה לסידור" style={{ cursor: 'grab', color: 'var(--text-muted)', fontSize: 14, userSelect: 'none' }}>⠿</span>
-      <code style={{ fontSize: 10.5, color: '#9b9b9b' }}>{field.field_key}</code>
-      <span style={{ fontSize: 11, color: '#6b6b6b', background: '#f4f4f5', borderRadius: 4, padding: '2px 6px' }}>{TYPES.find((t) => t.value === field.type)?.label || field.type}</span>
+      <code style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{field.field_key}</code>
+      <span style={{ fontSize: 11, color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', borderRadius: 4, padding: '2px 6px' }}>{TYPES.find((t) => t.value === field.type)?.label || field.type}</span>
       <input
         value={label}
         onChange={(e) => setLabel(e.target.value)}
@@ -276,7 +276,7 @@ function FieldRow({ field, isDragging, onDragStart, onDragEnd, onDropOn, onUpdat
         />
         כמה ערכים
       </label>
-      <button type="button" onClick={onDelete} disabled={disabled} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: '#b23b2f', fontSize: 12, cursor: 'pointer' }}>
+      <button type="button" onClick={onDelete} disabled={disabled} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>
         🗑 מחיקה
       </button>
     </div>

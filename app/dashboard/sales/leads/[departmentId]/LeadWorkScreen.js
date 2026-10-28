@@ -143,7 +143,7 @@ export default function LeadWorkScreen({
                 <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 22, color: 'var(--k-text)' }}>{contact.first} {contact.last}</span>
                 <Link
                   href={`/dashboard/contacts/${contact.id}`}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--k-accent)', background: 'var(--k-pill-bg)', borderRadius: 100, padding: '3px 11px', textDecoration: 'none' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--k-accent)', background: 'var(--k-pill-bg)', borderRadius: 8, padding: '3px 11px', textDecoration: 'none' }}
                 >
                   <PersonIcon size={11} /> כרטיס מלא
                 </Link>
@@ -169,7 +169,7 @@ export default function LeadWorkScreen({
                   key={opt.v} type="button" disabled={confidencePending}
                   onClick={() => handleSetConfidence(opt.v)}
                   style={{
-                    flex: 1, fontSize: 12.5, padding: '6px 0', borderRadius: 100, cursor: 'pointer',
+                    flex: 1, fontSize: 12.5, padding: '6px 0', borderRadius: 8, cursor: 'pointer',
                     border: repConfidence === opt.v ? '1px solid var(--k-accent)' : '1px solid var(--k-border)',
                     background: repConfidence === opt.v ? 'var(--k-pill-bg)' : 'var(--k-surface)',
                     color: repConfidence === opt.v ? 'var(--k-accent)' : 'var(--k-text-muted)',
@@ -244,7 +244,7 @@ export default function LeadWorkScreen({
                     style={{
                       fontSize: 11.5, border: '1px solid ' + (scriptTag === t ? 'var(--k-text)' : 'var(--k-border)'),
                       background: scriptTag === t ? 'var(--k-text)' : 'none', color: scriptTag === t ? 'var(--k-bg)' : 'var(--k-text-muted)',
-                      borderRadius: 100, padding: '4px 12px', cursor: 'pointer',
+                      borderRadius: 8, padding: '4px 12px', cursor: 'pointer',
                     }}
                   >
                     {t}
@@ -308,7 +308,7 @@ export default function LeadWorkScreen({
               <button
                 type="button" onClick={handleConvert} disabled={!courseId || converting}
                 style={{
-                  fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: 'none', borderRadius: 100, padding: '8px 18px', cursor: !courseId ? 'default' : 'pointer',
+                  fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: 'none', borderRadius: 8, padding: '8px 18px', cursor: !courseId ? 'default' : 'pointer',
                   background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', opacity: !courseId ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: 6,
                 }}
               >
@@ -316,7 +316,7 @@ export default function LeadWorkScreen({
               </button>
               <button
                 type="button" onClick={() => setClosing((v) => !v)}
-                style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '8px 18px', cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}
+                style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 18px', cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}
               >
                 <CloseXIcon size={13} /> לא רלוונטי
               </button>
@@ -324,10 +324,10 @@ export default function LeadWorkScreen({
             {closing && (
               <div style={{ border: '1px dashed var(--k-border)', borderRadius: 10, padding: '10px 14px', marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: 'var(--k-surface)' }}>
                 <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>סיבת-סגירה:</span>
-                <select value={closeReason} onChange={(e) => setCloseReason(e.target.value)} style={{ fontSize: 12.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 12px', background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+                <select value={closeReason} onChange={(e) => setCloseReason(e.target.value)} style={{ fontSize: 12.5, border: '1px solid var(--k-border)', borderRadius: 8, padding: '5px 12px', background: 'var(--k-bg)', color: 'var(--k-text)' }}>
                   {CLOSE_REASONS.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
-                <button type="button" onClick={handleCloseNotRelevant} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, background: 'var(--k-text)', color: 'var(--k-bg)', border: 'none', borderRadius: 100, padding: '5px 14px', cursor: 'pointer' }}>
+                <button type="button" onClick={handleCloseNotRelevant} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, background: 'var(--k-text)', color: 'var(--k-bg)', border: 'none', borderRadius: 8, padding: '5px 14px', cursor: 'pointer' }}>
                   אישור סגירה
                 </button>
               </div>

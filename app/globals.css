@@ -1,56 +1,57 @@
 :root {
+  /* עיצוב "Hi-Tech" (נייבי/לבן/סגול-חשמלי) - ר' plan: מעבר מלא לעיצוב
+     Hi-Tech. שתי-מערכות-המשתנים (זו, ו---k-* למטה) מתכנסות לאותם-ערכים
+     בדיוק - שמות-המשתנים נשארו כדי שאפס-קבצים-צריכים-עריכה, רק
+     הערכים-שהם-מצביעים-אליהם השתנו. */
   --bg: #ffffff;
-  --bg-secondary: #f9f9f9;
-  --bg-tertiary: #f2f2f2;
-  --border: #e5e5e5;
-  --border-strong: #d0d0d0;
-  --text: #0a0a0a;
-  --text-secondary: #6b6b6b;
-  --text-muted: #9b9b9b;
-  --accent: #0a0a0a;
-  --accent-hover: #333;
-  --pill-bg: #f0f0f0;
-  --pill-text: #333;
-  --green: #16a34a;
-  --green-bg: #f0fdf4;
-  --blue: #2563eb;
-  --blue-bg: #eff6ff;
-  --amber: #d97706;
-  --amber-bg: #fffbeb;
-  --red: #dc2626;
-  --red-bg: #fef2f2;
-  --purple: #7c3aed;
-  --purple-bg: #f5f3ff;
-  --radius: 8px;
-  --radius-sm: 6px;
-  --radius-lg: 14px;
-  --radius-xl: 20px;
-  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);
-  --shadow-soft: 0 2px 8px rgba(15,15,15,0.05), 0 1px 2px rgba(15,15,15,0.03);
-  --shadow-hover: 0 8px 24px rgba(15,15,15,0.08), 0 2px 6px rgba(15,15,15,0.04);
-  --surface-hover: #f4f5f7;
-  --font-heading: "Frank Ruhl Libre", serif;
-  --font-body: -apple-system, "Segoe UI", Arial, sans-serif;
+  --bg-secondary: #f4f6fa;
+  --bg-tertiary: #e9edf5;
+  --border: #dce2ec;
+  --border-strong: #c3ccdc;
+  --text: #0a1a2f;
+  --text-secondary: #46566e;
+  --text-muted: #8a96ac;
+  --accent: #6161ff;
+  --accent-hover: #0a1a2f;
+  --pill-bg: #f4f6fa;
+  --pill-text: #0a1a2f;
+  --green: #1f7a4d;
+  --green-bg: #eaf3ee;
+  --blue: #2f5fa8;
+  --blue-bg: #eaf0f8;
+  --amber: #b5790a;
+  --amber-bg: #fbf3e2;
+  --red: #b23a2e;
+  --red-bg: #f8eae8;
+  --purple: #7a4a8f;
+  --purple-bg: #f2eaf5;
+  --radius: 4px;
+  --radius-sm: 2px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --shadow: 0 1px 0 rgba(10,26,47,0.04);
+  --shadow-md: 0 4px 12px rgba(10,26,47,0.08);
+  --shadow-soft: 0 1px 0 rgba(10,26,47,0.04);
+  --shadow-hover: 0 4px 12px rgba(10,26,47,0.08);
+  --surface-hover: #eef1f7;
+  --font-heading: "Space Grotesk", "Heebo", sans-serif;
+  --font-body: "Heebo", -apple-system, "Segoe UI", Arial, sans-serif;
 
-  /* כיוון-עיצוב "קינטי/מרווה" - שמות-תוכן נפרדים (k-) מכוונים, כדי
-     שעיצוב-מחדש של לידים/שירות לא ישפיע על שאר המערכת עד שתורחב
-     בכוונה למסכים נוספים (ר' plan: עיצוב-מחדש של לידים ושירות). */
-  --k-bg: #f4f6f0;
+  --k-bg: #f4f6fa;
   --k-surface: #ffffff;
-  --k-border: #e3e8da;
-  --k-text: #333c2b;
-  --k-text-muted: #8a9279;
-  --k-pill-bg: #e1e8d4;
-  --k-pill-text: #3a4430;
-  --k-accent: #6f8c53;
-  --k-ok-bg: #dfe9d2;
-  --k-ok-text: #3d5c2a;
-  --k-caution-bg: #ecdfb9;
-  --k-caution-text: #6b5420;
-  --k-danger-bg: #e3c6bd;
-  --k-danger-text: #7a3b2a;
-  --k-font-display: "Secular One", sans-serif;
+  --k-border: #dce2ec;
+  --k-text: #0a1a2f;
+  --k-text-muted: #8a96ac;
+  --k-pill-bg: #f4f6fa;
+  --k-pill-text: #0a1a2f;
+  --k-accent: #6161ff;
+  --k-ok-bg: #eaf3ee;
+  --k-ok-text: #1f7a4d;
+  --k-caution-bg: #fbf3e2;
+  --k-caution-text: #b5790a;
+  --k-danger-bg: #f8eae8;
+  --k-danger-text: #b23a2e;
+  --k-font-display: "Space Grotesk", "Heebo", sans-serif;
   --k-font-body: "Heebo", -apple-system, "Segoe UI", Arial, sans-serif;
 }
 
@@ -60,47 +61,47 @@
    יעברו אוטומטית - רק ערכים סמנטיים חדשים (--green/--red/וכו')
    צריכים גם המרה בקומפוננטה עצמה אם היא כתבה hex קבוע במקום var(). */
 :root[data-theme="dark"] {
-  --bg: #17181c;
-  --bg-secondary: #1e1f24;
-  --bg-tertiary: #26272d;
-  --border: #34353c;
-  --border-strong: #44454d;
-  --text: #f2f2f2;
-  --text-secondary: #b0b1b8;
-  --text-muted: #7d7e86;
-  --accent: #f2f2f2;
-  --accent-hover: #d0d0d0;
-  --pill-bg: #2a2b31;
-  --pill-text: #d8d8de;
+  --bg: #0f2440;
+  --bg-secondary: #0a1a2f;
+  --bg-tertiary: #13335a;
+  --border: #1e3a5c;
+  --border-strong: #2d5080;
+  --text: #e8eef6;
+  --text-secondary: #aab8cc;
+  --text-muted: #7489a6;
+  --accent: #8b8bff;
+  --accent-hover: #a8a8ff;
+  --pill-bg: #0f2440;
+  --pill-text: #e8eef6;
   --green: #4ade80;
-  --green-bg: #0f2a1a;
+  --green-bg: #122a1e;
   --blue: #60a5fa;
-  --blue-bg: #101f33;
+  --blue-bg: #13233a;
   --amber: #fbbf24;
   --amber-bg: #2e2410;
   --red: #f87171;
   --red-bg: #2e1414;
-  --purple: #a78bfa;
-  --purple-bg: #251f38;
-  --shadow: 0 1px 3px rgba(0,0,0,0.35), 0 1px 2px rgba(0,0,0,0.25);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.25);
-  --shadow-soft: 0 2px 8px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
-  --shadow-hover: 0 8px 24px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.25);
-  --surface-hover: #24252b;
-  --k-bg: #1b1f17;
-  --k-surface: #22271d;
-  --k-border: #333a28;
-  --k-text: #e8ecdf;
-  --k-text-muted: #93a081;
-  --k-pill-bg: #2d3424;
-  --k-pill-text: #d9e2c8;
-  --k-accent: #9abb78;
-  --k-ok-bg: #2e3a22;
-  --k-ok-text: #bcd79e;
-  --k-caution-bg: #4a3f1e;
-  --k-caution-text: #e2cf8f;
-  --k-danger-bg: #432822;
-  --k-danger-text: #e2a894;
+  --purple: #c9a0d6;
+  --purple-bg: #2a1f30;
+  --shadow: 0 1px 0 rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.45);
+  --shadow-soft: 0 1px 0 rgba(0,0,0,0.3);
+  --shadow-hover: 0 4px 12px rgba(0,0,0,0.45);
+  --surface-hover: #15335a;
+  --k-bg: #0a1a2f;
+  --k-surface: #0f2440;
+  --k-border: #1e3a5c;
+  --k-text: #e8eef6;
+  --k-text-muted: #7489a6;
+  --k-pill-bg: #0f2440;
+  --k-pill-text: #e8eef6;
+  --k-accent: #8b8bff;
+  --k-ok-bg: #122a1e;
+  --k-ok-text: #4ade80;
+  --k-caution-bg: #2e2410;
+  --k-caution-text: #fbbf24;
+  --k-danger-bg: #2e1414;
+  --k-danger-text: #f87171;
 }
 
 * { box-sizing: border-box; }

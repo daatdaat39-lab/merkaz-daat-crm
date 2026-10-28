@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { listCallAttemptsByAgentOutcome, listRemainingInQueueContacts } from '../callDashboardActions';
 
 const card = { background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px 16px' };
-const sectionLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', letterSpacing: '.03em', margin: '24px 0 10px' };
+const sectionLabel = { fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.03em', margin: '24px 0 10px' };
 
 // רשימת drill-down משותפת - אותו דפוס בדיוק כמו הקטע המתקפל ב-
 // CallQueueClient.js ("ביקשו ממני לחזור אליהם"): מסגרת מעוגלת, כל שורה
@@ -152,7 +152,7 @@ export default function CallDashboardClient({ campaignId, stats, donationsByAgen
                           <button
                             key={o.outcome} type="button" onClick={() => toggleOutcome(a.agentId, o.outcome)}
                             style={{
-                              fontSize: 11, borderRadius: 999, padding: '2px 8px', cursor: 'pointer', border: 'none',
+                              fontSize: 11, borderRadius: 8, padding: '2px 8px', cursor: 'pointer', border: 'none',
                               background: open ? 'var(--accent, #2f6f4f)' : 'var(--bg-secondary, #f0f0f0)', color: open ? '#fff' : 'inherit',
                             }}
                           >

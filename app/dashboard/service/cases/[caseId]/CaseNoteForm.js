@@ -29,7 +29,7 @@ export default function CaseNoteForm({ caseId }) {
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)} style={{
-        background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 16px',
+        background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 16px',
         fontSize: 13, cursor: 'pointer', marginBottom: 16, color: 'var(--k-text)',
       }}>
         📝 הערות / סיכום שיחה
@@ -50,10 +50,10 @@ export default function CaseNoteForm({ caseId }) {
       />
       {error && <div style={{ color: 'var(--k-danger-text)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" onClick={handleSave} disabled={isPending || !note.trim()} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
+        <button type="button" onClick={handleSave} disabled={isPending || !note.trim()} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
           {isPending ? 'שומר...' : 'שמירה בציר-הזמן'}
         </button>
-        <button type="button" onClick={() => { setOpen(false); setNote(''); setError(null); }} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>
+        <button type="button" onClick={() => { setOpen(false); setNote(''); setError(null); }} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>
           ביטול
         </button>
       </div>

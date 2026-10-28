@@ -64,7 +64,7 @@ function Chip({ selected, onClick, children, title }) {
       title={title}
       style={{
         fontSize: 10.5, padding: '2px 7px', borderRadius: 5, cursor: 'pointer', whiteSpace: 'nowrap',
-        border: selected ? '1px solid #0a0a0a' : '1px solid var(--border)',
+        border: selected ? '1px solid var(--text)' : '1px solid var(--border)',
         background: selected ? 'var(--text, #0a0a0a)' : 'var(--bg)',
         color: selected ? '#fff' : 'var(--text-secondary)',
         maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis',
@@ -143,7 +143,7 @@ function MergedDepartmentsSummary({ existing, dup }) {
   const merged = Array.from(new Set([...(existing.departments || []), ...(dup.departments || [])].map((d) => d.workspaceName)));
   if (merged.length === 0) return null;
   return (
-    <div style={{ fontSize: 10.5, color: '#15803d', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 4, padding: '3px 8px', marginBottom: 6 }}>
+    <div style={{ fontSize: 10.5, color: 'var(--green)', background: 'var(--green-bg)', border: '1px solid var(--green)', borderRadius: 4, padding: '3px 8px', marginBottom: 6 }}>
       ✓ אחרי מיזוג יישארו כל המחלקות: {merged.join(', ')}
     </div>
   );
@@ -158,7 +158,7 @@ function ContactMeta({ contact, roleLabel }) {
       </div>
       {(contact.departments || []).length > 0 && <div>{(contact.departments || []).map((d) => d.workspaceName).join(', ')}</div>}
       {(contact.transactionsCount > 0 || contact.commitmentsCount > 0) && (
-        <div style={{ fontWeight: 600, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 4, padding: '1px 6px', marginTop: 2, display: 'inline-block' }}>
+        <div style={{ fontWeight: 600, color: 'var(--amber)', background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 4, padding: '1px 6px', marginTop: 2, display: 'inline-block' }}>
           💰 {contact.transactionsCount}/{contact.commitmentsCount}
         </div>
       )}
@@ -337,7 +337,7 @@ export default function DuplicateQueueClient({ initialCandidates }) {
 
   if (queue.length === 0) {
     return (
-      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '24px', textAlign: 'center', fontSize: 14, color: '#15803d' }}>
+      <div style={{ background: 'var(--green-bg)', border: '1px solid var(--green)', borderRadius: 8, padding: '24px', textAlign: 'center', fontSize: 14, color: 'var(--green)' }}>
         🎉 אין עוד זוגות חשודים
       </div>
     );
@@ -399,11 +399,11 @@ export default function DuplicateQueueClient({ initialCandidates }) {
                   <td style={td()}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                       {candidate.matchedOn.map((reason) => (
-                        <span key={reason} style={{ fontSize: 10, fontWeight: 600, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 100, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                        <span key={reason} style={{ fontSize: 10, fontWeight: 600, color: 'var(--amber)', background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 100, padding: '2px 8px', whiteSpace: 'nowrap' }}>
                           {reason}
                         </span>
                       ))}
-                      {hasMoney && <span style={{ fontSize: 10, fontWeight: 600, color: '#b23b2f', whiteSpace: 'nowrap' }}>⚠ יש כסף - בדקו</span>}
+                      {hasMoney && <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--red)', whiteSpace: 'nowrap' }}>⚠ יש כסף - בדקו</span>}
                     </div>
                   </td>
                   <td style={td()}>
@@ -432,7 +432,7 @@ export default function DuplicateQueueClient({ initialCandidates }) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 100 }}>
                       <button type="button" onClick={() => doMerge(candidate)} disabled={isPending} style={primaryBtn()}>🔗 מיזוג</button>
                       <button type="button" onClick={() => dismiss(candidate)} disabled={isPending} style={ghostBtn()}>✕ לא כפילות</button>
-                      {errors[key] && <div style={{ color: '#b23b2f', fontSize: 10.5 }}>{errors[key]}</div>}
+                      {errors[key] && <div style={{ color: 'var(--red)', fontSize: 10.5 }}>{errors[key]}</div>}
                     </div>
                   </td>
                 </tr>

@@ -127,10 +127,10 @@ export default function PersonalInfoCard({
           <TagPicker existingTags={existingTags} defaultTags={contact.tags || []} groups={tagGroups} />
 
           <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-            <button type="submit" disabled={isPending} style={{ flex: 1, background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 0', fontSize: 12.5, cursor: 'pointer' }}>
+            <button type="submit" disabled={isPending} style={{ flex: 1, background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 0', fontSize: 12.5, cursor: 'pointer' }}>
               שמירה
             </button>
-            <button type="button" onClick={() => setEditing(false)} style={{ flex: 1, background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 0', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>
+            <button type="button" onClick={() => setEditing(false)} style={{ flex: 1, background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 0', fontSize: 12.5, cursor: 'pointer', color: 'var(--k-text)' }}>
               ביטול
             </button>
           </div>

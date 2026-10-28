@@ -9,7 +9,7 @@ import { SEVERITY_LABELS } from '../../lib/serviceSla';
 import CaseTableRow from './CaseTableRow';
 import { RefreshIcon } from '../../components/icons';
 
-const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
+const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 14px', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
 const btnStyle = { ...inputStyle, cursor: 'pointer' };
 const primaryBtn = { ...btnStyle, background: 'var(--k-accent)', color: '#fff', fontWeight: 600, border: 'none' };
 
@@ -52,7 +52,7 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
             <button key={t.key} type="button" onClick={() => setTab(t.key)} style={{
               fontFamily: 'var(--k-font-display)',
               background: tab === t.key ? 'var(--k-text)' : 'none', color: tab === t.key ? 'var(--k-bg)' : 'var(--k-text-muted)',
-              border: '1px solid ' + (tab === t.key ? 'var(--k-text)' : 'var(--k-border)'), borderRadius: 999, padding: '6px 16px', fontSize: 13, cursor: 'pointer',
+              border: '1px solid ' + (tab === t.key ? 'var(--k-text)' : 'var(--k-border)'), borderRadius: 8, padding: '6px 16px', fontSize: 13, cursor: 'pointer',
             }}>
               {t.label}
             </button>

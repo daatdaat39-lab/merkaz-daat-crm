@@ -7,7 +7,7 @@ import TagFilterMultiSelect from '../../components/TagFilterMultiSelect';
 
 export default function PipelineBoard({ contacts, moveStageAction, stages, sideStages = ['closed'], labels = {}, colors = {}, closeReasons, allTags = [] }) {
   const label = (key) => labels[key] || key;
-  const color = (key) => colors[key] || { bg: '#fef2f2', color: '#a3392f' };
+  const color = (key) => colors[key] || { bg: 'var(--red-bg)', color: 'var(--red)' };
   const [view, setView] = useState('kanban'); // 'kanban' | 'table'
   const [search, setSearch] = useState('');
   const [tagFilters, setTagFilters] = useState([]);
@@ -82,7 +82,7 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
             onClick={() => setView('kanban')}
             style={{
               padding: '6px 14px', fontSize: 12.5, border: 'none', cursor: 'pointer',
-              background: view === 'kanban' ? 'var(--text)' : '#fff', color: view === 'kanban' ? '#fff' : 'var(--text)',
+              background: view === 'kanban' ? 'var(--text)' : 'var(--bg)', color: view === 'kanban' ? '#fff' : 'var(--text)',
             }}
           >
             📋 לוח
@@ -91,7 +91,7 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
             onClick={() => setView('table')}
             style={{
               padding: '6px 14px', fontSize: 12.5, border: 'none', cursor: 'pointer',
-              background: view === 'table' ? 'var(--text)' : '#fff', color: view === 'table' ? '#fff' : 'var(--text)',
+              background: view === 'table' ? 'var(--text)' : 'var(--bg)', color: view === 'table' ? '#fff' : 'var(--text)',
             }}
           >
             📄 טבלה
@@ -110,13 +110,13 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
                 onDragLeave={() => setDragOverStage(null)}
                 onDrop={(e) => handleDrop(e, stage)}
                 style={{
-                  minWidth: 230, flexShrink: 0, borderLeft: i > 0 ? '1px solid #e5e5e5' : 'none',
-                  background: dragOverStage === stage ? '#eff6ff' : 'transparent', transition: 'background 0.1s',
+                  minWidth: 230, flexShrink: 0, borderLeft: i > 0 ? '1px solid var(--border)' : 'none',
+                  background: dragOverStage === stage ? 'var(--blue-bg)' : 'transparent', transition: 'background 0.1s',
                 }}
               >
-                <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e5e5', background: '#f9f9f9' }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: '#6b6b6b' }}>{label(stage)}</div>
-                  <div style={{ fontSize: 11, color: '#9b9b9b' }}>{stageContacts.length} לידים</div>
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)' }}>{label(stage)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{stageContacts.length} לידים</div>
                 </div>
                 <div style={{ padding: 8, minHeight: 120 }}>
                   {stageContacts.map((c) => (
@@ -125,8 +125,8 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
                       draggable
                       onDragStart={(e) => e.dataTransfer.setData('text/department-row-id', c.departmentRowId)}
                       style={{
-                        background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px',
-                        marginBottom: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', cursor: 'grab',
+                        background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 12px',
+                        marginBottom: 8, boxShadow: 'var(--shadow)', cursor: 'grab',
                         opacity: isPending ? 0.7 : 1,
                       }}
                     >
@@ -134,15 +134,15 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
                         <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>{c.first} {c.last}</div>
                       </Link>
                       {c.source && (
-                        <span style={{ background: '#f0f0f0', color: '#333', padding: '1px 6px', borderRadius: 4, fontSize: 10 }}>
+                        <span style={{ background: 'var(--bg-tertiary)', color: 'var(--text)', padding: '1px 6px', borderRadius: 4, fontSize: 10 }}>
                           {c.source}
                         </span>
                       )}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
-                        <div style={{ fontSize: 10, color: '#c0c0c0' }}>גרור לשלב אחר ⠿</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>גרור לשלב אחר ⠿</div>
                         <button
                           onClick={() => setClosingId(c.departmentRowId)}
-                          style={{ background: 'none', border: 'none', color: '#c0392b', fontSize: 10, cursor: 'pointer' }}
+                          style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 10, cursor: 'pointer' }}
                         >
                           ✕ סגירה
                         </button>
@@ -153,7 +153,7 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
                     </div>
                   ))}
                   {stageContacts.length === 0 && (
-                    <div style={{ fontSize: 11, color: '#c0c0c0', textAlign: 'center', padding: '20px 0' }}>גרור לכאן</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>גרור לכאן</div>
                   )}
                 </div>
               </div>
@@ -169,21 +169,21 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
                 onDragLeave={() => setDragOverStage(null)}
                 onDrop={(e) => handleDrop(e, stage)}
                 style={{
-                  minWidth: 200, flexShrink: 0, borderLeft: '1px solid #e5e5e5',
+                  minWidth: 200, flexShrink: 0, borderLeft: '1px solid var(--border)',
                   background: dragOverStage === stage ? c.bg : 'transparent', transition: 'background 0.1s',
                 }}
               >
-                <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e5e5', background: '#f9f9f9' }}>
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: c.color }}>{label(stage)}</div>
-                  <div style={{ fontSize: 11, color: '#9b9b9b' }}>{stageContacts.length} לידים</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{stageContacts.length} לידים</div>
                 </div>
                 <div style={{ padding: 8, minHeight: 120 }}>
                   {stageContacts.map((contact) => (
-                    <div key={contact.departmentRowId} style={{ background: 'var(--bg)', border: '1px solid #e5e5e5', borderRadius: 6, padding: '10px 12px', marginBottom: 8, opacity: 0.8 }}>
+                    <div key={contact.departmentRowId} style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 12px', marginBottom: 8, opacity: 0.8 }}>
                       <Link href={`/dashboard/contacts/${contact.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                         <div style={{ fontSize: 13, fontWeight: 500 }}>{contact.first} {contact.last}</div>
                       </Link>
-                      {contact.closed_reason && <div style={{ fontSize: 10.5, color: '#9b9b9b', marginTop: 3 }}>{contact.closed_reason}</div>}
+                      {contact.closed_reason && <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 3 }}>{contact.closed_reason}</div>}
                     </div>
                   ))}
                 </div>
@@ -194,15 +194,15 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
       ) : (
         <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
           <thead>
-            <tr style={{ background: '#f9f9f9' }}>
+            <tr style={{ background: 'var(--bg-secondary)' }}>
               {['שם', 'שלב', 'מקור', 'נוצר', ''].map((h) => (
-                <th key={h} style={{ textAlign: 'right', fontSize: 11, color: '#9b9b9b', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
+                <th key={h} style={{ textAlign: 'right', fontSize: 11, color: 'var(--text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map((c) => (
-              <tr key={c.departmentRowId} style={{ borderBottom: '1px solid #f2f2f2' }}>
+              <tr key={c.departmentRowId} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '10px 16px', fontSize: 13 }}>
                   <Link href={`/dashboard/contacts/${c.id}`} style={{ textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
                     {c.first} {c.last}
@@ -230,11 +230,11 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
                 </td>
                 <td style={{ padding: '10px 16px', fontSize: 13 }}>{c.source || '—'}</td>
                 <td style={{ padding: '10px 16px', fontSize: 13 }}>{new Date(c.created_at).toLocaleDateString('he-IL')}</td>
-                <td style={{ padding: '10px 16px', fontSize: 12, color: '#9b9b9b' }}>{c.stage === 'closed' ? c.closed_reason : ''}</td>
+                <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-muted)' }}>{c.stage === 'closed' ? c.closed_reason : ''}</td>
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: '12px 16px', fontSize: 13, color: '#9b9b9b' }}>אין תוצאות</td></tr>
+              <tr><td colSpan={5} style={{ padding: '12px 16px', fontSize: 13, color: 'var(--text-muted)' }}>אין תוצאות</td></tr>
             )}
           </tbody>
         </table>
@@ -246,12 +246,12 @@ export default function PipelineBoard({ contacts, moveStageAction, stages, sideS
 function CloseReasonPicker({ reasons = CLOSE_REASONS, onConfirm, onCancel }) {
   const [reason, setReason] = useState(reasons[0]);
   return (
-    <div style={{ marginTop: 8, padding: 8, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6 }} onClick={(e) => e.stopPropagation()}>
+    <div style={{ marginTop: 8, padding: 8, background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 6 }} onClick={(e) => e.stopPropagation()}>
       <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 11.5, border: '1px solid var(--border)', borderRadius: 4, marginBottom: 6 }}>
         {reasons.map((r) => <option key={r} value={r}>{r}</option>)}
       </select>
       <div style={{ display: 'flex', gap: 6 }}>
-        <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, background: '#a3392f', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>אישור</button>
+        <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>אישור</button>
         <button onClick={onCancel} style={{ flex: 1, fontSize: 11, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, padding: '4px 0', cursor: 'pointer' }}>ביטול</button>
       </div>
     </div>

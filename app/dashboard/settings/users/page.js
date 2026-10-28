@@ -123,8 +123,8 @@ export default async function UsersManagementPage() {
 
       {!canManage && !isOwnerAnywhere && (
         <div style={{
-          background: 'var(--amber-bg)', border: '1px solid #fde68a', borderRadius: 8,
-          padding: '12px 16px', fontSize: 12.5, marginBottom: 20, color: '#92400e',
+          background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 8,
+          padding: '12px 16px', fontSize: 12.5, marginBottom: 20, color: 'var(--amber)',
         }}>
           רק owner או admin יכולים להזמין ולנהל משתמשים ב-workspace הזה.
         </div>

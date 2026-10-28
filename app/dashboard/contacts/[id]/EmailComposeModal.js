@@ -54,7 +54,7 @@ export default function EmailComposeModal({ contactId, workspaceId, fromAddress,
           <select
             defaultValue=""
             onChange={(e) => { applyTemplate(e.target.value); e.target.value = ''; }}
-            style={{ border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 12px', fontSize: 12.5, color: 'var(--k-text-muted)', background: 'var(--k-surface)' }}
+            style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 12px', fontSize: 12.5, color: 'var(--k-text-muted)', background: 'var(--k-surface)' }}
           >
             <option value="" disabled>טעינת תבנית מוכנה...</option>
             {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -76,13 +76,13 @@ export default function EmailComposeModal({ contactId, workspaceId, fromAddress,
         />
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 6 }}>
-          <button onClick={onClose} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 16px', fontSize: 13, cursor: 'pointer', color: 'var(--k-text)' }}>
+          <button onClick={onClose} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 16px', fontSize: 13, cursor: 'pointer', color: 'var(--k-text)' }}>
             ביטול
           </button>
           <button
             onClick={handleSend}
             disabled={isPending || !subject.trim() || !body.trim()}
-            style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '7px 16px', fontSize: 13, cursor: 'pointer', opacity: isPending ? 0.6 : 1 }}
+            style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontSize: 13, cursor: 'pointer', opacity: isPending ? 0.6 : 1 }}
           >
             {isPending ? 'שולח...' : 'שליחה'}
           </button>

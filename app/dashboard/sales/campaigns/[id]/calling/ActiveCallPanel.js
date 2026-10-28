@@ -9,9 +9,9 @@ import ContactSummaryPanel from './ContactSummaryPanel';
 const inputStyle = { border: '1px solid var(--border, #e5e5e5)', borderRadius: 6, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box' };
 const btnStyle = { ...inputStyle, width: 'auto', cursor: 'pointer' };
 const primaryBtn = { ...btnStyle, background: 'var(--accent, #2f6f4f)', color: '#fff', fontWeight: 600, border: 'none' };
-const warmBtn = { ...btnStyle, background: '#c8791f', color: '#fff', fontWeight: 600, border: 'none' };
+const warmBtn = { ...btnStyle, background: 'var(--amber)', color: '#fff', fontWeight: 600, border: 'none' };
 const cardStyle = { background: 'var(--bg-secondary, #f7f7f7)', borderRadius: 10, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 };
-const sectionLabel = { fontSize: 10, fontWeight: 600, color: '#9b9b9b', textTransform: 'uppercase', letterSpacing: '.03em' };
+const sectionLabel = { fontSize: 10, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.03em' };
 
 const OUTCOME_LABELS = {
   no_answer: 'לא ענה', donating_now: 'תורם עכשיו תוך כדי הטלפון', requested_link: 'ביקש קישור לתרום בעצמו',
@@ -291,7 +291,7 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
             <div style={{ fontSize: 18, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
               {contact.name}
               {contact.isPersonal && (
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#8a5a00', background: '#fff3d6', border: '1px solid #f0d78c', borderRadius: 20, padding: '2px 8px' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--amber)', background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 20, padding: '2px 8px' }}>
                   🎯 מהרשימה האישית שלך
                 </span>
               )}
@@ -323,7 +323,7 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
             </div>
 
             {spouseWarning && (
-              <div style={{ fontSize: 12, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 12px', color: '#92400e' }}>
+              <div style={{ fontSize: 12, background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 8, padding: '10px 12px', color: 'var(--amber)' }}>
                 {spouseWarning}
               </div>
             )}
@@ -351,8 +351,8 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
             )}
 
             {phase === 'confirming' && confirmResult && (
-              <div style={{ ...cardStyle, background: isCelebration ? '#fdf1e2' : cardStyle.background, border: isCelebration ? '1px solid #f0c987' : 'none' }}>
-                <div style={{ fontSize: isCelebration ? 15 : 13, fontWeight: isCelebration ? 700 : 400, color: isCelebration ? '#a85c00' : 'inherit' }}>
+              <div style={{ ...cardStyle, background: isCelebration ? 'var(--amber-bg)' : cardStyle.background, border: isCelebration ? '1px solid var(--amber)' : 'none' }}>
+                <div style={{ fontSize: isCelebration ? 15 : 13, fontWeight: isCelebration ? 700 : 400, color: isCelebration ? 'var(--amber)' : 'inherit' }}>
                   {isCelebration ? '🎉 כל הכבוד! נרשמה תרומה' : `✓ נרשם: ${OUTCOME_LABELS[confirmResult.outcome] || confirmResult.outcome}`}
                   {confirmResult.attemptNumber ? ` (ניסיון #${confirmResult.attemptNumber})` : ''}
                 </div>
@@ -436,7 +436,7 @@ export default function ActiveCallPanel({ contact, stages, workspaceId, whatsapp
               </div>
             )}
 
-            {error && <div style={{ fontSize: 12, color: '#c62828' }}>{error}</div>}
+            {error && <div style={{ fontSize: 12, color: 'var(--red)' }}>{error}</div>}
 
             {phase !== 'confirming' && (
               <button type="button" onClick={handleSkip} disabled={isPending} style={{ ...btnStyle, alignSelf: 'flex-start' }}>דלג</button>

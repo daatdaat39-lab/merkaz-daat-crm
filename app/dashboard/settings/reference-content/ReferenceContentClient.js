@@ -29,7 +29,7 @@ export default function ReferenceContentClient({ items, courses }) {
 
 function tabBtn(active) {
   return {
-    background: active ? '#0a0a0a' : 'var(--bg)', color: active ? '#fff' : 'inherit',
+    background: active ? 'var(--text)' : 'var(--bg)', color: active ? '#fff' : 'inherit',
     border: '1px solid var(--border, #e5e5e5)', borderRadius: 999, padding: '7px 16px', fontSize: 12.5, cursor: 'pointer',
   };
 }
@@ -113,7 +113,7 @@ function KindSection({ kind, items: initialItems, courses }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {error && <div style={{ color: '#b23b2f', fontSize: 12 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12 }}>{error}</div>}
 
       {isRule && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
@@ -126,16 +126,16 @@ function KindSection({ kind, items: initialItems, courses }) {
 
       {pendingProposals.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 4 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#7c3aed', textTransform: 'uppercase' }}>הצעות ממתינות לאישור ({pendingProposals.length})</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--purple)', textTransform: 'uppercase' }}>הצעות ממתינות לאישור ({pendingProposals.length})</div>
           {pendingProposals.map((item) => (
-            <div key={item.id} style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 8, padding: '12px 16px' }}>
+            <div key={item.id} style={{ background: 'var(--purple-bg)', border: '1px solid var(--purple)', borderRadius: 8, padding: '12px 16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600 }}>
                   {item.title}
-                  <span style={{ marginInlineStart: 8, fontSize: 10, fontWeight: 600, color: '#7c3aed', background: '#fff', borderRadius: 100, padding: '1px 8px' }}>הוצע ע"י AI · ממתין לאישור</span>
+                  <span style={{ marginInlineStart: 8, fontSize: 10, fontWeight: 600, color: 'var(--purple)', background: 'var(--bg)', borderRadius: 100, padding: '1px 8px' }}>הוצע ע"י AI · ממתין לאישור</span>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
-                  <button type="button" onClick={() => handleReviewProposal(item, true)} disabled={isPending} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 100, padding: '4px 12px', fontSize: 11.5, cursor: 'pointer' }}>
+                  <button type="button" onClick={() => handleReviewProposal(item, true)} disabled={isPending} style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 100, padding: '4px 12px', fontSize: 11.5, cursor: 'pointer' }}>
                     ✓ אישור
                   </button>
                   <button type="button" onClick={() => handleReviewProposal(item, false)} disabled={isPending} style={{ background: 'none', border: '1px solid var(--border, #e5e5e5)', borderRadius: 100, padding: '4px 12px', fontSize: 11.5, cursor: 'pointer' }}>
@@ -165,14 +165,14 @@ function KindSection({ kind, items: initialItems, courses }) {
             <div style={{ fontSize: 13.5, fontWeight: 600 }}>
               {item.title}
               {item.auto_suggested && (
-                <span style={{ marginInlineStart: 8, fontSize: 10, fontWeight: 600, color: '#7c3aed', background: '#f5f3ff', borderRadius: 100, padding: '1px 8px' }}>הוצע ע"י AI</span>
+                <span style={{ marginInlineStart: 8, fontSize: 10, fontWeight: 600, color: 'var(--purple)', background: 'var(--purple-bg)', borderRadius: 100, padding: '1px 8px' }}>הוצע ע"י AI</span>
               )}
             </div>
             <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
               <button type="button" onClick={() => handleToggleActive(item)} disabled={isPending} style={{ ...inputStyle, cursor: 'pointer', fontSize: 11, padding: '3px 8px' }}>
                 {item.is_active ? 'השבת' : 'הפעל'}
               </button>
-              <button type="button" onClick={() => handleRemove(item.id)} disabled={isPending} style={{ background: 'none', border: 'none', color: '#b23b2f', cursor: 'pointer', fontSize: 12 }}>✕</button>
+              <button type="button" onClick={() => handleRemove(item.id)} disabled={isPending} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: 12 }}>✕</button>
             </div>
           </div>
           {isRule ? (
@@ -212,7 +212,7 @@ function KindSection({ kind, items: initialItems, courses }) {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button type="button" onClick={resetForm} style={{ ...inputStyle, cursor: 'pointer' }}>ביטול</button>
-            <button type="button" onClick={handleAdd} disabled={!canSave} style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
+            <button type="button" onClick={handleAdd} disabled={!canSave} style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
               שמירה
             </button>
           </div>

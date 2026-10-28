@@ -46,7 +46,7 @@ export default function VerifyOtpPage() {
         background: '#FFFDF6', border: '1px solid #DFD2AC', borderRadius: 12,
         padding: 32, width: 340, boxShadow: '0 6px 18px rgba(36,31,24,.08)',
       }}>
-        <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', textAlign: 'center', marginTop: 0, fontSize: 20 }}>אימות דו-שלבי</h1>
+        <h1 style={{ fontFamily: 'var(--font-heading)', textAlign: 'center', marginTop: 0, fontSize: 20 }}>אימות דו-שלבי</h1>
         <p style={{ textAlign: 'center', color: '#6B6151', fontSize: 13, marginTop: -4 }}>הזן את הקוד שנשלח למייל שלך</p>
         <label style={{ fontSize: 12, color: '#6B6151' }}>קוד אימות</label>
         <input

@@ -44,10 +44,10 @@ export default function PendingAutomationRow({ item }) {
         <div style={{ color: 'var(--k-text-muted)', fontSize: 11 }}>{item.workspaces?.name} · {new Date(item.created_at).toLocaleString('he-IL')}</div>
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
-        <button type="button" onClick={() => resolve('approve')} disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
+        <button type="button" onClick={() => resolve('approve')} disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
           אישור
         </button>
-        <button type="button" onClick={() => resolve('reject')} disabled={isPending} style={{ background: 'none', color: 'var(--k-text-muted)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
+        <button type="button" onClick={() => resolve('reject')} disabled={isPending} style={{ background: 'none', color: 'var(--k-text-muted)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 14px', fontSize: 12.5, cursor: 'pointer' }}>
           דחייה
         </button>
       </div>

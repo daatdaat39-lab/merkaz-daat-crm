@@ -122,7 +122,7 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
               href={`/dashboard/sales/leads/${c.departmentRowId}`} title="התקשרות - פותח את מסך-הטיפול (תסריטים + ציר-זמן + המרה)"
               style={{
                 display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--k-font-body)', fontWeight: 700, fontSize: 11.5,
-                background: 'var(--k-accent)', color: '#fff', borderRadius: 100, padding: '4px 11px', textDecoration: 'none', flexShrink: 0,
+                background: 'var(--k-accent)', color: '#fff', borderRadius: 8, padding: '4px 11px', textDecoration: 'none', flexShrink: 0,
               }}
             >
               <PhoneIcon size={11} /> התקשר
@@ -139,7 +139,7 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
             onChange={handleStageChange}
             disabled={isPending}
             style={{
-              border: 'none', borderRadius: 100, padding: '4px 10px', fontFamily: 'var(--k-font-display)', fontSize: 12, cursor: 'pointer',
+              border: 'none', borderRadius: 8, padding: '4px 10px', fontFamily: 'var(--k-font-display)', fontSize: 12, cursor: 'pointer',
               background: 'var(--k-pill-bg)', color: (stageColors[c.stage] || stageColors.open || { color: 'var(--k-pill-text)' }).color,
             }}
           >
@@ -229,12 +229,12 @@ function CloseReasonPicker({ reasons = CLOSE_REASONS, onConfirm, onCancel }) {
   const [reason, setReason] = useState(reasons[0]);
   return (
     <div style={{ marginTop: 6, padding: 8, background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 10, width: 200, position: 'absolute', zIndex: 2, boxShadow: 'var(--shadow-md)' }}>
-      <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 11.5, border: '1px solid var(--k-border)', borderRadius: 100, padding: '4px 8px', marginBottom: 6, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
+      <select value={reason} onChange={(e) => setReason(e.target.value)} style={{ width: '100%', fontSize: 11.5, border: '1px solid var(--k-border)', borderRadius: 8, padding: '4px 8px', marginBottom: 6, background: 'var(--k-bg)', color: 'var(--k-text)' }}>
         {reasons.map((r) => <option key={r} value={r}>{r}</option>)}
       </select>
       <div style={{ display: 'flex', gap: 6 }}>
-        <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, fontWeight: 600, background: 'var(--k-danger-bg)', color: 'var(--k-danger-text)', border: 'none', borderRadius: 100, padding: '5px 0', cursor: 'pointer' }}>אישור</button>
-        <button onClick={onCancel} style={{ flex: 1, fontSize: 11, background: 'var(--k-bg)', border: '1px solid var(--k-border)', borderRadius: 100, padding: '5px 0', cursor: 'pointer', color: 'var(--k-text)' }}>ביטול</button>
+        <button onClick={() => onConfirm(reason)} style={{ flex: 1, fontSize: 11, fontWeight: 600, background: 'var(--k-danger-bg)', color: 'var(--k-danger-text)', border: 'none', borderRadius: 8, padding: '5px 0', cursor: 'pointer' }}>אישור</button>
+        <button onClick={onCancel} style={{ flex: 1, fontSize: 11, background: 'var(--k-bg)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '5px 0', cursor: 'pointer', color: 'var(--k-text)' }}>ביטול</button>
       </div>
     </div>
   );

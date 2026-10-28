@@ -15,7 +15,7 @@ export default async function CalendarPage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
-      <h1 style={{ fontFamily: '"Frank Ruhl Libre",serif', margin: '0 0 20px', fontSize: 20 }}>יומן</h1>
+      <h1 style={{ fontFamily: 'var(--font-heading)', margin: '0 0 20px', fontSize: 20 }}>יומן</h1>
 
       <CalendarBoard
         meetings={meetings}

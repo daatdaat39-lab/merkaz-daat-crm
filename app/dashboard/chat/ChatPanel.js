@@ -62,10 +62,10 @@ export default function ChatPanel({ workspaceId, currentUserId, currentUserName,
   }
 
   return (
-    <div style={{ border: '1px solid #e5e5e5', borderRadius: 8, background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
       <div ref={listRef} style={{ height: 440, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {messages.length === 0 && (
-          <div style={{ fontSize: 13, color: '#9b9b9b', margin: 'auto' }}>אין עדיין הודעות בערוץ - תהיו הראשונים לכתוב!</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', margin: 'auto' }}>אין עדיין הודעות בערוץ - תהיו הראשונים לכתוב!</div>
         )}
         {messages.map((m) => {
           const mine = m.sender_id === currentUserId;
@@ -73,12 +73,12 @@ export default function ChatPanel({ workspaceId, currentUserId, currentUserName,
             <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-start' : 'flex-end' }}>
               <div style={{
                 maxWidth: '75%', padding: '8px 12px', borderRadius: 10, fontSize: 13,
-                background: mine ? '#0a0a0a' : '#f2f2f2', color: mine ? '#fff' : '#0a0a0a',
+                background: mine ? 'var(--text)' : 'var(--bg-tertiary)', color: mine ? '#fff' : 'var(--text)',
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word',
               }}>
                 {m.body}
               </div>
-              <div style={{ fontSize: 10.5, color: '#9b9b9b', marginTop: 3 }}>
+              <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 3 }}>
                 {mine ? 'אני' : (m.senderName || nameById[m.sender_id] || 'משתמש')} · {formatTime(m.created_at)}
               </div>
             </div>
@@ -86,19 +86,19 @@ export default function ChatPanel({ workspaceId, currentUserId, currentUserName,
         })}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, padding: 12, borderTop: '1px solid #f0f0f0' }}>
+      <div style={{ display: 'flex', gap: 8, padding: 12, borderTop: '1px solid var(--border)' }}>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="כתבו הודעה... (Enter לשליחה, Shift+Enter לשורה חדשה)"
           rows={1}
-          style={{ flex: 1, border: '1px solid #e5e5e5', borderRadius: 6, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'none' }}
+          style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 6, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'none' }}
         />
         <button
           onClick={handleSend}
           disabled={isPending || !text.trim()}
-          style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '0 18px', fontSize: 13, cursor: 'pointer' }}
+          style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '0 18px', fontSize: 13, cursor: 'pointer' }}
         >
           שליחה
         </button>

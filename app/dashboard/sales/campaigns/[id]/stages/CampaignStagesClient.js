@@ -75,7 +75,7 @@ export default function CampaignStagesClient({ campaignId, initialStages }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {error && <div style={{ color: '#b23b2f', fontSize: 12.5, background: '#fef2f2', border: '1px solid #f0d0cc', borderRadius: 6, padding: '8px 12px' }}>{error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12.5, background: 'var(--red-bg)', border: '1px solid var(--red)', borderRadius: 6, padding: '8px 12px' }}>{error}</div>}
 
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, overflow: 'hidden' }}>
         {sorted.map((s, i) => (
@@ -92,7 +92,7 @@ export default function CampaignStagesClient({ campaignId, initialStages }) {
             disabled={isPending}
           />
         ))}
-        {sorted.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: '#9b9b9b' }}>אין שלבים עדיין</div>}
+        {sorted.length === 0 && <div style={{ padding: '12px 14px', fontSize: 12.5, color: 'var(--text-muted)' }}>אין שלבים עדיין</div>}
       </div>
 
       <div style={{ background: 'var(--bg)', border: '1px solid var(--border, #e5e5e5)', borderRadius: 8, padding: '14px 16px' }}>
@@ -105,7 +105,7 @@ export default function CampaignStagesClient({ campaignId, initialStages }) {
           <input type="color" value={newStage.colorBg} onChange={(e) => setNewStage((p) => ({ ...p, colorBg: e.target.value }))} title="צבע רקע" />
           <input type="color" value={newStage.colorFg} onChange={(e) => setNewStage((p) => ({ ...p, colorFg: e.target.value }))} title="צבע טקסט" />
           <button type="button" onClick={handleCreate} disabled={isPending || !newStage.stageKey.trim() || !newStage.label.trim()}
-            style={{ background: '#0a0a0a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
+            style={{ background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontSize: 12.5, cursor: 'pointer' }}>
             הוספה
           </button>
         </div>
@@ -118,7 +118,7 @@ function StageRow({ stage, canMoveUp, canMoveDown, onMoveUp, onMoveDown, onUpdat
   const [label, setLabel] = useState(stage.label);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid #f2f2f2', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--bg-tertiary)', flexWrap: 'wrap' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         <button type="button" onClick={onMoveUp} disabled={disabled || !canMoveUp} style={{ background: 'none', border: 'none', cursor: canMoveUp ? 'pointer' : 'default', opacity: canMoveUp ? 1 : 0.3, fontSize: 11, padding: 0 }}>▲</button>
         <button type="button" onClick={onMoveDown} disabled={disabled || !canMoveDown} style={{ background: 'none', border: 'none', cursor: canMoveDown ? 'pointer' : 'default', opacity: canMoveDown ? 1 : 0.3, fontSize: 11, padding: 0 }}>▼</button>
@@ -129,7 +129,7 @@ function StageRow({ stage, canMoveUp, canMoveDown, onMoveUp, onMoveDown, onUpdat
       }}>
         {stage.label}
       </span>
-      <code style={{ fontSize: 10.5, color: '#9b9b9b' }}>{stage.stage_key}</code>
+      <code style={{ fontSize: 10.5, color: 'var(--text-muted)' }}>{stage.stage_key}</code>
       <input
         value={label}
         onChange={(e) => setLabel(e.target.value)}
@@ -139,11 +139,11 @@ function StageRow({ stage, canMoveUp, canMoveDown, onMoveUp, onMoveDown, onUpdat
       />
       <input type="color" value={stage.color_bg} onChange={(e) => onUpdate({ color_bg: e.target.value })} disabled={disabled} title="צבע רקע" />
       <input type="color" value={stage.color_fg} onChange={(e) => onUpdate({ color_fg: e.target.value })} disabled={disabled} title="צבע טקסט" />
-      <label style={{ fontSize: 11.5, display: 'flex', alignItems: 'center', gap: 4, color: stage.is_won_stage ? '#0d9488' : '#9b9b9b' }}>
+      <label style={{ fontSize: 11.5, display: 'flex', alignItems: 'center', gap: 4, color: stage.is_won_stage ? 'var(--green)' : 'var(--text-muted)' }}>
         <input type="checkbox" checked={stage.is_won_stage} onChange={onSetWon} disabled={disabled} />
         שלב-ניצחון
       </label>
-      <button type="button" onClick={onDelete} disabled={disabled} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: '#b23b2f', fontSize: 12, cursor: 'pointer' }}>
+      <button type="button" onClick={onDelete} disabled={disabled} style={{ marginInlineStart: 'auto', background: 'none', border: 'none', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>
         🗑 מחיקה
       </button>
     </div>

@@ -90,7 +90,7 @@ export default function BulkAutoMergeSection() {
         )}
       </div>
 
-      {error && <div style={{ color: '#b23b2f', fontSize: 12.5, marginTop: 10 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--red)', fontSize: 12.5, marginTop: 10 }}>{error}</div>}
 
       {preview && (
         <div style={{ marginTop: 12, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 12px' }}>
@@ -115,7 +115,7 @@ export default function BulkAutoMergeSection() {
       )}
 
       {result && (
-        <div style={{ marginTop: 12, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '10px 12px', fontSize: 12.5 }}>
+        <div style={{ marginTop: 12, background: 'var(--green-bg)', border: '1px solid var(--green)', borderRadius: 6, padding: '10px 12px', fontSize: 12.5 }}>
           <ul style={{ margin: 0, paddingRight: 18 }}>
             <li>{result.merged} זוגות מוזגו אוטומטית</li>
             {result.skippedChained > 0 && <li>{result.skippedChained} זוגות דולגו - כבר מוזגו במסגרת שרשור באותה ריצה</li>}

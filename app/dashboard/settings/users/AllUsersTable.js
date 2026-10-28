@@ -96,7 +96,7 @@ function UserRow({ user: u, workspaces, currentUserId }) {
   return (
     <>
       <tr>
-        <td style={{ padding: '8px 18px', borderBottom: '1px solid #f2f2f2', whiteSpace: 'nowrap' }}>
+        <td style={{ padding: '8px 18px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>
           <div style={{ fontWeight: 500 }}>{u.name}</div>
           <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{u.email}</div>
         </td>
@@ -104,7 +104,7 @@ function UserRow({ user: u, workspaces, currentUserId }) {
           const role = u.memberships[w.id] || '';
           const isSelfOwnerHere = u.id === currentUserId && role === 'owner';
           return (
-            <td key={w.id} style={{ padding: '8px 10px', borderBottom: '1px solid #f2f2f2', textAlign: 'center' }}>
+            <td key={w.id} style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', textAlign: 'center' }}>
               <select
                 value={role}
                 disabled={isPending || isSelfOwnerHere}
@@ -119,7 +119,7 @@ function UserRow({ user: u, workspaces, currentUserId }) {
             </td>
           );
         })}
-        <td style={{ padding: '8px 10px', borderBottom: '1px solid #f2f2f2', textAlign: 'center', whiteSpace: 'nowrap' }}>
+        <td style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', textAlign: 'center', whiteSpace: 'nowrap' }}>
           <button
             onClick={() => setExpanded((v) => !v)}
             disabled={isPending}
@@ -132,7 +132,7 @@ function UserRow({ user: u, workspaces, currentUserId }) {
 
       {expanded && (
         <tr>
-          <td colSpan={workspaces.length + 2} style={{ padding: 0, borderBottom: '1px solid #f2f2f2' }}>
+          <td colSpan={workspaces.length + 2} style={{ padding: 0, borderBottom: '1px solid var(--border)' }}>
             <div style={{
               margin: '0 18px 14px', background: 'var(--bg-secondary)', border: '1px solid var(--border)',
               borderRadius: 8, padding: 14, display: 'flex', flexDirection: 'column', gap: 12,
@@ -222,11 +222,11 @@ function UserRow({ user: u, workspaces, currentUserId }) {
 
               {resetResult?.success && (
                 <div style={{
-                  background: 'var(--amber-bg)', border: '1px solid #fde68a',
+                  background: 'var(--amber-bg)', border: '1px solid var(--amber)',
                   borderRadius: 8, padding: '10px 14px', fontSize: 12.5,
                 }}>
                   הסיסמה עבור {u.name}: <b style={{ fontFamily: 'monospace' }}>{resetResult.password}</b>
-                  <div style={{ fontSize: 11, color: '#92400e', marginTop: 3 }}>מוצגת פעם אחת — תעתיק ותשלח עכשיו.</div>
+                  <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 3 }}>מוצגת פעם אחת — תעתיק ותשלח עכשיו.</div>
                 </div>
               )}
               {resetResult?.error && (

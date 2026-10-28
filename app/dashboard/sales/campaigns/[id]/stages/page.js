@@ -24,7 +24,7 @@ export default async function CampaignStagesPage({ params }) {
     return (
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 24px' }}>
         <a href={`/dashboard/sales/campaigns/${campaign.id}`} style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה לקמפיין</a>
-        <div style={{ marginTop: 20, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: '#92400e' }}>
+        <div style={{ marginTop: 20, background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: 'var(--amber)' }}>
           רק owner/admin של המחלקה יכול לערוך שלבי קמפיין.
         </div>
       </div>

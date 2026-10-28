@@ -36,7 +36,7 @@ export default function CaseTableRow({ c, agents }) {
             </Link>
             <Link
               href={`/dashboard/service/cases/${c.id}`} title="התקשרות - פותח את מסך-הטיפול"
-              style={{ display: 'flex', alignItems: 'center', gap: 3, fontWeight: 700, fontSize: 10.5, background: 'var(--k-accent)', color: '#fff', borderRadius: 100, padding: '3px 9px', textDecoration: 'none' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 3, fontWeight: 700, fontSize: 10.5, background: 'var(--k-accent)', color: '#fff', borderRadius: 8, padding: '3px 9px', textDecoration: 'none' }}
             >
               <PhoneIcon size={10} />
             </Link>

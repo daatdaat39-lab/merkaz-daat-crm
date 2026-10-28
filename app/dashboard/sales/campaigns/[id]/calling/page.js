@@ -22,7 +22,7 @@ export default async function CampaignCallingPage({ params }) {
     return (
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 24px' }}>
         <a href="/dashboard/sales/campaigns/calling" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה</a>
-        <div style={{ marginTop: 20, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: '#92400e' }}>
+        <div style={{ marginTop: 20, background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: 'var(--amber)' }}>
           אין לך גישה לקמפיין הזה.
         </div>
       </div>
@@ -37,7 +37,7 @@ export default async function CampaignCallingPage({ params }) {
     return (
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '28px 24px' }}>
         <a href="/dashboard/sales/campaigns/calling" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>← חזרה</a>
-        <div style={{ marginTop: 20, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: '#92400e' }}>
+        <div style={{ marginTop: 20, background: 'var(--amber-bg)', border: '1px solid var(--amber)', borderRadius: 8, padding: '12px 16px', fontSize: 12.5, color: 'var(--amber)' }}>
           הקמפיין הזה סגור לטלפניה כרגע.
         </div>
       </div>

@@ -75,7 +75,7 @@ export default async function ImportDataPage() {
         {pendingConflicts > 0 && (
           <a href="/dashboard/settings/import-conflicts" style={{
             display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 6,
-            fontSize: 13, fontWeight: 500, textDecoration: 'none', background: '#fffbeb', color: '#92400e', border: '1px solid #fde68a',
+            fontSize: 13, fontWeight: 500, textDecoration: 'none', background: 'var(--amber-bg)', color: 'var(--amber)', border: '1px solid var(--amber)',
           }}>
             ⚠ {pendingConflicts} קונפליקטים ממתינים לבדיקה
           </a>

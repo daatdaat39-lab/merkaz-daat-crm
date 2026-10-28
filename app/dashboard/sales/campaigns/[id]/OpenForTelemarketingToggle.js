@@ -24,8 +24,8 @@ export default function OpenForTelemarketingToggle({ campaignId, initialOpen }) 
       type="button" onClick={handleClick} disabled={isPending}
       title={open ? 'לחצו כדי לסגור את הקמפיין לטלפנים' : 'לחצו כדי לפתוח את הקמפיין לטלפנים'}
       style={{
-        fontSize: 12.5, color: open ? '#1f4d3d' : 'var(--text-secondary)', textDecoration: 'none',
-        border: `1px solid ${open ? '#1f4d3d' : 'var(--border, #e5e5e5)'}`, background: open ? '#e7f0ea' : 'transparent',
+        fontSize: 12.5, color: open ? 'var(--green)' : 'var(--text-secondary)', textDecoration: 'none',
+        border: `1px solid ${open ? 'var(--green)' : 'var(--border, #e5e5e5)'}`, background: open ? 'var(--green-bg)' : 'transparent',
         borderRadius: 6, padding: '6px 12px', whiteSpace: 'nowrap', cursor: 'pointer',
       }}
     >
