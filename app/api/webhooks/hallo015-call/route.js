@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { normalizePhone } from '../../../../lib/hallo015/config';
 
-// נקודת קצה שאליה מערכת הטלפוניה hallo015 (015) שולחת webhook בכל סיום
-// שיחה (אירוע "Hangup", מוגדר ידנית בפאנל שלהם - Features ← Webhooks).
-// מאובטח בטוקן בפרמטר ה-URL, נכשל-סגור אם הסוד לא מוגדר בשרת - אותו
-// דפוס בדיוק כמו /api/webhooks/inforu-whatsapp ו-/api/cron/poll-emails.
+// נקודת קצה שאליה מערכת הטלפוניה hallo015 (015) שולחת webhook - **שתי**
+// תבניות מוגדרות ידנית בפאנל שלהם (Features ← Web Urls Templates),
+// לאותו URL/טוקן בדיוק: אחת לאירוע "Calling" (תחילת-שיחה/צלצול - מפעילה
+// הקפצת-מסך בזמן-אמת, ר' להלן) ואחת לאירוע "Hangup" (סיום-שיחה - מעדכנת
+// את שורת phone_calls עם הפרטים-הסופיים). מאובטח בטוקן בפרמטר ה-URL,
+// נכשל-סגור אם הסוד לא מוגדר בשרת - אותו דפוס בדיוק כמו
+// /api/webhooks/inforu-whatsapp ו-/api/cron/poll-emails.
 // לא ברור מראש איזה מהמספרים (snumber/dnumber) הוא הצד החיצוני, אז
 // מנסים להתאים איש קשר לפי שניהם.
 
@@ -89,14 +92,17 @@ export async function POST(request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // הקפצת-מסך (שלב 5) - **אחרי**-שיחה, לא באמצע (ר' ההערה למעלה: אין
-  // לנו webhook על תחילת-שיחה). רק לשיחות-נכנסות (direction שונה מ-
-  // 'outbound', אותה מוסכמה כמו בתצוגה הקיימת ב-ContactTabs.js) עם
+  // הקפצת-מסך - ברגע-הצלצול (אירוע "Calling", לא "Hangup" יותר - ר'
+  // ההערה למעלה). קריטי: מגודר **רק** ל-Calling - אחרת שני האירועים
+  // (Calling+Hangup) לאותה שיחה ייצרו שתי שורות-cti_call_events ושני
+  // טוסטים-כפולים לנציג על שיחה אחת. רק לשיחות-נכנסות (direction שונה
+  // מ-'outbound', אותה מוסכמה כמו בתצוגה הקיימת ב-ContactTabs.js) עם
   // ניתוב-קו מוגדר (cti_line_routing, migration 0153) - בלי ניתוב, אין
   // workspace לשייך את ההתראה אליו, אז מדלגים בשקט (הרישום ב-phone_calls
   // כבר קרה למעלה, לא תלוי בזה).
   const isInbound = body.direction !== 'outbound';
-  if (isInbound && dnumber) {
+  const isCallingEvent = (body.status || '').toString().trim().toLowerCase() === 'calling';
+  if (isCallingEvent && isInbound && dnumber) {
     const { data: routing } = await supabase.from('cti_line_routing').select('workspace_id').eq('dnumber', dnumber).maybeSingle();
     if (routing?.workspace_id) {
       let departmentId = null;

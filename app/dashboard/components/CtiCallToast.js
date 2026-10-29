@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../../lib/supabase/client';
+import { PhoneIcon } from './icons';
 
-// התראה-אחרי-שיחה (שלב 5, סוכם מול המשתמש - ה-webhook של 015 נשלח רק
-// ב-Hangup, אין לנו webhook על תחילת-שיחה, אז אין הקפצה-אמיתית-באמצע-
-// שיחה. זו התראה אחרי שהשיחה כבר הסתיימה). מאזינה ל-cti_call_events
-// (migration 0153) באותו דפוס בדיוק כמו NewLeadToast/PendingAutomationWatcher.
+// הקפצת-מסך בזמן-אמת - ה-webhook של 015 נרשם גם לאירוע "Calling" (תחילת-
+// שיחה/צלצול, לא רק "Hangup"), אז השורה ב-cti_call_events נוצרת ברגע-
+// הצלצול עצמו (ר' app/api/webhooks/hallo015-call/route.js). מאזינה
+// ל-cti_call_events (migration 0153) באותו דפוס בדיוק כמו
+// NewLeadToast/PendingAutomationWatcher.
 // agent_id=null = שידור-למחלקה (כל מי שפתוח על ה-workspace הזה כרגע);
 // agent_id מוגדר = מיועד לנציג ספציפי - שאר הטאבים מתעלמים.
 export default function CtiCallToast({ workspaceId, userId }) {
@@ -58,7 +60,7 @@ export default function CtiCallToast({ workspaceId, userId }) {
         display: 'flex', alignItems: 'center', gap: 14, minWidth: 280,
       }}
     >
-      <span style={{ fontSize: 26 }}>☎️</span>
+      <PhoneIcon size={24} style={{ color: '#fff' }} />
       <span>
         <div style={{ fontWeight: 700, fontSize: 15 }}>שיחה נכנסת{toast.contactName ? ` מ${toast.contactName}` : ' - מספר לא מזוהה'}</div>
         <div style={{ fontSize: 12.5, color: '#dbe7fc', marginTop: 3 }}>
