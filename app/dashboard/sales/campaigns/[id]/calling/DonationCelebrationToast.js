@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '../../../../../../lib/supabase/client';
 import { getCelebrationInfo } from '../callQueueActions';
+import { SparkleIcon } from '../../../../components/icons';
 
 // "מישהו הצליח!" - Realtime על INSERT ל-campaign_call_attempts, מסונן
 // לפי campaign_id (עמודה חדשה, migration 0099) - אותו דפוס בדיוק כמו
@@ -46,7 +47,7 @@ export default function DonationCelebrationToast({ campaignId }) {
         animation: 'donationToastIn 0.3s ease-out',
       }}
     >
-      <span style={{ fontSize: 30 }}>🎉</span>
+      <SparkleIcon size={28} style={{ color: '#fff' }} />
       <span>
         <div style={{ fontWeight: 700, fontSize: 16 }}>
           {toast.contactName || 'מישהו'} תרם/ה{toast.amount ? ` ₪${Number(toast.amount).toLocaleString()}` : ''}!

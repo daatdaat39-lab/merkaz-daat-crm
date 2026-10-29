@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { SparkleIcon } from './icons';
 
 // מאזין לאירועי celebrate() ומציג בועה קטנה חוגגת בפינת המסך למשך
 // כמה שניות - מותקן פעם אחת ב-layout, בלי שום קומפוננטה אחרת צריכה
@@ -24,11 +25,13 @@ export default function CelebrationHost() {
     <div
       style={{
         position: 'fixed', top: 28, left: '50%', transform: 'translateX(-50%)', zIndex: 2000,
-        background: 'var(--bg)', color: '#0a0a0a', borderRadius: 16, padding: '18px 34px',
-        fontSize: 18, fontWeight: 700, boxShadow: '0 16px 44px rgba(0,0,0,0.18)',
-        border: '1px solid #eee', animation: 'crmCelebrateIn 0.28s ease-out', whiteSpace: 'nowrap',
+        background: 'var(--bg)', color: 'var(--text)', borderRadius: 16, padding: '18px 34px',
+        fontSize: 18, fontWeight: 700, boxShadow: 'var(--shadow-md)',
+        border: '1px solid var(--border)', animation: 'crmCelebrateIn 0.28s ease-out', whiteSpace: 'nowrap',
+        display: 'flex', alignItems: 'center', gap: 10,
       }}
     >
+      <SparkleIcon size={18} style={{ color: 'var(--accent)' }} />
       {toast}
       <style>{`
         @keyframes crmCelebrateIn {

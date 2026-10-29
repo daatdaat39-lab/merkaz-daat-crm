@@ -185,7 +185,7 @@ export default async function DashboardHome() {
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px', background: 'var(--k-bg)', minHeight: '100%' }}>
       <div style={{ marginBottom: 22 }}>
         <h1 style={{ fontFamily: 'var(--k-font-display)', margin: 0, fontSize: 30, color: 'var(--k-text)' }}>
-          {timeGreeting()}, {profile?.name || ''} 👋
+          {timeGreeting()}, {profile?.name || ''}
         </h1>
         <p style={{ margin: '6px 0 0', color: 'var(--k-text-muted)', fontSize: 12.5 }}>
           {randomPraise()} · סקירה כללית של ה-workspace הפעיל

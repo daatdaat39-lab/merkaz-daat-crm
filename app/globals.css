@@ -6,8 +6,8 @@
   --bg: #ffffff;
   --bg-secondary: #f4f6fa;
   --bg-tertiary: #e9edf5;
-  --border: #dce2ec;
-  --border-strong: #c3ccdc;
+  --border: #c7d1e0;
+  --border-strong: #adb9cc;
   --text: #0a1a2f;
   --text-secondary: #46566e;
   --text-muted: #8a96ac;
@@ -29,9 +29,9 @@
   --radius-sm: 2px;
   --radius-lg: 8px;
   --radius-xl: 12px;
-  --shadow: 0 1px 0 rgba(10,26,47,0.04);
+  --shadow: 0 1px 2px rgba(10,26,47,0.06);
   --shadow-md: 0 4px 12px rgba(10,26,47,0.08);
-  --shadow-soft: 0 1px 0 rgba(10,26,47,0.04);
+  --shadow-soft: 0 1px 3px rgba(10,26,47,0.07), 0 1px 0 rgba(10,26,47,0.04);
   --shadow-hover: 0 4px 12px rgba(10,26,47,0.08);
   --surface-hover: #eef1f7;
   --font-heading: "Space Grotesk", "Heebo", sans-serif;
@@ -83,9 +83,9 @@
   --red-bg: #2e1414;
   --purple: #c9a0d6;
   --purple-bg: #2a1f30;
-  --shadow: 0 1px 0 rgba(0,0,0,0.3);
+  --shadow: 0 1px 2px rgba(0,0,0,0.3);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.45);
-  --shadow-soft: 0 1px 0 rgba(0,0,0,0.3);
+  --shadow-soft: 0 1px 3px rgba(0,0,0,0.3), 0 1px 0 rgba(0,0,0,0.2);
   --shadow-hover: 0 4px 12px rgba(0,0,0,0.45);
   --surface-hover: #15335a;
   --k-bg: #0a1a2f;
