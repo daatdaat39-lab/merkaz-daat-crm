@@ -185,3 +185,55 @@ export function LogoutIcon(props) {
 export function BellIcon(props) {
   return <Svg {...props}><path d="M6 10a6 6 0 1 1 12 0c0 4 1.5 5.5 1.5 5.5h-15S6 14 6 10z" /><path d="M10 19a2 2 0 0 0 4 0" /></Svg>;
 }
+
+// אייקוני-דשבורד-הבית (פגישות/"דורש טיפול") - מחליפים את האימוג'ים
+// (🔔📅⚠️🔴⏳💤💳ℹ️📥💰) באותו-דפוס-SVG.
+export function DotIcon(props) {
+  return <Svg filled {...props}><circle cx="12" cy="12" r="6" /></Svg>;
+}
+
+export function HourglassIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M6 3h12M6 21h12" />
+      <path d="M7 3c0 4 2.5 5.5 5 7.2M17 3c0 4-2.5 5.5-5 7.2M7 21c0-4 2.5-5.5 5-7.2M17 21c0-4-2.5-5.5-5-7.2" />
+    </Svg>
+  );
+}
+
+export function MoonIcon(props) {
+  return <Svg filled {...props}><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z" /></Svg>;
+}
+
+export function CreditCardIcon(props) {
+  return <Svg {...props}><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10.5h18" /></Svg>;
+}
+
+export function InfoIcon(props) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="8.3" r="0.6" fill="currentColor" stroke="none" />
+      <path d="M12 11.5v5" />
+    </Svg>
+  );
+}
+
+export function InboxDownIcon(props) {
+  return (
+    <Svg {...props}>
+      <path d="M4 12h3.5l1.5 2.5h6L16.5 12H20" />
+      <path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
+      <path d="M4 12L6.5 5h11L20 12" />
+    </Svg>
+  );
+}
+
+export function CoinsIcon(props) {
+  return (
+    <Svg {...props}>
+      <circle cx="9" cy="9" r="5.5" />
+      <path d="M14.5 7.3a5.5 5.5 0 1 1 0 9.4" />
+    </Svg>
+  );
+}

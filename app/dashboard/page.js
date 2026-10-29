@@ -6,6 +6,7 @@ import { randomPraise } from './components/celebrate';
 import QuickAssignSelect from './QuickAssignSelect';
 import { isManagerOfWorkspace } from './lib/contactGuards';
 import { kpiTile, sectionLabel } from './components/designTokens';
+import { BellIcon, CalendarIcon, WarningIcon, DotIcon, HourglassIcon, MoonIcon, CreditCardIcon, InfoIcon, InboxDownIcon, CoinsIcon } from './components/icons';
 
 function timeGreeting() {
   const hour = new Date().getHours();
@@ -263,7 +264,7 @@ export default async function DashboardHome() {
                   display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid var(--k-border)', fontSize: 13,
                   background: soon ? 'var(--k-caution-bg)' : 'transparent',
                 }}>
-                  <span style={{ fontSize: 14 }}>{soon ? '🔔' : isToday ? '📅' : '🗓️'}</span>
+                  {soon ? <BellIcon size={15} style={{ color: 'var(--k-caution-text)' }} /> : <CalendarIcon size={15} style={{ color: isToday ? 'var(--k-text)' : 'var(--k-text-muted)' }} />}
                   <b style={{ color: 'var(--k-text)' }}>{m.contacts?.first} {m.contacts?.last}</b>
                   <span style={{ color: soon ? 'var(--k-caution-text)' : 'var(--k-text-muted)', fontWeight: soon ? 600 : 400 }}>
                     {isToday ? `היום · ${m.meeting_time?.slice(0, 5)}` : `${new Date(m.meeting_date).toLocaleDateString('he-IL')} · ${m.meeting_time?.slice(0, 5)}`}
@@ -278,8 +279,8 @@ export default async function DashboardHome() {
 
       {isDonationsManager && (
         <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden', marginTop: 12 }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--k-border)', fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)' }}>
-            ⚠ דורש טיפול — מנהל מחלקה
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--k-border)', fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <WarningIcon size={16} /> דורש טיפול — מנהל מחלקה
           </div>
           <div>
             {pendingLeadsCount > 0 && (
@@ -287,13 +288,13 @@ export default async function DashboardHome() {
                 display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px',
                 borderBottom: '1px solid var(--k-border)', fontSize: 13, textDecoration: 'none', color: 'var(--k-text)', background: 'var(--k-caution-bg)',
               }}>
-                <span style={{ fontSize: 14 }}>📥</span>
+                <InboxDownIcon size={15} style={{ color: 'var(--k-caution-text)' }} />
                 <b>{pendingLeadsCount} לידים ממתינים לאישור ושיוך נציג</b>
               </Link>
             )}
             {creditIssues.map((row) => (
               <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid var(--k-border)', fontSize: 13, background: 'var(--k-danger-bg)' }}>
-                <span style={{ fontSize: 14 }}>⚠</span>
+                <WarningIcon size={15} style={{ color: 'var(--k-danger-text)' }} />
                 <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'var(--k-text)', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
                 <span style={{ color: 'var(--k-danger-text)', fontWeight: 600 }}>תקלה בחיוב / אשראי נכשל</span>
                 <span style={{ marginInlineStart: 'auto' }}>
@@ -303,7 +304,7 @@ export default async function DashboardHome() {
             ))}
             {endingSoon.map((row) => (
               <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid var(--k-border)', fontSize: 13, background: row.remaining <= 0 ? 'var(--k-danger-bg)' : 'transparent' }}>
-                <span style={{ fontSize: 14 }}>{row.remaining <= 0 ? '🔴' : '⏳'}</span>
+                {row.remaining <= 0 ? <DotIcon size={11} style={{ color: 'var(--k-danger-text)' }} /> : <HourglassIcon size={15} style={{ color: 'var(--k-caution-text)' }} />}
                 <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'var(--k-text)', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
                 <span style={{ color: row.remaining <= 0 ? 'var(--k-danger-text)' : 'var(--k-caution-text)', fontWeight: 600 }}>
                   {row.remaining <= 0
@@ -319,7 +320,7 @@ export default async function DashboardHome() {
               const days = Math.floor((Date.now() - new Date(row.last_activity_at).getTime()) / 86400000);
               return (
                 <div key={row.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 18px', borderBottom: '1px solid var(--k-border)', fontSize: 13 }}>
-                  <span style={{ fontSize: 14 }}>💤</span>
+                  <MoonIcon size={14} style={{ color: 'var(--k-text-muted)' }} />
                   <Link href={`/dashboard/contacts/${row.contact_id}`} style={{ color: 'var(--k-text)', textDecoration: 'none', fontWeight: 700 }}>{row.contacts?.first} {row.contacts?.last}</Link>
                   <span style={{ color: 'var(--k-text-muted)' }}>{days} ימים בלי אינטראקציה</span>
                   <span style={{ marginInlineStart: 'auto' }}>
@@ -331,8 +332,8 @@ export default async function DashboardHome() {
             {pendingLeadsCount === 0 && creditIssues.length === 0 && endingSoon.length === 0 && silentDonors.length === 0 && (
               <div style={{ padding: '14px 18px', fontSize: 13, color: 'var(--k-text-muted)' }}>אין פריטים שדורשים טיפול</div>
             )}
-            <div style={{ padding: '10px 18px', fontSize: 11.5, color: 'var(--k-text-muted)', background: 'var(--k-bg)' }}>
-              ℹ️ תקלות אשראי מסומנות כרגע ידנית (שלב "תקלה בחיוב" בכרטיס) — זיהוי אוטומטי יתווסף לאחר חיבור מערכת "קשר" בחיות.
+            <div style={{ padding: '10px 18px', fontSize: 11.5, color: 'var(--k-text-muted)', background: 'var(--k-bg)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <InfoIcon size={13} /> תקלות אשראי מסומנות כרגע ידנית (שלב "תקלה בחיוב" בכרטיס) — זיהוי אוטומטי יתווסף לאחר חיבור מערכת "קשר" בחיות.
             </div>
           </div>
         </div>
@@ -340,7 +341,9 @@ export default async function DashboardHome() {
 
       {isDonationsManager && openPledgesCount > 0 && (
         <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden', marginTop: 12, padding: '14px 18px' }}>
-          <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)', marginBottom: 4 }}>💰 צפי הכנסות פתוחות (הבטחות תרומה)</div>
+          <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <CoinsIcon size={17} style={{ color: 'var(--k-accent)' }} /> צפי הכנסות פתוחות (הבטחות תרומה)
+          </div>
           <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 26, color: 'var(--k-accent)' }}>₪{openPledgesTotal.toLocaleString('he-IL')}</div>
           <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>{openPledgesCount} הבטחות תרומה שטרם מומשו</div>
         </div>
@@ -348,8 +351,8 @@ export default async function DashboardHome() {
 
       {isDonationsWorkspace && (
         <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden', marginTop: 12 }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--k-border)', fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)' }}>
-            🔔 חיובי הוראת קבע קרובים (7 ימים)
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--k-border)', fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BellIcon size={16} /> חיובי הוראת קבע קרובים (7 ימים)
           </div>
           <div>
             {upcomingCharges.length === 0 && (
@@ -368,7 +371,7 @@ export default async function DashboardHome() {
                     background: overdue ? 'var(--k-danger-bg)' : days <= 1 ? 'var(--k-caution-bg)' : 'transparent',
                   }}
                 >
-                  <span style={{ fontSize: 14 }}>{overdue ? '⚠' : days <= 1 ? '🔔' : '💳'}</span>
+                  {overdue ? <WarningIcon size={15} style={{ color: 'var(--k-danger-text)' }} /> : days <= 1 ? <BellIcon size={15} style={{ color: 'var(--k-caution-text)' }} /> : <CreditCardIcon size={15} style={{ color: 'var(--k-text-muted)' }} />}
                   <b>{row.contacts?.first} {row.contacts?.last}</b>
                   <span style={{ color: overdue ? 'var(--k-danger-text)' : days <= 1 ? 'var(--k-caution-text)' : 'var(--k-text-muted)', fontWeight: overdue || days <= 1 ? 600 : 400 }}>
                     {new Date(row.nextChargeDate).toLocaleDateString('he-IL')}
