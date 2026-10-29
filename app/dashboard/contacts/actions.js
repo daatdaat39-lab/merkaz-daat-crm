@@ -9,6 +9,7 @@ import { isManagerOfAnyDepartment, isManagerOfWorkspace, isManagerOfAnyWorkspace
 import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/whatsapp';
+import { makeCall } from '../../../lib/hallo015/clickToDial';
 import { summarizeContact } from '../../../lib/ai/summarizeContact';
 import { generateAndSendOtp, verifyOtp } from '../lib/otp';
 import { applyStageAutomations } from '../lib/stageAutomations';
@@ -1422,4 +1423,26 @@ export async function markShareRead(shareId) {
     .eq('to_user', user.id);
   if (error) return { error: error.message };
   return { success: true };
+}
+
+// חיוג-יזום (click-to-dial, ר' lib/hallo015/clickToDial.js) - מרימה
+// שיחה בת-שני-רגליים: קודם מצלצלת לשלוחת-015 של הנציג המחובר, וברגע
+// שהוא עונה מחברת אותו ללקוח. השיחה עצמה (direction=outbound) נרשמת
+// אוטומטית ב-phone_calls דרך ה-webhook הקיים (hallo015-call/route.js) -
+// אין צורך בשום כתיבה כפולה כאן.
+export async function dialContact(contactId) {
+  const { supabase, user } = await requireUser();
+
+  const { data: profile } = await supabase.from('profiles').select('hallo015_extension').eq('id', user.id).single();
+  if (!profile?.hallo015_extension) return { error: 'לא הוגדרה לך שלוחת-015 - פנה למנהל המערכת' };
+
+  const { data: contact } = await supabase.from('contacts').select('phone').eq('id', contactId).single();
+  if (!contact?.phone) return { error: 'לאיש הקשר אין מספר טלפון שמור' };
+
+  try {
+    await makeCall({ fromExtension: profile.hallo015_extension, toNumber: contact.phone });
+    return { success: true };
+  } catch (e) {
+    return { error: e.message };
+  }
 }

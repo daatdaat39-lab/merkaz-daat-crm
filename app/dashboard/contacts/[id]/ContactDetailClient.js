@@ -22,6 +22,7 @@ import ContactTabs from './ContactTabs';
 import EmailComposeModal from './EmailComposeModal';
 import WhatsAppSendModal from './WhatsAppSendModal';
 import NotConnectedButton from '../../components/NotConnectedButton';
+import DialButton from '../../components/DialButton';
 import AiSummaryButton from './AiSummaryButton';
 import ImportConflictsBanner from './ImportConflictsBanner';
 import { celebrate } from '../../components/celebrate';
@@ -336,7 +337,11 @@ export default function ContactDetailClient({
           בתהליכים-משניים. שינוי-שלב עדיין אפשרי משם (CampaignProcessCard). */}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        <NotConnectedButton label="חיוג" icon={<PhoneIcon size={14} />} message="חיוג מתוך המערכת (ימות המשיח) — עדיין לא מחובר" />
+        {contact.phone && !contact.frozen ? (
+          <DialButton contactId={contact.id} />
+        ) : (
+          <NotConnectedButton label="חיוג" icon={<PhoneIcon size={14} />} message={!contact.phone ? 'לאיש הקשר אין מספר טלפון שמור' : 'איש הקשר מוקפא'} />
+        )}
         {contact.phone && active && !contact.frozen ? (
           <button
             onClick={() => { setWhatsappInitialMessage(''); setWhatsappOpen(true); }}

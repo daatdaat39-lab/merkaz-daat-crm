@@ -55,7 +55,7 @@ export default async function UsersManagementPage() {
         .order('created_at', { ascending: true });
       allWorkspaces = workspaces || [];
 
-      const { data: profiles } = await admin.from('profiles').select('id, name');
+      const { data: profiles } = await admin.from('profiles').select('id, name, hallo015_extension');
       const { data: memberships } = await admin.from('workspace_members').select('workspace_id, user_id, role');
 
       const membershipMap = {};
@@ -71,6 +71,7 @@ export default async function UsersManagementPage() {
           name: p.name || 'משתמש',
           email: emailsById[p.id] || '',
           memberships: membershipMap[p.id] || {},
+          hallo015Extension: p.hallo015_extension || '',
         }));
     } else if (canManage) {
       const { data: memberRows } = await admin
@@ -83,7 +84,7 @@ export default async function UsersManagementPage() {
       if (userIds.length > 0) {
         const { data: profileRows } = await admin
           .from('profiles')
-          .select('id, name')
+          .select('id, name, hallo015_extension')
           .in('id', userIds);
         profilesById = Object.fromEntries((profileRows || []).map((p) => [p.id, p]));
       }
@@ -149,6 +150,7 @@ export default async function UsersManagementPage() {
               email={m.email}
               allMemberships={m.allMemberships}
               isSelf={m.user_id === user.id}
+              hallo015Extension={m.profiles?.hallo015_extension || ''}
             />
           ))}
         </div>

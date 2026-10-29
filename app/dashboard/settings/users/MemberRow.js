@@ -3,10 +3,10 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  setMembership, resetMemberPassword, changeMemberEmail, setMemberPassword, updateMemberName,
+  setMembership, resetMemberPassword, changeMemberEmail, setMemberPassword, updateMemberName, updateMemberExtension,
 } from './actions';
 
-export default function MemberRow({ userId, name, role, workspaceId, email, allMemberships, isSelf }) {
+export default function MemberRow({ userId, name, role, workspaceId, email, allMemberships, isSelf, hallo015Extension }) {
   const [isPending, startTransition] = useTransition();
   const [resetResult, setResetResult] = useState(null);
   const [nameValue, setNameValue] = useState(name || '');
@@ -15,6 +15,8 @@ export default function MemberRow({ userId, name, role, workspaceId, email, allM
   const [emailResult, setEmailResult] = useState(null);
   const [customPassword, setCustomPassword] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const [extensionValue, setExtensionValue] = useState(hallo015Extension || '');
+  const [extensionResult, setExtensionResult] = useState(null);
   const router = useRouter();
 
   function handleSaveName() {
@@ -64,6 +66,15 @@ export default function MemberRow({ userId, name, role, workspaceId, email, allM
     startTransition(async () => {
       const res = await changeMemberEmail(userId, emailValue);
       setEmailResult(res);
+      if (res.success) router.refresh();
+    });
+  }
+
+  function handleSaveExtension() {
+    if (extensionValue === (hallo015Extension || '')) return;
+    startTransition(async () => {
+      const res = await updateMemberExtension(userId, extensionValue);
+      setExtensionResult(res);
       if (res.success) router.refresh();
     });
   }
@@ -223,6 +234,34 @@ export default function MemberRow({ userId, name, role, workspaceId, email, allM
           {resetResult?.error && (
             <div style={{ fontSize: 12, color: 'var(--red)' }}>שגיאה: {resetResult.error}</div>
           )}
+
+          {/* שלוחת 015 (חיוג-יזום) */}
+          <div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
+              שלוחת 015 (לחיוג-יזום מהמערכת — לפי "Telephone lines" בפאנל של 015)
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                value={extensionValue}
+                onChange={(e) => setExtensionValue(e.target.value)}
+                type="text"
+                placeholder="למשל: 5668598446"
+                style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
+              />
+              <button
+                onClick={handleSaveExtension}
+                disabled={isPending || extensionValue === (hallo015Extension || '')}
+                style={{
+                  background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6,
+                  padding: '7px 14px', fontSize: 12.5, cursor: 'pointer', opacity: extensionValue === (hallo015Extension || '') ? 0.5 : 1,
+                }}
+              >
+                עדכון
+              </button>
+            </div>
+            {extensionResult?.success && <div style={{ fontSize: 11.5, color: 'var(--green)', marginTop: 4 }}>✓ השלוחה עודכנה</div>}
+            {extensionResult?.error && <div style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4 }}>שגיאה: {extensionResult.error}</div>}
+          </div>
         </div>
       )}
     </div>

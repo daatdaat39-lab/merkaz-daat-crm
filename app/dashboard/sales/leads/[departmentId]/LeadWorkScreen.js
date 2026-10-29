@@ -6,6 +6,7 @@ import Link from 'next/link';
 import ThreeColumnScreen from '../../../components/ThreeColumnScreen';
 import UnifiedTimeline from '../../../components/UnifiedTimeline';
 import ContactQuickActions from '../../../components/ContactQuickActions';
+import DialButton from '../../../components/DialButton';
 import FillSection from '../../../components/FillSection';
 import QuickActivityLogForm from '../../../contacts/[id]/QuickActivityLogForm';
 import { PersonIcon, SparkleIcon, CheckIcon, CloseXIcon } from '../../../components/icons';
@@ -187,7 +188,7 @@ export default function LeadWorkScreen({
             )}
 
             <div style={sectionLabel}>פרטי יצירת קשר</div>
-            <div style={{ margin: '8px 0 16px' }}>
+            <div style={{ margin: '8px 0 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <ContactQuickActions
                 contact={{ id: contact.id, first: contact.first, phone: contact.phone, email: contact.email }}
                 departments={workspaceId ? [{ workspaceId, workspaceName }] : []}
@@ -195,6 +196,7 @@ export default function LeadWorkScreen({
                 whatsappTemplates={whatsappTemplates}
                 emailTemplates={emailTemplates}
               />
+              {contact.phone && <DialButton contactId={contact.id} />}
             </div>
 
             <div style={cardStyle}>

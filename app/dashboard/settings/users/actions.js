@@ -179,6 +179,28 @@ export async function updateMemberName(targetUserId, name) {
   return { success: true, name: name.trim() };
 }
 
+// שלוחת-015 של הנציג (חיוג-יזום, ר' lib/hallo015/clickToDial.js) - הערך
+// הארוך מרשימת "Telephone lines" בפאנל של 015 (למשל "5668598446"),
+// לא השלוחה-הקצרה. ריק = חיוג-יזום לא-זמין לנציג הזה (כפתור-נופל-חזרה
+// ל-NotConnectedButton).
+export async function updateMemberExtension(targetUserId, extension) {
+  const ctx = await getManagerContext();
+  if (!ctx) return { error: 'אין לך הרשאה' };
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    return { error: e.message };
+  }
+
+  const value = (extension || '').trim() || null;
+  const { error } = await admin.from('profiles').update({ hallo015_extension: value }).eq('id', targetUserId);
+  if (error) return { error: error.message };
+
+  return { success: true, extension: value };
+}
+
 export async function changeMemberEmail(targetUserId, newEmail) {
   const ctx = await getManagerContext();
   if (!ctx) return { error: 'אין לך הרשאה' };

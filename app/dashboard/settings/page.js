@@ -8,6 +8,7 @@ import { card, iconBlock, sectionLabel } from '../components/designTokens';
 import { isKesherConfigured } from '../../../lib/kesher/client';
 import { isInforuConfigured, isInforuWebhookConfigured } from '../../../lib/inforu/whatsapp';
 import { isHallo015Configured } from '../../../lib/hallo015/config';
+import { isClickToDialConfigured } from '../../../lib/hallo015/clickToDial';
 
 const SETTINGS_LINKS = [
   { href: '/dashboard/settings/users', icon: '👥', title: 'חברי הצוות', desc: 'ניהול משתמשים והרשאות' },
@@ -85,7 +86,10 @@ export default async function SettingsPage() {
         </div>
         {[
           {
-            label: 'טלפוניה (015)', desc: 'קליטת שיחות נכנסות + הקלטות (חיוג יוצא לא נתמך)',
+            label: 'טלפוניה (015)',
+            desc: isClickToDialConfigured()
+              ? 'קליטת שיחות נכנסות + הקלטות + חיוג-יזום מהמערכת'
+              : 'קליטת שיחות נכנסות + הקלטות (חיוג-יזום דורש הגדרת HALLO015_API_USERNAME/HALLO015_API_PASSWORD)',
             configured: isHallo015Configured(),
           },
           { label: 'SMS', desc: 'שליחה ידנית ואוטומטית', configured: false },

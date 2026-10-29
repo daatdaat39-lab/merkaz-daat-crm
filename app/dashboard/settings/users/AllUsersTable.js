@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { setMembership, resetMemberPassword, setMemberPassword, changeMemberEmail, updateMemberName } from './actions';
+import { setMembership, resetMemberPassword, setMemberPassword, changeMemberEmail, updateMemberName, updateMemberExtension } from './actions';
 
 export default function AllUsersTable({ workspaces, users, currentUserId }) {
   return (
@@ -48,6 +48,8 @@ function UserRow({ user: u, workspaces, currentUserId }) {
   const [emailResult, setEmailResult] = useState(null);
   const [customPassword, setCustomPassword] = useState('');
   const [resetResult, setResetResult] = useState(null);
+  const [extensionValue, setExtensionValue] = useState(u.hallo015Extension || '');
+  const [extensionResult, setExtensionResult] = useState(null);
   const router = useRouter();
 
   function handleSaveName() {
@@ -90,6 +92,15 @@ function UserRow({ user: u, workspaces, currentUserId }) {
     startTransition(async () => {
       const res = await resetMemberPassword(u.id);
       setResetResult(res);
+    });
+  }
+
+  function handleSaveExtension() {
+    if (extensionValue === (u.hallo015Extension || '')) return;
+    startTransition(async () => {
+      const res = await updateMemberExtension(u.id, extensionValue);
+      setExtensionResult(res);
+      if (res.success) router.refresh();
     });
   }
 
@@ -232,6 +243,33 @@ function UserRow({ user: u, workspaces, currentUserId }) {
               {resetResult?.error && (
                 <div style={{ fontSize: 12, color: 'var(--red)' }}>שגיאה: {resetResult.error}</div>
               )}
+
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                  שלוחת 015 (לחיוג-יזום מהמערכת — לפי "Telephone lines" בפאנל של 015)
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    value={extensionValue}
+                    onChange={(e) => setExtensionValue(e.target.value)}
+                    type="text"
+                    placeholder="למשל: 5668598446"
+                    style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }}
+                  />
+                  <button
+                    onClick={handleSaveExtension}
+                    disabled={isPending || extensionValue === (u.hallo015Extension || '')}
+                    style={{
+                      background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6,
+                      padding: '7px 14px', fontSize: 12.5, cursor: 'pointer', opacity: extensionValue === (u.hallo015Extension || '') ? 0.5 : 1,
+                    }}
+                  >
+                    עדכון
+                  </button>
+                </div>
+                {extensionResult?.success && <div style={{ fontSize: 11.5, color: 'var(--green)', marginTop: 4 }}>✓ השלוחה עודכנה</div>}
+                {extensionResult?.error && <div style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4 }}>שגיאה: {extensionResult.error}</div>}
+              </div>
             </div>
           </td>
         </tr>

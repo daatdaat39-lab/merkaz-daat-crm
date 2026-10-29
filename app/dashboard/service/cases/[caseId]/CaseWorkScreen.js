@@ -6,6 +6,7 @@ import Link from 'next/link';
 import ThreeColumnScreen from '../../../components/ThreeColumnScreen';
 import UnifiedTimeline from '../../../components/UnifiedTimeline';
 import ContactQuickActions from '../../../components/ContactQuickActions';
+import DialButton from '../../../components/DialButton';
 import FillSection from '../../../components/FillSection';
 import CaseNoteForm from './CaseNoteForm';
 import { PersonIcon, SparkleIcon, CheckIcon, TransferIcon } from '../../../components/icons';
@@ -162,7 +163,7 @@ export default function CaseWorkScreen({
             )}
 
             <div style={sectionLabel}>פרטי יצירת קשר</div>
-            <div style={{ margin: '8px 0 16px' }}>
+            <div style={{ margin: '8px 0 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <ContactQuickActions
                 contact={{ id: contact.id, first: contact.first, phone: contact.phone, email: contact.email }}
                 departments={workspaceId ? [{ workspaceId, workspaceName }] : []}
@@ -170,6 +171,7 @@ export default function CaseWorkScreen({
                 whatsappTemplates={relevantTemplates}
                 emailTemplates={emailTemplates}
               />
+              {contact.phone && <DialButton contactId={contact.id} />}
             </div>
 
             <div style={cardStyle}>
