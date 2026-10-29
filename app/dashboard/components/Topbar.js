@@ -6,6 +6,7 @@ import NotConnectedButton from './NotConnectedButton';
 import AddContactForm from '../contacts/AddContactForm';
 import { WS_COLORS } from './ui';
 import { globalSearch } from './globalSearchActions';
+import { SearchIcon, PhoneIcon, BellIcon, WhatsAppIcon } from './icons';
 
 const TITLES = {
   '/dashboard': 'לוח בקרה',
@@ -76,7 +77,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
           display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-secondary)',
           border: '1px solid var(--border)', borderRadius: 6, padding: '6px 12px',
         }}>
-          <span style={{ color: 'var(--text-muted)', fontSize: 13 }}>🔍</span>
+          <SearchIcon size={14} style={{ color: 'var(--text-muted)' }} />
           <input
             value={query}
             onChange={(e) => handleSearchChange(e.target.value)}
@@ -140,7 +141,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
       </div>
 
       <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-        <NotConnectedButton icon="📞" label="שיחות" variant="icon" message="חיבור טלפוניה — עדיין לא מחובר" />
+        <NotConnectedButton icon={<PhoneIcon size={14} />} label="שיחות" variant="icon" message="חיבור טלפוניה — עדיין לא מחובר" />
         <button
           onClick={() => router.push('/dashboard/inbox')}
           title={unreadShareCount > 0 ? `${unreadShareCount} הודעות חדשות על אנשי קשר ששותפו איתך` : 'הודעות — אין הודעות חדשות'}
@@ -149,7 +150,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
             border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', cursor: 'pointer', fontSize: 14,
           }}
         >
-          🔔
+          <BellIcon size={15} style={{ color: 'var(--text-secondary)' }} />
           {unreadShareCount > 0 && (
             <span style={{
               position: 'absolute', top: -5, insetInlineEnd: -5, background: 'var(--red)', color: '#fff',
@@ -168,7 +169,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
             border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', cursor: 'pointer', fontSize: 14,
           }}
         >
-          💬
+          <WhatsAppIcon size={15} style={{ color: 'var(--text-secondary)' }} />
           {pendingWhatsappReplies > 0 && (
             <span style={{
               position: 'absolute', top: -5, insetInlineEnd: -5, background: 'var(--red)', color: '#fff',

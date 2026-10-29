@@ -5,47 +5,53 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { WS_COLORS } from './ui';
 import LogoutButton from './LogoutButton';
+import {
+  HomeIcon, UsersIcon, CheckSquareIcon, CalendarIcon, ApprovalIcon,
+  TrendingUpIcon, RouteIcon, TargetIcon, HeadsetIcon, TicketIcon,
+  ChatBubbleIcon, WhatsAppIcon, MailIcon, PhoneIcon, BarChartIcon, SettingsGearIcon,
+  LockIcon, LogoutIcon,
+} from './icons';
 
 const NAV_SECTIONS = [
   {
     label: 'כללי',
     items: [
-      { href: '/dashboard', label: 'דשבורד', icon: '🏠' },
-      { href: '/dashboard/contacts', label: 'אנשי קשר', icon: '👥' },
-      { href: '/dashboard/tasks', label: 'משימות', icon: '✅' },
-      { href: '/dashboard/calendar', label: 'יומן', icon: '📅' },
-      { href: '/dashboard/approvals', label: 'בקשות אישור', icon: '🤝' },
+      { href: '/dashboard', label: 'דשבורד', icon: HomeIcon },
+      { href: '/dashboard/contacts', label: 'אנשי קשר', icon: UsersIcon },
+      { href: '/dashboard/tasks', label: 'משימות', icon: CheckSquareIcon },
+      { href: '/dashboard/calendar', label: 'יומן', icon: CalendarIcon },
+      { href: '/dashboard/approvals', label: 'בקשות אישור', icon: ApprovalIcon },
     ],
   },
   {
     label: 'מכירות',
     items: [
-      { href: '/dashboard/sales', label: 'דשבורד מכירות', icon: '📈' },
-      { href: '/dashboard/sales/pipeline', label: 'תהליכים', icon: '🔀' },
-      { href: '/dashboard/sales/leads', label: 'לידים', icon: '🎯' },
-      { href: '/dashboard/sales/campaigns/calling', label: 'תור שיחות', icon: '📱' },
+      { href: '/dashboard/sales', label: 'דשבורד מכירות', icon: TrendingUpIcon },
+      { href: '/dashboard/sales/pipeline', label: 'תהליכים', icon: RouteIcon },
+      { href: '/dashboard/sales/leads', label: 'לידים', icon: TargetIcon },
+      { href: '/dashboard/sales/campaigns/calling', label: 'תור שיחות', icon: HeadsetIcon },
     ],
   },
   {
     label: 'שירות',
     items: [
-      { href: '/dashboard/service/cases', label: 'קריאות שירות', icon: '🎫' },
+      { href: '/dashboard/service/cases', label: 'קריאות שירות', icon: TicketIcon },
     ],
   },
   {
     label: 'תקשורת',
     items: [
-      { href: '/dashboard/chat', label: "צ'אט צוות", icon: '🗨️' },
-      { href: '/dashboard/whatsapp', label: 'וואטסאפ', icon: '💬' },
-      { href: '/dashboard/email', label: 'מייל', icon: '✉️' },
-      { href: '/dashboard/calls', label: 'שיחות', icon: '📞' },
+      { href: '/dashboard/chat', label: "צ'אט צוות", icon: ChatBubbleIcon },
+      { href: '/dashboard/whatsapp', label: 'וואטסאפ', icon: WhatsAppIcon },
+      { href: '/dashboard/email', label: 'מייל', icon: MailIcon },
+      { href: '/dashboard/calls', label: 'שיחות', icon: PhoneIcon },
     ],
   },
   {
     label: 'ניהול',
     items: [
-      { href: '/dashboard/reports', label: 'דוחות', icon: '📊' },
-      { href: '/dashboard/settings', label: 'הגדרות', icon: '⚙️' },
+      { href: '/dashboard/reports', label: 'דוחות', icon: BarChartIcon },
+      { href: '/dashboard/settings', label: 'הגדרות', icon: SettingsGearIcon },
     ],
   },
 ];
@@ -193,7 +199,7 @@ export default function Sidebar({
                     }}
                   />
                   {w.name}
-                  {w.restricted && <span style={{ marginRight: 'auto', fontSize: 11 }}>🔒</span>}
+                  {w.restricted && <LockIcon size={12} style={{ marginRight: 'auto', color: 'var(--text-muted)' }} />}
                 </button>
               </form>
             ))}
@@ -236,7 +242,7 @@ export default function Sidebar({
                     fontWeight: active ? 500 : 400,
                   }}
                 >
-                  <span style={{ opacity: active ? 1 : 0.7 }}>{item.icon}</span>
+                  <item.icon size={16} style={{ opacity: active ? 1 : 0.7 }} />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -251,7 +257,7 @@ export default function Sidebar({
           href="/dashboard/settings/my-preferences"
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none' }}
         >
-          <span>⚙</span> ההעדפות שלי
+          <SettingsGearIcon size={13} /> ההעדפות שלי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 6 }}>
           <div
@@ -302,7 +308,7 @@ export default function Sidebar({
                 whiteSpace: 'nowrap',
               }}
             >
-              <span style={{ fontSize: 14 }}>⏻</span>
+              <LogoutIcon size={14} />
               התנתקות
             </LogoutButton>
         </div>
