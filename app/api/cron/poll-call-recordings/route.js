@@ -36,16 +36,26 @@ export async function GET(request) {
     result.recordingsError = 'חיוג-יזום/API של 015 לא מוגדר בשרת (HALLO015_API_USERNAME/PASSWORD) - מדלג על תיקון-הקלטות';
   } else {
     try {
+      // חלון: לא-ישן-מדי (3 שעות) אבל-גם-לא-טרי-מדי (10 דק') - הקלטה
+      // אצל-015 לא-זמינה-מיד-אחרי-שהשיחה-הסתיימה (אומת בפאנל-שלהם:
+      // "This call ended less than 10 minutes ago - may not be available
+      // yet"). מיון-עולה (לא-יורד!) - בלי-זה, בעומס-שיחות-גבוה ה-50
+      // "הכי-חדשות" הן-תמיד-אותן-שיחות-טריות-מדי-בכל-ריצה (שיחות-מעט-
+      // יותר-ישנות-ומוכנות-כבר נדחקות-החוצה ע"י-שיחות-חדשות-עוד-יותר,
+      // ולעולם לא-מגיעות-לתור) - אומת-בפועל: recordingsFixed חזר ל-0
+      // כש-המיון-היה-יורד, 2 ריצות-ברציפות, למרות שההתאמה-עצמה עובדת.
       const windowHours = 3;
       const windowStart = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+      const windowEnd = new Date(Date.now() - 10 * 60 * 1000);
 
       const { data: candidateCalls } = await supabase
         .from('phone_calls')
         .select('id, snumber, dnumber, extension, duration_seconds, started_at, recording_url')
         .gte('started_at', windowStart.toISOString())
+        .lte('started_at', windowEnd.toISOString())
         .not('duration_seconds', 'is', null)
         .gt('duration_seconds', 0)
-        .order('started_at', { ascending: false })
+        .order('started_at', { ascending: true })
         .limit(50);
 
       const needsFix = (candidateCalls || []).filter((c) => !c.recording_url || !c.recording_url.includes('supabase'));
