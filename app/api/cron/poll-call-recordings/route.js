@@ -60,8 +60,8 @@ export async function GET(request) {
         // דוגמה-גולמית-אמיתית בתוצאת-ה-cron עצמה כדי-לאבחן-את-ההתאמה-
         // שנכשלת, בלי-גישה-ללוגים-של-Vercel. להסיר אחרי שזה נפתר.
         result.debugRecordingCount = recordings.length;
-        result.debugRecordingSample = recordings.slice(0, 2);
-        result.debugNeedsFixSample = needsFix.slice(0, 2);
+        result.debugRecordingsCompact = recordings.map((r) => ({ snumber: r.snumber, cnumber: r.cnumber, totaltime: r.totaltime, start: r.start }));
+        result.debugNeedsFixCompact = needsFix.map((c) => ({ snumber: c.snumber, dnumber: c.dnumber, extension: c.extension, duration_seconds: c.duration_seconds, started_at: c.started_at }));
 
         for (const call of needsFix) {
           // התאמה-היוריסטית (אין-מפתח-מדויק-משותף בין phone_calls ל-
