@@ -55,13 +55,6 @@ export async function GET(request) {
           startUnixSeconds: Math.floor(windowStart.getTime() / 1000),
           endUnixSeconds: Math.floor(Date.now() / 1000),
         });
-        // דיבוג-זמני: שדות-השורה של recording/recordings/list לא-מתועדים
-        // במלואם ב-API של 015 (ר' lib/hallo015/recordings.js) - מציג-
-        // דוגמה-גולמית-אמיתית בתוצאת-ה-cron עצמה כדי-לאבחן-את-ההתאמה-
-        // שנכשלת, בלי-גישה-ללוגים-של-Vercel. להסיר אחרי שזה נפתר.
-        result.debugRecordingCount = recordings.length;
-        result.debugRecordingsCompact = recordings.map((r) => ({ snumber: r.snumber, cnumber: r.cnumber, totaltime: r.totaltime, start: r.start }));
-        result.debugNeedsFixCompact = needsFix.map((c) => ({ snumber: c.snumber, dnumber: c.dnumber, extension: c.extension, duration_seconds: c.duration_seconds, started_at: c.started_at }));
 
         for (const call of needsFix) {
           // התאמה-היוריסטית (אין-מפתח-מדויק-משותף בין phone_calls ל-
