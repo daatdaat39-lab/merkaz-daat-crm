@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { collapseConsecutiveCalls, phoneCallKey } from '../lib/collapseCalls';
 
 // ציר-זמן מאוחד אמיתי (לא כמו טאב "פעילות" הקיים ב-ContactTabs.js, שהוא 7
 // רשימות נפרדות-לפי-סוג, כל אחת ממוינת בנפרד) - שלב 2 ממודול מכירות/שירות.
@@ -47,8 +48,12 @@ function DeptTag({ name }) {
 // ממזג את 7 המערכים לרשימה אחת ממוינת-כרונולוגית. כל פריט מחזיק גם
 // summary (תמיד קצר) וגם full (התוכן המלא) - hasMore מציין אם יש בכלל
 // מה להרחיב (לא כל פריט - למשל "נשלח מייל" כבר קצר כברירת-מחדל).
-function buildTimelineItems({ inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], phoneCalls = [], meetings = [], workspaceNameById = {} }) {
+function buildTimelineItems({ inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], callHistory = [], phoneCalls = [], meetings = [], workspaceNameById = {}, isManager = false, viewerExtension = null }) {
   const items = [];
+  // האזנה-להקלטה מוגבלת-לשיחה-שלי או-למנהל (ר' ContactTabs.js לאותו-
+  // עיקרון-בדיוק) - עצם-הצגת-השורה נשארת-גלויה-לכולם.
+  const canHearRecording = (c) => isManager || [c.snumber, c.dnumber, c.extension].some((n) => n && n === viewerExtension);
+  const collapsedPhoneCalls = collapseConsecutiveCalls(phoneCalls, phoneCallKey);
 
   for (const inq of inquiries) {
     items.push({
@@ -93,12 +98,13 @@ function buildTimelineItems({ inquiries = [], sentEmails = [], sentWhatsapp = []
       hasMore: (c.response_text || '').length > 60 || Boolean(c.source_system),
     });
   }
-  for (const c of phoneCalls) {
+  for (const c of collapsedPhoneCalls) {
+    const audible = c.recording_url && canHearRecording(c);
     items.push({
       type: 'phone_call', occurredAt: c.started_at,
-      summary: (<><span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? 'יוצאת' : 'נכנסת'}</span><span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>{c.duration_seconds ? <span style={{ color: 'var(--text-secondary)' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}</>),
-      full: (<><span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? 'יוצאת' : 'נכנסת'}</span><span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>{c.duration_seconds ? <span style={{ color: 'var(--text-secondary)' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}{c.recording_url && <div style={{ marginTop: 6 }}><audio controls src={c.recording_url} style={{ height: 32, maxWidth: '100%' }} /></div>}</>),
-      hasMore: Boolean(c.recording_url),
+      summary: (<><span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? 'יוצאת' : 'נכנסת'}</span><span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>{c.duration_seconds ? <span style={{ color: 'var(--text-secondary)' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}{c.__count > 1 ? <span style={{ color: 'var(--text-secondary)' }}> ×{c.__count}</span> : null}</>),
+      full: (<><span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? 'יוצאת' : 'נכנסת'}</span><span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>{c.duration_seconds ? <span style={{ color: 'var(--text-secondary)' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}{c.__count > 1 ? <span style={{ color: 'var(--text-secondary)' }}> ×{c.__count}</span> : null}{audible && <div style={{ marginTop: 6 }}><audio controls src={c.recording_url} style={{ height: 32, maxWidth: '100%' }} /></div>}{audible && c.transcript && <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>📝 {c.transcript}</div>}</>),
+      hasMore: Boolean(audible || (canHearRecording(c) && c.transcript)),
     });
   }
   for (const m of meetings) {

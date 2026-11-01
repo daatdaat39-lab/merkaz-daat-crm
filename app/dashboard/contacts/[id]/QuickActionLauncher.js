@@ -94,7 +94,7 @@ export default function QuickActionLauncher({ contactId, department, stages, lab
   }
 
   return (
-    <button type="button" onClick={() => setMode('choosing')} style={{ ...btnStyle, marginBottom: 16 }}>
+    <button type="button" onClick={() => setMode('choosing')} style={btnStyle}>
       + פעולה חדשה
     </button>
   );

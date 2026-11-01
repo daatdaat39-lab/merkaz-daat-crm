@@ -11,6 +11,7 @@ import FamilyRelationsPanel from './FamilyRelationsPanel';
 import FillSection from '../../components/FillSection';
 import ReferrerPicker from './ReferrerPicker';
 import { GENDER_OPTIONS } from '../../lib/contactFieldsList';
+import { computeFieldValue } from '../../lib/computedFields';
 
 // שדות-תמיד-פתוחים (ברירת-מחדל-גלובלית) - מה-שרלוונטי-ליצירת-קשר-
 // יומיומית. כל שאר-השדות-המשניים (זיהוי/כתובת-מלאה/מזהים-חיצוניים/
@@ -40,6 +41,16 @@ export default function PersonalInfoCard({
   const alwaysOpen = [...ALWAYS_OPEN_DEFAULT, ...personalInfoAlwaysOpen];
 
   const hasFamilyRelations = (relatedContacts.forward?.length || 0) > 0 || (relatedContacts.reverse?.length || 0) > 0;
+
+  // שדות-אורביט (מזהה/תאריך-רישום/ותק) - שדות-מחלקתיים (extraFields),
+  // לא שדות-contact - זזו-לכאן מטאב "שדות נוספים" כדי לא-להתערבב עם
+  // רשימת-הקורסים (ר' "הקורסים שלי"). "ותק במערכת" הוא computed - מחושב
+  // כאן-ברינדור מ-fieldDefs/extraFields של המחלקה-הפעילה, לא נשמר.
+  const orbitRegField = (activeDepartment?.fieldDefs || []).find((f) => f.key === 'seniority_in_system');
+  const orbitRef = activeDepartment?.extraFields?.orbit_ref;
+  const orbitRegistrationDate = activeDepartment?.extraFields?.orbit_registration_date;
+  const orbitSeniority = orbitRegField ? computeFieldValue(orbitRegField, activeDepartment.extraFields, activeDepartment.fieldDefs) : null;
+  const hasOrbitInfo = Boolean(orbitRef || orbitRegistrationDate || orbitSeniority);
 
   // שדות-ריקים לא מוצגים יותר כשורת-מקף (ר' InfoRow) - צ'יפים נפרדים
   // (FillSection, אותו דפוס כמו LeadWorkScreen/CaseWorkScreen) ממלאים
@@ -303,6 +314,15 @@ export default function PersonalInfoCard({
                 ) : (
                   <InfoRow label="נציג מטפל" value={agentName} />
                 )
+              )}
+
+              {hasOrbitInfo && <div style={categoryLabel}>אורביט</div>}
+              {hasOrbitInfo && (
+                <>
+                  <InfoRow label="מזהה במערכת אורביט" value={orbitRef} />
+                  <InfoRow label="תאריך רישום באורביט" value={orbitRegistrationDate ? new Date(orbitRegistrationDate).toLocaleDateString('he-IL') : null} />
+                  <InfoRow label="ותק במערכת" value={orbitSeniority} />
+                </>
               )}
             </div>
           )}

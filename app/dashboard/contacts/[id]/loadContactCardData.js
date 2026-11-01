@@ -77,7 +77,7 @@ export async function loadContactCardData(contactId) {
       .order('source_system'),
     supabase
       .from('phone_calls')
-      .select('id, direction, snumber, dnumber, extension, status, answered, duration_seconds, recording_url, started_at')
+      .select('id, direction, snumber, dnumber, extension, status, answered, duration_seconds, recording_url, transcript, started_at')
       .eq('contact_id', contact.id)
       .order('started_at', { ascending: false }),
     supabase
@@ -159,10 +159,14 @@ export async function loadContactCardData(contactId) {
   // בכל מחלקה - העדפה פרטית, לא משפיעה על מה שנציגים אחרים רואים באותו
   // כרטיס. ר' app/dashboard/lib/fieldPreferences.js.
   const { data: viewerProfile } = await supabase
-    .from('profiles').select('hidden_extra_fields, hidden_widgets, personal_info_always_open').eq('id', user.id).single();
+    .from('profiles').select('hidden_extra_fields, hidden_widgets, personal_info_always_open, hallo015_extension').eq('id', user.id).single();
   const hiddenExtraFieldsByWorkspace = viewerProfile?.hidden_extra_fields || {};
   const hiddenWidgetsByWorkspace = viewerProfile?.hidden_widgets || {};
   const personalInfoAlwaysOpen = viewerProfile?.personal_info_always_open || [];
+  // השלוחה-האישית של הצופה-הנוכחי - משמשת להגביל האזנה-להקלטה (לא עצם
+  // הצגת-השורה) לשיחות-שהוא-עצמו-היה-מעורב-בהן, או-מנהל. ר' calls/page.js
+  // לאותו-עיקרון-בדיוק, שם זה מגביל גם את עצם-הצגת-השורה.
+  const viewerExtension = viewerProfile?.hallo015_extension || null;
   const extraFieldDefsByWorkspaceName = await getAllExtraFields(supabase);
 
   const admin = createAdminClient();
@@ -368,6 +372,7 @@ export async function loadContactCardData(contactId) {
       externalIds: externalIdRows || [],
       closeReasons,
       isManager,
+      viewerExtension,
       phoneCalls: phoneCallRows || [],
       pipelinesByWorkspace,
       additionalPhones: additionalPhoneRows || [],

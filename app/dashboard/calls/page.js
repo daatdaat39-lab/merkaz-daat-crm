@@ -2,6 +2,8 @@ import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { initials } from '../components/ui';
+import { isManagerOfAnyWorkspace } from '../lib/contactGuards';
+import { collapseConsecutiveCalls, phoneCallKey } from '../lib/collapseCalls';
 
 // 015 שולחת direction כ-"inbound"/"outbound" (אומת מריצה חיה - לא
 // "in"/"out" כמו שהונח בהתחלה).
@@ -26,13 +28,27 @@ export default async function CallsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: rows } = await supabase
+  const [isManager, { data: profile }] = await Promise.all([
+    isManagerOfAnyWorkspace(supabase, user.id),
+    supabase.from('profiles').select('hallo015_extension').eq('id', user.id).single(),
+  ]);
+  const myExtension = profile?.hallo015_extension || null;
+
+  // owner/admin רואים את כל השיחות (פיקוח) - נציג-רגיל רואה רק שיחות
+  // ששלוחת-015-שלו הייתה מעורבת-בהן (snumber/dnumber/extension, אותו
+  // שדה-שכבר-משמש לחיוג-יזום) - "מה שהוא דיבר או שחויג למספר האישי שלו".
+  let query = supabase
     .from('phone_calls')
-    .select('id, contact_id, direction, snumber, dnumber, extension, status, answered, duration_seconds, recording_url, started_at, contacts:contact_id (id, first, last)')
+    .select('id, contact_id, direction, snumber, dnumber, extension, status, answered, duration_seconds, recording_url, transcript, started_at, contacts:contact_id (id, first, last)')
     .order('started_at', { ascending: false })
     .limit(200);
+  if (!isManager && myExtension) {
+    query = query.or(`snumber.eq.${myExtension},dnumber.eq.${myExtension},extension.eq.${myExtension}`);
+  }
 
-  const calls = rows || [];
+  const { data: rows } = (!isManager && !myExtension) ? { data: [] } : await query;
+
+  const calls = collapseConsecutiveCalls(rows || [], phoneCallKey);
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '28px 24px' }}>
@@ -43,7 +59,9 @@ export default async function CallsPage() {
 
       {calls.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>
-          עדיין לא התקבלה אף שיחה - ודאו שהחיבור ל-015 מוגדר בהגדרות המערכת.
+          {!isManager && !myExtension
+            ? 'לא הוגדרה לך שלוחת-015 - פנה למנהל המערכת כדי לראות את השיחות שלך.'
+            : 'עדיין לא התקבלה אף שיחה - ודאו שהחיבור ל-015 מוגדר בהגדרות המערכת.'}
         </div>
       )}
 
@@ -74,7 +92,7 @@ export default async function CallsPage() {
                   </div>
                 </Link>
                 <span style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: pill.bg, color: pill.fg, flexShrink: 0 }}>
-                  {pill.label}
+                  {pill.label}{c.__count > 1 ? ` ×${c.__count}` : ''}
                 </span>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
                   {new Date(c.started_at).toLocaleDateString('he-IL')} {new Date(c.started_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
@@ -82,6 +100,12 @@ export default async function CallsPage() {
               </div>
               {c.recording_url && (
                 <audio controls src={c.recording_url} style={{ width: '100%', height: 32, marginTop: 8 }} />
+              )}
+              {c.transcript && (
+                <details style={{ marginTop: 6 }}>
+                  <summary style={{ fontSize: 11.5, color: 'var(--text-secondary)', cursor: 'pointer' }}>📝 תמלול</summary>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, whiteSpace: 'pre-wrap' }}>{c.transcript}</div>
+                </details>
               )}
             </div>
           );

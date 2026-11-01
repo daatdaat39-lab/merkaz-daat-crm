@@ -314,6 +314,26 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
         continue;
       }
 
+      // קביעת-"זו-התחייבות-חדשה-שלא-ראינו-עדיין" - *לפני* נגיעת-המחלקה,
+      // כדי שריצת-סנכרון-חוזרת על אותה-התחייבות-הידועה-כבר (בלי-שום-שינוי
+      // אמיתי) לא-תרשום-עוד-שורת-"פנייה"-זהה בהיסטוריית-הפעילות בכל-הרצה.
+      // זה-היה-באג-אמיתי (לא-רק-תצוגה) - נמצא-בפועל 819+ שורות-"תרומה/
+      // התחייבות מקשר" זהות-לגמרי על תורם-יחיד, 4+ בכל-יום-בודד, כי
+      // upsertDepartmentMembership רשם-פנייה-חדשה בכל-קריאה-ללא-תנאי.
+      // "חדש" נקבע-לפי existence ב-commitments לפי (workspace_id,
+      // reference) בלבד - לא-תלוי-באיש-הקשר, אפשר-לבדוק-לפני-ה-contact.
+      const referenceForNewness = referenceForRouting;
+      let isNewCommitment = true;
+      if (referenceForNewness) {
+        const { data: existingByReference } = await supabase
+          .from('commitments')
+          .select('id')
+          .eq('workspace_id', workspace.id)
+          .eq('external_reference', referenceForNewness)
+          .maybeSingle();
+        isNewCommitment = !existingByReference;
+      }
+
       const idnum = (o.ClientId || '').toString().trim() || null;
       const phone = (o.Phone || '').toString().trim() || null;
       let contact = await findExistingMatch(supabase, { idnum, phone });
@@ -322,7 +342,7 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
       // workspace_id תקין, אבל בלי contact_departments - "נעלמת" מכל מסך
       // מחלקתי למרות שיש לו כסף אמיתי (נמצא בפועל - 68 מקרים בסריקה).
       if (contact) {
-        const reason = getKesherReason(workspace, routing.stage);
+        const reason = isNewCommitment ? getKesherReason(workspace, routing.stage) : null;
         // ר' הערה ב-createContactFromKesher - תשלום-הורה-אמיתי כבר-עצמו
         // סימן-חזק ש"כנראה הורה פעיל", בניגוד לתרומה/תשלום-אחר.
         await upsertDepartmentMembership(supabase, contact.id, workspace, reason, null, 'קשר', null, { openProcess: routing.stage === 'parent_of_student', requiresApproval: false, stage: routing.stage || null });
@@ -436,7 +456,22 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
       // ר' הערה מקבילה בלולאת ההתחייבויות למעלה - איש קשר שהותאם צריך
       // שיוך-מחלקה מפורש גם אם זו הפעם הראשונה שהוא נוגע במחלקה הזו.
       if (contact) {
-        const reason = getKesherReason(workspace, routing.stage);
+        // אותו-תיקון-בדיוק כמו בלולאת-ההתחייבויות (ר' שם) - "חדש" נקבע
+        // לפי אותו מפתח-ייחודיות-בדיוק ש-insertDonationTransaction
+        // (למטה) כבר-משתמש-בו (contact_id+source_system+external_doc_
+        // number) - כדי שתנועה-שכבר-נקלטה לא-תרשום-עוד-"פנייה"-זהה
+        // בכל-ריצת-סנכרון-חוזרת.
+        const docNumber = (t.NumTransaction || '').toString().trim() || null;
+        let isNewTransaction = true;
+        if (docNumber) {
+          const { data: existingTxn } = await supabase
+            .from('donation_transactions')
+            .select('id')
+            .eq('contact_id', contact.id).eq('source_system', 'קשר').eq('external_doc_number', docNumber)
+            .maybeSingle();
+          isNewTransaction = !existingTxn;
+        }
+        const reason = isNewTransaction ? getKesherReason(workspace, routing.stage) : null;
         // ר' הערה ב-createContactFromKesher - תשלום-הורה-אמיתי כבר-עצמו
         // סימן-חזק ש"כנראה הורה פעיל", בניגוד לתרומה/תשלום-אחר.
         await upsertDepartmentMembership(supabase, contact.id, workspace, reason, null, 'קשר', null, { openProcess: routing.stage === 'parent_of_student', requiresApproval: false, stage: routing.stage || null });

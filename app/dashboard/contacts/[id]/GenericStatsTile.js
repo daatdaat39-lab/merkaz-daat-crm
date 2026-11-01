@@ -7,6 +7,7 @@
 // לוגיקה קשיחה לפי שם מחלקה. **תצוגה בלבד (read-only)**.
 import { computeFieldValue } from '../../lib/computedFields';
 import { LEGACY_COURSE_FIELD_KEYS } from '../../lib/extraFields';
+import LeadCourseSwitcher from './LeadCourseSwitcher';
 
 function formatValue(val, type) {
   if (val === null || val === undefined || val === '') return null;
@@ -21,6 +22,7 @@ function formatValue(val, type) {
 export default function GenericStatsTile({
   department, transactions = [], commitments = [], isManager = false,
   openProcessesCount = 0, openServiceCasesCount = 0, openTasksCount = 0, onOpenCurrentTab,
+  courses = [], contactId, frozen = false,
 }) {
   const extra = department.extraFields || {};
   const fieldDefs = department.fieldDefs || [];
@@ -52,6 +54,7 @@ export default function GenericStatsTile({
   if (
     filledFields.length === 0 && deptTransactions.length === 0 && !activeCommitment
     && openProcessesCount === 0 && openServiceCasesCount === 0 && openTasksCount === 0
+    && !department.sellsCourses
   ) return null;
 
   return (
@@ -68,6 +71,12 @@ export default function GenericStatsTile({
           <button type="button" onClick={() => onOpenCurrentTab?.('processes')} style={clickableValue()}>
             {openProcessesCount}
           </button>
+        </Block>
+      )}
+
+      {department.sellsCourses && department.openedProcess !== false && (
+        <Block label="קורס">
+          <LeadCourseSwitcher department={department} courses={courses} contactId={contactId} frozen={frozen} compact />
         </Block>
       )}
 

@@ -10,6 +10,7 @@ import { isProcessConcluded } from '../../lib/pipelineVisibility';
 import { computeFieldValue } from '../../lib/computedFields';
 import { LEGACY_COURSE_FIELD_KEYS } from '../../lib/extraFields';
 import KesherProjectPanel from './KesherProjectPanel';
+import LeadCourseSwitcher from './LeadCourseSwitcher';
 import CourseEnrollmentsPanel from './CourseEnrollmentsPanel';
 import CoursePurchasesPanel from './CoursePurchasesPanel';
 import SeminarParticipationsPanel from './SeminarParticipationsPanel';
@@ -17,8 +18,11 @@ import StageStepper from './StageStepper';
 import Link from 'next/link';
 import { STATUS_LABELS, SEVERITY_LABELS, slaStatus } from '../../lib/serviceSla';
 import { sectionLabel } from '../../components/designTokens';
+import { collapseConsecutiveCalls, phoneCallKey } from '../../lib/collapseCalls';
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, relatedContact = null, openRequest = null }) {
+const COURSE_PURCHASE_STATUS_LABELS = { pending: 'ממתין לתשלום', completed: 'נרכש' };
+
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], courses = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, viewerExtension = null, relatedContact = null, openRequest = null }) {
   const [tab, setTab] = useState('activity');
   const [currentFilter, setCurrentFilter] = useState('all'); // all | processes | cases | tasks | payments
   const [notesValue, setNotesValue] = useState(notes || '');
@@ -91,6 +95,10 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
   // (ר' extraFields.js) - מוגבל-למחלקה-הזו-בלבד כי אותם field_key-ים
   // קיימים כשדות-אמיתיים-נפרדים ב"דעת למדני".
   const isLegacyCourseWorkspace = activeDepartment?.workspaceName === 'דעת ותבונה';
+  // האזנה-להקלטה מוגבלת-לשיחה-שלי (שלוחתי-הייתה-מעורבת) או-למנהל - עצם
+  // הצגת-השורה (שהשיחה-בוצעה) נשארת-גלויה-לכולם, רק הנגן מוגבל. ר' גם
+  // calls/page.js (שם זה מגביל גם את עצם-הצגת-השורה, לא רק את הנגן).
+  const canHearRecording = (c) => isManager || [c.snumber, c.dnumber, c.extension].some((n) => n && n === viewerExtension);
   const visibleFieldDefs = fieldDefs
     .filter((f) => f.visibleToAgents !== false || isManager)
     .filter((f) => !(isLegacyCourseWorkspace && LEGACY_COURSE_FIELD_KEYS.includes(f.key)));
@@ -102,6 +110,16 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
   const deptServiceCases = activeDepartment ? serviceCases.filter((c) => c.workspace_id === activeDepartment.workspaceId) : [];
   const openServiceCasesCount = deptServiceCases.filter((c) => c.status !== 'closed').length;
   const deptActiveCommitments = deptCommitments.filter((c) => c.status === 'active');
+  // הרשמות-קורס "פתוחות" לצורך "פעילות נוכחית" - לא-מבוטלות ולא-כבר-
+  // הסתיימו (אותו עיקרון-חישוב כמו CoursePurchasesPanel's computeLifecycleBadge,
+  // רק פה-לצורך-סינון-לא-תצוגה). "ממתין-לתשלום" נכלל-בכוונה (זה-עצמו
+  // משהו-פתוח-לטיפול, לא-פחות-מהוראת-קבע-פעילה).
+  const deptCurrentCoursePurchases = deptCoursePurchases.filter((p) => {
+    if (p.status === 'cancelled') return false;
+    if (p.courses?.duration_type === 'self_paced') return true;
+    if (!p.enrollment_end_date) return true;
+    return new Date(p.enrollment_end_date) >= new Date();
+  });
   const mainProcessOpen = activeDepartment && !mainProcessConcluded && activeDepartment.openedProcess !== false;
   const openCampaignProcessesCount = (activeDepartment?.campaignProcesses || []).filter((cp) => !isProcessConcluded(cp.status, cp.stages)).length;
   const processesCount = (mainProcessOpen ? 1 : 0) + openCampaignProcessesCount;
@@ -125,7 +143,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
       visibleFieldDefs.length > 0 || deptCourseEnrollments.length > 0 || deptCoursePurchases.length > 0 || deptSeminarParticipations.length > 0 ||
       deptCommitments.length > 0 || deptTransactions.length > 0 ||
       (activeDepartment.workspaceName === 'תרומות' && relatedContact?.donationsCount > 0)
-    ) ? [{ id: 'fields', label: `שדות נוספים — ${activeDepartment.workspaceName}` }] : []),
+    ) ? [{ id: 'fields', label: activeDepartment.sellsCourses ? `הקורסים שלי — ${activeDepartment.workspaceName}` : `שדות נוספים — ${activeDepartment.workspaceName}` }] : []),
     ...(additionalPhones.length > 0 ? [{ id: 'phones', label: `טלפונים נוספים (${additionalPhones.length})` }] : []),
   ];
 
@@ -154,9 +172,9 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             {[
               { v: 'all', l: 'הכל' },
               ...(activeDepartment ? [{ v: 'processes', l: `תהליכים${processesCount ? ` (${processesCount})` : ''}` }] : []),
-              ...(deptServiceCases.length > 0 ? [{ v: 'cases', l: `קריאות שירות${openServiceCasesCount ? ` (${openServiceCasesCount})` : ''}` }] : []),
+              ...(activeDepartment ? [{ v: 'cases', l: `קריאות שירות${openServiceCasesCount ? ` (${openServiceCasesCount})` : ''}` }] : []),
               { v: 'tasks', l: `משימות${tasks.length ? ` (${tasks.length})` : ''}` },
-              ...(deptActiveCommitments.length > 0 ? [{ v: 'payments', l: 'תשלומים' }] : []),
+              ...(deptActiveCommitments.length > 0 || deptCurrentCoursePurchases.length > 0 ? [{ v: 'payments', l: 'תשלומים' }] : []),
             ].map((f) => (
               <button
                 key={f.v} type="button" onClick={() => setCurrentFilter(f.v)}
@@ -181,6 +199,10 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                   label={activeDepartment.parentDisplayStageLabel || pipeline?.labels?.[activeDepartment.stage] || activeDepartment.stage}
                   concluded={mainProcessConcluded}
                   onReopen={onReopenMain}
+                  workScreenHref={!mainProcessConcluded ? `/dashboard/sales/leads/${activeDepartment.id}` : null}
+                  courseSwitcher={activeDepartment.sellsCourses ? (
+                    <LeadCourseSwitcher department={activeDepartment} courses={courses} contactId={contactId} frozen={frozen} />
+                  ) : null}
                 />
               )}
               {(activeDepartment.campaignProcesses || []).map((cp) => (
@@ -196,9 +218,10 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             </div>
           )}
 
-          {(currentFilter === 'all' || currentFilter === 'cases') && deptServiceCases.length > 0 && (
+          {(currentFilter === 'all' || currentFilter === 'cases') && activeDepartment && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={sectionLabel}>קריאות שירות</div>
+              {deptServiceCases.length === 0 && <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין קריאות שירות פתוחות</div>}
               {deptServiceCases.map((c) => {
                 const sla = c.status === 'closed' ? null : slaStatus(c.sla_due_at, c.severity);
                 return (
@@ -216,11 +239,16 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                         {STATUS_LABELS[c.status] || c.status} · חומרה {SEVERITY_LABELS[c.severity] || c.severity}
                       </div>
                     </div>
-                    {sla && (
-                      <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 100, background: sla.bg, color: sla.color, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                        {sla.label}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                      {sla && (
+                        <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 100, background: sla.bg, color: sla.color, whiteSpace: 'nowrap' }}>
+                          {sla.label}
+                        </span>
+                      )}
+                      <span style={{ background: 'var(--k-accent)', color: '#fff', borderRadius: 6, padding: '5px 12px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                        מעבר לטיפול ←
                       </span>
-                    )}
+                    </div>
                   </Link>
                 );
               })}
@@ -296,7 +324,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             </div>
           )}
 
-          {(currentFilter === 'all' || currentFilter === 'payments') && deptActiveCommitments.length > 0 && (
+          {(currentFilter === 'all' || currentFilter === 'payments') && (deptActiveCommitments.length > 0 || deptCurrentCoursePurchases.length > 0) && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={sectionLabel}>תשלומים</div>
               {deptActiveCommitments.map((c) => (
@@ -311,10 +339,18 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                   </div>
                 </div>
               ))}
+              {deptCurrentCoursePurchases.map((p) => (
+                <div key={p.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: p.status === 'completed' ? 'var(--k-ok-text)' : 'var(--k-caution-text)' }}>
+                    {COURSE_PURCHASE_STATUS_LABELS[p.status] || p.status} — {p.courses?.name || 'קורס'}
+                    {p.price ? ` · ₪${Number(p.price).toLocaleString('he-IL')}` : ''}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
-          {currentFilter === 'all' && processesCount === 0 && openServiceCasesCount === 0 && tasks.length === 0 && deptActiveCommitments.length === 0 && (
+          {currentFilter === 'all' && processesCount === 0 && openServiceCasesCount === 0 && tasks.length === 0 && deptActiveCommitments.length === 0 && deptCurrentCoursePurchases.length === 0 && (
             <div style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>אין כרגע תהליכים, קריאות-שירות, משימות או תשלומים פתוחים.</div>
           )}
         </div>
@@ -394,17 +430,24 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             ),
           },
           {
-            key: 'phone_calls', title: 'שיחות טלפון (015)', shortLabel: 'שיחות טלפון', items: phoneCalls,
+            key: 'phone_calls', title: 'שיחות טלפון (015)', shortLabel: 'שיחות טלפון', items: collapseConsecutiveCalls(phoneCalls, phoneCallKey),
             renderItem: (c) => (
               <div key={c.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
                 <span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? '📤 יוצאת' : '📥 נכנסת'}</span>
                 <span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>
                 {c.duration_seconds ? <span style={{ color: 'var(--k-text-muted)' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}
                 {c.started_at && <span style={{ color: 'var(--k-text-muted)' }}> · {new Date(c.started_at).toLocaleDateString('he-IL')} {new Date(c.started_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>}
-                {c.recording_url && (
+                {c.__count > 1 && <span style={{ color: 'var(--k-text-muted)' }}> ×{c.__count}</span>}
+                {c.recording_url && canHearRecording(c) && (
                   <div style={{ marginTop: 6 }}>
                     <audio controls src={c.recording_url} style={{ height: 32, maxWidth: '100%' }} />
                   </div>
+                )}
+                {c.transcript && canHearRecording(c) && (
+                  <details style={{ marginTop: 6 }}>
+                    <summary style={{ fontSize: 11, color: 'var(--k-text-muted)', cursor: 'pointer' }}>📝 תמלול</summary>
+                    <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 4, whiteSpace: 'pre-wrap' }}>{c.transcript}</div>
+                  </details>
                 )}
               </div>
             ),
@@ -582,7 +625,7 @@ function DeptTag({ name }) {
 // שורה בטאב "תהליכים" - כל תהליך (ראשי או קמפיין) עם השלב הנוכחי שלו,
 // ואופציה לפתוח מחדש כשהוא הסתיים (חזרה לשלב הראשון בסדר ה-pipeline).
 // היסטוריית התהליך עצמה לא נמחקת בשום שלב - זו רק פעולת קידום שלב רגילה.
-function ProcessCard({ title, label, concluded, onReopen }) {
+function ProcessCard({ title, label, concluded, onReopen, courseSwitcher = null, workScreenHref = null }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
@@ -594,8 +637,9 @@ function ProcessCard({ title, label, concluded, onReopen }) {
           שלב נוכחי: <b style={{ color: concluded ? 'var(--k-ok-text)' : 'var(--k-text)' }}>{label}</b>
           {concluded && ' · תהליך הסתיים'}
         </div>
+        {courseSwitcher}
       </div>
-      {concluded && (
+      {concluded ? (
         <button
           type="button"
           onClick={onReopen}
@@ -603,6 +647,16 @@ function ProcessCard({ title, label, concluded, onReopen }) {
         >
           ↺ פתיחה מחדש
         </button>
+      ) : workScreenHref && (
+        <Link
+          href={workScreenHref}
+          style={{
+            background: 'var(--k-accent)', color: '#fff', borderRadius: 6, padding: '5px 12px', fontSize: 12,
+            textDecoration: 'none', flexShrink: 0, whiteSpace: 'nowrap',
+          }}
+        >
+          מעבר לטיפול ←
+        </Link>
       )}
     </div>
   );

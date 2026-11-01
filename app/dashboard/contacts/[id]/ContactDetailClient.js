@@ -38,7 +38,7 @@ export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups, existingSources = [],
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, personalInfoAlwaysOpen = [], courses = [], allInquiries, workspaceNameById, donationTransactions,
-  callHistory, externalIds, closeReasons, isManager, phoneCalls, pipelinesByWorkspace,
+  callHistory, externalIds, closeReasons, isManager, viewerExtension = null, phoneCalls, pipelinesByWorkspace,
   commitments, additionalPhones, courseEnrollments, coursePurchases, serviceCases, seminarParticipations, relatedContacts, importConflicts = [],
 }) {
   const FALLBACK_PIPELINE = { order: [], leadStages: [], wonStage: null, sideStages: [], labels: {}, colors: {} };
@@ -187,9 +187,6 @@ export default function ContactDetailClient({
                 department={d}
                 isActive={active?.id === d.id}
                 onSelect={() => setActiveId(d.id)}
-                courses={courses}
-                contactId={contact.id}
-                frozen={contact.frozen}
               />
             ))}
             {visibleDepartments.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>לא משויך למחלקה שלך</span>}
@@ -271,21 +268,10 @@ export default function ContactDetailClient({
           openServiceCasesCount={openServiceCasesCountActive}
           openTasksCount={openTasksCount}
           onOpenCurrentTab={handleOpenCurrentTab}
+          courses={courses}
+          contactId={contact.id}
+          frozen={contact.frozen}
         />
-      )}
-
-      {active && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <QuickActionLauncher
-            contactId={contact.id}
-            department={active}
-            stages={[...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order, ...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).sideStages]}
-            labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
-            workspaceId={active.workspaceId}
-            workspaceName={active.workspaceName}
-            frozen={contact.frozen}
-          />
-        </div>
       )}
 
       {/* שורת שלבי המחלקה הפעילה - מקופלת כברירת מחדל, נפתחת אוטומטית
@@ -332,6 +318,17 @@ export default function ContactDetailClient({
           בתהליכים-משניים. שינוי-שלב עדיין אפשרי משם (CampaignProcessCard). */}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {active && (
+          <QuickActionLauncher
+            contactId={contact.id}
+            department={active}
+            stages={[...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order, ...(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).sideStages]}
+            labels={(byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).labels}
+            workspaceId={active.workspaceId}
+            workspaceName={active.workspaceName}
+            frozen={contact.frozen}
+          />
+        )}
         {contact.phone && !contact.frozen ? (
           <DialButton contactId={contact.id} workspaceId={active?.workspaceId || null} />
         ) : (
@@ -439,6 +436,8 @@ export default function ContactDetailClient({
             additionalPhones={additionalPhones || []}
             courseEnrollments={courseEnrollments || []}
             coursePurchases={coursePurchases || []}
+            courses={courses}
+            viewerExtension={viewerExtension}
             serviceCases={serviceCases || []}
             seminarParticipations={seminarParticipations || []}
             callHistory={callHistory || []}

@@ -136,6 +136,8 @@ export default async function LeadWorkPage({ params }) {
         phoneCalls: props.phoneCalls,
         meetings: props.meetings.filter((m) => m.contact_department_id === departmentId),
         workspaceNameById: props.workspaceNameById,
+        isManager: props.isManager,
+        viewerExtension: props.viewerExtension,
       }}
     />
   );

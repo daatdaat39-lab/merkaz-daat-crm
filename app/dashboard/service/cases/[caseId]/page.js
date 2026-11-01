@@ -110,6 +110,8 @@ export default async function CaseWorkPage({ params }) {
         phoneCalls: props.phoneCalls,
         meetings: props.meetings,
         workspaceNameById: props.workspaceNameById,
+        isManager: props.isManager,
+        viewerExtension: props.viewerExtension,
       }}
     />
   );
