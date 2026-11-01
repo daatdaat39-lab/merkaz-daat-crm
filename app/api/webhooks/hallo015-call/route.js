@@ -31,12 +31,24 @@ export async function POST(request) {
   // שאחריו ישר "," או "}" (בלי ערך) עם null, ומנסים שוב לפני שנכשלים.
   const rawText = await request.text();
   console.log('hallo015 webhook raw body:', rawText);
+  // תיקון-באג-אמיתי-שאומת-בפועל (2026-11-01, חקירת חיוג-יזום): 015 שולחת
+  // callid/uniqueid כמספר-גולמי-בלי-מרכאות (ר' ההערה למעלה על הטמפלט) -
+  // אבל לערכים האלה (למשל "1793546684.65741166") יש כ-18 ספרות-משמעותיות,
+  // יותר-ממה-ש-float64 שומר-בדיוק (~15-17) - JSON.parse "מצליח" בלי-
+  // לזרוק-שגיאה, אבל מעגל-בשקט את-הספרה-האחרונה. הוכח-בהשוואה-ישירה-
+  // ב-DB: callid שנשמר-מ-calls/make (מוחזר-כ-string, ר' clickToDial.js)
+  // היה "...65741166", אבל אותה-שיחה-בדיוק הגיעה-מה-webhook-הזה כ-
+  // "...6574116" (ספרה-חסרה) - ולכן ה-upsert (onConflict: external_call_id)
+  // לעולם-לא-מצא-את-השורה-שחיוג-היזום כתב-מראש, ונוצרה-שורה-כפולה-בלי-
+  // contact_id/workspace_id-המקוריים. מצמידים-מרכאות *על-הטקסט-הגולמי*,
+  // לפני-ה-parse, כדי ש-JSON.parse יקבל-מחרוזת (בלי-איבוד-דיוק) ולא-מספר.
+  const precisionSafeText = rawText.replace(/"(callid|uniqueid)":(\d+\.\d+)/g, '"$1":"$2"');
   let body;
   try {
-    body = JSON.parse(rawText);
+    body = JSON.parse(precisionSafeText);
   } catch {
     try {
-      body = JSON.parse(rawText.replace(/:(\s*)([,}])/g, ':null$2'));
+      body = JSON.parse(precisionSafeText.replace(/:(\s*)([,}])/g, ':null$2'));
     } catch {
       body = null;
     }
