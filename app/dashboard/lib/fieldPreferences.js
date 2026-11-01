@@ -54,6 +54,28 @@ export async function toggleWidgetVisibility(workspaceId, widgetKey) {
   return { success: true, hidden: hidden[workspaceId] };
 }
 
+// אילו-שדות-משניים-ב"פרטים-אישיים" מוצגים-לנציג-הזה תמיד-פתוחים (לא
+// מאחורי "+ עוד פרטים") - חריגה-אישית-לברירת-המחדל-הגלובלית
+// (ALWAYS_OPEN_DEFAULT ב-PersonalInfoCard.js: טלפון/מייל/עיר). בניגוד
+// ל-hidden_extra_fields (jsonb per-workspace) - זה array פשוט, כי
+// "פרטים אישיים" אינו-מחלקתי (אותם-שדות לכל-אנשי-הקשר בכל-המחלקות).
+export async function togglePersonalInfoAlwaysOpen(fieldKey) {
+  const { supabase, user } = await requireUser();
+  if (!fieldKey) return { error: 'חסר שם שדה' };
+
+  const { data: profile } = await supabase
+    .from('profiles').select('personal_info_always_open').eq('id', user.id).single();
+  const current = new Set(profile?.personal_info_always_open || []);
+
+  if (current.has(fieldKey)) current.delete(fieldKey);
+  else current.add(fieldKey);
+  const next = Array.from(current);
+
+  const { error } = await supabase.from('profiles').update({ personal_info_always_open: next }).eq('id', user.id);
+  if (error) return { error: error.message };
+  return { success: true, alwaysOpen: next };
+}
+
 // ערכת נושא (בהיר/כהה/לפי מערכת) - אותו דפוס בדיוק, נקרא ב-app/layout.js
 // (root, מחוץ ל-dashboard) כדי לקבוע data-theme על ה-<html> לפני הרינדור
 export async function setThemePreference(theme) {

@@ -15,7 +15,10 @@ const iconBtnStyle = {
 // במערכת - לא רק בכרטיס עצמו. משתמש באותם חלונות שליחה בדיוק.
 // departments: [{ workspaceId, workspaceName }] של המחלקות ששייך אליהן האיש קשר
 // sendConnections: [{ workspace_id, email_address }] - כל תיבות השליחה המחוברות במערכת
-export default function ContactQuickActions({ contact, departments = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [] }) {
+// departmentId (אופציונלי) - "חוקת-הליד": כש-הרכיב-הזה מרונדר מתוך מסך-
+// טיפול-בליד-ספציפי (LeadWorkScreen), מעביר-הלאה לשני-החלונות כדי
+// שהשליחה-תתועד-כשייכת-לליד-הזה-בדיוק (ר' sendContactEmail/WhatsApp).
+export default function ContactQuickActions({ contact, departments = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [], departmentId = null }) {
   const [modal, setModal] = useState(null);
 
   const emailConnection = departments
@@ -57,7 +60,7 @@ export default function ContactQuickActions({ contact, departments = [], sendCon
 
       {modal === 'email' && emailDept && (
         <EmailComposeModal
-          contactId={contact.id} workspaceId={emailDept.workspaceId}
+          contactId={contact.id} workspaceId={emailDept.workspaceId} departmentId={departmentId}
           fromAddress={emailConnection.email_address} toAddress={contact.email}
           firstName={contact.first} templates={emailTemplates}
           onClose={() => setModal(null)}
@@ -65,7 +68,7 @@ export default function ContactQuickActions({ contact, departments = [], sendCon
       )}
       {modal === 'whatsapp' && whatsappDept && (
         <WhatsAppSendModal
-          contactId={contact.id} workspaceId={whatsappDept.workspaceId}
+          contactId={contact.id} workspaceId={whatsappDept.workspaceId} departmentId={departmentId}
           phone={contact.phone} reason={contact.latestReason} thread={[]} templates={whatsappTemplates}
           onClose={() => setModal(null)}
         />

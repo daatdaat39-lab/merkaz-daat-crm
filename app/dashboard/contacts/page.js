@@ -1,6 +1,5 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import AddContactForm from './AddContactForm';
 import ContactsBoard from './ContactsBoard';
 import { groupTagsByDepartment } from '../lib/tagGroups';
@@ -66,13 +65,6 @@ export default async function ContactsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Link href="/dashboard/settings/import" style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 100,
-            fontSize: 13, background: 'var(--k-surface)', color: 'var(--k-text)',
-            border: '1px solid var(--k-border)', textDecoration: 'none',
-          }}>
-            📥 ייבוא נתונים
-          </Link>
           <AddContactForm workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} existingTags={allTags} tagGroups={tagGroups} />
         </div>
       </div>

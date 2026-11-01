@@ -13,3 +13,24 @@ export const GENDER_OPTIONS = [
   { value: 'זכר', label: 'זכר' },
   { value: 'נקבה', label: 'נקבה' },
 ];
+
+// השדות-המשניים-שניתנים-להצגה-אישית "תמיד-פתוחים" ב"פרטים אישיים"
+// (profiles.personal_info_always_open) - משותף בין PersonalInfoCard.js
+// (רינדור) לבין my-preferences (בחירה). כל key מתאים לבלוק-תצוגה
+// אחד בתוך "+ עוד פרטים" (לא תמיד שדה-DB יחיד - "תאריך לידה" למשל
+// מכסה גם גיל/תאריך-עברי-הנגזרים-ממנו, "כתובת" מכסה 4 שדות יחד).
+export const PERSONAL_INFO_ALWAYS_OPEN_CANDIDATES = [
+  { key: 'idnum', label: 'ת.ז / מזהה' },
+  { key: 'birth_date', label: 'תאריך לידה (+ גיל, תאריך עברי)' },
+  { key: 'gender', label: 'מגדר' },
+  { key: 'children_count', label: 'מספר ילדים' },
+  { key: 'source', label: 'מקור' },
+  { key: 'created_at', label: 'נוצר בתאריך' },
+  { key: 'phone2', label: 'טלפון נוסף' },
+  { key: 'email2', label: 'מייל נוסף' },
+  { key: 'address', label: 'כתובת מלאה' },
+  { key: 'external_ids', label: 'מזהים במערכות חיצוניות' },
+  { key: 'last_activity', label: 'פעילות אחרונה' },
+  { key: 'next_meeting', label: 'פגישה קרובה' },
+  { key: 'agent', label: 'נציג מטפל' },
+];

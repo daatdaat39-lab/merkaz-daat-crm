@@ -8,7 +8,7 @@ import { sendContactWhatsApp, sendContactWhatsAppChatMessage, updateContactPhone
 // שנשלחו והודעות שהתקבלו מהלקוח, לפי כיוון) כבועות שיחה, עם תיבת
 // כתיבה בתחתית. הודעה ראשונה/כשאין עדיין שיחה פתוחה חייבת להיות
 // תבנית מאושרת (חוק WhatsApp) - לכן יש גם כפתור לשליחת התבנית הרשמית.
-export default function WhatsAppSendModal({ contactId, workspaceId, phone, reason, thread = [], templates = [], onClose, initialMessage = '', skipRefresh = false }) {
+export default function WhatsAppSendModal({ contactId, workspaceId, departmentId = null, phone, reason, thread = [], templates = [], onClose, initialMessage = '', skipRefresh = false }) {
   const [message, setMessage] = useState(initialMessage);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
@@ -57,7 +57,7 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
     setError(null);
     startTransition(async () => {
       try {
-        const res = await sendContactWhatsApp(contactId, workspaceId, reason, selectedTemplate?.template_id);
+        const res = await sendContactWhatsApp(contactId, workspaceId, reason, selectedTemplate?.template_id, departmentId);
         if (res?.error) { setError(res.error); return; }
         if (skipRefresh) {
           setLocallySent((prev) => [...prev, {
@@ -79,7 +79,7 @@ export default function WhatsAppSendModal({ contactId, workspaceId, phone, reaso
     startTransition(async () => {
       const sentText = message.trim();
       try {
-        const res = await sendContactWhatsAppChatMessage(contactId, workspaceId, sentText);
+        const res = await sendContactWhatsAppChatMessage(contactId, workspaceId, sentText, departmentId);
         if (res?.error) { setError(res.error); return; }
         setMessage('');
         if (skipRefresh) {

@@ -7,7 +7,7 @@ import { sendContactEmail } from '../actions';
 // חלון קטן לכתיבת מייל ושליחתו מתוך המחלקה הפעילה, דרך תיבת המייל
 // המחוברת לאותה מחלקה (email_connections). נרשם גם ב-sent_emails
 // כך שיוצג בטאב "פעילות" בכרטיס.
-export default function EmailComposeModal({ contactId, workspaceId, fromAddress, toAddress, firstName, templates = [], onClose, onSent }) {
+export default function EmailComposeModal({ contactId, workspaceId, departmentId = null, fromAddress, toAddress, firstName, templates = [], onClose, onSent }) {
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [error, setError] = useState(null);
@@ -25,7 +25,7 @@ export default function EmailComposeModal({ contactId, workspaceId, fromAddress,
   function handleSend() {
     setError(null);
     startTransition(async () => {
-      const res = await sendContactEmail(contactId, workspaceId, subject, body);
+      const res = await sendContactEmail(contactId, workspaceId, subject, body, departmentId);
       if (res?.error) {
         setError(res.error);
         return;

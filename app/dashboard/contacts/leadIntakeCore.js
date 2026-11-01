@@ -231,6 +231,21 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
     await supabase.from('contact_departments').update(update).eq('id', rowId);
   } else {
     const pipeline = await getPipeline(supabase, workspace.name);
+    // "אין-יותר-ליד-גנרי" (אושר-ע"י-המשתמש) - במחלקות-שמוכרות-קורסים
+    // (workspaces.sells_courses, migration 0164), שיוך-חדש-בלי-courseId-
+    // מפורש (ייבוא/API/קשר - כל-הנתיבים-שלא-יודעים-איזה-קורס-בדיוק)
+    // משתייך-לקורס-placeholder "לא ידוע" (code='UNKNOWN', נוצר-ב-0164)
+    // במקום-NULL - כדי-שלא-יהיה-עוד-מצב-של-"ליד-בלי-קורס" בכלל במחלקות-
+    // האלה; נציג-ממיין-אותו-אח"כ (CoursePinSwitcher, ContactDetailClient.js).
+    // מחלקות-אחרות (sells_courses=false) ממשיכות-בדיוק-כמו-היום (NULL).
+    let effectiveCourseId = options.courseId || null;
+    if (!effectiveCourseId) {
+      const { data: wsRow } = await supabase.from('workspaces').select('sells_courses').eq('id', workspace.id).maybeSingle();
+      if (wsRow?.sells_courses) {
+        const { data: fallbackCourse } = await supabase.from('courses').select('id').eq('code', 'UNKNOWN').maybeSingle();
+        effectiveCourseId = fallbackCourse?.id || null;
+      }
+    }
     // שיוך חדש בלבד יכול להיווצר כ"ממתין לאישור מנהל" - שיוך קיים לעולם
     // לא חוזר להמתנה (הוא כבר אושר פעם אחת ומטופל). options.stage - שלב
     // מפורש (למשל סטטוס שמופה בזמן ייבוא, או שלב שנקבע מסנכרון קשר) -
@@ -240,7 +255,7 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
     const { data: created, error: createError } = await supabase.from('contact_departments').insert({
       contact_id: contactId, workspace_id: workspace.id, stage: options.stage || pipeline.order[0], last_activity_at: new Date().toISOString(),
       extra_fields: extraFields || {},
-      course_id: options.courseId || null,
+      course_id: effectiveCourseId,
       approval_status: options.requiresApproval ? 'pending' : 'approved',
       created_by_manager: !!options.createdByManager,
       // רק ביצירת שיוך חדש - שיוך קיים לעולם לא נוגעים ב-opened_process

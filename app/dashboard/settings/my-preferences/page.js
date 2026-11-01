@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getAllExtraFields } from '../../lib/extraFields';
 import MyPreferencesClient from './MyPreferencesClient';
 import ThemeToggleSection from './ThemeToggleSection';
+import PersonalInfoAlwaysOpenSection from './PersonalInfoAlwaysOpenSection';
 
 // עמוד "ההעדפות שלי" - אישי לגמרי, בלי הרשאת owner/admin (בניגוד לכל
 // שאר עמודי ההגדרות). מרכז במקום אחד את כל המחלקות שהמשתמש חבר בהן,
@@ -15,7 +16,7 @@ export default async function MyPreferencesPage() {
 
   const [{ data: memberships }, { data: profile }] = await Promise.all([
     supabase.from('workspace_members').select('workspace_id, workspaces:workspace_id (id, name)').eq('user_id', user.id),
-    supabase.from('profiles').select('hidden_extra_fields, theme_preference').eq('id', user.id).single(),
+    supabase.from('profiles').select('hidden_extra_fields, theme_preference, personal_info_always_open').eq('id', user.id).single(),
   ]);
 
   const extraFieldsByWorkspaceName = await getAllExtraFields(supabase);
@@ -34,6 +35,7 @@ export default async function MyPreferencesPage() {
         אישי לגמרי - משפיע רק על מה שאתה רואה, לא על נציגים אחרים. לכל מחלקה, בחר אילו שדות מחלקתיים מוצגים לך בכרטיס איש קשר.
       </p>
       <ThemeToggleSection initialTheme={profile?.theme_preference || 'system'} />
+      <PersonalInfoAlwaysOpenSection initialAlwaysOpen={profile?.personal_info_always_open || []} />
       {workspaces.length === 0 && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>אינך חבר במחלקה עם שדות מותאמים אישית.</div>
       )}

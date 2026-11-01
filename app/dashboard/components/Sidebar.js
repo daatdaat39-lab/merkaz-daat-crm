@@ -6,30 +6,31 @@ import { usePathname } from 'next/navigation';
 import { WS_COLORS } from './ui';
 import LogoutButton from './LogoutButton';
 import {
-  HomeIcon, UsersIcon, CheckSquareIcon, CalendarIcon, ApprovalIcon,
-  TrendingUpIcon, RouteIcon, TargetIcon, HeadsetIcon, TicketIcon,
-  ChatBubbleIcon, WhatsAppIcon, MailIcon, PhoneIcon, BarChartIcon, SettingsGearIcon,
+  UsersIcon, CheckSquareIcon, TargetIcon, TicketIcon,
+  WhatsAppIcon, MailIcon, PhoneIcon, SettingsGearIcon,
   LockIcon, LogoutIcon,
 } from './icons';
 
+// פריטים שהוסתרו-במכוון מהניווט (סבב-ניקוי "המערכת-עדיין-לא-פעילה") -
+// הדפים-עצמם נשארים קיימים-ונגישים-בכתובת-ישירה, זו הסתרת-UI-בלבד:
+// דשבורד(הבית, נשאר-נחיתה-אחרי-login) דרך /dashboard, דשבורד-מכירות
+// (/dashboard/sales), תור-שיחות (/dashboard/sales/campaigns/calling),
+// יומן (/dashboard/calendar), בקשות-אישור (/dashboard/approvals - יש
+// מודאל-חי PendingAutomationWatcher שלא-תלוי-בקישור-הזה), תהליכים/לוח-
+// Pipeline (/dashboard/sales/pipeline), צ'אט-צוות (/dashboard/chat),
+// דוחות (/dashboard/reports).
 const NAV_SECTIONS = [
   {
     label: 'כללי',
     items: [
-      { href: '/dashboard', label: 'דשבורד', icon: HomeIcon },
       { href: '/dashboard/contacts', label: 'אנשי קשר', icon: UsersIcon },
       { href: '/dashboard/tasks', label: 'משימות', icon: CheckSquareIcon },
-      { href: '/dashboard/calendar', label: 'יומן', icon: CalendarIcon },
-      { href: '/dashboard/approvals', label: 'בקשות אישור', icon: ApprovalIcon },
     ],
   },
   {
     label: 'מכירות',
     items: [
-      { href: '/dashboard/sales', label: 'דשבורד מכירות', icon: TrendingUpIcon },
-      { href: '/dashboard/sales/pipeline', label: 'תהליכים', icon: RouteIcon },
       { href: '/dashboard/sales/leads', label: 'לידים', icon: TargetIcon },
-      { href: '/dashboard/sales/campaigns/calling', label: 'תור שיחות', icon: HeadsetIcon },
     ],
   },
   {
@@ -41,7 +42,6 @@ const NAV_SECTIONS = [
   {
     label: 'תקשורת',
     items: [
-      { href: '/dashboard/chat', label: "צ'אט צוות", icon: ChatBubbleIcon },
       { href: '/dashboard/whatsapp', label: 'וואטסאפ', icon: WhatsAppIcon },
       { href: '/dashboard/email', label: 'מייל', icon: MailIcon },
       { href: '/dashboard/calls', label: 'שיחות', icon: PhoneIcon },
@@ -50,7 +50,6 @@ const NAV_SECTIONS = [
   {
     label: 'ניהול',
     items: [
-      { href: '/dashboard/reports', label: 'דוחות', icon: BarChartIcon },
       { href: '/dashboard/settings', label: 'הגדרות', icon: SettingsGearIcon },
     ],
   },

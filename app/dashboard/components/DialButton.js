@@ -8,14 +8,14 @@ import { PhoneIcon } from './icons';
 // מקום שבו יש כבר איש-קשר עם מספר-טלפון. אין כאן מעקב-חי-אחרי-מצב-
 // השיחה (לא בסקופ) - רק אישור ש"השיחה נשלחה", שאר-המעקב (מענה/משך/
 // הקלטה) מגיע כרגיל דרך ה-webhook של 015 לטאב "פעילות".
-export default function DialButton({ contactId, style = {} }) {
+export default function DialButton({ contactId, workspaceId = null, style = {} }) {
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState(null); // null | 'sent' | string (error)
 
   function handleClick() {
     setStatus(null);
     startTransition(async () => {
-      const res = await dialContact(contactId);
+      const res = await dialContact(contactId, workspaceId);
       if (res.error) { setStatus(res.error); return; }
       setStatus('sent');
       setTimeout(() => setStatus(null), 5000);

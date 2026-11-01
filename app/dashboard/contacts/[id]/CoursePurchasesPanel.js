@@ -10,6 +10,7 @@
 // completed, ממד נפרד-לגמרי). purchase.enrollmentEndDate עשוי-להיות
 // undefined עד שהמיגרציה 0161 תרוץ - מטופל בעדינות (fallback ל-"פעיל").
 function computeLifecycleBadge(purchase) {
+  if (purchase.courses?.duration_type === 'self_paced') return { label: 'צפיה עצמית', tone: 'muted' };
   const endDate = purchase.enrollment_end_date;
   if (!endDate) return { label: 'פעיל', tone: 'ok' };
   const isPast = new Date(endDate) < new Date();

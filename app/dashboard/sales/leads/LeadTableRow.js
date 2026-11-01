@@ -10,7 +10,7 @@ import ContactQuickActions from '../../components/ContactQuickActions';
 import ExtraFieldCell from '../../components/ExtraFieldCell';
 import { computeFieldValue } from '../../lib/computedFields';
 import { celebrate } from '../../components/celebrate';
-import { PhoneIcon, PersonIcon, SparkleIcon, WarningIcon, MailIcon } from '../../components/icons';
+import { PersonIcon, SparkleIcon, WarningIcon, MailIcon } from '../../components/icons';
 
 function elapsedLabel(iso) {
   if (!iso) return null;
@@ -119,13 +119,13 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
               )}
             </Link>
             <Link
-              href={`/dashboard/sales/leads/${c.departmentRowId}`} title="התקשרות - פותח את מסך-הטיפול (תסריטים + ציר-זמן + המרה)"
+              href={`/dashboard/sales/leads/${c.departmentRowId}`} title="פתיחת מסך-הטיפול בליד (תסריטים + ציר-זמן + המרה)"
               style={{
                 display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--k-font-body)', fontWeight: 700, fontSize: 11.5,
                 background: 'var(--k-accent)', color: '#fff', borderRadius: 8, padding: '4px 11px', textDecoration: 'none', flexShrink: 0,
               }}
             >
-              <PhoneIcon size={11} /> התקשר
+              <PersonIcon size={11} /> טיפול בליד
             </Link>
           </div>
           <div style={{ fontSize: 11, color: 'var(--k-text-muted)', marginTop: 3 }}>

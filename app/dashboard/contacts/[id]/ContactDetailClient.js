@@ -10,11 +10,11 @@ import { calculateAge, calculateHebrewDate } from '../../lib/hebrewDate';
 import { LEGACY_COURSE_FIELD_KEYS } from '../../lib/extraFields';
 import StageStepper from './StageStepper';
 import QuickActionLauncher from './QuickActionLauncher';
-import ReferrerPicker from './ReferrerPicker';
 import GenericStatsTile from './GenericStatsTile';
 import WidgetVisibilityToggle from './WidgetVisibilityToggle';
 import ExtraFieldVisibilityToggle from './ExtraFieldVisibilityToggle';
 import PersonalInfoCard from './PersonalInfoCard';
+import CoursePinSwitcher from './CoursePinSwitcher';
 import ContactSettingsMenu from './ContactSettingsMenu';
 import ShareContactButton from './ShareContactButton';
 import AvatarUpload from './AvatarUpload';
@@ -37,7 +37,7 @@ const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, paddi
 export default function ContactDetailClient({
   contact, departments, allWorkspaces, viewerWorkspaceIds, meetings, tasks, existingTags, tagGroups, existingSources = [],
   isModal, isFloating, toggleTaskAction, updateNotesAction, sentEmails, emailConnections, sentWhatsapp, whatsappTemplates, emailTemplates,
-  nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, allInquiries, workspaceNameById, donationTransactions,
+  nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, personalInfoAlwaysOpen = [], courses = [], allInquiries, workspaceNameById, donationTransactions,
   callHistory, externalIds, closeReasons, isManager, phoneCalls, pipelinesByWorkspace,
   commitments, additionalPhones, courseEnrollments, coursePurchases, serviceCases, seminarParticipations, relatedContacts, importConflicts = [],
 }) {
@@ -179,23 +179,18 @@ export default function ContactDetailClient({
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
             <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 24, color: 'var(--k-text)' }}>{contact.first} {contact.last}</div>
-            {active && <ReferrerPicker contactId={contact.id} department={active} frozen={contact.frozen} />}
           </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center', flexWrap: 'wrap' }}>
             {visibleDepartments.map((d) => (
-              <button
+              <CoursePinSwitcher
                 key={d.id}
-                onClick={() => setActiveId(d.id)}
-                style={{
-                  fontFamily: 'var(--k-font-display)',
-                  border: '1px solid ' + (active?.id === d.id ? 'var(--k-text)' : 'var(--k-border)'),
-                  background: active?.id === d.id ? 'var(--k-text)' : 'var(--k-surface)',
-                  color: active?.id === d.id ? 'var(--k-bg)' : 'var(--k-text)',
-                  borderRadius: 8, padding: '4px 13px', fontSize: 12.5, cursor: 'pointer',
-                }}
-              >
-                {d.workspaceName}
-              </button>
+                department={d}
+                isActive={active?.id === d.id}
+                onSelect={() => setActiveId(d.id)}
+                courses={courses}
+                contactId={contact.id}
+                frozen={contact.frozen}
+              />
             ))}
             {visibleDepartments.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>לא משויך למחלקה שלך</span>}
             {availableToAdd.length > 0 && (
@@ -338,7 +333,7 @@ export default function ContactDetailClient({
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
         {contact.phone && !contact.frozen ? (
-          <DialButton contactId={contact.id} />
+          <DialButton contactId={contact.id} workspaceId={active?.workspaceId || null} />
         ) : (
           <NotConnectedButton label="חיוג" icon={<PhoneIcon size={14} />} message={!contact.phone ? 'לאיש הקשר אין מספר טלפון שמור' : 'איש הקשר מוקפא'} />
         )}
@@ -366,12 +361,6 @@ export default function ContactDetailClient({
             message={!active ? 'יש לבחור מחלקה קודם' : !activeConnection ? `תיבת המייל של מחלקת "${active.workspaceName}" עדיין לא מחוברת` : !contact.email ? 'לאיש הקשר אין כתובת מייל שמורה' : 'איש הקשר מוקפא'}
           />
         )}
-        <button
-          onClick={() => openWindow({ id: 'calendar', kind: 'calendar', title: 'יומן', props: { initialContactId: contact.id, autoOpenToday: true } })}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)', border: '1px solid var(--k-border)' }}
-        >
-          <span>📅</span><span>קביעת משימה/פגישה חדשה</span>
-        </button>
         <AiSummaryButton contactId={contact.id} />
         {active?.stage === 'credit_issue' && contact.phone && !contact.frozen && (
           <button
@@ -422,10 +411,13 @@ export default function ContactDetailClient({
             agents={active ? (agentsByWorkspace?.[active.workspaceId] || []) : []}
             activeWorkspaceId={active?.workspaceId}
             activeDepartmentId={active?.id}
+            activeDepartment={active}
+            frozen={contact.frozen}
             lastActivityAt={active?.lastActivityAt}
             relatedContact={relatedContact}
             relatedContacts={relatedContacts}
             externalIds={externalIds}
+            personalInfoAlwaysOpen={personalInfoAlwaysOpen}
           />
         </div>
 

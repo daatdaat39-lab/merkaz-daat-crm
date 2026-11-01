@@ -14,7 +14,7 @@ async function requireUser() {
 }
 
 async function requireMemberOfLead(supabase, userId, departmentId) {
-  const { data: row } = await supabase.from('contact_departments').select('id, contact_id, workspace_id, extra_fields, stage, workspaces:workspace_id (name)').eq('id', departmentId).maybeSingle();
+  const { data: row } = await supabase.from('contact_departments').select('id, contact_id, workspace_id, extra_fields, course_id, stage, workspaces:workspace_id (name)').eq('id', departmentId).maybeSingle();
   if (!row) return { error: 'הליד לא נמצא' };
   const allowed = await isMemberOfWorkspace(supabase, userId, row.workspace_id);
   if (!allowed) return { error: 'אין לך גישה לליד הזה' };
@@ -61,7 +61,7 @@ export async function convertLead(departmentId, { price, cohortLabel, enrollment
   const { row, error } = await requireMemberOfLead(supabase, user.id, departmentId);
   if (error) return { error };
 
-  const courseId = row.extra_fields?.course_id;
+  const courseId = row.course_id;
   if (!courseId) return { error: 'יש לבחור קורס לפני ההמרה' };
 
   const workspaceName = row.workspaces?.name;

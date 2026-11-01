@@ -10,7 +10,7 @@ import DialButton from '../../../components/DialButton';
 import FillSection from '../../../components/FillSection';
 import QuickActivityLogForm from '../../../contacts/[id]/QuickActivityLogForm';
 import { PersonIcon, SparkleIcon, CheckIcon, CloseXIcon } from '../../../components/icons';
-import { updateDepartmentExtraField, updateLeadStage } from '../../../contacts/actions';
+import { updateLeadCourse, updateLeadStage, assignAgentForLead } from '../../../contacts/actions';
 import { CLOSE_REASONS } from '../../../components/pipelines';
 import { lockLead, heartbeatLeadLock, releaseLeadLock, convertLead, setRepConfidence } from './leadLockActions';
 
@@ -24,12 +24,15 @@ const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted
 // סכנה בדיוק: הסתרת-טאב כשהנציג עובר לחייג מהנייד האישי שלו).
 export default function LeadWorkScreen({
   departmentId, aiActionText, aiConfidence, timelineSummary, contact, department, stageLabel, wonStageLabel, workspaceId, workspaceName,
-  courses, playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps, stages = [], stageLabels = {},
+  courses, playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps, stages = [], stageLabels = {}, agents = [],
 }) {
   const [lockState, setLockState] = useState('checking'); // checking | locked | denied
+  const [agentId, setAgentId] = useState(department.agentId || '');
+  const [stage, setStage] = useState(department.stage);
+  const [stagePending, setStagePending] = useState(false);
   const [repConfidence, setRepConfidenceState] = useState(department.repConfidence || null);
   const [confidencePending, setConfidencePending] = useState(false);
-  const [courseId, setCourseId] = useState(department.extraFields?.course_id || '');
+  const [courseId, setCourseId] = useState(department.courseId || '');
   const [price, setPrice] = useState('');
   const [cohortLabel, setCohortLabel] = useState('');
   const [enrollmentStartDate, setEnrollmentStartDate] = useState('');
@@ -77,11 +80,41 @@ export default function LeadWorkScreen({
     return () => window.removeEventListener('beforeunload', releaseOnHide);
   }, [departmentId, lockState]);
 
+  // ניווט-פנימי (Link/SPA) לא-מפעיל beforeunload - בלי-זה הליד-היה-
+  // נשאר-"נעול" עד-הפעימה-הבאה אחרי-שהנציג-כבר-עזב-את-המסך. קוראים-
+  // לשחרור-מפורש בכל-קישור-יציאה (גם "כרטיס מלא", גם "חזרה לרשימה").
+  function releaseOnNavigate() {
+    if (lockState === 'locked') releaseLeadLock(departmentId);
+  }
+
+  // שימוש-חוזר-מלא בשתי-הפעולות-שכבר-עובדות-בלוח-הלידים (LeadTableRow.js)
+  // - רק-מוסיפים-את-אותה-בקרה-גם-כאן, כדי-שנציג-לא-יצטרך-לצאת-ממסך-
+  // הליד כדי-להעביר-טיפול/להתקדם-שלב (ר' דיון).
+  function handleAgentChange(e) {
+    const value = e.target.value;
+    setAgentId(value);
+    startTransition(async () => {
+      await assignAgentForLead(departmentId, value || null);
+      router.refresh();
+    });
+  }
+
+  function handleStageChange(e) {
+    const value = e.target.value;
+    setStage(value);
+    setStagePending(true);
+    startTransition(async () => {
+      await updateLeadStage(departmentId, value);
+      setStagePending(false);
+      router.refresh();
+    });
+  }
+
   function handleCourseChange(e) {
     const value = e.target.value;
     setCourseId(value);
     startTransition(async () => {
-      await updateDepartmentExtraField(departmentId, 'course_id', value || null);
+      await updateLeadCourse(departmentId, value || null);
       router.refresh();
     });
   }
@@ -143,7 +176,15 @@ export default function LeadWorkScreen({
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 22, color: 'var(--k-text)' }}>{contact.first} {contact.last}</span>
                 <Link
+                  href="/dashboard/sales/leads"
+                  onClick={releaseOnNavigate}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--k-text-muted)', background: 'var(--k-pill-bg)', borderRadius: 8, padding: '3px 11px', textDecoration: 'none' }}
+                >
+                  ← חזרה לרשימת הלידים
+                </Link>
+                <Link
                   href={`/dashboard/contacts/${contact.id}`}
+                  onClick={releaseOnNavigate}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--k-accent)', background: 'var(--k-pill-bg)', borderRadius: 8, padding: '3px 11px', textDecoration: 'none' }}
                 >
                   <PersonIcon size={11} /> כרטיס מלא
@@ -160,6 +201,18 @@ export default function LeadWorkScreen({
                 <SparkleIcon size={14} style={{ color: 'var(--k-accent)' }} /><span>{aiActionText}</span>
               </div>
             )}
+
+            <div style={cardStyle}>
+              <div style={sectionLabel}>שלב</div>
+              <select value={stage} onChange={handleStageChange} disabled={stagePending} style={inputStyle}>
+                {stages.map((s) => <option key={s} value={s}>{stageLabels[s] || s}</option>)}
+              </select>
+              <div style={{ ...sectionLabel, marginTop: 6 }}>נציג מטפל</div>
+              <select value={agentId} onChange={handleAgentChange} disabled={isPending} style={inputStyle}>
+                <option value="">ללא נציג</option>
+                {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
 
             {/* ציון-סבירות-לסגור - הערכת-נציג ידנית (חם/פושר/קר), נפרד-
                 בכוונה מהערכת-AI (לא ממוזגים) - ר' דיון "ציון-סבירות-לסגור". */}
@@ -195,8 +248,9 @@ export default function LeadWorkScreen({
                 sendConnections={sendConnections}
                 whatsappTemplates={whatsappTemplates}
                 emailTemplates={emailTemplates}
+                departmentId={departmentId}
               />
-              {contact.phone && <DialButton contactId={contact.id} />}
+              {contact.phone && <DialButton contactId={contact.id} workspaceId={workspaceId} />}
             </div>
 
             <div style={cardStyle}>

@@ -74,8 +74,22 @@ export async function POST(request) {
 
   const toNumber = (v) => (v ? Number(v) : null);
   const toDate = (v) => (v ? new Date(Number(v) * 1000 || v) : null);
+  const isInbound = body.direction !== 'outbound';
 
-  const { error } = await supabase.from('phone_calls').upsert({
+  // שיוך-מחלקה (workspace_id) ל-phone_calls - רק-לשיחות-נכנסות מחושב
+  // כאן (ניתוב-דטרמיניסטי-לפי-dnumber, cti_line_routing - זהה-בשני-
+  // האירועים Calling/Hangup של אותה-שיחה, אז בטוח-לחשב-בכל-קריאה).
+  // שיחות-יוצאות (חיוג-יזום, dialContact) מקבלות workspace_id מראש
+  // ע"י הקוד-הקורא ל-calls/make (לפני שה-webhook-הזה בכלל מגיע) - לכן
+  // *לא* כוללים את המפתח workspace_id בעדכון-כאן עבורן, כדי לא-לדרוס
+  // את-הערך-שכבר-נכתב בחזרה ל-null (upsert מעדכן רק-עמודות-שנשלחות).
+  let workspaceId = null;
+  if (isInbound && dnumber) {
+    const { data: routing } = await supabase.from('cti_line_routing').select('workspace_id').eq('dnumber', dnumber).maybeSingle();
+    workspaceId = routing?.workspace_id || null;
+  }
+
+  const upsertPayload = {
     contact_id: contactId,
     external_call_id: externalCallId,
     direction: body.direction || null,
@@ -88,43 +102,41 @@ export async function POST(request) {
     recording_url: (body.recording || '').toString().trim() || null,
     started_at: toDate(body.start),
     ended_at: toDate(body.end),
-  }, { onConflict: 'external_call_id' });
+  };
+  if (workspaceId) upsertPayload.workspace_id = workspaceId;
+
+  const { error } = await supabase.from('phone_calls').upsert(upsertPayload, { onConflict: 'external_call_id' });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // הקפצת-מסך - ברגע-הצלצול (אירוע "Calling", לא "Hangup" יותר - ר'
   // ההערה למעלה). קריטי: מגודר **רק** ל-Calling - אחרת שני האירועים
   // (Calling+Hangup) לאותה שיחה ייצרו שתי שורות-cti_call_events ושני
-  // טוסטים-כפולים לנציג על שיחה אחת. רק לשיחות-נכנסות (direction שונה
-  // מ-'outbound', אותה מוסכמה כמו בתצוגה הקיימת ב-ContactTabs.js) עם
-  // ניתוב-קו מוגדר (cti_line_routing, migration 0153) - בלי ניתוב, אין
-  // workspace לשייך את ההתראה אליו, אז מדלגים בשקט (הרישום ב-phone_calls
-  // כבר קרה למעלה, לא תלוי בזה).
-  const isInbound = body.direction !== 'outbound';
+  // טוסטים-כפולים לנציג על שיחה אחת. רק לשיחות-נכנסות עם ניתוב-קו
+  // מוגדר (workspaceId שכבר-חושב-למעלה) - בלי ניתוב, אין workspace
+  // לשייך את ההתראה אליו, אז מדלגים בשקט (הרישום ב-phone_calls כבר
+  // קרה למעלה, לא תלוי בזה).
   const isCallingEvent = (body.status || '').toString().trim().toLowerCase() === 'calling';
-  if (isCallingEvent && isInbound && dnumber) {
-    const { data: routing } = await supabase.from('cti_line_routing').select('workspace_id').eq('dnumber', dnumber).maybeSingle();
-    if (routing?.workspace_id) {
-      let departmentId = null;
-      let agentId = null;
-      if (contactId) {
-        // .maybeSingle() היה-זורק-שגיאה-אם-לאיש-הקשר-כמה-שורות-באותה-
-        // מחלקה (ר' course_id, migration 0164) - לוקחים-את-הפעילה-ביותר.
-        const { data: deptRows } = await supabase
-          .from('contact_departments')
-          .select('id, agent_id, last_activity_at')
-          .eq('contact_id', contactId)
-          .eq('workspace_id', routing.workspace_id)
-          .order('last_activity_at', { ascending: false });
-        const dept = (deptRows || [])[0];
-        departmentId = dept?.id || null;
-        agentId = dept?.agent_id || null;
-      }
-      await supabase.from('cti_call_events').insert({
-        workspace_id: routing.workspace_id, contact_id: contactId, department_id: departmentId,
-        agent_id: agentId, phone: snumber, answered: body.answered === '1' || body.answered === 1 || body.answered === true,
-      });
+  if (isCallingEvent && workspaceId) {
+    let departmentId = null;
+    let agentId = null;
+    if (contactId) {
+      // .maybeSingle() היה-זורק-שגיאה-אם-לאיש-הקשר-כמה-שורות-באותה-
+      // מחלקה (ר' course_id, migration 0164) - לוקחים-את-הפעילה-ביותר.
+      const { data: deptRows } = await supabase
+        .from('contact_departments')
+        .select('id, agent_id, last_activity_at')
+        .eq('contact_id', contactId)
+        .eq('workspace_id', workspaceId)
+        .order('last_activity_at', { ascending: false });
+      const dept = (deptRows || [])[0];
+      departmentId = dept?.id || null;
+      agentId = dept?.agent_id || null;
     }
+    await supabase.from('cti_call_events').insert({
+      workspace_id: workspaceId, contact_id: contactId, department_id: departmentId,
+      agent_id: agentId, phone: snumber, answered: body.answered === '1' || body.answered === 1 || body.answered === true,
+    });
   }
 
   return NextResponse.json({ success: true, matched: !!contactId });

@@ -9,7 +9,15 @@ import TagPicker from '../TagPicker';
 import SourceMultiPicker from '../SourceMultiPicker';
 import FamilyRelationsPanel from './FamilyRelationsPanel';
 import FillSection from '../../components/FillSection';
+import ReferrerPicker from './ReferrerPicker';
 import { GENDER_OPTIONS } from '../../lib/contactFieldsList';
+
+// שדות-תמיד-פתוחים (ברירת-מחדל-גלובלית) - מה-שרלוונטי-ליצירת-קשר-
+// יומיומית. כל שאר-השדות-המשניים (זיהוי/כתובת-מלאה/מזהים-חיצוניים/
+// נציג-מטפל) מתקפלים מאחורי "+ עוד פרטים", אלא-אם-כן הנציג-הזה-עצמו
+// בחר-אחרת (personalInfoAlwaysOpen - profiles.personal_info_always_open,
+// נערך ב"ההעדפות שלי" - ר' PERSONAL_INFO_ALWAYS_OPEN_CANDIDATES).
+const ALWAYS_OPEN_DEFAULT = ['phone', 'email', 'city'];
 
 const inputStyle = { width: '100%', border: '1px solid var(--k-border)', borderRadius: 8, padding: '5px 8px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
 const categoryLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted)', textTransform: 'uppercase', letterSpacing: '.05em', margin: '14px 0 8px' };
@@ -19,13 +27,17 @@ const categoryLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-mute
 // ✎ הופכת את שורות הזהות/פרטי הקשר לשדות קלט במקום, עם שמירה/ביטול.
 export default function PersonalInfoCard({
   contact, existingTags, tagGroups = null, existingSources = [], age, hebrewDate, nextMeeting, agentId, agentName, agents, activeWorkspaceId,
-  activeDepartmentId, lastActivityAt, relatedContact, relatedContacts = { forward: [], reverse: [] }, externalIds = [],
+  activeDepartmentId, activeDepartment = null, frozen = false, lastActivityAt, relatedContact, relatedContacts = { forward: [], reverse: [] }, externalIds = [],
+  personalInfoAlwaysOpen = [],
 }) {
   const [editing, setEditing] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const [related, setRelated] = useState(relatedContact ? { id: relatedContact.id, name: `${relatedContact.first} ${relatedContact.last}` } : null);
   const router = useRouter();
+
+  const alwaysOpen = [...ALWAYS_OPEN_DEFAULT, ...personalInfoAlwaysOpen];
 
   const hasFamilyRelations = (relatedContacts.forward?.length || 0) > 0 || (relatedContacts.reverse?.length || 0) > 0;
 
@@ -137,25 +149,67 @@ export default function PersonalInfoCard({
         </form>
       ) : (
         <>
-          <InfoRow label="ת.ז / מזהה" value={contact.idnum} />
-          <InfoRow label="תאריך לידה" value={contact.birth_date ? new Date(contact.birth_date).toLocaleDateString('he-IL') : null} />
-          <InfoRow label="גיל" value={age} />
-          <InfoRow label="תאריך עברי" value={hebrewDate} />
-          <InfoRow label="מגדר" value={contact.gender} />
-          <InfoRow label="מספר ילדים" value={contact.children_count} />
-          <InfoRow label="מקור" value={contact.source} />
-          <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />
-          {externalIds.length > 0 && (
+          {activeDepartment && (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>מזהים במערכות חיצוניות</div>
-              <div style={{ fontSize: 13 }}>
-                {externalIds.map((e) => `${e.source_system}: ${e.external_id}`).join(' · ')}
-              </div>
+              <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>גורם מקשר</div>
+              <ReferrerPicker contactId={contact.id} department={activeDepartment} frozen={frozen} />
             </div>
           )}
-          {/* כש-אין-קשרים-קיימים, הכפתור-להוספה זז לתחתית-הכרטיס (יחד עם
-              "להשלמה בשיחה") - פה למעלה נשאר רק מידע-אמיתי-שכבר-קיים. */}
-          {hasFamilyRelations && <FamilyRelationsPanel contactId={contact.id} relatedContacts={relatedContacts} frozen={contact.frozen} />}
+
+          {/* שדות-תמיד-פתוחים (ALWAYS_OPEN_DEFAULT) - השאר מאחורי "+ עוד
+              פרטים" (מקופל-כברירת-מחדל) - כדי-שהכרטיס-לא-ירגיש-ארוך-
+              ומסובך. */}
+          {alwaysOpen.includes('phone') && <InfoRow label="טלפון" value={contact.phone} />}
+          {alwaysOpen.includes('email') && <InfoRow label="מייל" value={contact.email} />}
+          {alwaysOpen.includes('city') && <InfoRow label="עיר" value={contact.city} />}
+          {alwaysOpen.includes('idnum') && <InfoRow label="ת.ז / מזהה" value={contact.idnum} />}
+          {alwaysOpen.includes('birth_date') && (
+            <>
+              <InfoRow label="תאריך לידה" value={contact.birth_date ? new Date(contact.birth_date).toLocaleDateString('he-IL') : null} />
+              <InfoRow label="גיל" value={age} />
+              <InfoRow label="תאריך עברי" value={hebrewDate} />
+            </>
+          )}
+          {alwaysOpen.includes('gender') && <InfoRow label="מגדר" value={contact.gender} />}
+          {alwaysOpen.includes('children_count') && <InfoRow label="מספר ילדים" value={contact.children_count} />}
+          {alwaysOpen.includes('source') && <InfoRow label="מקור" value={contact.source} />}
+          {alwaysOpen.includes('created_at') && <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />}
+          {alwaysOpen.includes('phone2') && <InfoRow label="טלפון נוסף" value={contact.phone2} />}
+          {alwaysOpen.includes('email2') && <InfoRow label="מייל נוסף" value={contact.email2} />}
+          {alwaysOpen.includes('address') && (
+            <>
+              <InfoRow label="רחוב" value={[contact.street, contact.house_number, contact.apartment ? `דירה ${contact.apartment}` : null].filter(Boolean).join(' ') || null} />
+              <InfoRow label="שכונה" value={contact.neighborhood} />
+              <InfoRow label="מיקוד" value={contact.zip_code} />
+              <InfoRow label="מדינה" value={contact.country} />
+            </>
+          )}
+          {alwaysOpen.includes('external_ids') && externalIds.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>מזהים במערכות חיצוניות</div>
+              <div style={{ fontSize: 13 }}>{externalIds.map((e) => `${e.source_system}: ${e.external_id}`).join(' · ')}</div>
+            </div>
+          )}
+          {alwaysOpen.includes('last_activity') && (
+            <InfoRow label="פעילות אחרונה" value={lastActivityAt ? new Date(lastActivityAt).toLocaleDateString('he-IL') : null} />
+          )}
+          {alwaysOpen.includes('next_meeting') && (
+            <InfoRow label="פגישה קרובה" value={nextMeeting ? `${new Date(nextMeeting.meeting_date).toLocaleDateString('he-IL')} · ${nextMeeting.meeting_time?.slice(0, 5)}` : null} />
+          )}
+          {alwaysOpen.includes('agent') && (
+            activeWorkspaceId ? (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginBottom: 2 }}>נציג מטפל</div>
+                <select value={agentId || ''} onChange={handleAgentChange} disabled={isPending} style={inputStyle}>
+                  <option value="">ללא נציג</option>
+                  {(agents || []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+            ) : (
+              <InfoRow label="נציג מטפל" value={agentName} />
+            )
+          )}
+
           {relatedContact && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>{contact.relation_label || 'איש קשר קשור'}</div>
@@ -170,46 +224,92 @@ export default function PersonalInfoCard({
             </div>
           )}
 
-          {(contact.phone || contact.phone2 || contact.email || contact.email2) && (
-            <>
-              <div style={categoryLabel}>פרטי קשר</div>
-              <InfoRow label="טלפון" value={contact.phone} />
-              <InfoRow label="טלפון נוסף" value={contact.phone2} />
-              <InfoRow label="מייל" value={contact.email} />
-              <InfoRow label="מייל נוסף" value={contact.email2} />
-            </>
-          )}
+          <button
+            type="button"
+            onClick={() => setMoreOpen((v) => !v)}
+            style={{ background: 'none', border: 'none', padding: 0, margin: '2px 0 10px', fontSize: 12, color: 'var(--k-accent)', cursor: 'pointer' }}
+          >
+            {moreOpen ? '▴ הסתרת פרטים נוספים' : '▾ עוד פרטים'}
+          </button>
 
-          {(contact.city || contact.street || contact.zip_code || contact.neighborhood || contact.country) && (
-            <>
-              <div style={categoryLabel}>כתובת</div>
-              <InfoRow label="עיר" value={contact.city} />
-              <InfoRow label="רחוב" value={[contact.street, contact.house_number, contact.apartment ? `דירה ${contact.apartment}` : null].filter(Boolean).join(' ') || null} />
-              <InfoRow label="שכונה" value={contact.neighborhood} />
-              <InfoRow label="מיקוד" value={contact.zip_code} />
-              <InfoRow label="מדינה" value={contact.country} />
-            </>
-          )}
-
-          <div style={categoryLabel}>פעילות ומעקב</div>
-          <InfoRow label="פעילות אחרונה" value={lastActivityAt ? new Date(lastActivityAt).toLocaleDateString('he-IL') : null} />
-          <InfoRow
-            label="פגישה קרובה"
-            value={nextMeeting ? `${new Date(nextMeeting.meeting_date).toLocaleDateString('he-IL')} · ${nextMeeting.meeting_time?.slice(0, 5)}` : null}
-          />
-          {activeWorkspaceId ? (
+          {moreOpen && (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginBottom: 2 }}>נציג מטפל</div>
-              <select value={agentId || ''} onChange={handleAgentChange} disabled={isPending} style={inputStyle}>
-                <option value="">ללא נציג</option>
-                {(agents || []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-              </select>
+              {(!alwaysOpen.includes('idnum') || !alwaysOpen.includes('birth_date') || !alwaysOpen.includes('gender') || !alwaysOpen.includes('children_count') || !alwaysOpen.includes('source') || !alwaysOpen.includes('created_at')) && (
+                <div style={categoryLabel}>זיהוי</div>
+              )}
+              {!alwaysOpen.includes('idnum') && <InfoRow label="ת.ז / מזהה" value={contact.idnum} />}
+              {!alwaysOpen.includes('birth_date') && (
+                <>
+                  <InfoRow label="תאריך לידה" value={contact.birth_date ? new Date(contact.birth_date).toLocaleDateString('he-IL') : null} />
+                  <InfoRow label="גיל" value={age} />
+                  <InfoRow label="תאריך עברי" value={hebrewDate} />
+                </>
+              )}
+              {!alwaysOpen.includes('gender') && <InfoRow label="מגדר" value={contact.gender} />}
+              {!alwaysOpen.includes('children_count') && <InfoRow label="מספר ילדים" value={contact.children_count} />}
+              {!alwaysOpen.includes('source') && <InfoRow label="מקור" value={contact.source} />}
+              {!alwaysOpen.includes('created_at') && <InfoRow label="נוצר בתאריך" value={new Date(contact.created_at).toLocaleDateString('he-IL')} />}
+              {!alwaysOpen.includes('external_ids') && externalIds.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>מזהים במערכות חיצוניות</div>
+                  <div style={{ fontSize: 13 }}>
+                    {externalIds.map((e) => `${e.source_system}: ${e.external_id}`).join(' · ')}
+                  </div>
+                </div>
+              )}
+
+              {(!alwaysOpen.includes('phone') || (!alwaysOpen.includes('phone2') && contact.phone2) || !alwaysOpen.includes('email') || (!alwaysOpen.includes('email2') && contact.email2)) && (
+                <>
+                  <div style={categoryLabel}>פרטי קשר נוספים</div>
+                  {!alwaysOpen.includes('phone') && <InfoRow label="טלפון" value={contact.phone} />}
+                  {!alwaysOpen.includes('phone2') && <InfoRow label="טלפון נוסף" value={contact.phone2} />}
+                  {!alwaysOpen.includes('email') && <InfoRow label="מייל" value={contact.email} />}
+                  {!alwaysOpen.includes('email2') && <InfoRow label="מייל נוסף" value={contact.email2} />}
+                </>
+              )}
+
+              {(!alwaysOpen.includes('city') || !alwaysOpen.includes('address')) && <div style={categoryLabel}>כתובת</div>}
+              {!alwaysOpen.includes('city') && <InfoRow label="עיר" value={contact.city} />}
+              {!alwaysOpen.includes('address') && (
+                <>
+                  <InfoRow label="רחוב" value={[contact.street, contact.house_number, contact.apartment ? `דירה ${contact.apartment}` : null].filter(Boolean).join(' ') || null} />
+                  <InfoRow label="שכונה" value={contact.neighborhood} />
+                  <InfoRow label="מיקוד" value={contact.zip_code} />
+                  <InfoRow label="מדינה" value={contact.country} />
+                </>
+              )}
+
+              {(!alwaysOpen.includes('last_activity') || !alwaysOpen.includes('next_meeting') || !alwaysOpen.includes('agent')) && (
+                <div style={categoryLabel}>פעילות ומעקב</div>
+              )}
+              {!alwaysOpen.includes('last_activity') && (
+                <InfoRow label="פעילות אחרונה" value={lastActivityAt ? new Date(lastActivityAt).toLocaleDateString('he-IL') : null} />
+              )}
+              {!alwaysOpen.includes('next_meeting') && (
+                <InfoRow
+                  label="פגישה קרובה"
+                  value={nextMeeting ? `${new Date(nextMeeting.meeting_date).toLocaleDateString('he-IL')} · ${nextMeeting.meeting_time?.slice(0, 5)}` : null}
+                />
+              )}
+              {!alwaysOpen.includes('agent') && (
+                activeWorkspaceId ? (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginBottom: 2 }}>נציג מטפל</div>
+                    <select value={agentId || ''} onChange={handleAgentChange} disabled={isPending} style={inputStyle}>
+                      <option value="">ללא נציג</option>
+                      {(agents || []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                  </div>
+                ) : (
+                  <InfoRow label="נציג מטפל" value={agentName} />
+                )
+              )}
             </div>
-          ) : (
-            <InfoRow label="נציג מטפל" value={agentName} />
           )}
-          {/* הוסר - כפול עם קוביית "משימות פתוחות" שכבר מוצגת למעלה
-              (ContactDetailClient.js), שם כבר מותנית-ב->0 בדיוק כמו כאן. */}
+
+          {/* כש-אין-קשרים-קיימים, הכפתור-להוספה זז לתחתית-הכרטיס (יחד עם
+              "להשלמה בשיחה") - פה למעלה נשאר רק מידע-אמיתי-שכבר-קיים. */}
+          {hasFamilyRelations && <FamilyRelationsPanel contactId={contact.id} relatedContacts={relatedContacts} frozen={contact.frozen} />}
 
           <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             {(contact.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}

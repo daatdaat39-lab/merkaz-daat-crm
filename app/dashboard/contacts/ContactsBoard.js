@@ -1,26 +1,23 @@
 'use client';
 
-import { useState, useMemo, useEffect, useTransition } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { StageBadge, Tag, initials } from '../components/ui';
+import { StageBadge, initials } from '../components/ui';
 import ContactQuickActions from '../components/ContactQuickActions';
 import AdvancedFilterPanel from '../components/AdvancedFilterPanel';
-import TagFilterMultiSelect from '../components/TagFilterMultiSelect';
 import { contactMatchesAdvancedFilter } from '../components/advancedFilter';
-import { addContactTag } from './actions';
+import { nameSimilarity } from '../lib/findDuplicates';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
 
 // רשימת אנשי קשר עם סינון/חיפוש/מיון בצד הלקוח - אותו דפוס בדיוק כמו
 // בעמוד הלידים (LeadsBoard.js), כדי שיהיה נוח לאתר איש קשר ספציפי גם
 // כשיש מאות רשומות, לא רק סינון לפי תגית כמו שהיה.
-export default function ContactsBoard({ contacts, allTags, tagGroups = null, allDepartments, sendConnections, whatsappTemplates, emailTemplates, stageLabels = {}, stageColors = {}, extraFieldsByDept = {}, pipelinesByWorkspace = {} }) {
+export default function ContactsBoard({ contacts, allDepartments, sendConnections, whatsappTemplates, emailTemplates, stageLabels = {}, stageColors = {}, extraFieldsByDept = {}, pipelinesByWorkspace = {} }) {
   const [search, setSearch] = useState('');
-  const [tagFilters, setTagFilters] = useState([]);
   const [deptFilter, setDeptFilter] = useState('');
   const [sortBy, setSortBy] = useState('created_desc');
-  const [selected, setSelected] = useState(() => new Set());
   const [fieldFilters, setFieldFilters] = useState({});
   const [advancedFilters, setAdvancedFilters] = useState({});
   const router = useRouter();
@@ -39,27 +36,28 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
     setFieldFilters((prev) => ({ ...prev, [key]: value }));
   }
 
-  function toggleSelect(id) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
   const filtered = useMemo(() => {
     let result = contacts;
 
     if (search.trim()) {
       const q = search.trim().toLowerCase();
-      result = result.filter((c) =>
-        `${c.first} ${c.last}`.toLowerCase().includes(q) ||
-        (c.phone || '').includes(q) ||
-        (c.email || '').toLowerCase().includes(q) ||
-        (c.source || '').toLowerCase().includes(q)
-      );
+      // חיפוש-גמיש: כל מילה-שהוקלדה חייבת-להופיע-איפשהו-בשם (בכל-סדר,
+      // לא תת-מחרוזת-רציפה-אחת) - "ערד ישראל" ימצא גם "ישראל ערד". אם
+      // אין-אף-תוצאה (לא-חיפוש-טלפון/מייל/מקור) - נופלים-חזרה על התאמה-
+      // מקורבת (אותה nameSimilarity שכבר-בשימוש-בבדיקת-כפליות) לתפוס
+      // טעויות-כתיב.
+      const words = q.split(/\s+/).filter(Boolean);
+      result = result.filter((c) => {
+        const fullName = `${c.first} ${c.last}`.toLowerCase();
+        return words.every((w) => fullName.includes(w)) ||
+          (c.phone || '').includes(q) ||
+          (c.email || '').toLowerCase().includes(q) ||
+          (c.source || '').toLowerCase().includes(q);
+      });
+      if (result.length === 0) {
+        result = contacts.filter((c) => nameSimilarity(`${c.first} ${c.last}`.toLowerCase(), q) >= 0.6);
+      }
     }
-    if (tagFilters.length > 0) result = result.filter((c) => (c.tags || []).some((t) => tagFilters.includes(t)));
     if (deptFilter) result = result.filter((c) => c.departments.some((d) => d.name === deptFilter));
 
     const activeFieldFilterEntries = Object.entries(fieldFilters).filter(([, v]) => v);
@@ -89,17 +87,17 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
       }
     });
     return sorted;
-  }, [contacts, search, tagFilters, deptFilter, fieldFilters, advancedFilters, sortBy, activeExtraFields, extraFieldsByDept]);
+  }, [contacts, search, deptFilter, fieldFilters, advancedFilters, sortBy, activeExtraFields, extraFieldsByDept]);
 
   // בכל שינוי סינון/חיפוש/מיון - חוזרים לעמוד הראשון של התצוגה, אחרת
   // "טען עוד" שכבר נלחץ קודם היה משאיר displayLimit גבוה על תוצאה חדשה.
   useEffect(() => {
     setDisplayLimit(PAGE_SIZE);
-  }, [search, tagFilters, deptFilter, fieldFilters, advancedFilters, sortBy]);
+  }, [search, deptFilter, fieldFilters, advancedFilters, sortBy]);
 
   const visible = useMemo(() => filtered.slice(0, displayLimit), [filtered, displayLimit]);
 
-  const activeFilterCount = [tagFilters.length > 0, deptFilter].filter(Boolean).length;
+  const activeFilterCount = [deptFilter].filter(Boolean).length;
 
   return (
     <div>
@@ -114,7 +112,6 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
           <option value="">כל המחלקות</option>
           {allDepartments.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
-        <TagFilterMultiSelect value={tagFilters} onChange={setTagFilters} tags={allTags} groups={tagGroups} placeholder="כל התגיות" />
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={{ ...inputStyle, marginInlineStart: 'auto' }}>
           <option value="created_desc">מיון: נוספו לאחרונה</option>
           <option value="created_asc">מיון: הכי ותיקים</option>
@@ -122,7 +119,7 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
         </select>
         {(activeFilterCount > 0 || search) && (
           <button
-            onClick={() => { setSearch(''); setTagFilters([]); setDeptFilter(''); }}
+            onClick={() => { setSearch(''); setDeptFilter(''); }}
             style={{ ...inputStyle, cursor: 'pointer', color: 'var(--k-text-muted)' }}
           >
             ניקוי סינון
@@ -165,27 +162,10 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
           : <>מציג {visible.length} מתוך {contacts.length} אנשי קשר</>}
       </div>
 
-      <BulkActionBar selected={selected} setSelected={setSelected} router={router} />
-
       <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden' }}>
         <thead>
           <tr style={{ background: 'var(--k-bg)' }}>
-            <th style={{ padding: '10px 8px', textAlign: 'center' }}>
-              <input
-                type="checkbox"
-                checked={filtered.length > 0 && filtered.every((c) => selected.has(c.id))}
-                onChange={() => {
-                  setSelected((prev) => {
-                    const allSelected = filtered.length > 0 && filtered.every((c) => prev.has(c.id));
-                    const next = new Set(prev);
-                    if (allSelected) filtered.forEach((c) => next.delete(c.id));
-                    else filtered.forEach((c) => next.add(c.id));
-                    return next;
-                  });
-                }}
-              />
-            </th>
-            {['שם', 'מחלקות', 'טלפון', 'מייל', 'מקור', 'תגיות', 'פעולות מהירות'].map((h) => (
+            {['שם', 'מחלקות', 'טלפון', 'מייל', 'מקור', 'פעולות מהירות'].map((h) => (
               <th key={h} style={{ textAlign: 'right', fontSize: 11, fontWeight: 700, letterSpacing: '.04em', color: 'var(--k-text-muted)', padding: '10px 16px', textTransform: 'uppercase' }}>
                 {h}
               </th>
@@ -195,9 +175,6 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
         <tbody>
           {visible.map((c) => (
             <tr key={c.id} style={{ borderBottom: '1px solid var(--k-border)' }}>
-              <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)} />
-              </td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
                 <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit' }}>
                   <span style={{
@@ -228,10 +205,6 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
               <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--k-text)' }}>{c.email || '—'}</td>
               <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--k-text)' }}>{c.source || '—'}</td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
-                {(c.tags || []).map((t) => <Tag key={t}>{t}</Tag>)}
-                {(!c.tags || c.tags.length === 0) && '—'}
-              </td>
-              <td style={{ padding: '12px 16px', fontSize: 13 }}>
                 <ContactQuickActions
                   contact={{ id: c.id, first: c.first, phone: c.phone, email: c.email, frozen: c.frozen }}
                   departments={c.departments.map((d) => ({ workspaceId: d.workspaceId, workspaceName: d.name }))}
@@ -259,57 +232,6 @@ export default function ContactsBoard({ contacts, allTags, tagGroups = null, all
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-// סרגל פעולות קבוצתיות - כרגע רק הוספת תגית לכולם, כי אנשי קשר משותפים
-// לכל המחלקות ואין "נציג מטפל" יחיד שרלוונטי לבחור עבורם כאן (בניגוד
-// ללידים, ששייכים למחלקה אחת ברורה)
-function BulkActionBar({ selected, setSelected, router }) {
-  const [isPending, startTransition] = useTransition();
-  const [tag, setTag] = useState('');
-
-  if (selected.size === 0) return null;
-
-  function applyTag() {
-    const t = tag.trim();
-    if (!t) return;
-    const ids = Array.from(selected);
-    startTransition(async () => {
-      await Promise.all(ids.map((id) => addContactTag(id, t)));
-      setTag('');
-      setSelected(new Set());
-      router.refresh();
-    });
-  }
-
-  return (
-    <div style={{
-      display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', marginBottom: 16,
-      background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '10px 14px',
-    }}>
-      <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 13, color: 'var(--k-text)' }}>נבחרו {selected.size} אנשי קשר</span>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <input
-          value={tag}
-          onChange={(e) => setTag(e.target.value)}
-          placeholder="הוספת תגית לכולם..."
-          style={{ ...inputStyle, fontSize: 12 }}
-        />
-        <button type="button" onClick={applyTag} disabled={isPending || !tag.trim()} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
-          הוספה
-        </button>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => setSelected(new Set())}
-        style={{ background: 'none', border: '1px solid var(--k-border)', borderRadius: 100, padding: '6px 14px', fontSize: 12, cursor: 'pointer', color: 'var(--k-text-muted)', marginInlineStart: 'auto' }}
-      >
-        ביטול בחירה
-      </button>
     </div>
   );
 }

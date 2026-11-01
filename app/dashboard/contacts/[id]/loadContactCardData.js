@@ -30,12 +30,12 @@ export async function loadContactCardData(contactId) {
   const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, tagRows, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }, { data: coursePurchaseRows }, { data: serviceCaseRows }] = await Promise.all([
     supabase
       .from('contact_departments')
-      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, ai_action_summary, ai_action_summary_stale, ai_timeline_summary, ai_timeline_summary_item_count, rep_confidence, rep_confidence_updated_at, ai_confidence, ai_confidence_updated_at, workspaces:workspace_id (name), lead_inquiries (reason, note, created_at)')
+      .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, ai_action_summary, ai_action_summary_stale, ai_timeline_summary, ai_timeline_summary_item_count, rep_confidence, rep_confidence_updated_at, ai_confidence, ai_confidence_updated_at, course_id, courses:course_id (id, name), workspaces:workspace_id (name, sells_courses), lead_inquiries (reason, note, created_at)')
       .eq('contact_id', contact.id),
     supabase.from('workspaces').select('id, name').order('name'),
     supabase
       .from('meetings')
-      .select('id, title, meeting_date, meeting_time, type, location, notes, workspace_id, zoom_join_url')
+      .select('id, title, meeting_date, meeting_time, type, location, notes, workspace_id, zoom_join_url, contact_department_id')
       .eq('contact_id', contact.id)
       .order('meeting_date', { ascending: false }),
     supabase
@@ -49,13 +49,13 @@ export async function loadContactCardData(contactId) {
     supabase.from('workspace_members').select('workspace_id').eq('user_id', user.id),
     supabase
       .from('sent_emails')
-      .select('id, workspace_id, from_address, subject, body, sent_at')
+      .select('id, workspace_id, from_address, subject, body, sent_at, contact_department_id')
       .eq('contact_id', contact.id)
       .order('sent_at', { ascending: false }),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase
       .from('sent_whatsapp')
-      .select('id, workspace_id, phone, reason, kind, message, direction, sent_at')
+      .select('id, workspace_id, phone, reason, kind, message, direction, sent_at, contact_department_id')
       .eq('contact_id', contact.id)
       .order('sent_at', { ascending: false }),
     supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('sort_order').order('created_at'),
@@ -126,7 +126,7 @@ export async function loadContactCardData(contactId) {
     // בכרטיס, רק נגעו-בהן ב-mergeContacts. courses הוא קטלוג גלובלי.
     supabase
       .from('course_purchases')
-      .select('id, workspace_id, contact_department_id, price, status, created_at, cohort_label, enrollment_start_date, enrollment_end_date, courses:course_id (id, name, code)')
+      .select('id, workspace_id, contact_department_id, price, status, created_at, cohort_label, enrollment_start_date, enrollment_end_date, courses:course_id (id, name, code, duration_type)')
       .eq('contact_id', contact.id)
       .order('created_at', { ascending: false }),
     // קריאות-שירות (migration 0151) - גם הן לא הוצגו-מעולם בכרטיס-איש-
@@ -146,6 +146,10 @@ export async function loadContactCardData(contactId) {
     payments: (donationTransactionRows || []).filter((t) => t.commitment_id === c.id),
   }));
 
+  // קטלוג-קורסים גלובלי (לא per-מחלקה) - לבורר-הקורס בפין-המחלקה
+  // (מחלקות-sells_courses=true בלבד משתמשות-בזה בפועל, ר' ContactDetailClient.js).
+  const { data: activeCourses } = await supabase.from('courses').select('id, name').eq('is_active', true).order('sort_order').order('name');
+
   const closeReasonRows = await getPicklistValues(supabase, 'close_reason', null);
   const closeReasons = closeReasonRows.length ? closeReasonRows.map((r) => r.value) : undefined;
   const isManager = await isManagerOfAnyWorkspace(supabase, user.id);
@@ -155,9 +159,10 @@ export async function loadContactCardData(contactId) {
   // בכל מחלקה - העדפה פרטית, לא משפיעה על מה שנציגים אחרים רואים באותו
   // כרטיס. ר' app/dashboard/lib/fieldPreferences.js.
   const { data: viewerProfile } = await supabase
-    .from('profiles').select('hidden_extra_fields, hidden_widgets').eq('id', user.id).single();
+    .from('profiles').select('hidden_extra_fields, hidden_widgets, personal_info_always_open').eq('id', user.id).single();
   const hiddenExtraFieldsByWorkspace = viewerProfile?.hidden_extra_fields || {};
   const hiddenWidgetsByWorkspace = viewerProfile?.hidden_widgets || {};
+  const personalInfoAlwaysOpen = viewerProfile?.personal_info_always_open || [];
   const extraFieldDefsByWorkspaceName = await getAllExtraFields(supabase);
 
   const admin = createAdminClient();
@@ -224,6 +229,9 @@ export async function loadContactCardData(contactId) {
       id: row.id,
       workspaceId: row.workspace_id,
       workspaceName,
+      sellsCourses: !!row.workspaces?.sells_courses,
+      courseId: row.course_id || null,
+      courseName: row.courses?.name || null,
       stage: row.stage,
       closedReason: row.closed_reason,
       agentId: row.agent_id,
@@ -286,8 +294,12 @@ export async function loadContactCardData(contactId) {
   }
 
   const workspaceNameById = Object.fromEntries((allWorkspaces || []).map((w) => [w.id, w.name]));
+  // contactDepartmentId - מאפשר-לסנן-"חוקת-הליד" (מסך-ליד מראה רק-
+  // פניות-של-הליד-הספציפי-הזה, לא-כל-המחלקה) - נלקח-מ-d.id של-השורה-
+  // ההורה (לא-צריך-לבקש-contact_department_id בנפרד מה-select, זה-אותו-
+  // ערך-בדיוק).
   const allInquiries = departments
-    .flatMap((d) => (d.inquiries || []).map((inq) => ({ ...inq, workspaceName: d.workspaceName })))
+    .flatMap((d) => (d.inquiries || []).map((inq) => ({ ...inq, workspaceName: d.workspaceName, contactDepartmentId: d.id })))
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   const viewerWorkspaceIds = (viewerMemberships || []).map((m) => m.workspace_id);
@@ -346,6 +358,8 @@ export async function loadContactCardData(contactId) {
       openTasksCount,
       relatedContact,
       agentsByWorkspace,
+      personalInfoAlwaysOpen,
+      courses: activeCourses || [],
       allInquiries,
       workspaceNameById,
       donationTransactions: donationTransactionRows || [],

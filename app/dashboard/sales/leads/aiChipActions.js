@@ -36,7 +36,7 @@ export async function refreshStaleActionChips(workspaceId) {
     if (!department) continue;
     const result = await ensureLeadActionChip(supabase, {
       id: row.id, stale: true, cachedSummary: department.aiActionSummary, cachedConfidence: department.aiConfidence,
-      contactName: `${props.contact.first} ${props.contact.last}`, courseId: row.extra_fields?.course_id,
+      contactName: `${props.contact.first} ${props.contact.last}`, courseId: department.courseId,
       communication: {
         inquiries: department.inquiries, meetings: props.meetings, tasks: props.tasks,
         sentEmails: props.sentEmails, sentWhatsapp: props.sentWhatsapp, callHistory: props.callHistory, phoneCalls: props.phoneCalls,

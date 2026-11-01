@@ -74,7 +74,7 @@ export default async function LeadWorkPage({ params }) {
   const { actionText: aiActionText, confidence: aiConfidence } = await ensureLeadActionChip(supabase, {
     id: departmentId, stale: department.aiActionSummaryStale, cachedSummary: department.aiActionSummary,
     cachedConfidence: department.aiConfidence,
-    contactName: `${props.contact.first} ${props.contact.last}`, courseId: department.extraFields?.course_id,
+    contactName: `${props.contact.first} ${props.contact.last}`, courseId: department.courseId,
     communication: {
       inquiries: department.inquiries, meetings: props.meetings, tasks: props.tasks,
       sentEmails: props.sentEmails, sentWhatsapp: props.sentWhatsapp, callHistory: props.callHistory, phoneCalls: props.phoneCalls,
@@ -118,14 +118,23 @@ export default async function LeadWorkPage({ params }) {
       whatsappTemplates={props.whatsappTemplates}
       emailTemplates={emailTemplates || []}
       sendConnections={sendConnections || []}
+      agents={props.agentsByWorkspace?.[deptRow.workspace_id] || []}
       timelineProps={{
-        inquiries: props.allInquiries,
-        sentEmails: props.sentEmails,
-        sentWhatsapp: props.sentWhatsapp,
+        // "חוקת-הליד" - רק-פעילות-ששייכת-ל-ליד-הספציפי-הזה (לא-כל-
+        // המחלקה, ולא-היסטוריה-שלא-הייתה-מתוך-הכרטיס-של-הליד-הזה).
+        // פניות/מייל/וואטסאפ/פגישה מסוננים-לפי contact_department_id
+        // (lead_inquiries - תמיד-היה-קיים; מייל/וואטסאפ/פגישה - עמודה
+        // חדשה, migration 0167 - פריטים-היסטוריים-בלי-שיוך נשארים null
+        // ולכן לא-מוצגים-כאן, בכוונה: "לא-ראינו-היסטוריה-שלא-הייתה-
+        // מתוך-הכרטיס-של-הליד"). שיחות-טלפון/תרומות נשארות-גלובליות -
+        // אין-להן-אפילו workspace_id, אין-מה-לסנן-לפיו.
+        inquiries: props.allInquiries.filter((i) => i.contactDepartmentId === departmentId),
+        sentEmails: props.sentEmails.filter((e) => e.contact_department_id === departmentId),
+        sentWhatsapp: props.sentWhatsapp.filter((w) => w.contact_department_id === departmentId),
         donationTransactions: props.donationTransactions,
         callHistory: props.callHistory,
         phoneCalls: props.phoneCalls,
-        meetings: props.meetings,
+        meetings: props.meetings.filter((m) => m.contact_department_id === departmentId),
         workspaceNameById: props.workspaceNameById,
       }}
     />

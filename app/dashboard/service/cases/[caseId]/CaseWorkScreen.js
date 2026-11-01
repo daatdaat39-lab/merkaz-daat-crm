@@ -76,6 +76,12 @@ export default function CaseWorkScreen({
     return () => window.removeEventListener('beforeunload', releaseOnHide);
   }, [caseId, lockState]);
 
+  // ניווט-פנימי (Link/SPA) לא-מפעיל beforeunload - אותה-בעיה-בדיוק
+  // כמו-ב-LeadWorkScreen.js, ר' שם.
+  function releaseOnNavigate() {
+    if (lockState === 'locked') releaseCaseLock(caseId);
+  }
+
   function handleStatusChange(e) {
     const value = e.target.value;
     setStatus(value);
@@ -136,7 +142,15 @@ export default function CaseWorkScreen({
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontFamily: 'var(--k-font-display)', fontSize: 22, color: 'var(--k-text)' }}>#{caseData.caseNumber} · {caseData.subject}</span>
                 <Link
+                  href="/dashboard/service/cases"
+                  onClick={releaseOnNavigate}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--k-text-muted)', background: 'var(--k-pill-bg)', borderRadius: 8, padding: '3px 11px', textDecoration: 'none' }}
+                >
+                  ← חזרה לרשימת הקריאות
+                </Link>
+                <Link
                   href={`/dashboard/contacts/${contact.id}`}
+                  onClick={releaseOnNavigate}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, color: 'var(--k-accent)', background: 'var(--k-pill-bg)', borderRadius: 8, padding: '3px 11px', textDecoration: 'none' }}
                 >
                   <PersonIcon size={11} /> כרטיס מלא
@@ -171,7 +185,7 @@ export default function CaseWorkScreen({
                 whatsappTemplates={relevantTemplates}
                 emailTemplates={emailTemplates}
               />
-              {contact.phone && <DialButton contactId={contact.id} />}
+              {contact.phone && <DialButton contactId={contact.id} workspaceId={workspaceId} />}
             </div>
 
             <div style={cardStyle}>

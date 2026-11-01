@@ -1171,6 +1171,61 @@ export async function assignAgentForLead(departmentRowId, agentId) {
   return { success: true };
 }
 
+// משנה את הקורס-המשויך-לליד-הקיים (contact_departments.course_id,
+// migration 0164 - עמודה-אמיתית, לא extra_fields יותר). אם היה-כבר-
+// קורס-קודם-שונה - רושם רשומת-היסטוריה-גלויה (lead_inquiries, אותו
+// דפוס כמו logQuickActivity) כדי שהשינוי לא-יידרס-בשקט מציר-הזמן.
+// בחירה-ראשונה (מ-null) לא-נרשמת - אין-מה-להשוות-אליו, לא-"שינוי".
+export async function updateLeadCourse(departmentRowId, newCourseId) {
+  const { supabase } = await requireUser();
+  const { data: row } = await supabase.from('contact_departments').select('course_id, contact_id').eq('id', departmentRowId).single();
+  if (!row) return { error: 'ליד לא נמצא' };
+  const frozenError = await requireNotFrozen(supabase, row.contact_id);
+  if (frozenError) return frozenError;
+
+  const oldCourseId = row.course_id || null;
+  const nextCourseId = newCourseId || null;
+  if (oldCourseId === nextCourseId) return { success: true };
+
+  const { error } = await supabase.from('contact_departments').update({ course_id: nextCourseId }).eq('id', departmentRowId);
+  if (error) return { error: error.message };
+
+  if (oldCourseId) {
+    const ids = [oldCourseId, nextCourseId].filter(Boolean);
+    const { data: courseRows } = ids.length ? await supabase.from('courses').select('id, name').in('id', ids) : { data: [] };
+    const nameById = Object.fromEntries((courseRows || []).map((c) => [c.id, c.name]));
+    const reason = `שונה קורס: «${nameById[oldCourseId] || 'לא ידוע'}» ← «${nextCourseId ? (nameById[nextCourseId] || 'לא ידוע') : 'ללא קורס'}»`;
+    await supabase.from('lead_inquiries').insert({ contact_department_id: departmentRowId, reason, note: null });
+  }
+  return { success: true };
+}
+
+// פותח ליד-נוסף לקורס-אחר באותה מחלקה (לקוח שכבר רשום/מתעניין בקורס
+// אחד, ועכשיו גם מתעניין בשני - "ליד-פר-קורס", migration 0164). שימוש-
+// חוזר-מלא ב-upsertDepartmentMembership הקיים (options.courseId כבר
+// יודע-לאתר/ליצור/לפתוח-מחדש שורה-ספציפית-לקורס) - כאן רק מוודאים-
+// מראש שאין-כבר-ליד-פתוח-בדיוק-לקורס-הזה (לא-יוצרים-כפילות-שקטה).
+export async function openAdditionalCourseLead(contactId, workspaceId, courseId, reasonText, note) {
+  const { supabase } = await requireUser();
+  if (!contactId || !workspaceId || !courseId) return { error: 'חסרים פרטים' };
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const { data: existing } = await supabase
+    .from('contact_departments')
+    .select('id')
+    .eq('contact_id', contactId).eq('workspace_id', workspaceId).eq('course_id', courseId)
+    .neq('stage', 'closed')
+    .maybeSingle();
+  if (existing) return { error: 'יש כבר ליד פתוח לקורס הזה' };
+
+  const { data: workspace } = await supabase.from('workspaces').select('id, name').eq('id', workspaceId).single();
+  if (!workspace) return { error: 'מחלקה לא נמצאה' };
+
+  await upsertDepartmentMembership(supabase, contactId, workspace, reasonText?.trim() || 'פתיחת ליד לקורס נוסף', note || null, 'ידני', null, { courseId });
+  return { success: true };
+}
+
 // עדכון שדה נוסף ייעודי-מחלקה (extra_fields jsonb) על שיוך מחלקה - למשל
 // "מסלול לימודים מבוקש" או "סכום צפוי לתרומה" (ראו pipelines.js EXTRA_FIELDS)
 export async function updateDepartmentExtraField(departmentRowId, key, value) {
@@ -1200,8 +1255,12 @@ export async function updateDepartmentExtraField(departmentRowId, key, value) {
 }
 
 // שליחת מייל לאיש קשר מהתיבה המחוברת של המחלקה הפעילה - נשלח בפועל
-// דרך Gmail API, ונרשם גם ב-sent_emails כדי שיוצג בטאב "פעילות"
-export async function sendContactEmail(contactId, workspaceId, subject, body) {
+// דרך Gmail API, ונרשם גם ב-sent_emails כדי שיוצג בטאב "פעילות".
+// departmentId (אופציונלי) - "חוקת-הליד": כש-נשלח-מתוך-מסך-טיפול-בליד-
+// ספציפי (לא-רק-מהכרטיס-הכללי), מתעד-לאיזו-שורת-contact_departments
+// בדיוק זה-שייך (migration 0167) - כדי שציר-הזמן-של-אותו-ליד-בדיוק
+// יוכל-לסנן-רק-את-מה-ששייך-לו, לא-לכל-ההיסטוריה-של-המחלקה.
+export async function sendContactEmail(contactId, workspaceId, subject, body, departmentId = null) {
   const { supabase, user } = await requireUser();
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
@@ -1224,15 +1283,15 @@ export async function sendContactEmail(contactId, workspaceId, subject, body) {
 
   await supabase.from('sent_emails').insert({
     contact_id: contactId, workspace_id: workspaceId, from_address: connection.email_address,
-    subject, body, sent_by: user.id,
+    subject, body, sent_by: user.id, contact_department_id: departmentId,
   });
 
   return { success: true };
 }
 
 // שליחת הודעת WhatsApp ראשונה (תבנית מאושרת) לאיש קשר, ורישום ב-sent_whatsapp
-// כדי שיוצג בטאב "פעילות"
-export async function sendContactWhatsApp(contactId, workspaceId, reason, templateId) {
+// כדי שיוצג בטאב "פעילות". departmentId - ר' הערה ב-sendContactEmail.
+export async function sendContactWhatsApp(contactId, workspaceId, reason, templateId, departmentId = null) {
   const { supabase, user } = await requireUser();
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
@@ -1254,15 +1313,15 @@ export async function sendContactWhatsApp(contactId, workspaceId, reason, templa
   }
 
   await supabase.from('sent_whatsapp').insert({
-    contact_id: contactId, workspace_id: workspaceId, phone: contact.phone, reason, sent_by: user.id,
+    contact_id: contactId, workspace_id: workspaceId, phone: contact.phone, reason, sent_by: user.id, contact_department_id: departmentId,
   });
 
   return { success: true };
 }
 
 // שליחת הודעת WhatsApp חופשית (לא תבנית) - אפשרי רק בתוך 24 שעות
-// מתשובת הלקוח האחרונה להודעת התבנית
-export async function sendContactWhatsAppChatMessage(contactId, workspaceId, message) {
+// מתשובת הלקוח האחרונה להודעת התבנית. departmentId - ר' הערה ב-sendContactEmail.
+export async function sendContactWhatsAppChatMessage(contactId, workspaceId, message, departmentId = null) {
   const { supabase, user } = await requireUser();
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
@@ -1279,7 +1338,7 @@ export async function sendContactWhatsAppChatMessage(contactId, workspaceId, mes
   }
 
   await supabase.from('sent_whatsapp').insert({
-    contact_id: contactId, workspace_id: workspaceId, phone: contact.phone, kind: 'chat', message, sent_by: user.id,
+    contact_id: contactId, workspace_id: workspaceId, phone: contact.phone, kind: 'chat', message, sent_by: user.id, contact_department_id: departmentId,
   });
 
   return { success: true };
@@ -1429,8 +1488,12 @@ export async function markShareRead(shareId) {
 // שיחה בת-שני-רגליים: קודם מצלצלת לשלוחת-015 של הנציג המחובר, וברגע
 // שהוא עונה מחברת אותו ללקוח. השיחה עצמה (direction=outbound) נרשמת
 // אוטומטית ב-phone_calls דרך ה-webhook הקיים (hallo015-call/route.js) -
-// אין צורך בשום כתיבה כפולה כאן.
-export async function dialContact(contactId) {
+// אבל ה-webhook לא-יודע-לבד לאיזו-מחלקה לשייך שיחה-יוצאת (בניגוד
+// לנכנסת, שמנותבת-לפי-dnumber) - אם workspaceId סופק (המחלקה-הפעילה
+// במסך-שממנו-חייגו), כותבים-מראש שורת-phone_calls עם ה-callid שכבר-
+// חוזר-מיידית מ-calls/make, כדי שה-webhook (שלא-כולל workspace_id
+// בעדכון-של-שיחות-יוצאות, ר' route.js) לא-ידרוס אותה.
+export async function dialContact(contactId, workspaceId = null) {
   const { supabase, user } = await requireUser();
 
   const { data: profile } = await supabase.from('profiles').select('hallo015_extension').eq('id', user.id).single();
@@ -1440,7 +1503,18 @@ export async function dialContact(contactId) {
   if (!contact?.phone) return { error: 'לאיש הקשר אין מספר טלפון שמור' };
 
   try {
-    await makeCall({ fromExtension: profile.hallo015_extension, toNumber: contact.phone });
+    const { callid } = await makeCall({ fromExtension: profile.hallo015_extension, toNumber: contact.phone });
+    if (callid && workspaceId) {
+      const admin = createAdminClient();
+      await admin.from('phone_calls').upsert({
+        external_call_id: String(callid),
+        contact_id: contactId,
+        workspace_id: workspaceId,
+        direction: 'outbound',
+        snumber: profile.hallo015_extension,
+        dnumber: contact.phone,
+      }, { onConflict: 'external_call_id' });
+    }
     return { success: true };
   } catch (e) {
     return { error: e.message };

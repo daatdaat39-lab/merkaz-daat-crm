@@ -10,20 +10,23 @@ import { isInforuConfigured, isInforuWebhookConfigured } from '../../../lib/info
 import { isHallo015Configured } from '../../../lib/hallo015/config';
 import { isClickToDialConfigured } from '../../../lib/hallo015/clickToDial';
 
+// managerOnly - לא-רק-תיאור-טקסטואלי: נאכף-בפועל (ר' SettingsPage) ע"י
+// סינון-הרשימה-עצמה, לא-רק-חסימה-אחרי-כניסה. "ייבוא נתונים" נשאר-גלוי-
+// לכולם (לא-מתויג-owner/admin, שימושי-גם-לנציג-רגיל).
 const SETTINGS_LINKS = [
-  { href: '/dashboard/settings/users', icon: '👥', title: 'חברי הצוות', desc: 'ניהול משתמשים והרשאות' },
-  { href: '/dashboard/settings/activity', icon: '📊', title: 'דוח פעילות נציגים', desc: 'זמן פעילות ותפוקה לכל נציג (owner/admin בלבד)' },
-  { href: '/dashboard/settings/duplicates', icon: '🔎', title: 'בדיקת כפליות', desc: 'סריקת אנשי קשר למיזוג כפילויות (owner/admin בלבד)' },
+  { href: '/dashboard/settings/users', icon: '👥', title: 'חברי הצוות', desc: 'ניהול משתמשים והרשאות', managerOnly: true },
+  { href: '/dashboard/settings/activity', icon: '📊', title: 'דוח פעילות נציגים', desc: 'זמן פעילות ותפוקה לכל נציג (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/duplicates', icon: '🔎', title: 'בדיקת כפליות', desc: 'סריקת אנשי קשר למיזוג כפילויות (owner/admin בלבד)', managerOnly: true },
   { href: '/dashboard/settings/import', icon: '📥', title: 'ייבוא נתונים', desc: 'ייבוא/ייצוא אנשי קשר, מערכת חיצונית, היסטוריית שיחות' },
-  { href: '/dashboard/settings/lead-sources', icon: '📨', title: 'מקורות לידים', desc: 'חיבורי מייל לכל מחלקה, ניתוב מייל לקמפיינים, ורשימת מקורות (owner/admin בלבד)' },
-  { href: '/dashboard/settings/picklists', icon: '🏷', title: 'רשימות בחירה', desc: 'קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)' },
-  { href: '/dashboard/settings/reference-content', icon: '📋', title: 'תוכן-עזר למכירות ושירות', desc: 'תסריטי-מכירה וטיפול-בהתנגדויות, ומאגר-ידע לשירות - לפי קורס (owner/admin בלבד)' },
-  { href: '/dashboard/settings/courses', icon: '🎓', title: 'קטלוג קורסים', desc: 'הוספה/עריכה של קורסים - שם, מחיר, משך (owner/admin בלבד)' },
-  { href: '/dashboard/settings/cti-routing', icon: '☎️', title: 'ניתוב-קווים (CTI)', desc: 'מיפוי בין קו-טלפון פנימי ב-015 למחלקה, לצורך התראות-שיחה (owner/admin בלבד)' },
-  { href: '/dashboard/settings/pipelines', icon: '🔀', title: 'שלבי pipeline', desc: 'הוספה/עריכה/סידור שלבי התהליך לכל מחלקה (owner/admin בלבד)' },
-  { href: '/dashboard/settings/fields', icon: '🧩', title: 'שדות מחלקתיים', desc: 'הוספה/עריכה/סידור שדות נוספים לכל מחלקה (owner/admin בלבד)' },
-  { href: '/dashboard/settings/insights', icon: '💡', title: 'תובנות והצעות AI', desc: 'ניתוח מדדים אמיתיים והצעות מעשיות למחלקה (owner/admin בלבד)' },
-  { href: '/dashboard/settings/data-grid', icon: '🗂', title: 'ניהול נתונים מרכזי', desc: 'טבלת עריכה מהירה לכל אנשי הקשר של מחלקה - שדות בסיס, שדות נוספים ושלב (owner/admin בלבד)' },
+  { href: '/dashboard/settings/lead-sources', icon: '📨', title: 'מקורות לידים', desc: 'חיבורי מייל לכל מחלקה, ניתוב מייל לקמפיינים, ורשימת מקורות (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/picklists', icon: '🏷', title: 'רשימות בחירה', desc: 'קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/reference-content', icon: '📋', title: 'תוכן-עזר למכירות ושירות', desc: 'תסריטי-מכירה וטיפול-בהתנגדויות, ומאגר-ידע לשירות - לפי קורס (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/courses', icon: '🎓', title: 'קטלוג קורסים', desc: 'הוספה/עריכה של קורסים - שם, מחיר, משך (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/cti-routing', icon: '☎️', title: 'ניתוב-קווים (CTI)', desc: 'מיפוי בין קו-טלפון פנימי ב-015 למחלקה, לצורך התראות-שיחה (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/pipelines', icon: '🔀', title: 'שלבי pipeline', desc: 'הוספה/עריכה/סידור שלבי התהליך לכל מחלקה (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/fields', icon: '🧩', title: 'שדות מחלקתיים', desc: 'הוספה/עריכה/סידור שדות נוספים לכל מחלקה (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/insights', icon: '💡', title: 'תובנות והצעות AI', desc: 'ניתוח מדדים אמיתיים והצעות מעשיות למחלקה (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/data-grid', icon: '🗂', title: 'ניהול נתונים מרכזי', desc: 'טבלת עריכה מהירה לכל אנשי הקשר של מחלקה - שדות בסיס, שדות נוספים ושלב (owner/admin בלבד)', managerOnly: true },
 ];
 
 export default async function SettingsPage() {
@@ -41,14 +44,19 @@ export default async function SettingsPage() {
 
   let workspace = null;
   let memberCount = 0;
+  let canManage = false;
   if (workspaceId) {
-    const [{ data: ws }, { count }] = await Promise.all([
+    const [{ data: ws }, { count }, { data: myMembership }] = await Promise.all([
       supabase.from('workspaces').select('id, name, created_at').eq('id', workspaceId).single(),
       supabase.from('workspace_members').select('user_id', { count: 'exact', head: true }).eq('workspace_id', workspaceId),
+      supabase.from('workspace_members').select('role').eq('workspace_id', workspaceId).eq('user_id', user.id).single(),
     ]);
     workspace = ws;
     memberCount = count || 0;
+    canManage = myMembership?.role === 'owner' || myMembership?.role === 'admin';
   }
+
+  const visibleLinks = SETTINGS_LINKS.filter((item) => !item.managerOnly || canManage);
 
   const { data: whatsappTemplates } = await supabase.from('whatsapp_templates').select('id, name, template_id, preview_text, param_count, sort_order').order('sort_order').order('created_at');
   const { data: emailTemplates } = await supabase.from('email_templates').select('id, name, subject, body').order('created_at');
@@ -68,7 +76,7 @@ export default async function SettingsPage() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 28 }}>
-        {SETTINGS_LINKS.map((item) => (
+        {visibleLinks.map((item) => (
           <Link key={item.href} href={item.href} className="card-hover" style={{ ...iconBlock(), textDecoration: 'none', color: 'inherit' }}>
             <div style={{ fontSize: 28 }}>{item.icon}</div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>{item.title}</div>

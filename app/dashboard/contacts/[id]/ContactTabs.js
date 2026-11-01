@@ -16,6 +16,7 @@ import SeminarParticipationsPanel from './SeminarParticipationsPanel';
 import StageStepper from './StageStepper';
 import Link from 'next/link';
 import { STATUS_LABELS, SEVERITY_LABELS, slaStatus } from '../../lib/serviceSla';
+import { sectionLabel } from '../../components/designTokens';
 
 export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, relatedContact = null, openRequest = null }) {
   const [tab, setTab] = useState('activity');
@@ -173,6 +174,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
           {(currentFilter === 'all' || currentFilter === 'processes') && activeDepartment && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={sectionLabel}>תהליכים</div>
               {activeDepartment.openedProcess !== false && (
                 <ProcessCard
                   title={`תהליך ראשי — ${activeDepartment.workspaceName}`}
@@ -196,6 +198,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
           {(currentFilter === 'all' || currentFilter === 'cases') && deptServiceCases.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={sectionLabel}>קריאות שירות</div>
               {deptServiceCases.map((c) => {
                 const sla = c.status === 'closed' ? null : slaStatus(c.sla_due_at, c.severity);
                 return (
@@ -226,6 +229,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
           {(currentFilter === 'all' || currentFilter === 'tasks') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={sectionLabel}>משימות</div>
               {error && <div style={{ color: 'var(--k-danger-text)', fontSize: 12 }}>שגיאה: {error}</div>}
 
               {!frozen && (addingTask ? (
@@ -294,6 +298,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
 
           {(currentFilter === 'all' || currentFilter === 'payments') && deptActiveCommitments.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={sectionLabel}>תשלומים</div>
               {deptActiveCommitments.map((c) => (
                 <div key={c.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px' }}>
                   <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--k-ok-text)' }}>
@@ -316,12 +321,22 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
       )}
 
       {tab === 'activity' && (() => {
+        // כל-5-הקבוצות-שבעלות-workspace_id/workspaceName מסוננות-למחלקה-
+        // הפעילה-בלבד (ר' דיון "טאב היסטוריה") - לא-"כל המחלקות" יותר.
+        // phone_calls/call_history נשארות-גלובליות (אין-להן-שיוך-מחלקתי
+        // בנתונים-בכלל). אם-אין-activeDepartment (קצה-נדיר) - נופלים-
+        // חזרה-להצגת-הכל, כמו-ההתנהגות-הישנה.
+        const activeInquiries = activeDepartment ? inquiries.filter((i) => i.workspaceName === activeDepartment.workspaceName) : inquiries;
+        const activeSentEmails = activeDepartment ? sentEmails.filter((e) => e.workspace_id === activeDepartment.workspaceId) : sentEmails;
+        const activeSentWhatsapp = activeDepartment ? sentWhatsapp.filter((w) => w.workspace_id === activeDepartment.workspaceId) : sentWhatsapp;
+        const activeDonationTransactions = activeDepartment ? donationTransactions.filter((t) => t.workspace_id === activeDepartment.workspaceId) : donationTransactions;
+        const activeMeetings = activeDepartment ? meetings.filter((m) => m.workspace_id === activeDepartment.workspaceId) : meetings;
+
         const groups = [
           {
-            key: 'inquiries', title: 'היסטוריית פניות — כל המחלקות', shortLabel: 'פניות', items: inquiries,
+            key: 'inquiries', title: 'היסטוריית פניות', shortLabel: 'פניות', items: activeInquiries,
             renderItem: (inq, i) => (
               <div key={i} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
-                <DeptTag name={inq.workspaceName} />
                 <span style={{ color: 'var(--k-text)' }}>{inq.reason}</span>
                 {inq.note && <span style={{ color: 'var(--k-text-muted)' }}> — {inq.note}</span>}
                 <span style={{ color: 'var(--k-text-muted)' }}> · {new Date(inq.created_at).toLocaleDateString('he-IL')}</span>
@@ -329,10 +344,9 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             ),
           },
           {
-            key: 'emails', title: 'מיילים שנשלחו — כל המחלקות', shortLabel: 'מיילים', items: sentEmails,
+            key: 'emails', title: 'מיילים שנשלחו', shortLabel: 'מיילים', items: activeSentEmails,
             renderItem: (e) => (
               <div key={e.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
-                <DeptTag name={workspaceNameById[e.workspace_id]} />
                 <div style={{ fontWeight: 500 }}>{e.subject}</div>
                 <div style={{ color: 'var(--k-text-muted)', marginTop: 2 }}>
                   מאת {e.from_address} · {new Date(e.sent_at).toLocaleDateString('he-IL')} {new Date(e.sent_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
@@ -341,10 +355,9 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             ),
           },
           {
-            key: 'whatsapp', title: 'הודעות WhatsApp — כל המחלקות', shortLabel: 'הודעות WhatsApp', items: sentWhatsapp,
+            key: 'whatsapp', title: 'הודעות WhatsApp', shortLabel: 'הודעות WhatsApp', items: activeSentWhatsapp,
             renderItem: (w) => (
               <div key={w.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
-                <DeptTag name={workspaceNameById[w.workspace_id]} />
                 <div style={{ fontWeight: 500 }}>
                   {w.direction === 'in' ? '⬅️ מהלקוח: ' : '➡️ נשלח: '}
                   {w.kind === 'chat' ? w.message : `הודעת תבנית${w.reason ? ` — ${w.reason}` : ''}`}
@@ -356,10 +369,9 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             ),
           },
           {
-            key: 'donations', title: 'תשלומים ותרומות', shortLabel: 'תשלומים', items: donationTransactions,
+            key: 'donations', title: 'תשלומים ותרומות', shortLabel: 'תשלומים', items: activeDonationTransactions,
             renderItem: (t) => (
               <div key={t.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
-                <DeptTag name={workspaceNameById[t.workspace_id]} />
                 <span style={{ fontWeight: 600, color: 'var(--k-ok-text)' }}>₪{Number(t.amount).toLocaleString('he-IL')}</span>
                 <span style={{ color: 'var(--k-text-muted)' }}> · {new Date(t.transaction_date).toLocaleDateString('he-IL')}</span>
                 {t.source_system && <span style={{ color: 'var(--k-text-muted)' }}> · {t.source_system}</span>}
@@ -398,10 +410,9 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
             ),
           },
           {
-            key: 'meetings', title: 'פגישות — כל המחלקות', shortLabel: 'פגישות', items: meetings,
+            key: 'meetings', title: 'פגישות', shortLabel: 'פגישות', items: activeMeetings,
             renderItem: (m) => (
               <div key={m.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '10px 14px' }}>
-                <DeptTag name={workspaceNameById[m.workspace_id]} />
                 <div style={{ fontSize: 13, fontWeight: 500 }}>{m.title || 'פגישה'}</div>
                 <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginTop: 3 }}>
                   {new Date(m.meeting_date).toLocaleDateString('he-IL')} · {m.meeting_time?.slice(0, 5)} · {m.type}
