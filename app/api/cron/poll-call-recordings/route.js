@@ -123,10 +123,15 @@ export async function GET(request) {
         .order('started_at', { ascending: false })
         .limit(20);
 
+      result.transcriptionFailureSample = [];
       for (const call of untranscribed || []) {
         try {
           const audioRes = await fetch(call.recording_url);
-          if (!audioRes.ok) { result.transcriptionsFailed++; continue; }
+          if (!audioRes.ok) {
+            result.transcriptionsFailed++;
+            if (result.transcriptionFailureSample.length < 3) result.transcriptionFailureSample.push({ id: call.id, stage: 'fetch', status: audioRes.status });
+            continue;
+          }
           const bytes = Buffer.from(await audioRes.arrayBuffer());
           const transcript = await transcribeAudio(bytes, 'audio/wav');
           if (transcript) {
@@ -138,6 +143,7 @@ export async function GET(request) {
         } catch (err) {
           console.error('poll-call-recordings: תמלול נכשל עבור call', call.id, err.message);
           result.transcriptionsFailed++;
+          if (result.transcriptionFailureSample.length < 3) result.transcriptionFailureSample.push({ id: call.id, stage: 'transcribe', error: err.message });
         }
       }
     } catch (err) {
