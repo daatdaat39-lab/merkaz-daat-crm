@@ -71,8 +71,13 @@ export async function GET(request) {
           // הישנה-דרך-מייל, רק-המקור-שונה.
           const callStartMs = new Date(call.started_at).getTime();
           const match = recordings.find((r) => {
+            // טווח-סבילות-רחב-מהמתוכנן-במקור (±1) - אומת-בפועל: totaltime
+            // של-015 (משך-ההקלטה-בפועל) יכול-לסטות-כמה-שניות מ-duration_
+            // seconds-שלנו (משך-השיחה-כפי-שה-webhook-מדווח) - ללא-קשר-
+            // לחוסר-דיוק, רק-מדידה-שונה-במעט (ring-time/trailing). ±8
+            // עדיין-צר-מספיק-כדי-לא-להתבלבל-בין-שיחות-שונות-לאותו-מספר.
             const durationDiff = Math.abs((Number(r.totaltime) || 0) - (call.duration_seconds || 0));
-            if (durationDiff > 1) return false;
+            if (durationDiff > 8) return false;
             const recordingStartMs = Number(r.start) * 1000;
             if (Math.abs(recordingStartMs - callStartMs) > 5 * 60 * 1000) return false;
             const ourNumbers = [call.snumber, call.dnumber, call.extension].filter(Boolean).map(normalizePhone);
