@@ -21,9 +21,14 @@ export default function LeadCourseSwitcher({ department, courses = [], contactId
   const router = useRouter();
 
   function handleSwitchCourse(courseId) {
-    setOpen(false);
+    setError(null);
     startTransition(async () => {
-      await updateLeadCourse(department.id, courseId || null);
+      const res = await updateLeadCourse(department.id, courseId || null);
+      // תיקון-באג: עד-כה השגיאה (למשל-התנגשות-עם-ליד-פתוח-קיים-לאותו-
+      // קורס) לא-נבדקה-בכלל כאן - כישלון-בשרת היה-נראה-כהצלחה-שקטה
+      // (התפריט-נסגר, שום-דבר-לא-השתנה-בפועל).
+      if (res?.error) { setError(res.error); return; }
+      setOpen(false);
       router.refresh();
     });
   }
@@ -66,6 +71,7 @@ export default function LeadCourseSwitcher({ department, courses = [], contactId
           boxShadow: '0 6px 20px rgba(0,0,0,0.12)', zIndex: 60, padding: 8,
         }}>
           <div style={{ fontSize: 10, color: 'var(--k-text-muted)', marginBottom: 4 }}>מעבר לקורס אחר (לליד הזה)</div>
+          {error && !addingNew && <div style={{ fontSize: 11, color: 'var(--k-danger-text)', marginBottom: 4 }}>{error}</div>}
           {courses.map((c) => (
             <button
               key={c.id}

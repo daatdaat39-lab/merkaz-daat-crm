@@ -77,7 +77,7 @@ export async function loadContactCardData(contactId) {
       .order('source_system'),
     supabase
       .from('phone_calls')
-      .select('id, direction, snumber, dnumber, extension, status, answered, duration_seconds, recording_url, transcript, started_at')
+      .select('id, direction, snumber, dnumber, extension, status, answered, duration_seconds, recording_url, transcript, started_at, workspace_id')
       .eq('contact_id', contact.id)
       .order('started_at', { ascending: false }),
     supabase
@@ -303,7 +303,7 @@ export async function loadContactCardData(contactId) {
   // ההורה (לא-צריך-לבקש-contact_department_id בנפרד מה-select, זה-אותו-
   // ערך-בדיוק).
   const allInquiries = departments
-    .flatMap((d) => (d.inquiries || []).map((inq) => ({ ...inq, workspaceName: d.workspaceName, contactDepartmentId: d.id })))
+    .flatMap((d) => (d.inquiries || []).map((inq) => ({ ...inq, workspaceName: d.workspaceName, workspaceId: d.workspaceId, contactDepartmentId: d.id })))
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   const viewerWorkspaceIds = (viewerMemberships || []).map((m) => m.workspace_id);

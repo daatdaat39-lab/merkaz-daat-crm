@@ -15,6 +15,7 @@ import WidgetVisibilityToggle from './WidgetVisibilityToggle';
 import ExtraFieldVisibilityToggle from './ExtraFieldVisibilityToggle';
 import PersonalInfoCard from './PersonalInfoCard';
 import CoursePinSwitcher from './CoursePinSwitcher';
+import CourseLeadsPanel from './CourseLeadsPanel';
 import ContactSettingsMenu from './ContactSettingsMenu';
 import ShareContactButton from './ShareContactButton';
 import AvatarUpload from './AvatarUpload';
@@ -68,6 +69,29 @@ export default function ContactDetailClient({
   const visibleDepartments = departments.filter((d) => viewerWorkspaceIds.includes(d.workspaceId));
   const [activeId, setActiveId] = useState(visibleDepartments[0]?.id || null);
   const active = visibleDepartments.find((d) => d.id === activeId) || visibleDepartments[0] || null;
+
+  // פין-אחד-לכל-מחלקה: מקבצים-את-כל-שורות-ה-contact_departments לפי
+  // workspaceId (כולל-כמה-לידי-קורס-פתוחים-במקביל באותה-מחלקה - ר'
+  // "ליד-פר-קורס") - פותר-את-באג-הפינים-הכפולים-הזהים. הקורסים-עצמם
+  // מוצגים-ברשימה-נפרדת-מתחת-לפינים (ר' CourseLeadsPanel).
+  const departmentGroups = [];
+  const groupByWorkspace = {};
+  visibleDepartments.forEach((d) => {
+    if (!groupByWorkspace[d.workspaceId]) {
+      groupByWorkspace[d.workspaceId] = { workspaceId: d.workspaceId, rows: [] };
+      departmentGroups.push(groupByWorkspace[d.workspaceId]);
+    }
+    groupByWorkspace[d.workspaceId].rows.push(d);
+  });
+  function isRowOpen(r) {
+    return r.openedProcess !== false && !isProcessConcluded(r.stage, byWorkspace[r.workspaceName] || FALLBACK_PIPELINE);
+  }
+  function selectDepartmentGroup(rows) {
+    if (rows.some((r) => r.id === activeId)) return;
+    const openRow = rows.find(isRowOpen);
+    setActiveId((openRow || rows[0]).id);
+  }
+  const activeWorkspaceRows = active ? (groupByWorkspace[active.workspaceId]?.rows || [active]) : [];
 
   const activeConnection = active ? (emailConnections || []).find((c) => c.workspace_id === active.workspaceId) : null;
 
@@ -181,12 +205,16 @@ export default function ContactDetailClient({
             <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 24, color: 'var(--k-text)' }}>{contact.first} {contact.last}</div>
           </div>
           <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-            {visibleDepartments.map((d) => (
+            {departmentGroups.map((g) => (
               <CoursePinSwitcher
-                key={d.id}
-                department={d}
-                isActive={active?.id === d.id}
-                onSelect={() => setActiveId(d.id)}
+                key={g.workspaceId}
+                department={g.rows.find((r) => r.id === active?.id) || g.rows[0]}
+                isActive={g.rows.some((r) => r.id === active?.id)}
+                // תג-המספר סופר רק לידים-פתוחים (לא-כולל-קורסים-שכבר-
+                // הושלמו) - כדי-שתמיד-יתאים-ל"תהליכים פתוחים" למטה ולא
+                // ייצור-מראה-של-סתירה (2 בפין מול 1 פתוח, לדוגמה).
+                count={g.rows.filter(isRowOpen).length}
+                onSelect={() => selectDepartmentGroup(g.rows)}
               />
             ))}
             {visibleDepartments.length === 0 && <span style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>לא משויך למחלקה שלך</span>}
@@ -220,6 +248,19 @@ export default function ContactDetailClient({
         <ShareContactButton contactId={contact.id} departments={departments} agentsByWorkspace={agentsByWorkspace} />
         <ContactSettingsMenu contact={contact} activeDepartment={active} />
       </div>
+
+      {active?.sellsCourses && (
+        <CourseLeadsPanel
+          departments={activeWorkspaceRows}
+          activeId={active.id}
+          onSelect={setActiveId}
+          courses={courses}
+          contactId={contact.id}
+          workspaceId={active.workspaceId}
+          frozen={contact.frozen}
+          pipeline={byWorkspace[active.workspaceName] || FALLBACK_PIPELINE}
+        />
+      )}
 
       {adding && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 12, background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 12, padding: 10 }}>

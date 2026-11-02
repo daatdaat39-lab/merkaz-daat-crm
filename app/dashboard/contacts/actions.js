@@ -3,7 +3,7 @@
 import { createClient } from '../../../lib/supabase/server';
 import { createAdminClient } from '../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
-import { getAllPipelines } from '../lib/pipelines';
+import { getAllPipelines, getPipeline } from '../lib/pipelines';
 import { findExistingMatch, upsertDepartmentMembership, bulkImportContactRows } from './leadIntakeCore';
 import { isManagerOfAnyDepartment, isManagerOfWorkspace, isManagerOfAnyWorkspace, requireNotFrozen } from '../lib/contactGuards';
 import { getAccessToken } from '../../../lib/gmail/client';
@@ -448,6 +448,34 @@ export async function addDepartmentMembership(contactId, workspaceId, reason, re
   return { success: true };
 }
 
+// "רשת-ביטחון" ל"מלכודת נרשם" - מעבר-לשלב-ניצחון (דרך-כל-נתיב, כולל-
+// dropdown-שלב-כללי, לא-רק-כפתור-ההמרה-הייעודי) למחלקת-sellsCourses עם
+// course_id נבחר, בלי-ששורת course_purchases כבר-קיימת - יוצר-אותה
+// אוטומטית (status='completed') דרך-אותו-RPC-אטומי (convert_lead_to_purchase,
+// migration 0150) שכפתור "נרשם ללימודים" כבר-משתמש-בו - לא-כתיבה-כפולה.
+// מחזיר true אם-הטיפול-כבר-בוצע-במלואו (כולל-עדכון-השלב) - הקורא-אז-
+// מדלג-על-ה-UPDATE-הרגיל כדי-לא-לכתוב-פעמיים.
+async function ensureCoursePurchaseOnWin(supabase, departmentRowId, stage, userId) {
+  const { data: dept } = await supabase
+    .from('contact_departments')
+    .select('course_id, workspace_id, workspaces:workspace_id (name, sells_courses)')
+    .eq('id', departmentRowId).maybeSingle();
+  if (!dept?.course_id || !dept.workspaces?.sells_courses) return false;
+
+  const pipeline = await getPipeline(supabase, dept.workspaces.name);
+  if (!pipeline.wonStage || stage !== pipeline.wonStage) return false;
+
+  const { data: existing } = await supabase
+    .from('course_purchases').select('id').eq('contact_department_id', departmentRowId).maybeSingle();
+  if (existing) return false;
+
+  const { error } = await supabase.rpc('convert_lead_to_purchase', {
+    p_department_id: departmentRowId, p_course_id: dept.course_id,
+    p_price: null, p_caller: userId, p_won_stage: stage,
+  });
+  return !error;
+}
+
 // עדכון שלב/סיבת סגירה של איש קשר במחלקה ספציפית
 export async function updateDepartmentStage(departmentRowId, stage, closedReason) {
   const { supabase, user } = await requireUser();
@@ -457,10 +485,13 @@ export async function updateDepartmentStage(departmentRowId, stage, closedReason
   const frozenError = await requireNotFrozen(supabase, row.contact_id);
   if (frozenError) return frozenError;
 
-  const { error } = await supabase.from('contact_departments')
-    .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
-    .eq('id', departmentRowId);
-  if (error) return { error: error.message };
+  const handledByConversion = await ensureCoursePurchaseOnWin(supabase, departmentRowId, stage, user.id);
+  if (!handledByConversion) {
+    const { error } = await supabase.from('contact_departments')
+      .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
+      .eq('id', departmentRowId);
+    if (error) return { error: error.message };
+  }
 
   await applyStageAutomations(supabase, { workspaceId: row.workspace_id, stageKey: stage, contactId: row.contact_id, userId: user.id, contactDepartmentId: departmentRowId });
   return { success: true };
@@ -477,10 +508,13 @@ export async function updateLeadStage(departmentRowId, stage, closedReason) {
   const frozenError = await requireNotFrozen(supabase, row.contact_id);
   if (frozenError) return frozenError;
 
-  const { error } = await supabase.from('contact_departments')
-    .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
-    .eq('id', departmentRowId);
-  if (error) return { error: error.message };
+  const handledByConversion = await ensureCoursePurchaseOnWin(supabase, departmentRowId, stage, user.id);
+  if (!handledByConversion) {
+    const { error } = await supabase.from('contact_departments')
+      .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
+      .eq('id', departmentRowId);
+    if (error) return { error: error.message };
+  }
 
   await applyStageAutomations(supabase, { workspaceId: row.workspace_id, stageKey: stage, contactId: row.contact_id, userId: user.id, contactDepartmentId: departmentRowId });
   return { success: true };
@@ -1178,7 +1212,7 @@ export async function assignAgentForLead(departmentRowId, agentId) {
 // בחירה-ראשונה (מ-null) לא-נרשמת - אין-מה-להשוות-אליו, לא-"שינוי".
 export async function updateLeadCourse(departmentRowId, newCourseId) {
   const { supabase } = await requireUser();
-  const { data: row } = await supabase.from('contact_departments').select('course_id, contact_id').eq('id', departmentRowId).single();
+  const { data: row } = await supabase.from('contact_departments').select('course_id, contact_id, workspace_id').eq('id', departmentRowId).single();
   if (!row) return { error: 'ליד לא נמצא' };
   const frozenError = await requireNotFrozen(supabase, row.contact_id);
   if (frozenError) return frozenError;
@@ -1186,6 +1220,21 @@ export async function updateLeadCourse(departmentRowId, newCourseId) {
   const oldCourseId = row.course_id || null;
   const nextCourseId = newCourseId || null;
   if (oldCourseId === nextCourseId) return { success: true };
+
+  // בדיקה-מראש כמו ב-openAdditionalCourseLead - בלעדיה, התנגשות עם ליד
+  // פתוח קיים לאותו קורס הייתה חוזרת רק כשגיאת-DB-גולמית (ומוצגת רק אם
+  // הקורא בודק res.error בכלל - בעבר לא-נבדק, ר' LeadCourseSwitcher.js).
+  if (nextCourseId) {
+    const { data: existing } = await supabase
+      .from('contact_departments')
+      .select('id')
+      .eq('contact_id', row.contact_id).eq('workspace_id', row.workspace_id)
+      .eq('course_id', nextCourseId)
+      .neq('id', departmentRowId)
+      .neq('stage', 'closed')
+      .maybeSingle();
+    if (existing) return { error: 'יש כבר ליד פתוח לקורס הזה' };
+  }
 
   const { error } = await supabase.from('contact_departments').update({ course_id: nextCourseId }).eq('id', departmentRowId);
   if (error) return { error: error.message };

@@ -11,6 +11,21 @@ import { nameSimilarity } from '../lib/findDuplicates';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
 
+// מקבץ-את-שורות-ה-department לפי workspaceId - למנוע-הצגת-אותו-שם-
+// מחלקה-כמה-פעמים-ברצף (לדוגמה: כמה לידי-קורס פתוחים באותה-מחלקה).
+function groupDepartmentsByWorkspace(departments) {
+  const byWorkspace = {};
+  const order = [];
+  departments.forEach((d) => {
+    if (!byWorkspace[d.workspaceId]) {
+      byWorkspace[d.workspaceId] = { workspaceId: d.workspaceId, name: d.name, rows: [] };
+      order.push(d.workspaceId);
+    }
+    byWorkspace[d.workspaceId].rows.push(d);
+  });
+  return order.map((id) => byWorkspace[id]);
+}
+
 // רשימת אנשי קשר עם סינון/חיפוש/מיון בצד הלקוח - אותו דפוס בדיוק כמו
 // בעמוד הלידים (LeadsBoard.js), כדי שיהיה נוח לאתר איש קשר ספציפי גם
 // כשיש מאות רשומות, לא רק סינון לפי תגית כמו שהיה.
@@ -187,15 +202,27 @@ export default function ContactsBoard({ contacts, allDepartments, sendConnection
                 </Link>
               </td>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {c.departments.map((d) => (
-                    <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <span style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>{d.name}</span>
-                      {/* אין תהליך פתוח (ייבוא היסטורי - opened_process=false) - לא
-                          מוצג שום תג-שלב, רק שם-המחלקה למעלה. הצגת שלב (גם באפור)
-                          הייתה נקראת כהחלטה-עסקית-אמיתית ("לא רלוונטי") במקום
-                          שיוך-מידע-פסיבי. הפירוט המלא נשאר בכרטיס איש-הקשר עצמו. */}
-                      {d.openedProcess && <StageBadge stage={d.stage} labels={stageLabels} colors={stageColors} />}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {/* מקובץ-לפי-מחלקה (workspaceId) - שם-המחלקה מוצג פעם-אחת-בלבד
+                      גם-כש-יש-כמה-לידי-קורס-פתוחים-באותה-מחלקה, למנוע-את-באג-
+                      הכפילות-המבלבלת. כש-יש-יותר-מליד-אחד, רשימת-הקורסים+המצב
+                      מוצגת-מקוננת-מתחת-לשם. */}
+                  {groupDepartmentsByWorkspace(c.departments).map((g) => (
+                    <div key={g.workspaceId}>
+                      <span style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>{g.name}</span>
+                      {g.rows.length === 1 && g.rows[0].openedProcess && (
+                        <span style={{ marginInlineStart: 5 }}><StageBadge stage={g.rows[0].stage} labels={stageLabels} colors={stageColors} /></span>
+                      )}
+                      {g.rows.length > 1 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingInlineStart: 10, marginTop: 2 }}>
+                          {g.rows.map((d, i) => (
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                              <span style={{ fontSize: 11, color: 'var(--k-text)' }}>{d.courseName || 'ליד כללי'}</span>
+                              {d.openedProcess && <StageBadge stage={d.stage} labels={stageLabels} colors={stageColors} />}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {c.departments.length === 0 && <span style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>—</span>}

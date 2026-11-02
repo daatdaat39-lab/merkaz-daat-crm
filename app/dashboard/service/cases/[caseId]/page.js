@@ -102,13 +102,20 @@ export default async function CaseWorkPage({ params }) {
       sendConnections={sendConnections || []}
       workspaceId={caseRow.workspace_id}
       timelineProps={{
-        inquiries: props.allInquiries,
-        sentEmails: props.sentEmails,
-        sentWhatsapp: props.sentWhatsapp,
-        donationTransactions: props.donationTransactions,
+        // סינון-לפי-מחלקת-הקריאה (נמצא-בבדיקה-חיה של-המסך-המקביל, מסך-
+        // הליד - שם-היה-ה-leak-הזה-אפילו-גרוע-יותר: אפס-סינון-בכלל).
+        // קריאת-שירות אין-לה-ambiguity-של-"כמה-קריאות-באותה-מחלקה" כמו-
+        // ליד-פר-קורס - מספיק-סינון-לפי-workspace_id-בלבד, בלי-null-fallback.
+        // phoneCalls מקבלות-workspace_id-אמיתי-רק-לשיחות-חדשות (migration
+        // 0167) - שיחות-ישנות (null) נשארות-מוצגות (אין-כאן-ליד-מתחרה
+        // לבלבל-איתו, בניגוד-למסך-הליד).
+        inquiries: props.allInquiries.filter((i) => i.workspaceId === caseRow.workspace_id),
+        sentEmails: props.sentEmails.filter((e) => e.workspace_id === caseRow.workspace_id),
+        sentWhatsapp: props.sentWhatsapp.filter((w) => w.workspace_id === caseRow.workspace_id),
+        donationTransactions: props.donationTransactions.filter((t) => t.workspace_id === caseRow.workspace_id),
         callHistory: props.callHistory,
-        phoneCalls: props.phoneCalls,
-        meetings: props.meetings,
+        phoneCalls: props.phoneCalls.filter((c) => c.workspace_id === caseRow.workspace_id || c.workspace_id == null),
+        meetings: props.meetings.filter((m) => m.workspace_id === caseRow.workspace_id),
         workspaceNameById: props.workspaceNameById,
         isManager: props.isManager,
         viewerExtension: props.viewerExtension,

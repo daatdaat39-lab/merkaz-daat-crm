@@ -81,6 +81,11 @@ export default async function LeadWorkPage({ params }) {
     },
   });
 
+  // האם-זו-המחלקה-הזו-היא-הליד-היחיד-לאיש-הקשר-באותו-workspace - קובע
+  // אם-פריטי-היסטוריה-ישנים-בלי-contact_department_id (מלפני migration
+  // 0167) מותר-להציג-בציר-הזמן-של-הליד-הזה (ר' timelineProps למטה).
+  const includeNullDept = props.departments.filter((d) => d.workspaceId === deptRow.workspace_id).length <= 1;
+
   // סיכום-ציר-זמן קצר ("מה קרה עד עכשיו") - קאש לפי מספר-הפריטים-הכולל
   // (ר' lib/timelineSummary.js), לא ע"י stale/טריגר - אותם 7 מערכים
   // שכבר נטענו-ממילא עבור UnifiedTimeline, בלי שאילתה נוספת.
@@ -124,17 +129,32 @@ export default async function LeadWorkPage({ params }) {
         // המחלקה, ולא-היסטוריה-שלא-הייתה-מתוך-הכרטיס-של-הליד-הזה).
         // פניות/מייל/וואטסאפ/פגישה מסוננים-לפי contact_department_id
         // (lead_inquiries - תמיד-היה-קיים; מייל/וואטסאפ/פגישה - עמודה
-        // חדשה, migration 0167 - פריטים-היסטוריים-בלי-שיוך נשארים null
-        // ולכן לא-מוצגים-כאן, בכוונה: "לא-ראינו-היסטוריה-שלא-הייתה-
-        // מתוך-הכרטיס-של-הליד"). שיחות-טלפון/תרומות נשארות-גלובליות -
-        // אין-להן-אפילו workspace_id, אין-מה-לסנן-לפיו.
+        // חדשה, migration 0167). תיקון-מכוון (לא-היה-כך-במקור): פריטי-
+        // מייל/וואטסאפ/פגישה-היסטוריים-בלי-שיוך (null, מלפני-המיגרציה)
+        // מוצגים-בכל-זאת **רק-אם-זו-המחלקה-הזו-היא-הליד-היחיד** שלה
+        // לאיש-הקשר (אין-שום-ליד-מתחרה-שהם-יכלו-להשתייך-אליו-בטעות) -
+        // כדי-שלא-"תיעלם" היסטוריה-ישנה-ולגיטימית-לרוב-הלידים (שאין-להם-
+        // בכלל-כמה-קורסים). כש-יש-כמה-לידים-פתוחים/היסטוריים-באותה-
+        // מחלקה - נשארים-מוסתרים (יש-שם-אי-ודאות-אמיתית-לפתור).
+        // תיקון-נוסף (נמצא-בבדיקה-חיה): תרומות/שיחות-טלפון **כן-יכולות**-
+        // להיות-מסוננות-לפי-מחלקה - תרומות תמיד-שייכות-ל"תרומות"-בלבד
+        // (workspace_id אמיתי, לא-ambiguous) - הצגתן-במלואן (כולל-עשרות-
+        // תנועות-היסטוריות-ממחלקה-אחרת-לגמרי) בתוך-ליד-של-"דעת ותבונה"
+        // הייתה-טעות-הסקה-מההחלטה-המקורית, לא-כוונה. שיחות-טלפון קיבלו
+        // workspace_id אמיתי (migration 0167 + item-8) רק-לשיחות-חדשות -
+        // אותו-עיקרון-includeNullDept כמו-מייל/וואטסאפ/פגישה לשיחות-ישנות.
+        // callHistory (ייבוא-היסטורי) נשארת-גלובלית - באמת-אין-לה-workspace_id בכלל.
         inquiries: props.allInquiries.filter((i) => i.contactDepartmentId === departmentId),
-        sentEmails: props.sentEmails.filter((e) => e.contact_department_id === departmentId),
-        sentWhatsapp: props.sentWhatsapp.filter((w) => w.contact_department_id === departmentId),
-        donationTransactions: props.donationTransactions,
+        sentEmails: props.sentEmails.filter((e) => e.contact_department_id === departmentId
+          || (includeNullDept && e.contact_department_id == null && e.workspace_id === deptRow.workspace_id)),
+        sentWhatsapp: props.sentWhatsapp.filter((w) => w.contact_department_id === departmentId
+          || (includeNullDept && w.contact_department_id == null && w.workspace_id === deptRow.workspace_id)),
+        donationTransactions: props.donationTransactions.filter((t) => t.workspace_id === deptRow.workspace_id),
         callHistory: props.callHistory,
-        phoneCalls: props.phoneCalls,
-        meetings: props.meetings.filter((m) => m.contact_department_id === departmentId),
+        phoneCalls: props.phoneCalls.filter((c) => c.workspace_id === deptRow.workspace_id
+          || (includeNullDept && c.workspace_id == null)),
+        meetings: props.meetings.filter((m) => m.contact_department_id === departmentId
+          || (includeNullDept && m.contact_department_id == null && m.workspace_id === deptRow.workspace_id)),
         workspaceNameById: props.workspaceNameById,
         isManager: props.isManager,
         viewerExtension: props.viewerExtension,

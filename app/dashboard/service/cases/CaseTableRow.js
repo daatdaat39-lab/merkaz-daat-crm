@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { SEVERITY_LABELS, STATUS_LABELS, slaStatus } from '../../lib/serviceSla';
 import { updateCaseStatus, assignCaseAgent } from './actions';
-import { PhoneIcon, PersonIcon, SparkleIcon } from '../../components/icons';
+import { PersonIcon, SparkleIcon } from '../../components/icons';
+import DialButton from '../../components/DialButton';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '5px 8px', fontSize: 12, background: 'var(--k-surface)', color: 'var(--k-text)' };
 const COL_COUNT = 7;
@@ -25,20 +26,28 @@ export default function CaseTableRow({ c, agents }) {
     startTransition(async () => { await assignCaseAgent(c.id, e.target.value || null); router.refresh(); });
   }
 
+  // צבע-שורה-מלא לפי דחיפות-SLA (לא-רק-תג-קטן) - כדי שקריאה-שחרגה/קרובה-
+  // לחרוג תבלוט-מיידית-בסריקה-ויזואלית של הלוח, לא-רק-בעמודה-ייעודית.
+  const rowStyle = {
+    borderBottom: '1px solid var(--k-border)',
+    ...(sla ? { background: sla.bg, borderInlineEnd: `3px solid ${sla.color}` } : {}),
+  };
+
   return (
     <>
-      <tr style={{ borderBottom: '1px solid var(--k-border)' }}>
+      <tr style={rowStyle}>
         <td style={{ padding: '10px 12px', color: 'var(--k-text-muted)', fontVariantNumeric: 'tabular-nums' }}>#{c.caseNumber}</td>
         <td style={{ padding: '10px 12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Link href={`/dashboard/contacts/${c.contactId}`} style={{ textDecoration: 'none', fontFamily: 'var(--k-font-display)', fontSize: 14, color: 'var(--k-text)' }}>
               {c.contactName}
             </Link>
+            {c.contactPhone && <DialButton contactId={c.contactId} style={{ padding: '3px 8px', fontSize: 10.5, borderRadius: 100 }} />}
             <Link
-              href={`/dashboard/service/cases/${c.id}`} title="התקשרות - פותח את מסך-הטיפול"
-              style={{ display: 'flex', alignItems: 'center', gap: 3, fontWeight: 700, fontSize: 10.5, background: 'var(--k-accent)', color: '#fff', borderRadius: 8, padding: '3px 9px', textDecoration: 'none' }}
+              href={`/dashboard/service/cases/${c.id}`}
+              style={{ fontWeight: 600, fontSize: 10.5, background: 'var(--k-accent)', color: '#fff', borderRadius: 8, padding: '3px 9px', textDecoration: 'none' }}
             >
-              <PhoneIcon size={10} />
+              טיפול בקריאה
             </Link>
           </div>
           {c.contactPhone && <div style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>{c.contactPhone}</div>}
@@ -69,7 +78,7 @@ export default function CaseTableRow({ c, agents }) {
           </select>
         </td>
       </tr>
-      <tr style={{ borderBottom: '1px solid var(--k-border)' }}>
+      <tr style={{ borderBottom: '1px solid var(--k-border)', background: sla ? sla.bg : undefined }}>
         <td></td>
         <td colSpan={COL_COUNT - 1} style={{ padding: '0 12px 10px' }}>
           {c.aiActionSummary ? (

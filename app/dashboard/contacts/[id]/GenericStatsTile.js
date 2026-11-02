@@ -7,7 +7,6 @@
 // לוגיקה קשיחה לפי שם מחלקה. **תצוגה בלבד (read-only)**.
 import { computeFieldValue } from '../../lib/computedFields';
 import { LEGACY_COURSE_FIELD_KEYS } from '../../lib/extraFields';
-import LeadCourseSwitcher from './LeadCourseSwitcher';
 
 function formatValue(val, type) {
   if (val === null || val === undefined || val === '') return null;
@@ -22,7 +21,6 @@ function formatValue(val, type) {
 export default function GenericStatsTile({
   department, transactions = [], commitments = [], isManager = false,
   openProcessesCount = 0, openServiceCasesCount = 0, openTasksCount = 0, onOpenCurrentTab,
-  courses = [], contactId, frozen = false,
 }) {
   const extra = department.extraFields || {};
   const fieldDefs = department.fieldDefs || [];
@@ -51,10 +49,14 @@ export default function GenericStatsTile({
     .map((f) => ({ ...f, display: f.type === 'computed' ? computeFieldValue(f, extra, fieldDefs, deptTransactions) : formatValue(extra[f.key], f.type) }))
     .filter((f) => f.display !== null);
 
+  // תהליכים-פתוחים לא-נספר-בתנאי-ההסתרה במחלקות-sellsCourses - הבלוק
+  // שלו ממילא-לא-מוצג-שם (ר' למעלה), אז נוכחותו-לבדה כבר-לא-מצדיקה-
+  // שהקוביה-כולה-תישאר-גלויה (בניגוד-להתנהגות-הקודמת, כש-הבלוק-היחיד-
+  // שהיה-שם-במחלקת-קורסים היה מחליף-הקורס עצמו).
   if (
     filledFields.length === 0 && deptTransactions.length === 0 && !activeCommitment
-    && openProcessesCount === 0 && openServiceCasesCount === 0 && openTasksCount === 0
-    && !department.sellsCourses
+    && openServiceCasesCount === 0 && openTasksCount === 0
+    && (openProcessesCount === 0 || department.sellsCourses)
   ) return null;
 
   return (
@@ -65,18 +67,14 @@ export default function GenericStatsTile({
     }}>
       {/* "שלב נוכחי" הוחלף בסיכום-פעולה-לחיץ - שם-שלב-ספציפי היה מטעה
           כש-יש-כמה-תהליכים-במקביל או opened_process=false. מוגבל-
-          למחלקה-הפעילה-בלבד (ר' ContactDetailClient.js). */}
-      {openProcessesCount > 0 && (
+          למחלקה-הפעילה-בלבד (ר' ContactDetailClient.js). במחלקות-
+          sellsCourses=true מוסתר-לגמרי - CourseLeadsPanel (מתחת-לפינים)
+          כבר-מראה-את-אותו-מידע-בדיוק-ברמת-כל-ליד, הצגתו-גם-כאן הייתה-כפולה. */}
+      {openProcessesCount > 0 && !department.sellsCourses && (
         <Block label="תהליכים פתוחים">
           <button type="button" onClick={() => onOpenCurrentTab?.('processes')} style={clickableValue()}>
             {openProcessesCount}
           </button>
-        </Block>
-      )}
-
-      {department.sellsCourses && department.openedProcess !== false && (
-        <Block label="קורס">
-          <LeadCourseSwitcher department={department} courses={courses} contactId={contactId} frozen={frozen} compact />
         </Block>
       )}
 

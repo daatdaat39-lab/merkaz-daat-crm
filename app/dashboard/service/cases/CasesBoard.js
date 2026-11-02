@@ -24,6 +24,7 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
   const [showNew, setShowNew] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const [refreshMsg, setRefreshMsg] = useState('');
+  const [sortBy, setSortBy] = useState('sla_asc');
   const router = useRouter();
 
   const filtered = cases.filter((c) => {
@@ -31,6 +32,18 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
     if (tab === 'closed') return c.status === 'closed';
     return true;
   });
+
+  // מיון-לפי-דחיפות-SLA (ברירת-מחדל) - הקריאות-הכי-קרובות-לחריגה
+  // (או-שכבר-חרגו) למעלה; קריאות-סגורות (אין-SLA) תמיד-בסוף. "מיון
+  // לפי-תאריך" משמר-את-סדר-השרת (created_at desc).
+  const sorted = sortBy === 'sla_asc'
+    ? [...filtered].sort((a, b) => {
+        if (a.status === 'closed' && b.status === 'closed') return 0;
+        if (a.status === 'closed') return 1;
+        if (b.status === 'closed') return -1;
+        return new Date(a.slaDueAt) - new Date(b.slaDueAt);
+      })
+    : filtered;
 
   const staleAiCount = cases.filter((c) => c.aiActionSummaryStale).length;
 
@@ -64,11 +77,15 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
             <RefreshIcon size={13} /> {refreshing ? 'מרענן...' : `רענון המלצות AI${staleAiCount > 0 ? ` (${Math.min(staleAiCount, 25)})` : ''}`}
           </button>
           {refreshMsg && <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>{refreshMsg}</span>}
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={inputStyle}>
+            <option value="sla_asc">מיון: דחיפות SLA</option>
+            <option value="created_desc">מיון: תאריך פתיחה</option>
+          </select>
         </div>
         <button type="button" onClick={() => setShowNew(true)} style={primaryBtn}>+ קריאה חדשה</button>
       </div>
 
-      {filtered.length === 0 ? (
+      {sorted.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>אין קריאות כאן</div>
       ) : (
         <div style={{ overflowX: 'auto', background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14 }}>
@@ -81,7 +98,7 @@ export default function CasesBoard({ cases, agents, courses, workspaceId }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => (
+              {sorted.map((c) => (
                 <CaseTableRow key={c.id} c={c} agents={agents} />
               ))}
             </tbody>
