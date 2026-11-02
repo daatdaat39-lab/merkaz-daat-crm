@@ -11,5 +11,5 @@ jobs:
     steps:
       - name: Pull incoming WhatsApp messages
         run: |
-          curl -s -w "\nHTTP_STATUS:%{http_code}\n" -X GET "https://merkaz-daat-crm-8ubv.vercel.app/api/cron/poll-whatsapp-incoming" \
+          curl -sf -X GET "https://merkaz-daat-crm-8ubv.vercel.app/api/cron/poll-whatsapp-incoming" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
