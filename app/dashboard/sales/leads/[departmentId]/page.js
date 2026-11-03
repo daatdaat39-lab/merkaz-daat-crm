@@ -60,12 +60,19 @@ export default async function LeadWorkPage({ params }) {
     );
   }
 
-  const [{ data: courses }, { data: playbookItems }, pipeline, { data: sendConnections }, { data: emailTemplates }] = await Promise.all([
-    supabase.from('courses').select('id, name, price, duration_type').eq('is_active', true).order('sort_order').order('name'),
+  const [{ data: courses }, { data: playbookItems }, pipeline, { data: sendConnections }, { data: emailTemplates }, { data: checklist }, { data: courseTracks }] = await Promise.all([
+    supabase.from('courses').select('id, name, price, duration_type, checklist_forms_enabled, checklist_payment_enabled, checklist_signatures_enabled').eq('is_active', true).order('sort_order').order('name'),
     supabase.from('reference_content').select('id, course_id, tag, title, body').eq('kind', 'playbook').eq('is_active', true).order('sort_order'),
     getPipeline(supabase, deptRow.workspaces?.name),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
+    // צ'קליסט "פרטים טכניים" (מסלול-הצלחה-מורחב, migration 0174) - שלב-ביניים
+    // תיעודי לפני convert_lead_to_purchase - רשומה אחת-לכל-ליד (אם כבר-מולאה).
+    supabase.from('lead_conversion_checklist').select('*, course_tracks:track_id (id, label)').eq('contact_department_id', departmentId).maybeSingle(),
+    // מסלולים-גמישים-לקורס-הנבחר (לדוגמה בוקר/ערב/זום) - מוגדרים בהגדרות→קטלוג-קורסים.
+    department.courseId
+      ? supabase.from('course_tracks').select('id, label').eq('course_id', department.courseId).eq('is_active', true).order('sort_order')
+      : Promise.resolve({ data: [] }),
   ]);
 
   // צ'יפ-AI "מה-לעשות-עכשיו" - נוצר/מתרענן אוטומטית כאן אם stale (ר'
@@ -119,6 +126,8 @@ export default async function LeadWorkPage({ params }) {
       workspaceId={deptRow.workspace_id}
       workspaceName={deptRow.workspaces?.name}
       courses={courses || []}
+      checklist={checklist || null}
+      courseTracks={courseTracks || []}
       playbookItems={playbookItems || []}
       whatsappTemplates={props.whatsappTemplates}
       emailTemplates={emailTemplates || []}

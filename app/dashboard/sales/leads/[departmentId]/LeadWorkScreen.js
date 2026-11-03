@@ -13,6 +13,7 @@ import { PersonIcon, SparkleIcon, CheckIcon, CloseXIcon } from '../../../compone
 import { updateLeadCourse, updateLeadStage, assignAgentForLead } from '../../../contacts/actions';
 import { CLOSE_REASONS } from '../../../components/pipelines';
 import { lockLead, heartbeatLeadLock, releaseLeadLock, convertLead, setRepConfidence } from './leadLockActions';
+import { updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures } from './leadChecklistActions';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
 const cardStyle = { background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 };
@@ -24,7 +25,7 @@ const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted
 // סכנה בדיוק: הסתרת-טאב כשהנציג עובר לחייג מהנייד האישי שלו).
 export default function LeadWorkScreen({
   departmentId, aiActionText, aiConfidence, timelineSummary, contact, department, stageLabel, wonStageLabel, workspaceId, workspaceName,
-  courses, playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps, stages = [], stageLabels = {}, agents = [],
+  courses, checklist = null, courseTracks = [], playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps, stages = [], stageLabels = {}, agents = [],
 }) {
   const [lockState, setLockState] = useState('checking'); // checking | locked | denied
   const [agentId, setAgentId] = useState(department.agentId || '');
@@ -33,8 +34,10 @@ export default function LeadWorkScreen({
   const [repConfidence, setRepConfidenceState] = useState(department.repConfidence || null);
   const [confidencePending, setConfidencePending] = useState(false);
   const [courseId, setCourseId] = useState(department.courseId || '');
-  const [price, setPrice] = useState('');
-  const [cohortLabel, setCohortLabel] = useState('');
+  // ברירת-מחדל חד-פעמית מהצ'קליסט שמולא בשלב "פרטים טכניים" (אם יש) -
+  // לא useEffect חי בכוונה, כדי שלא-ידרוס עריכה-באמצע של הנציג באותה-טעינה.
+  const [price, setPrice] = useState(checklist?.payment_total_amount != null ? String(checklist.payment_total_amount) : '');
+  const [cohortLabel, setCohortLabel] = useState(checklist?.course_tracks?.label || '');
   const [enrollmentStartDate, setEnrollmentStartDate] = useState('');
   const [enrollmentEndDate, setEnrollmentEndDate] = useState('');
   const [converting, setConverting] = useState(false);
@@ -335,6 +338,14 @@ export default function LeadWorkScreen({
           </div>
         ) : (
           <>
+            {courseId && (
+              <TechnicalDetailsCard
+                departmentId={departmentId}
+                selectedCourse={selectedCourse}
+                courseTracks={courseTracks}
+                checklist={checklist}
+              />
+            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--k-border)', justifyContent: 'flex-end' }}>
               <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginInlineEnd: 'auto' }}>
                 שינוי-שלב רגיל נעשה מהרשימה הראשית; שתי האפשרויות כאן הן סגירה סופית של הליד.
@@ -391,6 +402,144 @@ export default function LeadWorkScreen({
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// כרטיס "פרטים טכניים" (מסלול-הצלחה-מורחב) - שלב-ביניים-תיעודי לפני
+// ההמרה-הסופית (הכפתור "נרשם ללימודים" למטה, ללא-שינוי). זמין-תמיד כש-
+// יש-קורס-נבחר (לא-נעול-לפי-שלב-נוכחי - אותה-פילוסופיה כמו תחתית-ההמרה
+// הקיימת) - החלטה מפורשת: בלי-חסימת-מעבר-שלב בשלב הזה (ר' דיון).
+function TechnicalDetailsCard({ departmentId, selectedCourse, courseTracks, checklist }) {
+  const [trackId, setTrackId] = useState(checklist?.track_id || '');
+  const [formsLink, setFormsLink] = useState(checklist?.forms_link || '');
+  const [formsDone, setFormsDone] = useState(!!checklist?.forms_done);
+  const [paymentTotal, setPaymentTotal] = useState(checklist?.payment_total_amount != null ? String(checklist.payment_total_amount) : '');
+  const [paymentInstallments, setPaymentInstallments] = useState(checklist?.payment_installments_count != null ? String(checklist.payment_installments_count) : '1');
+  const [paymentMethod, setPaymentMethod] = useState(checklist?.payment_method || '');
+  const [paymentNote, setPaymentNote] = useState(checklist?.payment_note || '');
+  const [paymentArranged, setPaymentArranged] = useState(!!checklist?.payment_arranged);
+  const [signaturesNote, setSignaturesNote] = useState(checklist?.signatures_note || '');
+  const [signaturesDone, setSignaturesDone] = useState(!!checklist?.signatures_done);
+  const [, startTransition] = useTransition();
+
+  const showForms = selectedCourse?.checklist_forms_enabled !== false;
+  const showPayment = selectedCourse?.checklist_payment_enabled !== false;
+  const showSignatures = selectedCourse?.checklist_signatures_enabled !== false;
+  const enabledCount = [showForms, showPayment, showSignatures].filter(Boolean).length;
+  const doneCount = [showForms && formsDone, showPayment && paymentArranged, showSignatures && signaturesDone].filter(Boolean).length;
+
+  function handleTrackChange(e) {
+    const value = e.target.value;
+    setTrackId(value);
+    startTransition(() => updateLeadTrack(departmentId, value || null));
+  }
+
+  function saveForms(patch) {
+    startTransition(() => updateLeadForms(departmentId, patch));
+  }
+
+  function savePayment(patch) {
+    startTransition(() => updateLeadPayment(departmentId, patch));
+  }
+
+  function saveSignatures(patch) {
+    startTransition(() => updateLeadSignatures(departmentId, patch));
+  }
+
+  if (enabledCount === 0) return null;
+
+  return (
+    <div style={{ ...cardStyle, marginTop: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={sectionLabel}>פרטים טכניים</div>
+        <div style={{ fontSize: 11.5, color: doneCount === enabledCount ? 'var(--k-ok-text)' : 'var(--k-text-muted)', fontWeight: 600 }}>
+          {doneCount}/{enabledCount} הושלם
+        </div>
+      </div>
+
+      <div style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>קורס: {selectedCourse?.name || '—'}</div>
+
+      {courseTracks.length > 0 && (
+        <div>
+          <div style={{ ...sectionLabel, marginBottom: 4 }}>מסלול</div>
+          <select value={trackId} onChange={handleTrackChange} style={inputStyle}>
+            <option value="">— בחירת מסלול —</option>
+            {courseTracks.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </select>
+        </div>
+      )}
+
+      {showForms && (
+        <div style={{ borderTop: '1px solid var(--k-border)', paddingTop: 10 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginBottom: 6 }}>
+            <input
+              type="checkbox" checked={formsDone}
+              onChange={(e) => { setFormsDone(e.target.checked); saveForms({ done: e.target.checked }); }}
+            />
+            מילוי טפסי רישום
+          </label>
+          <input
+            type="text" value={formsLink} onChange={(e) => setFormsLink(e.target.value)}
+            onBlur={() => saveForms({ link: formsLink })}
+            placeholder="קישור לטופס חיצוני (אופציונלי)" style={inputStyle}
+          />
+        </div>
+      )}
+
+      {showPayment && (
+        <div style={{ borderTop: '1px solid var(--k-border)', paddingTop: 10 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginBottom: 6 }}>
+            <input
+              type="checkbox" checked={paymentArranged}
+              onChange={(e) => { setPaymentArranged(e.target.checked); savePayment({ arranged: e.target.checked }); }}
+            />
+            הסדר תשלומים
+          </label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+            <input
+              type="number" value={paymentTotal} onChange={(e) => setPaymentTotal(e.target.value)}
+              onBlur={() => savePayment({ totalAmount: paymentTotal })}
+              placeholder="סכום כולל (₪)" style={{ ...inputStyle, width: 130 }}
+            />
+            <input
+              type="number" value={paymentInstallments} onChange={(e) => setPaymentInstallments(e.target.value)}
+              onBlur={() => savePayment({ installmentsCount: paymentInstallments })}
+              placeholder="מספר תשלומים" style={{ ...inputStyle, width: 130 }}
+            />
+            <input
+              type="text" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}
+              onBlur={() => savePayment({ method: paymentMethod })}
+              placeholder="אמצעי תשלום" style={{ ...inputStyle, width: 130 }}
+            />
+          </div>
+          <input
+            type="text" value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)}
+            onBlur={() => savePayment({ note: paymentNote })}
+            placeholder="הערה (אופציונלי)" style={inputStyle}
+          />
+          <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginTop: 4 }}>
+            תיעודי בלבד כרגע - לא יוצר תהליך-גבייה פעיל.
+          </div>
+        </div>
+      )}
+
+      {showSignatures && (
+        <div style={{ borderTop: '1px solid var(--k-border)', paddingTop: 10 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginBottom: 6 }}>
+            <input
+              type="checkbox" checked={signaturesDone}
+              onChange={(e) => { setSignaturesDone(e.target.checked); saveSignatures({ done: e.target.checked }); }}
+            />
+            חתימות
+          </label>
+          <input
+            type="text" value={signaturesNote} onChange={(e) => setSignaturesNote(e.target.value)}
+            onBlur={() => saveSignatures({ note: signaturesNote })}
+            placeholder="הערה (אופציונלי)" style={inputStyle}
+          />
+        </div>
+      )}
     </div>
   );
 }

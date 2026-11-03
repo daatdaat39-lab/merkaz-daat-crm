@@ -23,7 +23,10 @@ export default async function CoursesPage() {
     );
   }
 
-  const { data: courses } = await supabase.from('courses').select('*').order('sort_order', { ascending: true });
+  const [{ data: courses }, { data: tracks }] = await Promise.all([
+    supabase.from('courses').select('*').order('sort_order', { ascending: true }),
+    supabase.from('course_tracks').select('*').order('course_id').order('sort_order', { ascending: true }),
+  ]);
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 24px' }}>
@@ -32,7 +35,7 @@ export default async function CoursesPage() {
       <p style={{ margin: '0 0 20px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
         קטלוג גלובלי (לא לפי מחלקה) - משמש גם במסך-הטיפול-בליד (בחירת קורס להמרה) וגם בכרטיס-איש-קשר (הרשמות לקורסים).
       </p>
-      <CoursesClient courses={courses || []} />
+      <CoursesClient courses={courses || []} tracks={tracks || []} />
     </div>
   );
 }
