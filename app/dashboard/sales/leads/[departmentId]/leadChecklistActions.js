@@ -47,7 +47,7 @@ export async function updateLeadTrack(departmentId, trackId) {
   return upsertChecklist(supabase, departmentId, row.workspace_id, user.id, { track_id: trackId || null });
 }
 
-export async function updateLeadForms(departmentId, { link, done }) {
+export async function updateLeadForms(departmentId, { link, done, sentAt }) {
   const { supabase, user } = await requireUser();
   const { row, error } = await requireMemberOfLead(supabase, user.id, departmentId);
   if (error) return { error };
@@ -57,6 +57,9 @@ export async function updateLeadForms(departmentId, { link, done }) {
     patch.forms_done = !!done;
     patch.forms_done_at = done ? new Date().toISOString() : null;
   }
+  // sentAt - מתמלא-אוטומטית אחרי-שליחה-מוצלחת (מייל/וואטסאפ) מתוך
+  // מסך-הרישום, לא-ע"י-הנציג-ידנית - ר' LeadRegistrationScreen.js.
+  if (sentAt !== undefined) patch.forms_sent_at = sentAt;
   return upsertChecklist(supabase, departmentId, row.workspace_id, user.id, patch);
 }
 
@@ -76,16 +79,18 @@ export async function updateLeadPayment(departmentId, { totalAmount, installment
   return upsertChecklist(supabase, departmentId, row.workspace_id, user.id, patch);
 }
 
-export async function updateLeadSignatures(departmentId, { done, note }) {
+export async function updateLeadSignatures(departmentId, { link, done, note, sentAt }) {
   const { supabase, user } = await requireUser();
   const { row, error } = await requireMemberOfLead(supabase, user.id, departmentId);
   if (error) return { error };
   const patch = {};
+  if (link !== undefined) patch.signatures_link = link || null;
   if (note !== undefined) patch.signatures_note = note || null;
   if (done !== undefined) {
     patch.signatures_done = !!done;
     patch.signatures_done_at = done ? new Date().toISOString() : null;
   }
+  if (sentAt !== undefined) patch.signatures_sent_at = sentAt;
   return upsertChecklist(supabase, departmentId, row.workspace_id, user.id, patch);
 }
 
@@ -104,13 +109,15 @@ export async function completeLeadRegistration(departmentId) {
   if (error) return { error };
   if (!row.course_id) return { error: 'יש לבחור קורס לפני סיום הרישום' };
 
-  const [{ data: course }, { data: checklist }, { data: existingPurchase }] = await Promise.all([
+  const [{ data: course }, { data: checklist }, { data: existingPurchases }] = await Promise.all([
     supabase.from('courses').select('checklist_forms_enabled, checklist_payment_enabled, checklist_signatures_enabled').eq('id', row.course_id).maybeSingle(),
     supabase.from('lead_conversion_checklist').select('*, course_tracks:track_id (label)').eq('contact_department_id', departmentId).maybeSingle(),
-    supabase.from('course_purchases').select('id').eq('contact_department_id', departmentId).maybeSingle(),
+    // .limit(1) + אורך-מערך, לא .maybeSingle() - אם-יש-כבר-כמה-שורות-
+    // היסטוריות (לפני-אינדקס-הייחוד, migration 0176) זה-לא-אמור-לזרוק.
+    supabase.from('course_purchases').select('id').eq('contact_department_id', departmentId).limit(1),
   ]);
 
-  if (existingPurchase) return { error: 'ההרשמה הזו כבר נקלטה' };
+  if (existingPurchases?.length > 0) return { error: 'ההרשמה הזו כבר נקלטה' };
   if (course?.checklist_forms_enabled !== false && !checklist?.forms_done) return { error: 'יש לסמן את טפסי הרישום כהושלמו' };
   if (course?.checklist_payment_enabled !== false && !checklist?.payment_arranged) return { error: 'יש לסמן את הסדר התשלומים כהושלם' };
   if (course?.checklist_signatures_enabled !== false && !checklist?.signatures_done) return { error: 'יש לסמן את החתימות כהושלמו' };

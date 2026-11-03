@@ -3,32 +3,56 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { PersonIcon, CheckIcon } from '../../../components/icons';
+import EmailComposeModal from '../../../contacts/[id]/EmailComposeModal';
+import WhatsAppSendModal from '../../../contacts/[id]/WhatsAppSendModal';
+import { PersonIcon, CheckIcon, MailIcon, WhatsAppIcon } from '../../../components/icons';
 import { useLeadLock } from './useLeadLock';
 import { updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures, completeLeadRegistration } from './leadChecklistActions';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
 const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' };
+const sendBtnStyle = {
+  width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+  border: '1px solid var(--k-border)', borderRadius: 8, background: 'var(--k-surface)', color: 'var(--k-text)', cursor: 'pointer', flexShrink: 0,
+};
+
+function formatSentAt(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return `נשלח ${d.toLocaleDateString('he-IL')} ${d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+}
 
 // מסך-רישום נפרד (route חדש) - "שלב 2" של טיפול-בליד: טפסים/תשלומים/
 // חתימות לפי-הגדרות-הקורס + אישור-המרה מפורש בכפתור-נפרד-ומודגש (לא
 // אוטומטי-מהצ'קליסט) - ר' דיון "מסך-רישום נפרד". משתמש-באותה-נעילה
 // (useLeadLock) כמו LeadWorkScreen - אותו-ליד, שני-מסכים.
-export default function LeadRegistrationScreen({ departmentId, contact, selectedCourse, courseTracks = [], checklist = null, wonStageLabel }) {
+export default function LeadRegistrationScreen({
+  departmentId, contact, workspaceId, workspaceName, selectedCourse, courseTracks = [], checklist = null, wonStageLabel,
+  sendConnections = [], whatsappTemplates = [], emailTemplates = [],
+}) {
   const { lockState, error: lockError, releaseOnNavigate } = useLeadLock(departmentId);
   const router = useRouter();
 
   const [trackId, setTrackId] = useState(checklist?.track_id || '');
-  const [formsLink, setFormsLink] = useState(checklist?.forms_link || '');
+  const [formsLink, setFormsLink] = useState(checklist?.forms_link || selectedCourse?.registration_form_url || '');
   const [formsDone, setFormsDone] = useState(!!checklist?.forms_done);
+  const [formsSentAt, setFormsSentAt] = useState(checklist?.forms_sent_at || null);
   const [paymentTotal, setPaymentTotal] = useState(checklist?.payment_total_amount != null ? String(checklist.payment_total_amount) : '');
   const [paymentInstallments, setPaymentInstallments] = useState(checklist?.payment_installments_count != null ? String(checklist.payment_installments_count) : '1');
   const [paymentMethod, setPaymentMethod] = useState(checklist?.payment_method || '');
   const [paymentNote, setPaymentNote] = useState(checklist?.payment_note || '');
   const [paymentArranged, setPaymentArranged] = useState(!!checklist?.payment_arranged);
+  const [signaturesLink, setSignaturesLink] = useState(checklist?.signatures_link || selectedCourse?.signature_template_url || '');
   const [signaturesNote, setSignaturesNote] = useState(checklist?.signatures_note || '');
   const [signaturesDone, setSignaturesDone] = useState(!!checklist?.signatures_done);
+  const [signaturesSentAt, setSignaturesSentAt] = useState(checklist?.signatures_sent_at || null);
   const [, startTransition] = useTransition();
+
+  // 'forms' | 'signatures' - איזה-שדה-קישור מפעיל כרגע את חלון-השליחה;
+  // ('email'|'whatsapp') - איזה ערוץ. שני-המודאלים-הקיימים (ContactQuickActions
+  // כבר-משתמש-בהם) נפתחים-כאן-ישירות, לא-דרך-הרכיב-הגנרי, כי-צריך-תוכן-
+  // מוכן-מראש (קישור-ספציפי), לא-תפריט-הפעולות-הכללי.
+  const [sendTarget, setSendTarget] = useState(null); // { field: 'forms'|'signatures', channel: 'email'|'whatsapp' }
 
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState('');
@@ -39,6 +63,10 @@ export default function LeadRegistrationScreen({ departmentId, contact, selected
   const enabledCount = [showForms, showPayment, showSignatures].filter(Boolean).length;
   const doneCount = [showForms && formsDone, showPayment && paymentArranged, showSignatures && signaturesDone].filter(Boolean).length;
   const allDone = enabledCount > 0 && doneCount === enabledCount;
+
+  const emailConnection = sendConnections.find((c) => c.workspace_id === workspaceId);
+  const canEmail = !!emailConnection && !!contact.email;
+  const canWhatsapp = !!contact.phone;
 
   function handleTrackChange(e) {
     const value = e.target.value;
@@ -56,6 +84,17 @@ export default function LeadRegistrationScreen({ departmentId, contact, selected
 
   function saveSignatures(patch) {
     startTransition(() => updateLeadSignatures(departmentId, patch));
+  }
+
+  function handleLinkSent(field) {
+    const now = new Date().toISOString();
+    if (field === 'forms') {
+      setFormsSentAt(now);
+      saveForms({ sentAt: now });
+    } else {
+      setSignaturesSentAt(now);
+      saveSignatures({ sentAt: now });
+    }
   }
 
   function handleComplete() {
@@ -82,6 +121,9 @@ export default function LeadRegistrationScreen({ departmentId, contact, selected
       </div>
     );
   }
+
+  const sentForms = formatSentAt(formsSentAt);
+  const sentSignatures = formatSentAt(signaturesSentAt);
 
   return (
     <div style={{ background: 'var(--k-bg)', minHeight: '100%' }}>
@@ -136,11 +178,20 @@ export default function LeadRegistrationScreen({ departmentId, contact, selected
                 />
                 מילוי טפסי רישום
               </label>
-              <input
-                type="text" value={formsLink} onChange={(e) => setFormsLink(e.target.value)}
-                onBlur={() => saveForms({ link: formsLink })}
-                placeholder="קישור לטופס חיצוני (אופציונלי)" style={inputStyle}
-              />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  type="text" value={formsLink} onChange={(e) => setFormsLink(e.target.value)}
+                  onBlur={() => saveForms({ link: formsLink })}
+                  placeholder="קישור לטופס חיצוני (אופציונלי)" style={inputStyle}
+                />
+                <button type="button" title="שלח במייל" disabled={!canEmail || !formsLink} onClick={() => setSendTarget({ field: 'forms', channel: 'email' })} style={{ ...sendBtnStyle, opacity: !canEmail || !formsLink ? 0.4 : 1 }}>
+                  <MailIcon size={13} />
+                </button>
+                <button type="button" title="שלח בוואטסאפ" disabled={!canWhatsapp || !formsLink} onClick={() => setSendTarget({ field: 'forms', channel: 'whatsapp' })} style={{ ...sendBtnStyle, opacity: !canWhatsapp || !formsLink ? 0.4 : 1 }}>
+                  <WhatsAppIcon size={13} />
+                </button>
+              </div>
+              {sentForms && <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginTop: 4 }}>{sentForms}</div>}
             </div>
           )}
 
@@ -190,10 +241,24 @@ export default function LeadRegistrationScreen({ departmentId, contact, selected
                 />
                 חתימות
               </label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  type="text" value={signaturesLink} onChange={(e) => setSignaturesLink(e.target.value)}
+                  onBlur={() => saveSignatures({ link: signaturesLink })}
+                  placeholder="קישור לחתימה דיגיטלית (אופציונלי)" style={inputStyle}
+                />
+                <button type="button" title="שלח במייל" disabled={!canEmail || !signaturesLink} onClick={() => setSendTarget({ field: 'signatures', channel: 'email' })} style={{ ...sendBtnStyle, opacity: !canEmail || !signaturesLink ? 0.4 : 1 }}>
+                  <MailIcon size={13} />
+                </button>
+                <button type="button" title="שלח בוואטסאפ" disabled={!canWhatsapp || !signaturesLink} onClick={() => setSendTarget({ field: 'signatures', channel: 'whatsapp' })} style={{ ...sendBtnStyle, opacity: !canWhatsapp || !signaturesLink ? 0.4 : 1 }}>
+                  <WhatsAppIcon size={13} />
+                </button>
+              </div>
+              {sentSignatures && <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginTop: 4 }}>{sentSignatures}</div>}
               <input
                 type="text" value={signaturesNote} onChange={(e) => setSignaturesNote(e.target.value)}
                 onBlur={() => saveSignatures({ note: signaturesNote })}
-                placeholder="הערה (אופציונלי)" style={inputStyle}
+                placeholder="הערה (אופציונלי)" style={{ ...inputStyle, marginTop: 6 }}
               />
             </div>
           )}
@@ -224,6 +289,27 @@ export default function LeadRegistrationScreen({ departmentId, contact, selected
           </button>
         </div>
       </div>
+
+      {sendTarget?.channel === 'email' && emailConnection && (
+        <EmailComposeModal
+          contactId={contact.id} workspaceId={workspaceId} departmentId={departmentId}
+          fromAddress={emailConnection.email_address} toAddress={contact.email}
+          firstName={contact.first} templates={emailTemplates}
+          initialSubject={sendTarget.field === 'forms' ? `טופס רישום - ${selectedCourse?.name || ''}` : `חתימה - ${selectedCourse?.name || ''}`}
+          initialBody={`שלום ${contact.first},\n\nקישור ל${sendTarget.field === 'forms' ? 'טופס הרישום' : 'חתימה הדיגיטלית'}:\n${sendTarget.field === 'forms' ? formsLink : signaturesLink}\n\nתודה,\n${workspaceName || ''}`}
+          onClose={() => setSendTarget(null)}
+          onSent={() => handleLinkSent(sendTarget.field)}
+        />
+      )}
+      {sendTarget?.channel === 'whatsapp' && (
+        <WhatsAppSendModal
+          contactId={contact.id} workspaceId={workspaceId} departmentId={departmentId}
+          phone={contact.phone} thread={[]} templates={whatsappTemplates}
+          initialMessage={`היי ${contact.first}, קישור ל${sendTarget.field === 'forms' ? 'טופס הרישום' : 'חתימה הדיגיטלית'}: ${sendTarget.field === 'forms' ? formsLink : signaturesLink}`}
+          onClose={() => setSendTarget(null)}
+          onSent={() => handleLinkSent(sendTarget.field)}
+        />
+      )}
     </div>
   );
 }

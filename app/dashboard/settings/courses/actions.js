@@ -18,6 +18,7 @@ async function requireManager() {
 export async function createCourse({
   name, code, description, price, durationType, durationDays,
   checklistFormsEnabled, checklistPaymentEnabled, checklistSignaturesEnabled,
+  registrationFormUrl, signatureTemplateUrl,
 }) {
   const ctx = await requireManager();
   if (ctx.error) return ctx;
@@ -37,6 +38,8 @@ export async function createCourse({
     checklist_forms_enabled: checklistFormsEnabled !== false,
     checklist_payment_enabled: checklistPaymentEnabled !== false,
     checklist_signatures_enabled: checklistSignaturesEnabled !== false,
+    registration_form_url: (registrationFormUrl || '').trim() || null,
+    signature_template_url: (signatureTemplateUrl || '').trim() || null,
   });
   if (error) return { error: error.message };
   return { success: true };
@@ -45,6 +48,7 @@ export async function createCourse({
 export async function updateCourse(id, {
   name, code, description, price, durationType, durationDays, isActive,
   checklistFormsEnabled, checklistPaymentEnabled, checklistSignaturesEnabled,
+  registrationFormUrl, signatureTemplateUrl,
 }) {
   const ctx = await requireManager();
   if (ctx.error) return ctx;
@@ -63,6 +67,8 @@ export async function updateCourse(id, {
   if (checklistFormsEnabled !== undefined) changes.checklist_forms_enabled = checklistFormsEnabled;
   if (checklistPaymentEnabled !== undefined) changes.checklist_payment_enabled = checklistPaymentEnabled;
   if (checklistSignaturesEnabled !== undefined) changes.checklist_signatures_enabled = checklistSignaturesEnabled;
+  if (registrationFormUrl !== undefined) changes.registration_form_url = registrationFormUrl.trim() || null;
+  if (signatureTemplateUrl !== undefined) changes.signature_template_url = signatureTemplateUrl.trim() || null;
 
   const { error } = await supabase.from('courses').update(changes).eq('id', id);
   if (error) return { error: error.message };

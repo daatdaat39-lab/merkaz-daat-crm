@@ -31,7 +31,7 @@ export async function loadLeadCoreContext(departmentId) {
   if (!department) return { departmentNotFound: true };
 
   const [{ data: courses }, pipeline, { data: checklist }, { data: courseTracks }] = await Promise.all([
-    supabase.from('courses').select('id, name, price, duration_type, checklist_forms_enabled, checklist_payment_enabled, checklist_signatures_enabled').eq('is_active', true).order('sort_order').order('name'),
+    supabase.from('courses').select('id, name, price, duration_type, checklist_forms_enabled, checklist_payment_enabled, checklist_signatures_enabled, registration_form_url, signature_template_url').eq('is_active', true).order('sort_order').order('name'),
     getPipeline(supabase, deptRow.workspaces?.name),
     supabase.from('lead_conversion_checklist').select('*, course_tracks:track_id (id, label)').eq('contact_department_id', departmentId).maybeSingle(),
     department.courseId

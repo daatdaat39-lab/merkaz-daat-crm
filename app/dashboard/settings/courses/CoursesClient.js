@@ -33,6 +33,8 @@ export default function CoursesClient({ courses, tracks = [] }) {
         checklistFormsEnabled: formData.get('checklistFormsEnabled') === 'on',
         checklistPaymentEnabled: formData.get('checklistPaymentEnabled') === 'on',
         checklistSignaturesEnabled: formData.get('checklistSignaturesEnabled') === 'on',
+        registrationFormUrl: formData.get('registrationFormUrl'),
+        signatureTemplateUrl: formData.get('signatureTemplateUrl'),
       });
       if (res?.error) { setError(res.error); return; }
       setAdding(false);
@@ -68,6 +70,10 @@ export default function CoursesClient({ courses, tracks = [] }) {
             <LabeledInput label="מספר ימים (רק עבור משך קבוע מרכישה)" name="durationDays" type="number" />
           </div>
           <LabeledTextarea label="תיאור" name="description" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+            <LabeledInput label="קישור לטופס רישום חיצוני (ברירת-מחדל לליד)" name="registrationFormUrl" />
+            <LabeledInput label="קישור לתבנית חתימה דיגיטלית (ברירת-מחדל לליד)" name="signatureTemplateUrl" />
+          </div>
           <ChecklistCheckboxes defaults={{ checklistFormsEnabled: true, checklistPaymentEnabled: true, checklistSignaturesEnabled: true }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             <button type="submit" disabled={isPending} style={primaryBtn}>{isPending ? 'שומר...' : 'הוספת קורס'}</button>
@@ -115,6 +121,8 @@ function CourseRow({ course, tracks }) {
         checklistFormsEnabled: formData.get('checklistFormsEnabled') === 'on',
         checklistPaymentEnabled: formData.get('checklistPaymentEnabled') === 'on',
         checklistSignaturesEnabled: formData.get('checklistSignaturesEnabled') === 'on',
+        registrationFormUrl: formData.get('registrationFormUrl'),
+        signatureTemplateUrl: formData.get('signatureTemplateUrl'),
       });
       if (res?.error) { setError(res.error); return; }
       setEditing(false);
@@ -146,6 +154,10 @@ function CourseRow({ course, tracks }) {
           <LabeledInput label="מספר ימים" name="durationDays" type="number" defaultValue={course.duration_days} />
         </div>
         <LabeledTextarea label="תיאור" name="description" defaultValue={course.description} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+          <LabeledInput label="קישור לטופס רישום חיצוני (ברירת-מחדל לליד)" name="registrationFormUrl" defaultValue={course.registration_form_url} />
+          <LabeledInput label="קישור לתבנית חתימה דיגיטלית (ברירת-מחדל לליד)" name="signatureTemplateUrl" defaultValue={course.signature_template_url} />
+        </div>
         <ChecklistCheckboxes defaults={{
           checklistFormsEnabled: course.checklist_forms_enabled,
           checklistPaymentEnabled: course.checklist_payment_enabled,

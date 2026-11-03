@@ -39,17 +39,32 @@ export default async function LeadRegistrationPage({ params }) {
     );
   }
 
-  const { department, props, courses, checklist, courseTracks, pipeline } = ctx;
+  const { supabase, deptRow, department, props, courses, checklist, courseTracks, pipeline } = ctx;
   const selectedCourse = courses.find((c) => c.id === department.courseId);
+
+  // נטענים-כאן (לא-בליבה-המשותפת) - נדרשים-רק-למסך-הזה (כפתורי "שלח
+  // במייל/וואטסאפ" לקישורי-הטפסים/חתימה).
+  const [{ data: sendConnections }, { data: emailTemplates }] = await Promise.all([
+    supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
+    supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
+  ]);
 
   return (
     <LeadRegistrationScreen
       departmentId={departmentId}
-      contact={{ id: props.contact.id, first: props.contact.first, last: props.contact.last }}
+      contact={{
+        id: props.contact.id, first: props.contact.first, last: props.contact.last,
+        phone: props.contact.phone, email: props.contact.email,
+      }}
+      workspaceId={deptRow.workspace_id}
+      workspaceName={deptRow.workspaces?.name}
       selectedCourse={selectedCourse}
       courseTracks={courseTracks}
       checklist={checklist}
       wonStageLabel={pipeline.wonStage ? (pipeline.labels[pipeline.wonStage] || pipeline.wonStage) : null}
+      sendConnections={sendConnections || []}
+      whatsappTemplates={props.whatsappTemplates}
+      emailTemplates={emailTemplates || []}
     />
   );
 }
