@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ThreeColumnScreen from '../../../components/ThreeColumnScreen';
@@ -12,8 +12,8 @@ import QuickActivityLogForm from '../../../contacts/[id]/QuickActivityLogForm';
 import { PersonIcon, SparkleIcon, CheckIcon, CloseXIcon } from '../../../components/icons';
 import { updateLeadCourse, updateLeadStage, assignAgentForLead } from '../../../contacts/actions';
 import { CLOSE_REASONS } from '../../../components/pipelines';
-import { lockLead, heartbeatLeadLock, releaseLeadLock, convertLead, setRepConfidence } from './leadLockActions';
-import { updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures } from './leadChecklistActions';
+import { convertLead, setRepConfidence } from './leadLockActions';
+import { useLeadLock } from './useLeadLock';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
 const cardStyle = { background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 };
@@ -24,10 +24,10 @@ const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted
 // visibilitychange - ר' ההערה המתועדת ב-ActiveCallPanel.js על אותה
 // סכנה בדיוק: הסתרת-טאב כשהנציג עובר לחייג מהנייד האישי שלו).
 export default function LeadWorkScreen({
-  departmentId, aiActionText, aiConfidence, timelineSummary, contact, department, stageLabel, wonStageLabel, workspaceId, workspaceName,
+  departmentId, aiActionText, aiConfidence, timelineSummary, contact, department, stageLabel, wonStage, wonStageLabel, workspaceId, workspaceName,
   courses, checklist = null, courseTracks = [], playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps, stages = [], stageLabels = {}, agents = [],
 }) {
-  const [lockState, setLockState] = useState('checking'); // checking | locked | denied
+  const { lockState, error: lockError, releaseOnNavigate } = useLeadLock(departmentId);
   const [agentId, setAgentId] = useState(department.agentId || '');
   const [stage, setStage] = useState(department.stage);
   const [stagePending, setStagePending] = useState(false);
@@ -41,54 +41,16 @@ export default function LeadWorkScreen({
   const [enrollmentStartDate, setEnrollmentStartDate] = useState('');
   const [enrollmentEndDate, setEnrollmentEndDate] = useState('');
   const [converting, setConverting] = useState(false);
-  const [converted, setConverted] = useState(false);
+  // נגזר-מ-department.stage (לא false-קבוע) כדי-שחזרה-מ-מסך-הרישום-הנפרד
+  // אחרי-סיום-רישום-שם תציג-נכון את-מסך-ה"הומר" בטעינה-הראשונה - לא-רק-
+  // אחרי handleConvert שקורה-באותו-עמוד.
+  const [converted, setConverted] = useState(department.stage === wonStage);
   const [closing, setClosing] = useState(false);
   const [closeReason, setCloseReason] = useState(CLOSE_REASONS[0]);
   const [scriptTag, setScriptTag] = useState('הכל');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
-
-  useEffect(() => {
-    let cancelled = false;
-    lockLead(departmentId).then((res) => {
-      if (cancelled) return;
-      if (res?.error || !res?.locked) {
-        setLockState('denied');
-        setError(res?.error || 'הליד הזה כבר נעול אצל נציג אחר כרגע');
-      } else {
-        setLockState('locked');
-      }
-    });
-    return () => { cancelled = true; };
-  }, [departmentId]);
-
-  useEffect(() => {
-    if (lockState !== 'locked') return;
-    const interval = setInterval(async () => {
-      const res = await heartbeatLeadLock(departmentId);
-      if (res && res.stillLocked === false) {
-        setLockState('denied');
-        setError('הנעילה על הליד הזה כבר לא בתוקף - כנראה נתפס בינתיים ע"י נציג אחר');
-      }
-    }, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [departmentId, lockState]);
-
-  useEffect(() => {
-    function releaseOnHide() {
-      if (lockState === 'locked') releaseLeadLock(departmentId);
-    }
-    window.addEventListener('beforeunload', releaseOnHide);
-    return () => window.removeEventListener('beforeunload', releaseOnHide);
-  }, [departmentId, lockState]);
-
-  // ניווט-פנימי (Link/SPA) לא-מפעיל beforeunload - בלי-זה הליד-היה-
-  // נשאר-"נעול" עד-הפעימה-הבאה אחרי-שהנציג-כבר-עזב-את-המסך. קוראים-
-  // לשחרור-מפורש בכל-קישור-יציאה (גם "כרטיס מלא", גם "חזרה לרשימה").
-  function releaseOnNavigate() {
-    if (lockState === 'locked') releaseLeadLock(departmentId);
-  }
 
   // שימוש-חוזר-מלא בשתי-הפעולות-שכבר-עובדות-בלוח-הלידים (LeadTableRow.js)
   // - רק-מוסיפים-את-אותה-בקרה-גם-כאן, כדי-שנציג-לא-יצטרך-לצאת-ממסך-
@@ -153,6 +115,13 @@ export default function LeadWorkScreen({
   }
 
   const selectedCourse = courses.find((c) => c.id === courseId);
+  // חושב-כאן (לא-רק-בתוך-מסך-הרישום-הנפרד) כדי-שהקישור-התמיד-זמין-למטה
+  // יציג-תקציר-התקדמות בלי-לטעון-את-מסך-הרישום-בכלל.
+  const showForms = selectedCourse?.checklist_forms_enabled !== false;
+  const showPayment = selectedCourse?.checklist_payment_enabled !== false;
+  const showSignatures = selectedCourse?.checklist_signatures_enabled !== false;
+  const enabledCount = [showForms, showPayment, showSignatures].filter(Boolean).length;
+  const doneCount = [showForms && !!checklist?.forms_done, showPayment && !!checklist?.payment_arranged, showSignatures && !!checklist?.signatures_done].filter(Boolean).length;
   const courseFiltered = playbookItems.filter((item) => !item.course_id || item.course_id === courseId);
   const scriptTags = useMemo(() => ['הכל', ...Array.from(new Set(courseFiltered.map((i) => i.tag).filter(Boolean)))], [courseFiltered]);
   const filteredPlaybook = scriptTag === 'הכל' ? courseFiltered : courseFiltered.filter((i) => i.tag === scriptTag);
@@ -164,7 +133,7 @@ export default function LeadWorkScreen({
   if (lockState === 'denied') {
     return (
       <div style={{ maxWidth: 500, margin: '60px auto', padding: '0 24px', textAlign: 'center' }}>
-        <div style={{ fontSize: 14, marginBottom: 12 }}>⚠ {error}</div>
+        <div style={{ fontSize: 14, marginBottom: 12 }}>⚠ {lockError}</div>
         <Link href="/dashboard/sales/leads" style={{ fontSize: 13, color: 'var(--k-accent)' }}>← חזרה לרשימת הלידים</Link>
       </div>
     );
@@ -338,49 +307,68 @@ export default function LeadWorkScreen({
           </div>
         ) : (
           <>
-            {courseId && (
-              <TechnicalDetailsCard
-                departmentId={departmentId}
-                selectedCourse={selectedCourse}
-                courseTracks={courseTracks}
-                checklist={checklist}
-              />
+            {/* קישור-תמיד-זמין למסך-הרישום-הנפרד (route חדש) - בלי-תלות-
+                בשלב-pipeline-נוכחי, כדי-שאפשר-גם "לדלג-שלבים" וגם-שזה-
+                יהיה-חלק-טבעי-מהתהליך. ההמרה-הסופית (ר' למטה) קוראת-שם,
+                לא-כאן - ר' דיון "מסך-רישום נפרד". */}
+            {courseId && enabledCount > 0 && (
+              <div style={{ ...cardStyle, marginTop: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12.5, color: doneCount === enabledCount ? 'var(--k-ok-text)' : 'var(--k-text-muted)' }}>
+                  פרטי רישום: {doneCount}/{enabledCount} הושלמו
+                </span>
+                <Link
+                  href={`/dashboard/sales/leads/${departmentId}/registration`}
+                  onClick={releaseOnNavigate}
+                  style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--k-accent)', textDecoration: 'none' }}
+                >
+                  מעבר לפרטי רישום →
+                </Link>
+              </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 20, paddingTop: 18, borderTop: '1px solid var(--k-border)', justifyContent: 'flex-end' }}>
               <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginInlineEnd: 'auto' }}>
                 שינוי-שלב רגיל נעשה מהרשימה הראשית; שתי האפשרויות כאן הן סגירה סופית של הליד.
               </span>
-              {selectedCourse?.duration_type === 'fixed_dates' && (
+              {/* תחתית-ההמרה-הידנית-הישנה - נשארת **רק** לקורסים-שכיבו-את-
+                  כל-3-דגלי-הצ'קליסט (enabledCount===0): אין-להם-מסך-רישום
+                  בכלל, אז-זה-עדיין-הנתיב-היחיד-להמרה. אחרת ההמרה-קורית
+                  אך-ורק-דרך-מסך-הרישום-הנפרד (כפתור "סיום רישום") - שדה-
+                  המחיר-שם (מהצ'קליסט) הוא-מקור-האמת-היחיד, לא-שדה-כפול-כאן. */}
+              {enabledCount === 0 && (
                 <>
+                  {selectedCourse?.duration_type === 'fixed_dates' && (
+                    <>
+                      <input
+                        type="text" value={cohortLabel} onChange={(e) => setCohortLabel(e.target.value)}
+                        placeholder="שם מחזור (אופציונלי)"
+                        style={{ ...inputStyle, width: 140 }}
+                      />
+                      <input
+                        type="date" value={enrollmentStartDate} onChange={(e) => setEnrollmentStartDate(e.target.value)}
+                        title="תאריך התחלה" style={{ ...inputStyle, width: 140 }}
+                      />
+                      <input
+                        type="date" value={enrollmentEndDate} onChange={(e) => setEnrollmentEndDate(e.target.value)}
+                        title="תאריך סיום" style={{ ...inputStyle, width: 140 }}
+                      />
+                    </>
+                  )}
                   <input
-                    type="text" value={cohortLabel} onChange={(e) => setCohortLabel(e.target.value)}
-                    placeholder="שם מחזור (אופציונלי)"
+                    type="number" value={price} onChange={(e) => setPrice(e.target.value)}
+                    placeholder={selectedCourse?.price ? `₪${selectedCourse.price}` : 'מחיר (אופציונלי)'}
                     style={{ ...inputStyle, width: 140 }}
                   />
-                  <input
-                    type="date" value={enrollmentStartDate} onChange={(e) => setEnrollmentStartDate(e.target.value)}
-                    title="תאריך התחלה" style={{ ...inputStyle, width: 140 }}
-                  />
-                  <input
-                    type="date" value={enrollmentEndDate} onChange={(e) => setEnrollmentEndDate(e.target.value)}
-                    title="תאריך סיום" style={{ ...inputStyle, width: 140 }}
-                  />
+                  <button
+                    type="button" onClick={handleConvert} disabled={!courseId || converting}
+                    style={{
+                      fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: 'none', borderRadius: 8, padding: '8px 18px', cursor: !courseId ? 'default' : 'pointer',
+                      background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', opacity: !courseId ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    <CheckIcon size={13} /> {converting ? 'מבצע...' : `נרשם ללימודים${wonStageLabel ? ` (${wonStageLabel})` : ''}`}
+                  </button>
                 </>
               )}
-              <input
-                type="number" value={price} onChange={(e) => setPrice(e.target.value)}
-                placeholder={selectedCourse?.price ? `₪${selectedCourse.price}` : 'מחיר (אופציונלי)'}
-                style={{ ...inputStyle, width: 140 }}
-              />
-              <button
-                type="button" onClick={handleConvert} disabled={!courseId || converting}
-                style={{
-                  fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: 'none', borderRadius: 8, padding: '8px 18px', cursor: !courseId ? 'default' : 'pointer',
-                  background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', opacity: !courseId ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: 6,
-                }}
-              >
-                <CheckIcon size={13} /> {converting ? 'מבצע...' : `נרשם ללימודים${wonStageLabel ? ` (${wonStageLabel})` : ''}`}
-              </button>
               <button
                 type="button" onClick={() => setClosing((v) => !v)}
                 style={{ fontFamily: 'var(--k-font-display)', fontSize: 13.5, border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 18px', cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}
@@ -402,144 +390,6 @@ export default function LeadWorkScreen({
           </>
         )}
       </div>
-    </div>
-  );
-}
-
-// כרטיס "פרטים טכניים" (מסלול-הצלחה-מורחב) - שלב-ביניים-תיעודי לפני
-// ההמרה-הסופית (הכפתור "נרשם ללימודים" למטה, ללא-שינוי). זמין-תמיד כש-
-// יש-קורס-נבחר (לא-נעול-לפי-שלב-נוכחי - אותה-פילוסופיה כמו תחתית-ההמרה
-// הקיימת) - החלטה מפורשת: בלי-חסימת-מעבר-שלב בשלב הזה (ר' דיון).
-function TechnicalDetailsCard({ departmentId, selectedCourse, courseTracks, checklist }) {
-  const [trackId, setTrackId] = useState(checklist?.track_id || '');
-  const [formsLink, setFormsLink] = useState(checklist?.forms_link || '');
-  const [formsDone, setFormsDone] = useState(!!checklist?.forms_done);
-  const [paymentTotal, setPaymentTotal] = useState(checklist?.payment_total_amount != null ? String(checklist.payment_total_amount) : '');
-  const [paymentInstallments, setPaymentInstallments] = useState(checklist?.payment_installments_count != null ? String(checklist.payment_installments_count) : '1');
-  const [paymentMethod, setPaymentMethod] = useState(checklist?.payment_method || '');
-  const [paymentNote, setPaymentNote] = useState(checklist?.payment_note || '');
-  const [paymentArranged, setPaymentArranged] = useState(!!checklist?.payment_arranged);
-  const [signaturesNote, setSignaturesNote] = useState(checklist?.signatures_note || '');
-  const [signaturesDone, setSignaturesDone] = useState(!!checklist?.signatures_done);
-  const [, startTransition] = useTransition();
-
-  const showForms = selectedCourse?.checklist_forms_enabled !== false;
-  const showPayment = selectedCourse?.checklist_payment_enabled !== false;
-  const showSignatures = selectedCourse?.checklist_signatures_enabled !== false;
-  const enabledCount = [showForms, showPayment, showSignatures].filter(Boolean).length;
-  const doneCount = [showForms && formsDone, showPayment && paymentArranged, showSignatures && signaturesDone].filter(Boolean).length;
-
-  function handleTrackChange(e) {
-    const value = e.target.value;
-    setTrackId(value);
-    startTransition(() => updateLeadTrack(departmentId, value || null));
-  }
-
-  function saveForms(patch) {
-    startTransition(() => updateLeadForms(departmentId, patch));
-  }
-
-  function savePayment(patch) {
-    startTransition(() => updateLeadPayment(departmentId, patch));
-  }
-
-  function saveSignatures(patch) {
-    startTransition(() => updateLeadSignatures(departmentId, patch));
-  }
-
-  if (enabledCount === 0) return null;
-
-  return (
-    <div style={{ ...cardStyle, marginTop: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={sectionLabel}>פרטים טכניים</div>
-        <div style={{ fontSize: 11.5, color: doneCount === enabledCount ? 'var(--k-ok-text)' : 'var(--k-text-muted)', fontWeight: 600 }}>
-          {doneCount}/{enabledCount} הושלם
-        </div>
-      </div>
-
-      <div style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>קורס: {selectedCourse?.name || '—'}</div>
-
-      {courseTracks.length > 0 && (
-        <div>
-          <div style={{ ...sectionLabel, marginBottom: 4 }}>מסלול</div>
-          <select value={trackId} onChange={handleTrackChange} style={inputStyle}>
-            <option value="">— בחירת מסלול —</option>
-            {courseTracks.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
-          </select>
-        </div>
-      )}
-
-      {showForms && (
-        <div style={{ borderTop: '1px solid var(--k-border)', paddingTop: 10 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginBottom: 6 }}>
-            <input
-              type="checkbox" checked={formsDone}
-              onChange={(e) => { setFormsDone(e.target.checked); saveForms({ done: e.target.checked }); }}
-            />
-            מילוי טפסי רישום
-          </label>
-          <input
-            type="text" value={formsLink} onChange={(e) => setFormsLink(e.target.value)}
-            onBlur={() => saveForms({ link: formsLink })}
-            placeholder="קישור לטופס חיצוני (אופציונלי)" style={inputStyle}
-          />
-        </div>
-      )}
-
-      {showPayment && (
-        <div style={{ borderTop: '1px solid var(--k-border)', paddingTop: 10 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginBottom: 6 }}>
-            <input
-              type="checkbox" checked={paymentArranged}
-              onChange={(e) => { setPaymentArranged(e.target.checked); savePayment({ arranged: e.target.checked }); }}
-            />
-            הסדר תשלומים
-          </label>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-            <input
-              type="number" value={paymentTotal} onChange={(e) => setPaymentTotal(e.target.value)}
-              onBlur={() => savePayment({ totalAmount: paymentTotal })}
-              placeholder="סכום כולל (₪)" style={{ ...inputStyle, width: 130 }}
-            />
-            <input
-              type="number" value={paymentInstallments} onChange={(e) => setPaymentInstallments(e.target.value)}
-              onBlur={() => savePayment({ installmentsCount: paymentInstallments })}
-              placeholder="מספר תשלומים" style={{ ...inputStyle, width: 130 }}
-            />
-            <input
-              type="text" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}
-              onBlur={() => savePayment({ method: paymentMethod })}
-              placeholder="אמצעי תשלום" style={{ ...inputStyle, width: 130 }}
-            />
-          </div>
-          <input
-            type="text" value={paymentNote} onChange={(e) => setPaymentNote(e.target.value)}
-            onBlur={() => savePayment({ note: paymentNote })}
-            placeholder="הערה (אופציונלי)" style={inputStyle}
-          />
-          <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginTop: 4 }}>
-            תיעודי בלבד כרגע - לא יוצר תהליך-גבייה פעיל.
-          </div>
-        </div>
-      )}
-
-      {showSignatures && (
-        <div style={{ borderTop: '1px solid var(--k-border)', paddingTop: 10 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', marginBottom: 6 }}>
-            <input
-              type="checkbox" checked={signaturesDone}
-              onChange={(e) => { setSignaturesDone(e.target.checked); saveSignatures({ done: e.target.checked }); }}
-            />
-            חתימות
-          </label>
-          <input
-            type="text" value={signaturesNote} onChange={(e) => setSignaturesNote(e.target.value)}
-            onBlur={() => saveSignatures({ note: signaturesNote })}
-            placeholder="הערה (אופציונלי)" style={inputStyle}
-          />
-        </div>
-      )}
     </div>
   );
 }

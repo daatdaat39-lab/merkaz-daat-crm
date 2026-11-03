@@ -3,6 +3,7 @@
 import { createClient } from '../../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { isMemberOfWorkspace } from '../../../lib/contactGuards';
+import { convertLead } from './leadLockActions';
 
 // פעולות-הצ'קליסט בשלב "פרטים טכניים" (מסלול-הצלחה-מורחב, migration 0174) -
 // שלב-ביניים-תיעודי לפני ה-RPC convert_lead_to_purchase הקיים (לא-נוגעים-
@@ -17,7 +18,7 @@ async function requireUser() {
 }
 
 async function requireMemberOfLead(supabase, userId, departmentId) {
-  const { data: row } = await supabase.from('contact_departments').select('id, workspace_id').eq('id', departmentId).maybeSingle();
+  const { data: row } = await supabase.from('contact_departments').select('id, workspace_id, course_id').eq('id', departmentId).maybeSingle();
   if (!row) return { error: 'הליד לא נמצא' };
   const allowed = await isMemberOfWorkspace(supabase, userId, row.workspace_id);
   if (!allowed) return { error: 'אין לך גישה לליד הזה' };
@@ -86,4 +87,36 @@ export async function updateLeadSignatures(departmentId, { done, note }) {
     patch.signatures_done_at = done ? new Date().toISOString() : null;
   }
   return upsertChecklist(supabase, departmentId, row.workspace_id, user.id, patch);
+}
+
+// אישור-המרה מפורש (מסך-רישום נפרד) - נקרא **רק** מכפתור-"סיום רישום"
+// הייעודי, בלחיצה-מכוונת-ונפרדת (לא-מכל-סימון-צ'קבוקס) - בדיוק כדי-
+// שלא-יקרה-שוב מה-שקרה-בפועל (קליק-בטעות-על-צ'קבוקס שיצר-מצב-לא-מכוון).
+// בדיקה-כפולה בצד-שרת (לא-סומכים-רק-על-כפתור-מנוטרל-בצד-לקוח) + בלם-
+// אפליקטיבי-לאידמפוטנטיות (בדיקת-קיום-שורה, מראה ensureCoursePurchaseOnWin
+// ב-contacts/actions.js) - גב-נוסף-מעל אינדקס-ה-DB (migration 0176).
+// שימוש-חוזר-מלא ב-convertLead/convert_lead_to_purchase הקיימים - אין-
+// שכפול-לוגיקת-ה-RPC. שדה-המחיר-בצ'קליסט (payment_total_amount) הוא-
+// מקור-האמת-היחיד למחיר שנשמר ב-course_purchases - לא-עוד-שדה-כפול.
+export async function completeLeadRegistration(departmentId) {
+  const { supabase, user } = await requireUser();
+  const { row, error } = await requireMemberOfLead(supabase, user.id, departmentId);
+  if (error) return { error };
+  if (!row.course_id) return { error: 'יש לבחור קורס לפני סיום הרישום' };
+
+  const [{ data: course }, { data: checklist }, { data: existingPurchase }] = await Promise.all([
+    supabase.from('courses').select('checklist_forms_enabled, checklist_payment_enabled, checklist_signatures_enabled').eq('id', row.course_id).maybeSingle(),
+    supabase.from('lead_conversion_checklist').select('*, course_tracks:track_id (label)').eq('contact_department_id', departmentId).maybeSingle(),
+    supabase.from('course_purchases').select('id').eq('contact_department_id', departmentId).maybeSingle(),
+  ]);
+
+  if (existingPurchase) return { error: 'ההרשמה הזו כבר נקלטה' };
+  if (course?.checklist_forms_enabled !== false && !checklist?.forms_done) return { error: 'יש לסמן את טפסי הרישום כהושלמו' };
+  if (course?.checklist_payment_enabled !== false && !checklist?.payment_arranged) return { error: 'יש לסמן את הסדר התשלומים כהושלם' };
+  if (course?.checklist_signatures_enabled !== false && !checklist?.signatures_done) return { error: 'יש לסמן את החתימות כהושלמו' };
+
+  return convertLead(departmentId, {
+    price: checklist?.payment_total_amount ?? null,
+    cohortLabel: checklist?.course_tracks?.label || null,
+  });
 }

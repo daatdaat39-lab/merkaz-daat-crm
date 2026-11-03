@@ -1,10 +1,7 @@
-import { createClient } from '../../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
-import { isMemberOfWorkspace } from '../../../lib/contactGuards';
-import { loadContactCardData } from '../../../contacts/[id]/loadContactCardData';
-import { getPipeline } from '../../../lib/pipelines';
 import { ensureLeadActionChip } from '../../../lib/aiActionChip';
 import { ensureLeadTimelineSummary } from '../../../lib/timelineSummary';
+import { loadLeadCoreContext } from './loadLeadCoreContext';
 import LeadWorkScreen from './LeadWorkScreen';
 
 // מסך-עבודה ייעודי לטיפול-בליד (שלב 3 ממודול מכירות/שירות) - route חדש
@@ -13,46 +10,31 @@ import LeadWorkScreen from './LeadWorkScreen';
 // תהיה לפי שיוך-מחלקה ספציפי, לא לפי איש-הקשר כולו.
 export default async function LeadWorkPage({ params }) {
   const { departmentId } = params;
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
+  const ctx = await loadLeadCoreContext(departmentId);
 
-  const { data: deptRow } = await supabase
-    .from('contact_departments')
-    .select('id, contact_id, workspace_id, workspaces:workspace_id (name)')
-    .eq('id', departmentId)
-    .maybeSingle();
-
-  if (!deptRow) {
+  if (ctx.redirectToLogin) redirect('/login');
+  if (ctx.deptNotFound) {
     return (
       <div style={{ maxWidth: 700, margin: '40px auto', padding: '0 24px', fontSize: 13 }}>
         הליד הזה לא נמצא.
       </div>
     );
   }
-
-  const allowed = await isMemberOfWorkspace(supabase, user.id, deptRow.workspace_id);
-  if (!allowed) {
+  if (ctx.noAccess) {
     return (
       <div style={{ maxWidth: 700, margin: '40px auto', padding: '0 24px', fontSize: 13 }}>
         אין לך גישה לליד הזה.
       </div>
     );
   }
-
-  const cardData = await loadContactCardData(deptRow.contact_id);
-  if (cardData.redirectToLogin) redirect('/login');
-  if (cardData.notFound) {
+  if (ctx.contactNotFound) {
     return (
       <div style={{ maxWidth: 700, margin: '40px auto', padding: '0 24px', fontSize: 13 }}>
         איש הקשר לא נמצא.
       </div>
     );
   }
-
-  const { props } = cardData;
-  const department = props.departments.find((d) => d.id === departmentId);
-  if (!department) {
+  if (ctx.departmentNotFound) {
     return (
       <div style={{ maxWidth: 700, margin: '40px auto', padding: '0 24px', fontSize: 13 }}>
         השיוך הזה לא נמצא יותר (אולי נמחק).
@@ -60,19 +42,12 @@ export default async function LeadWorkPage({ params }) {
     );
   }
 
-  const [{ data: courses }, { data: playbookItems }, pipeline, { data: sendConnections }, { data: emailTemplates }, { data: checklist }, { data: courseTracks }] = await Promise.all([
-    supabase.from('courses').select('id, name, price, duration_type, checklist_forms_enabled, checklist_payment_enabled, checklist_signatures_enabled').eq('is_active', true).order('sort_order').order('name'),
+  const { supabase, deptRow, department, props, courses, checklist, courseTracks, pipeline } = ctx;
+
+  const [{ data: playbookItems }, { data: sendConnections }, { data: emailTemplates }] = await Promise.all([
     supabase.from('reference_content').select('id, course_id, tag, title, body').eq('kind', 'playbook').eq('is_active', true).order('sort_order'),
-    getPipeline(supabase, deptRow.workspaces?.name),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
-    // צ'קליסט "פרטים טכניים" (מסלול-הצלחה-מורחב, migration 0174) - שלב-ביניים
-    // תיעודי לפני convert_lead_to_purchase - רשומה אחת-לכל-ליד (אם כבר-מולאה).
-    supabase.from('lead_conversion_checklist').select('*, course_tracks:track_id (id, label)').eq('contact_department_id', departmentId).maybeSingle(),
-    // מסלולים-גמישים-לקורס-הנבחר (לדוגמה בוקר/ערב/זום) - מוגדרים בהגדרות→קטלוג-קורסים.
-    department.courseId
-      ? supabase.from('course_tracks').select('id, label').eq('course_id', department.courseId).eq('is_active', true).order('sort_order')
-      : Promise.resolve({ data: [] }),
   ]);
 
   // צ'יפ-AI "מה-לעשות-עכשיו" - נוצר/מתרענן אוטומטית כאן אם stale (ר'
@@ -120,14 +95,15 @@ export default async function LeadWorkPage({ params }) {
       }}
       department={department}
       stageLabel={pipeline.labels[department.stage] || department.stage}
+      wonStage={pipeline.wonStage || null}
       wonStageLabel={pipeline.wonStage ? (pipeline.labels[pipeline.wonStage] || pipeline.wonStage) : null}
       stages={[...pipeline.order, ...pipeline.sideStages]}
       stageLabels={pipeline.labels}
       workspaceId={deptRow.workspace_id}
       workspaceName={deptRow.workspaces?.name}
-      courses={courses || []}
-      checklist={checklist || null}
-      courseTracks={courseTracks || []}
+      courses={courses}
+      checklist={checklist}
+      courseTracks={courseTracks}
       playbookItems={playbookItems || []}
       whatsappTemplates={props.whatsappTemplates}
       emailTemplates={emailTemplates || []}
