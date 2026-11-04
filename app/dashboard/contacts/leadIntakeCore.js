@@ -275,7 +275,10 @@ export async function upsertDepartmentMembership(supabase, contactId, workspace,
   }
 
   if (rowId && reason && effectiveOpenedProcess) {
-    await supabase.from('lead_inquiries').insert({ contact_department_id: rowId, reason, note: note || null, source: source || null });
+    // created_by (migration 0178) - רק-כש-קורא-ידני-ואמיתי-מעביר-אותו
+    // (options.createdBy) - נתיבי-קליטה-אוטומטיים (webhook/ייבוא/מייל)
+    // לא-מעבירים-אותו, נשאר null, בדיוק-כמו-שצריך (אין-נציג-שכתב-אותם).
+    await supabase.from('lead_inquiries').insert({ contact_department_id: rowId, reason, note: note || null, source: source || null, created_by: options.createdBy || null });
   }
 
   return extraConflictCount;

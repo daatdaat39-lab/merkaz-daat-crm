@@ -120,10 +120,22 @@ export default function ContactDetailClient({
 
   function handleStageChange(formData) {
     if (!active) return;
-    const stages = (byWorkspace[active.workspaceName] || FALLBACK_PIPELINE).order;
-    const movingForward = stages.indexOf(formData.get('stage')) > stages.indexOf(active.stage);
+    const pipeline = byWorkspace[active.workspaceName] || FALLBACK_PIPELINE;
+    const targetStage = formData.get('stage');
+    // מעבר-ישיר-לשלב-ניצחון בליד-קורס דרך הפס-הראשי מדלג על צ'קליסט-
+    // הרישום (migration 0177) - ensureCoursePurchaseOnWin (contacts/
+    // actions.js) יוצר-רכישה בלי-שום-בדיקת-חובה. במקום-לשנות-שלב כאן,
+    // מנתבים-למסך-הרישום-הייעודי - הוא-כבר-עושה-את-כל-הבדיקות-הנכונות
+    // ורק-אז קורא ל-convertLead. שלבים-אחרים/מחלקות-שלא-מוכרות-קורסים
+    // לא-מושפעים - אותם-2-תנאים-בדיוק ש-ensureCoursePurchaseOnWin כבר-בודקת.
+    if (active.sellsCourses && active.courseId && pipeline.wonStage && targetStage === pipeline.wonStage) {
+      router.push(`/dashboard/sales/leads/${active.id}/registration`);
+      return;
+    }
+    const stages = pipeline.order;
+    const movingForward = stages.indexOf(targetStage) > stages.indexOf(active.stage);
     startTransition(async () => {
-      await updateDepartmentStage(active.id, formData.get('stage'), formData.get('closed_reason'));
+      await updateDepartmentStage(active.id, targetStage, formData.get('closed_reason'));
       if (movingForward) celebrate();
       router.refresh();
     });

@@ -383,6 +383,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                 <span style={{ color: 'var(--k-text)' }}>{inq.reason}</span>
                 {inq.note && <span style={{ color: 'var(--k-text-muted)' }}> — {inq.note}</span>}
                 <span style={{ color: 'var(--k-text-muted)' }}> · {new Date(inq.created_at).toLocaleDateString('he-IL')}</span>
+                {inq.authorName && <span style={{ color: 'var(--k-text-muted)' }}> · {inq.authorName}</span>}
               </div>
             ),
           },

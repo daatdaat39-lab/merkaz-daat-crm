@@ -59,8 +59,8 @@ function buildTimelineItems({ inquiries = [], sentEmails = [], sentWhatsapp = []
     items.push({
       type: 'inquiry', occurredAt: inq.created_at,
       summary: (<><DeptTag name={inq.workspaceName} /><span>{inq.reason}</span></>),
-      full: (<><DeptTag name={inq.workspaceName} /><span>{inq.reason}</span>{inq.note && <span style={{ color: 'var(--text-secondary)' }}> — {inq.note}</span>}</>),
-      hasMore: Boolean(inq.note),
+      full: (<><DeptTag name={inq.workspaceName} /><span>{inq.reason}</span>{inq.note && <span style={{ color: 'var(--text-secondary)' }}> — {inq.note}</span>}{inq.authorName && <span style={{ color: 'var(--text-secondary)' }}> · {inq.authorName}</span>}</>),
+      hasMore: Boolean(inq.note) || Boolean(inq.authorName),
     });
   }
   for (const e of sentEmails) {

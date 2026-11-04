@@ -127,7 +127,9 @@ export async function completeLeadRegistration(departmentId) {
     supabase.from('lead_conversion_checklist').select('*, course_tracks:track_id (label)').eq('contact_department_id', departmentId).maybeSingle(),
     // .limit(1) + אורך-מערך, לא .maybeSingle() - אם-יש-כבר-כמה-שורות-
     // היסטוריות (לפני-אינדקס-הייחוד, migration 0176) זה-לא-אמור-לזרוק.
-    supabase.from('course_purchases').select('id').eq('contact_department_id', departmentId).limit(1),
+    // רכישה-שבוטלה (cancelCoursePurchase למטה) לא-אמורה-לחסום-רישום-
+    // חוזר - בלעדי-זה, ליד-שבוטל-בו-רישום-בטעות היה-נתקע-לנצח.
+    supabase.from('course_purchases').select('id').eq('contact_department_id', departmentId).neq('status', 'cancelled').limit(1),
     supabase.from('course_registration_questions').select('field_key, label').eq('course_id', row.course_id).eq('is_active', true).eq('required', true),
   ]);
 
@@ -146,4 +148,21 @@ export async function completeLeadRegistration(departmentId) {
     price: checklist?.payment_total_amount ?? null,
     cohortLabel: checklist?.course_tracks?.label || null,
   });
+}
+
+// ביטול-רישום (מסך-הרישום, כש-כבר-יש-רכישה-לליד-הזה) - למקרה-של-לחיצה-
+// בטעות (ר' דיון "תקלה במעבר-שלב" - בעבר קרה-בפועל). מסמנת status='cancelled'
+// בלבד - **לא-מוחקת**, נשאר-תיעוד-היסטורי. **לא-משנה** את contact_departments.
+// stage (הוכרע-במפורש) - הנציג-בוחר-שלב-חדש-ידנית-בעצמו, בלי-ניחוש.
+export async function cancelCoursePurchase(departmentId, purchaseId) {
+  const { supabase, user } = await requireUser();
+  const { error: accessError } = await requireMemberOfLead(supabase, user.id, departmentId);
+  if (accessError) return { error: accessError };
+
+  const { error } = await supabase.from('course_purchases')
+    .update({ status: 'cancelled' })
+    .eq('id', purchaseId)
+    .eq('contact_department_id', departmentId);
+  if (error) return { error: error.message };
+  return { success: true };
 }

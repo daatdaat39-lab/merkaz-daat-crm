@@ -43,10 +43,12 @@ export default async function LeadRegistrationPage({ params }) {
   const selectedCourse = courses.find((c) => c.id === department.courseId);
 
   // נטענים-כאן (לא-בליבה-המשותפת) - נדרשים-רק-למסך-הזה (כפתורי "שלח
-  // במייל/וואטסאפ" לקישורי-הטפסים/חתימה).
-  const [{ data: sendConnections }, { data: emailTemplates }] = await Promise.all([
+  // במייל/וואטסאפ" לקישורי-הטפסים/חתימה, ובדיקת-רכישה-קיימת לתצוגת-
+  // "ההרשמה כבר הושלמה" + כפתור-ביטול - ר' דיון "תקלה במעבר-שלב").
+  const [{ data: sendConnections }, { data: emailTemplates }, { data: existingPurchase }] = await Promise.all([
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
+    supabase.from('course_purchases').select('id, created_at, cohort_label').eq('contact_department_id', departmentId).neq('status', 'cancelled').maybeSingle(),
   ]);
 
   return (
@@ -62,6 +64,7 @@ export default async function LeadRegistrationPage({ params }) {
       courseTracks={courseTracks}
       registrationQuestions={registrationQuestions}
       checklist={checklist}
+      existingPurchase={existingPurchase}
       wonStageLabel={pipeline.wonStage ? (pipeline.labels[pipeline.wonStage] || pipeline.wonStage) : null}
       sendConnections={sendConnections || []}
       whatsappTemplates={props.whatsappTemplates}

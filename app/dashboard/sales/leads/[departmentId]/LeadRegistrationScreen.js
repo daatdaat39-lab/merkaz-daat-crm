@@ -7,7 +7,7 @@ import EmailComposeModal from '../../../contacts/[id]/EmailComposeModal';
 import WhatsAppSendModal from '../../../contacts/[id]/WhatsAppSendModal';
 import { PersonIcon, CheckIcon, MailIcon, WhatsAppIcon } from '../../../components/icons';
 import { useLeadLock } from './useLeadLock';
-import { updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures, updateLeadRegistrationAnswer, completeLeadRegistration } from './leadChecklistActions';
+import { updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures, updateLeadRegistrationAnswer, completeLeadRegistration, cancelCoursePurchase } from './leadChecklistActions';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
 const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' };
@@ -28,7 +28,7 @@ function formatSentAt(iso) {
 // (useLeadLock) כמו LeadWorkScreen - אותו-ליד, שני-מסכים.
 export default function LeadRegistrationScreen({
   departmentId, contact, workspaceId, workspaceName, selectedCourse, courseTracks = [], registrationQuestions = [], checklist = null, wonStageLabel,
-  sendConnections = [], whatsappTemplates = [], emailTemplates = [],
+  sendConnections = [], whatsappTemplates = [], emailTemplates = [], existingPurchase = null,
 }) {
   const { lockState, error: lockError, releaseOnNavigate } = useLeadLock(departmentId);
   const router = useRouter();
@@ -57,6 +57,8 @@ export default function LeadRegistrationScreen({
 
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
 
   const showForms = selectedCourse?.checklist_forms_enabled !== false;
   const showPayment = selectedCourse?.checklist_payment_enabled !== false;
@@ -125,6 +127,21 @@ export default function LeadRegistrationScreen({
     });
   }
 
+  // ביטול-רישום (קליק-בטעות על "תלמיד פעיל" וכדומה, ר' דיון "תקלה
+  // במעבר-שלב") - מסמן status='cancelled' בלבד, לא-מוחק. בכוונה **לא**
+  // משנה-שלב (הוכרע-להשאיר-ידני) - הנציג בוחר-שלב-חדש בעצמו דרך-הפס
+  // בכרטיס-איש-קשר, והמסך-הזה חוזר-להיות-זמין-לרישום-מחדש.
+  function handleCancelPurchase() {
+    setCancelError('');
+    setCancelling(true);
+    startTransition(async () => {
+      const res = await cancelCoursePurchase(departmentId, existingPurchase.id);
+      setCancelling(false);
+      if (res?.error) { setCancelError(res.error); return; }
+      router.refresh();
+    });
+  }
+
   if (lockState === 'checking') {
     return <div style={{ padding: 24, fontSize: 13 }}>טוען...</div>;
   }
@@ -167,6 +184,25 @@ export default function LeadRegistrationScreen({
           </div>
         </div>
 
+        {existingPurchase ? (
+          <div style={{ background: 'var(--k-ok-bg)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '20px 22px', textAlign: 'center' }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--k-ok-text)', marginBottom: 6 }}>
+              <CheckIcon size={16} /> ההרשמה כבר הושלמה
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--k-text-muted)', marginBottom: 4 }}>
+              {new Date(existingPurchase.created_at).toLocaleDateString('he-IL')}
+              {existingPurchase.cohort_label ? ` · מסלול: ${existingPurchase.cohort_label}` : ''}
+            </div>
+            {cancelError && <div style={{ fontSize: 12.5, color: 'var(--k-danger-text)', marginTop: 8 }}>{cancelError}</div>}
+            <button
+              type="button" onClick={handleCancelPurchase} disabled={cancelling}
+              style={{ marginTop: 14, border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 18px', fontSize: 12.5, cursor: 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)' }}
+            >
+              {cancelling ? 'מבטל...' : 'ביטול הרשמה (נלחץ בטעות?)'}
+            </button>
+          </div>
+        ) : (
+        <>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={sectionLabel}>פרטים טכניים</div>
           <div style={{ fontSize: 11.5, color: doneCount === enabledCount && enabledCount > 0 ? 'var(--k-ok-text)' : 'var(--k-text-muted)', fontWeight: 600 }}>
@@ -346,6 +382,8 @@ export default function LeadRegistrationScreen({
             <CheckIcon size={16} /> {completing ? 'מבצע...' : `סיום רישום${wonStageLabel ? ` (${wonStageLabel})` : ''}`}
           </button>
         </div>
+        </>
+        )}
       </div>
 
       {sendTarget?.channel === 'email' && emailConnection && (

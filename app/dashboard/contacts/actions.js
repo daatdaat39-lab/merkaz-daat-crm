@@ -1070,7 +1070,7 @@ export async function logQuickActivity(contactId, departmentRowId, note, newStag
   }
 
   const { error } = await supabase.from('lead_inquiries').insert({
-    contact_department_id: departmentRowId, reason: text, source: 'סיכום שיחה מהיר',
+    contact_department_id: departmentRowId, reason: text, source: 'סיכום שיחה מהיר', created_by: user.id,
   });
   if (error) return { error: error.message };
   return { success: true };
@@ -1083,7 +1083,7 @@ export async function logQuickActivity(contactId, departmentRowId, note, newStag
 // מיד בעמוד הלידים. פתוח לכל משתמש מחובר (לא רק מנהל) - אותה רמת הרשאה
 // כמו logQuickActivity, כי זו פעולה יומיומית של נציג ולא פעולה ניהולית.
 export async function logNewInquiry(contactId, workspaceId, reason, note) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   if (!reason) return { error: 'יש לבחור מהות פנייה' };
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
@@ -1091,7 +1091,7 @@ export async function logNewInquiry(contactId, workspaceId, reason, note) {
   const { data: workspace } = await supabase.from('workspaces').select('id, name').eq('id', workspaceId).single();
   if (!workspace) return { error: 'מחלקה לא נמצאה' };
 
-  await upsertDepartmentMembership(supabase, contactId, workspace, reason, note || null, 'פנייה חדשה (ידני)');
+  await upsertDepartmentMembership(supabase, contactId, workspace, reason, note || null, 'פנייה חדשה (ידני)', null, { createdBy: user.id });
   return { success: true };
 }
 
@@ -1211,7 +1211,7 @@ export async function assignAgentForLead(departmentRowId, agentId) {
 // דפוס כמו logQuickActivity) כדי שהשינוי לא-יידרס-בשקט מציר-הזמן.
 // בחירה-ראשונה (מ-null) לא-נרשמת - אין-מה-להשוות-אליו, לא-"שינוי".
 export async function updateLeadCourse(departmentRowId, newCourseId) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { data: row } = await supabase.from('contact_departments').select('course_id, contact_id, workspace_id').eq('id', departmentRowId).single();
   if (!row) return { error: 'ליד לא נמצא' };
   const frozenError = await requireNotFrozen(supabase, row.contact_id);
@@ -1244,7 +1244,7 @@ export async function updateLeadCourse(departmentRowId, newCourseId) {
     const { data: courseRows } = ids.length ? await supabase.from('courses').select('id, name').in('id', ids) : { data: [] };
     const nameById = Object.fromEntries((courseRows || []).map((c) => [c.id, c.name]));
     const reason = `שונה קורס: «${nameById[oldCourseId] || 'לא ידוע'}» ← «${nextCourseId ? (nameById[nextCourseId] || 'לא ידוע') : 'ללא קורס'}»`;
-    await supabase.from('lead_inquiries').insert({ contact_department_id: departmentRowId, reason, note: null });
+    await supabase.from('lead_inquiries').insert({ contact_department_id: departmentRowId, reason, note: null, created_by: user.id });
   }
   return { success: true };
 }
