@@ -79,6 +79,19 @@ export async function updateLeadPayment(departmentId, { totalAmount, installment
   return upsertChecklist(supabase, departmentId, row.workspace_id, user.id, patch);
 }
 
+// שאלות-רישום-דינמיות (migration 0177) - תשובה-בודדת ממוזגת לתוך
+// registration_answers (jsonb {field_key: value}) - קריאה-ואז-כתיבה
+// (לא-פאץ'-ישיר), כי אי-אפשר-למזג-jsonb-חלקי דרך upsertChecklist
+// הגנרית בלי-לדרוס-מפתחות-אחרים שכבר-מולאו.
+export async function updateLeadRegistrationAnswer(departmentId, fieldKey, value) {
+  const { supabase, user } = await requireUser();
+  const { row, error } = await requireMemberOfLead(supabase, user.id, departmentId);
+  if (error) return { error };
+  const { data: existing } = await supabase.from('lead_conversion_checklist').select('registration_answers').eq('contact_department_id', departmentId).maybeSingle();
+  const merged = { ...(existing?.registration_answers || {}), [fieldKey]: value };
+  return upsertChecklist(supabase, departmentId, row.workspace_id, user.id, { registration_answers: merged });
+}
+
 export async function updateLeadSignatures(departmentId, { link, done, note, sentAt }) {
   const { supabase, user } = await requireUser();
   const { row, error } = await requireMemberOfLead(supabase, user.id, departmentId);
@@ -109,18 +122,25 @@ export async function completeLeadRegistration(departmentId) {
   if (error) return { error };
   if (!row.course_id) return { error: 'יש לבחור קורס לפני סיום הרישום' };
 
-  const [{ data: course }, { data: checklist }, { data: existingPurchases }] = await Promise.all([
+  const [{ data: course }, { data: checklist }, { data: existingPurchases }, { data: requiredQuestions }] = await Promise.all([
     supabase.from('courses').select('checklist_forms_enabled, checklist_payment_enabled, checklist_signatures_enabled').eq('id', row.course_id).maybeSingle(),
     supabase.from('lead_conversion_checklist').select('*, course_tracks:track_id (label)').eq('contact_department_id', departmentId).maybeSingle(),
     // .limit(1) + אורך-מערך, לא .maybeSingle() - אם-יש-כבר-כמה-שורות-
     // היסטוריות (לפני-אינדקס-הייחוד, migration 0176) זה-לא-אמור-לזרוק.
     supabase.from('course_purchases').select('id').eq('contact_department_id', departmentId).limit(1),
+    supabase.from('course_registration_questions').select('field_key, label').eq('course_id', row.course_id).eq('is_active', true).eq('required', true),
   ]);
 
   if (existingPurchases?.length > 0) return { error: 'ההרשמה הזו כבר נקלטה' };
   if (course?.checklist_forms_enabled !== false && !checklist?.forms_done) return { error: 'יש לסמן את טפסי הרישום כהושלמו' };
   if (course?.checklist_payment_enabled !== false && !checklist?.payment_arranged) return { error: 'יש לסמן את הסדר התשלומים כהושלם' };
   if (course?.checklist_signatures_enabled !== false && !checklist?.signatures_done) return { error: 'יש לסמן את החתימות כהושלמו' };
+
+  const answers = checklist?.registration_answers || {};
+  const missingLabels = (requiredQuestions || [])
+    .filter((q) => answers[q.field_key] === undefined || answers[q.field_key] === null || answers[q.field_key] === '')
+    .map((q) => q.label);
+  if (missingLabels.length > 0) return { error: `יש למלא: ${missingLabels.join(', ')}` };
 
   return convertLead(departmentId, {
     price: checklist?.payment_total_amount ?? null,

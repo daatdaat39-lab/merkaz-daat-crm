@@ -7,7 +7,7 @@ import EmailComposeModal from '../../../contacts/[id]/EmailComposeModal';
 import WhatsAppSendModal from '../../../contacts/[id]/WhatsAppSendModal';
 import { PersonIcon, CheckIcon, MailIcon, WhatsAppIcon } from '../../../components/icons';
 import { useLeadLock } from './useLeadLock';
-import { updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures, completeLeadRegistration } from './leadChecklistActions';
+import { updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures, updateLeadRegistrationAnswer, completeLeadRegistration } from './leadChecklistActions';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
 const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' };
@@ -27,7 +27,7 @@ function formatSentAt(iso) {
 // אוטומטי-מהצ'קליסט) - ר' דיון "מסך-רישום נפרד". משתמש-באותה-נעילה
 // (useLeadLock) כמו LeadWorkScreen - אותו-ליד, שני-מסכים.
 export default function LeadRegistrationScreen({
-  departmentId, contact, workspaceId, workspaceName, selectedCourse, courseTracks = [], checklist = null, wonStageLabel,
+  departmentId, contact, workspaceId, workspaceName, selectedCourse, courseTracks = [], registrationQuestions = [], checklist = null, wonStageLabel,
   sendConnections = [], whatsappTemplates = [], emailTemplates = [],
 }) {
   const { lockState, error: lockError, releaseOnNavigate } = useLeadLock(departmentId);
@@ -46,6 +46,7 @@ export default function LeadRegistrationScreen({
   const [signaturesNote, setSignaturesNote] = useState(checklist?.signatures_note || '');
   const [signaturesDone, setSignaturesDone] = useState(!!checklist?.signatures_done);
   const [signaturesSentAt, setSignaturesSentAt] = useState(checklist?.signatures_sent_at || null);
+  const [answers, setAnswers] = useState(checklist?.registration_answers || {});
   const [, startTransition] = useTransition();
 
   // 'forms' | 'signatures' - איזה-שדה-קישור מפעיל כרגע את חלון-השליחה;
@@ -63,6 +64,16 @@ export default function LeadRegistrationScreen({
   const enabledCount = [showForms, showPayment, showSignatures].filter(Boolean).length;
   const doneCount = [showForms && formsDone, showPayment && paymentArranged, showSignatures && signaturesDone].filter(Boolean).length;
   const allDone = enabledCount > 0 && doneCount === enabledCount;
+
+  const requiredQuestions = registrationQuestions.filter((q) => q.required);
+  const answeredQuestionsCount = registrationQuestions.filter((q) => {
+    const v = answers[q.field_key];
+    return v !== undefined && v !== null && v !== '';
+  }).length;
+  const missingRequiredQuestions = requiredQuestions.filter((q) => {
+    const v = answers[q.field_key];
+    return v === undefined || v === null || v === '';
+  });
 
   const emailConnection = sendConnections.find((c) => c.workspace_id === workspaceId);
   const canEmail = !!emailConnection && !!contact.email;
@@ -84,6 +95,11 @@ export default function LeadRegistrationScreen({
 
   function saveSignatures(patch) {
     startTransition(() => updateLeadSignatures(departmentId, patch));
+  }
+
+  function saveAnswer(fieldKey, value) {
+    setAnswers((prev) => ({ ...prev, [fieldKey]: value }));
+    startTransition(() => updateLeadRegistrationAnswer(departmentId, fieldKey, value));
   }
 
   function handleLinkSent(field) {
@@ -270,18 +286,60 @@ export default function LeadRegistrationScreen({
           )}
         </div>
 
+        {registrationQuestions.length > 0 && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '20px 0 16px' }}>
+              <div style={sectionLabel}>שאלות רישום</div>
+              <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)', fontWeight: 600 }}>
+                {answeredQuestionsCount}/{registrationQuestions.length} נענו
+              </div>
+            </div>
+            <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {registrationQuestions.map((q) => (
+                <div key={q.id}>
+                  <div style={{ ...sectionLabel, marginBottom: 4 }}>
+                    {q.label}{q.required && <span style={{ color: 'var(--k-danger-text)' }}> *</span>}
+                  </div>
+                  {q.type === 'select' ? (
+                    <select
+                      value={answers[q.field_key] ?? ''}
+                      onChange={(e) => saveAnswer(q.field_key, e.target.value)}
+                      style={inputStyle}
+                    >
+                      <option value="">— בחירה —</option>
+                      {(q.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      type={q.type || 'text'}
+                      defaultValue={answers[q.field_key] ?? ''}
+                      onBlur={(e) => saveAnswer(q.field_key, e.target.value)}
+                      style={inputStyle}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         {/* הפרדה-ויזואלית-מכוונת (קו-מפריד + רווח) בין-אזור-הצ'קבוקסים
             לכפתור-ההמרה-הסופי - לא-צריך-להיות-ליד-לחיצה-בטעות. */}
         <div style={{ borderTop: '2px solid var(--k-border)', marginTop: 26, paddingTop: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
           {!allDone && enabledCount > 0 && (
             <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>יש להשלים את כל הפריטים למעלה לפני סיום הרישום.</div>
           )}
+          {missingRequiredQuestions.length > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>
+              יש למלא: {missingRequiredQuestions.map((q) => q.label).join(', ')}
+            </div>
+          )}
           {completeError && <div style={{ fontSize: 12.5, color: 'var(--k-danger-text)' }}>{completeError}</div>}
           <button
-            type="button" onClick={handleComplete} disabled={(!allDone && enabledCount > 0) || completing}
+            type="button" onClick={handleComplete} disabled={(!allDone && enabledCount > 0) || missingRequiredQuestions.length > 0 || completing}
             style={{
               fontFamily: 'var(--k-font-display)', fontSize: 15, border: 'none', borderRadius: 10, padding: '12px 32px', cursor: 'pointer',
-              background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', opacity: (!allDone && enabledCount > 0) ? 0.5 : 1,
+              background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', opacity: ((!allDone && enabledCount > 0) || missingRequiredQuestions.length > 0) ? 0.5 : 1,
               display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700,
             }}
           >

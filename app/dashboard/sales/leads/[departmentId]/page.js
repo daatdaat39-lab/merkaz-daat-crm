@@ -92,6 +92,7 @@ export default async function LeadWorkPage({ params }) {
         id: props.contact.id, first: props.contact.first, last: props.contact.last,
         phone: props.contact.phone, phone2: props.contact.phone2, email: props.contact.email,
         city: props.contact.city, idnum: props.contact.idnum, birth_date: props.contact.birth_date, occupation: props.contact.occupation,
+        street: props.contact.street, house_number: props.contact.house_number, neighborhood: props.contact.neighborhood, zip_code: props.contact.zip_code,
       }}
       department={department}
       stageLabel={pipeline.labels[department.stage] || department.stage}

@@ -2,7 +2,15 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { createCourse, updateCourse, createCourseTrack, updateCourseTrack } from './actions';
+import { createCourse, updateCourse, createCourseTrack, updateCourseTrack, createCourseRegistrationQuestion, updateCourseRegistrationQuestion } from './actions';
+import { generateFieldKey } from '../../lib/fieldKey';
+
+const QUESTION_TYPES = [
+  { value: 'text', label: 'טקסט' },
+  { value: 'number', label: 'מספר' },
+  { value: 'date', label: 'תאריך' },
+  { value: 'select', label: 'בחירה מרשימה' },
+];
 
 const DURATION_LABELS = {
   fixed_dates: 'תאריכים קבועים (מחזור)',
@@ -18,7 +26,7 @@ const CHECKLIST_ITEMS = [
   { key: 'checklistSignaturesEnabled', dbKey: 'checklist_signatures_enabled', label: 'חתימות' },
 ];
 
-export default function CoursesClient({ courses, tracks = [] }) {
+export default function CoursesClient({ courses, tracks = [], questions = [] }) {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
@@ -48,7 +56,7 @@ export default function CoursesClient({ courses, tracks = [] }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {courses.map((c) => (
-          <CourseRow key={c.id} course={c} tracks={tracks.filter((t) => t.course_id === c.id)} />
+          <CourseRow key={c.id} course={c} tracks={tracks.filter((t) => t.course_id === c.id)} questions={questions.filter((q) => q.course_id === c.id)} />
         ))}
         {courses.length === 0 && !adding && (
           <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>אין עדיין קורסים בקטלוג.</div>
@@ -105,9 +113,10 @@ function ChecklistCheckboxes({ defaults }) {
   );
 }
 
-function CourseRow({ course, tracks }) {
+function CourseRow({ course, tracks, questions }) {
   const [editing, setEditing] = useState(false);
   const [showTracks, setShowTracks] = useState(false);
+  const [showQuestions, setShowQuestions] = useState(false);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -189,11 +198,15 @@ function CourseRow({ course, tracks }) {
           <button type="button" onClick={() => setShowTracks((v) => !v)} style={secondaryBtn}>
             {showTracks ? 'סגירת מסלולים' : `ניהול מסלולים (${tracks.length})`}
           </button>
+          <button type="button" onClick={() => setShowQuestions((v) => !v)} style={secondaryBtn}>
+            {showQuestions ? 'סגירת שאלות רישום' : `שאלות רישום (${questions.length})`}
+          </button>
           <button type="button" onClick={() => setEditing(true)} style={secondaryBtn}>עריכה</button>
           <button type="button" onClick={toggleActive} disabled={isPending} style={secondaryBtn}>{course.is_active ? 'השבתה' : 'הפעלה'}</button>
         </div>
       </div>
       {showTracks && <TrackManager courseId={course.id} tracks={tracks} />}
+      {showQuestions && <RegistrationQuestionsManager courseId={course.id} questions={questions} />}
     </div>
   );
 }
@@ -306,6 +319,132 @@ function TrackChip({ track, onToggleActive, disabled }) {
         {track.is_active ? '✕' : '↺'}
       </button>
     </span>
+  );
+}
+
+function RegistrationQuestionsManager({ courseId, questions }) {
+  const [adding, setAdding] = useState(false);
+  const [newQuestion, setNewQuestion] = useState({ fieldKey: '', label: '', type: 'text', optionsText: '', required: false });
+  const [error, setError] = useState(null);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function handleAdd() {
+    setError(null);
+    startTransition(async () => {
+      const options = newQuestion.type === 'select' ? newQuestion.optionsText.split(',').map((s) => s.trim()).filter(Boolean) : [];
+      const res = await createCourseRegistrationQuestion(courseId, {
+        fieldKey: newQuestion.fieldKey, label: newQuestion.label, type: newQuestion.type, options, required: newQuestion.required,
+      });
+      if (res?.error) { setError(res.error); return; }
+      setNewQuestion({ fieldKey: '', label: '', type: 'text', optionsText: '', required: false });
+      setAdding(false);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
+      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>
+        שאלות-רישום לקורס זה (תוכן-מילוי בפועל, לא רק סימון-"בוצע") - מוצגות במסך-הרישום הנפרד לכל ליד
+      </div>
+      {error && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 6 }}>{error}</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+        {questions.map((q) => (
+          <QuestionRow key={q.id} question={q} disabled={isPending} />
+        ))}
+        {questions.length === 0 && !adding && (
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>אין עדיין שאלות-רישום - אפשר לדלג אם אין צורך.</span>
+        )}
+      </div>
+      {adding ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          <input placeholder="מפתח טכני" value={newQuestion.fieldKey}
+            onChange={(e) => setNewQuestion((p) => ({ ...p, fieldKey: e.target.value }))} style={{ ...inputStyle, width: 140 }} />
+          <button
+            type="button"
+            onClick={() => setNewQuestion((p) => ({ ...p, fieldKey: generateFieldKey(questions.map((q) => q.field_key)) }))}
+            title="יצירת מפתח טכני אוטומטי שעדיין לא תפוס"
+            style={secondaryBtn}
+          >
+            🎲 אוטומטי
+          </button>
+          <input placeholder="תווית (נוסח השאלה)" value={newQuestion.label}
+            onChange={(e) => setNewQuestion((p) => ({ ...p, label: e.target.value }))} style={{ ...inputStyle, width: 220 }} />
+          <select value={newQuestion.type} onChange={(e) => setNewQuestion((p) => ({ ...p, type: e.target.value }))} style={inputStyle}>
+            {QUESTION_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+          {newQuestion.type === 'select' && (
+            <input placeholder="אפשרויות, מופרדות בפסיק" value={newQuestion.optionsText}
+              onChange={(e) => setNewQuestion((p) => ({ ...p, optionsText: e.target.value }))} style={{ ...inputStyle, width: 220 }} />
+          )}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={newQuestion.required} onChange={(e) => setNewQuestion((p) => ({ ...p, required: e.target.checked }))} />
+            שדה חובה (חוסם סיום-רישום)
+          </label>
+          <button type="button" onClick={handleAdd} disabled={isPending || !newQuestion.fieldKey.trim() || !newQuestion.label.trim()} style={primaryBtn}>
+            {isPending ? 'שומר...' : 'הוספה'}
+          </button>
+          <button type="button" onClick={() => setAdding(false)} style={secondaryBtn}>ביטול</button>
+        </div>
+      ) : (
+        <button type="button" onClick={() => setAdding(true)} style={secondaryBtn}>+ שאלה חדשה</button>
+      )}
+    </div>
+  );
+}
+
+function QuestionRow({ question, disabled }) {
+  const [label, setLabel] = useState(question.label);
+  const [optionsText, setOptionsText] = useState(question.type === 'select' ? (question.options || []).join(', ') : '');
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function save(patch) {
+    startTransition(async () => {
+      const res = await updateCourseRegistrationQuestion(question.id, patch);
+      if (!res?.error) router.refresh();
+    });
+  }
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '6px 10px',
+      border: '1px solid var(--border)', borderRadius: 6, opacity: question.is_active ? 1 : 0.5,
+    }}>
+      <span style={{ fontSize: 11, color: 'var(--text-secondary)', background: 'var(--bg-tertiary)', borderRadius: 4, padding: '2px 6px' }}>
+        {QUESTION_TYPES.find((t) => t.value === question.type)?.label || question.type}
+      </span>
+      <input
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        onBlur={() => { if (label.trim() && label !== question.label) save({ label: label.trim() }); }}
+        disabled={disabled}
+        style={{ ...inputStyle, width: 200 }}
+      />
+      {question.type === 'select' && (
+        <input
+          value={optionsText}
+          onChange={(e) => setOptionsText(e.target.value)}
+          onBlur={() => save({ options: optionsText.split(',').map((s) => s.trim()).filter(Boolean) })}
+          placeholder="אפשרויות, מופרדות בפסיק"
+          disabled={disabled}
+          style={{ ...inputStyle, width: 200 }}
+        />
+      )}
+      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+        <input type="checkbox" checked={!!question.required} disabled={disabled} onChange={(e) => save({ required: e.target.checked })} />
+        חובה
+      </label>
+      <button
+        type="button"
+        onClick={() => save({ isActive: !question.is_active })}
+        disabled={disabled}
+        style={{ marginInlineStart: 'auto', border: 'none', background: 'none', cursor: 'pointer', fontSize: 11.5, color: 'var(--text-secondary)' }}
+      >
+        {question.is_active ? 'השבתה' : 'הפעלה'}
+      </button>
+    </div>
   );
 }
 

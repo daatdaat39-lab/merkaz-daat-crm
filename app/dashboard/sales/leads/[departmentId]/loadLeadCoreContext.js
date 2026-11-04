@@ -30,17 +30,22 @@ export async function loadLeadCoreContext(departmentId) {
   const department = props.departments.find((d) => d.id === departmentId);
   if (!department) return { departmentNotFound: true };
 
-  const [{ data: courses }, pipeline, { data: checklist }, { data: courseTracks }] = await Promise.all([
+  const [{ data: courses }, pipeline, { data: checklist }, { data: courseTracks }, { data: registrationQuestions }] = await Promise.all([
     supabase.from('courses').select('id, name, price, duration_type, checklist_forms_enabled, checklist_payment_enabled, checklist_signatures_enabled, registration_form_url, signature_template_url').eq('is_active', true).order('sort_order').order('name'),
     getPipeline(supabase, deptRow.workspaces?.name),
     supabase.from('lead_conversion_checklist').select('*, course_tracks:track_id (id, label)').eq('contact_department_id', departmentId).maybeSingle(),
     department.courseId
       ? supabase.from('course_tracks').select('id, label').eq('course_id', department.courseId).eq('is_active', true).order('sort_order')
       : Promise.resolve({ data: [] }),
+    // שאלות-רישום-דינמיות (migration 0177) - תוכן-המילוי-בפועל, לא-רק
+    // סימוני-"בוצע" כמו 3-פריטי-הצ'קליסט - אותו-דפוס-גידור כמו courseTracks.
+    department.courseId
+      ? supabase.from('course_registration_questions').select('id, field_key, label, type, options, required').eq('course_id', department.courseId).eq('is_active', true).order('sort_order')
+      : Promise.resolve({ data: [] }),
   ]);
 
   return {
     supabase, deptRow, department, props,
-    courses: courses || [], checklist: checklist || null, courseTracks: courseTracks || [], pipeline,
+    courses: courses || [], checklist: checklist || null, courseTracks: courseTracks || [], registrationQuestions: registrationQuestions || [], pipeline,
   };
 }

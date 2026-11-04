@@ -13,6 +13,7 @@ import KesherProjectPanel from './KesherProjectPanel';
 import LeadCourseSwitcher from './LeadCourseSwitcher';
 import CourseEnrollmentsPanel from './CourseEnrollmentsPanel';
 import CoursePurchasesPanel from './CoursePurchasesPanel';
+import RegistrationAnswersPanel from './RegistrationAnswersPanel';
 import SeminarParticipationsPanel from './SeminarParticipationsPanel';
 import StageStepper from './StageStepper';
 import Link from 'next/link';
@@ -22,7 +23,7 @@ import { collapseConsecutiveCalls, phoneCallKey } from '../../lib/collapseCalls'
 
 const COURSE_PURCHASE_STATUS_LABELS = { pending: 'ממתין לתשלום', completed: 'נרכש' };
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], courses = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, viewerExtension = null, relatedContact = null, openRequest = null }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], registrationAnswers = [], registrationQuestions = [], courses = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, viewerExtension = null, relatedContact = null, openRequest = null }) {
   const [tab, setTab] = useState('activity');
   const [currentFilter, setCurrentFilter] = useState('all'); // all | processes | cases | tasks | payments
   const [notesValue, setNotesValue] = useState(notes || '');
@@ -106,6 +107,12 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
   const deptCommitments = activeDepartment ? commitments.filter((c) => c.workspace_id === activeDepartment.workspaceId) : [];
   const deptCourseEnrollments = activeDepartment ? courseEnrollments.filter((e) => e.workspace_id === activeDepartment.workspaceId) : [];
   const deptCoursePurchases = activeDepartment ? coursePurchases.filter((p) => p.workspace_id === activeDepartment.workspaceId) : [];
+  // תשובות-לשאלות-רישום (migration 0177) - חיות על-הליד-הספציפי
+  // (contact_department_id, לא-כל-המחלקה) - תואם למודל "ליד-פר-קורס".
+  const deptRegistrationAnswers = activeDepartment
+    ? registrationAnswers.find((r) => r.contact_department_id === activeDepartment.id)?.registration_answers || {}
+    : {};
+  const deptRegistrationQuestions = activeDepartment ? registrationQuestions.filter((q) => q.course_id === activeDepartment.courseId) : [];
   const deptSeminarParticipations = activeDepartment ? seminarParticipations.filter((p) => p.workspace_id === activeDepartment.workspaceId) : [];
   const deptServiceCases = activeDepartment ? serviceCases.filter((c) => c.workspace_id === activeDepartment.workspaceId) : [];
   const openServiceCasesCount = deptServiceCases.filter((c) => c.status !== 'closed').length;
@@ -529,6 +536,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
           />
           <CourseEnrollmentsPanel enrollments={deptCourseEnrollments} />
           <CoursePurchasesPanel purchases={deptCoursePurchases} />
+          <RegistrationAnswersPanel questions={deptRegistrationQuestions} answers={deptRegistrationAnswers} />
           <SeminarParticipationsPanel participations={deptSeminarParticipations} />
           {visibleFieldDefs.map((f) => (
             <div key={f.key}>

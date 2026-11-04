@@ -236,7 +236,12 @@ export default function LeadWorkScreen({
             <FillSection
               contactId={contact.id}
               fields={[
+                { key: 'email', label: 'מייל (לצורך רישום)', type: 'email', currentValue: contact.email },
                 { key: 'city', label: 'עיר מגורים', currentValue: contact.city },
+                { key: 'street', label: 'רחוב (לצורך רישום)', currentValue: contact.street },
+                { key: 'house_number', label: 'מספר בית', currentValue: contact.house_number },
+                { key: 'neighborhood', label: 'שכונה', currentValue: contact.neighborhood },
+                { key: 'zip_code', label: 'מיקוד', currentValue: contact.zip_code },
                 { key: 'occupation', label: 'מקצוע', currentValue: contact.occupation },
                 { key: 'idnum', label: 'ת.ז (לצורך רישום)', currentValue: contact.idnum },
                 { key: 'birth_date', label: 'תאריך לידה', type: 'date', currentValue: contact.birth_date },

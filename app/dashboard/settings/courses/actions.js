@@ -110,3 +110,49 @@ export async function updateCourseTrack(id, { label, isActive }) {
   if (error) return { error: error.message };
   return { success: true };
 }
+
+// שאלות-רישום דינמיות לכל-קורס (migration 0177) - תוכן-השאלות-עצמן
+// (לא-רק-תהליך, בניגוד ל-3-פריטי-הצ'קליסט למעלה) - אותו-דפוס-בדיוק
+// כמו workspace_extra_fields (settings/fields/actions.js) + is_active
+// כמו course_tracks (השבתה-בלבד, בלי-מחיקה-קשה - התשובות-הקיימות
+// חיות ב-lead_conversion_checklist.registration_answers כ-jsonb חופשי,
+// בלי-אכיפת-FK, אז מחיקה-קשה הייתה משאירה-תשובות-יתומות-בלי-אזהרה).
+export async function createCourseRegistrationQuestion(courseId, { fieldKey, label, type, options, required }) {
+  const ctx = await requireManager();
+  if (ctx.error) return ctx;
+  const { supabase } = ctx;
+  const key = (fieldKey || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+  const lbl = (label || '').trim();
+  if (!key || !lbl) return { error: 'יש להזין מפתח טכני ותווית' };
+
+  const { count } = await supabase.from('course_registration_questions').select('id', { count: 'exact', head: true }).eq('course_id', courseId);
+  const { error } = await supabase.from('course_registration_questions').insert({
+    course_id: courseId,
+    field_key: key,
+    label: lbl,
+    type: type || 'text',
+    options: type === 'select' ? (options || []) : [],
+    required: !!required,
+    sort_order: (count || 0) * 10,
+  });
+  if (error) return { error: error.code === '23505' ? 'מפתח זה כבר קיים לקורס הזה' : error.message };
+  return { success: true };
+}
+
+export async function updateCourseRegistrationQuestion(id, { label, options, required, isActive }) {
+  const ctx = await requireManager();
+  if (ctx.error) return ctx;
+  const { supabase } = ctx;
+  const changes = {};
+  if (label !== undefined) {
+    if (!label.trim()) return { error: 'תווית לא יכולה להיות ריקה' };
+    changes.label = label.trim();
+  }
+  if (options !== undefined) changes.options = options;
+  if (required !== undefined) changes.required = !!required;
+  if (isActive !== undefined) changes.is_active = isActive;
+
+  const { error } = await supabase.from('course_registration_questions').update(changes).eq('id', id);
+  if (error) return { error: error.message };
+  return { success: true };
+}

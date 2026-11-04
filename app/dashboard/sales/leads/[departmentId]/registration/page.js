@@ -39,7 +39,7 @@ export default async function LeadRegistrationPage({ params }) {
     );
   }
 
-  const { supabase, deptRow, department, props, courses, checklist, courseTracks, pipeline } = ctx;
+  const { supabase, deptRow, department, props, courses, checklist, courseTracks, registrationQuestions, pipeline } = ctx;
   const selectedCourse = courses.find((c) => c.id === department.courseId);
 
   // נטענים-כאן (לא-בליבה-המשותפת) - נדרשים-רק-למסך-הזה (כפתורי "שלח
@@ -60,6 +60,7 @@ export default async function LeadRegistrationPage({ params }) {
       workspaceName={deptRow.workspaces?.name}
       selectedCourse={selectedCourse}
       courseTracks={courseTracks}
+      registrationQuestions={registrationQuestions}
       checklist={checklist}
       wonStageLabel={pipeline.wonStage ? (pipeline.labels[pipeline.wonStage] || pipeline.wonStage) : null}
       sendConnections={sendConnections || []}

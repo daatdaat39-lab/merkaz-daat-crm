@@ -27,7 +27,7 @@ export async function loadContactCardData(contactId) {
 
   if (!contact) return { notFound: true };
 
-  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, tagRows, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }, { data: coursePurchaseRows }, { data: serviceCaseRows }] = await Promise.all([
+  const [{ data: departmentRows }, { data: allWorkspaces }, { data: meetings }, { data: tasks }, tagRows, { data: viewerMemberships }, { data: sentEmailRows }, { data: emailConnections }, { data: sentWhatsappRows }, { data: whatsappTemplates }, { data: emailTemplates }, { data: donationTransactionRows }, { data: callHistoryRows }, { data: externalIdRows }, { data: phoneCallRows }, { data: campaignProcessRows }, { data: commitmentRows }, { data: additionalPhoneRows }, { data: courseEnrollmentRows }, { data: seminarParticipationRows }, { data: relationRowsForward }, { data: relationRowsReverse }, { data: importConflictRows }, { data: coursePurchaseRows }, { data: serviceCaseRows }, { data: registrationAnswerRows }] = await Promise.all([
     supabase
       .from('contact_departments')
       .select('id, stage, closed_reason, workspace_id, agent_id, last_activity_at, extra_fields, created_by_manager, opened_process, ai_action_summary, ai_action_summary_stale, ai_timeline_summary, ai_timeline_summary_item_count, rep_confidence, rep_confidence_updated_at, ai_confidence, ai_confidence_updated_at, course_id, courses:course_id (id, name), workspaces:workspace_id (name, sells_courses), lead_inquiries (reason, note, created_at)')
@@ -136,6 +136,15 @@ export async function loadContactCardData(contactId) {
       .select('id, case_number, workspace_id, subject, status, severity, sla_due_at, created_at, closed_at')
       .eq('contact_id', contact.id)
       .order('created_at', { ascending: false }),
+    // תשובות-לשאלות-רישום (migration 0177) - קריאה-בלבד, לתצוגה בטאב
+    // "שדות נוספים" (RegistrationAnswersPanel). join-מסונן-בצד-שרת דרך
+    // contact_departments!inner, אותו-דפוס-בדיוק כמו campaign_contacts
+    // למעלה (campaigns:campaign_id!inner + .neq('campaigns.kind', ...)) -
+    // לא-צריך-לדעת-את-מזהי-המחלקות-מראש (הכל-באותו Promise.all).
+    supabase
+      .from('lead_conversion_checklist')
+      .select('contact_department_id, registration_answers, contact_departments!inner (contact_id)')
+      .eq('contact_departments.contact_id', contact.id),
   ]);
 
   // "שולם/נותר" לכל התחייבות - מחושב כאן מהתנועות שכבר נטענו למעלה
@@ -149,6 +158,11 @@ export async function loadContactCardData(contactId) {
   // קטלוג-קורסים גלובלי (לא per-מחלקה) - לבורר-הקורס בפין-המחלקה
   // (מחלקות-sells_courses=true בלבד משתמשות-בזה בפועל, ר' ContactDetailClient.js).
   const { data: activeCourses } = await supabase.from('courses').select('id, name').eq('is_active', true).order('sort_order').order('name');
+  // שאלות-רישום-דינמיות (migration 0177) - טבלה-קטנה (שורה-לכל-שאלה-
+  // לכל-קורס), נטענת-כולה (is_active בלבד) - הסינון-לפי-course_id של
+  // המחלקה-הפעילה קורה בצד-לקוח ב-ContactTabs.js, אותו-עיקרון כמו
+  // courseTracks ב-loadLeadCoreContext.js.
+  const { data: registrationQuestions } = await supabase.from('course_registration_questions').select('id, course_id, field_key, label').eq('is_active', true);
 
   const closeReasonRows = await getPicklistValues(supabase, 'close_reason', null);
   const closeReasons = closeReasonRows.length ? closeReasonRows.map((r) => r.value) : undefined;
@@ -378,6 +392,8 @@ export async function loadContactCardData(contactId) {
       additionalPhones: additionalPhoneRows || [],
       courseEnrollments: courseEnrollmentRows || [],
       coursePurchases: coursePurchaseRows || [],
+      registrationAnswers: registrationAnswerRows || [],
+      registrationQuestions: registrationQuestions || [],
       serviceCases: serviceCaseRows || [],
       seminarParticipations: seminarParticipationRows || [],
       relatedContacts: {
