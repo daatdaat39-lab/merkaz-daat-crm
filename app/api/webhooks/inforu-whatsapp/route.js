@@ -17,6 +17,10 @@ export async function POST(request) {
 
   const body = await request.json().catch(() => null);
   const items = body?.Data || [];
+  // תיעוד-אבחוני-זמני (יוסר-מיד-אחרי-הבדיקה) - לבדוק-אם-ה-payload-הגולמי
+  // של-InforU מכיל-שדה-שם-שולח (PushName/ProfileName/SenderName וכו')
+  // שלא-נקרא-היום-בכלל.
+  console.log('[INFORU_WHATSAPP_DIAG]', JSON.stringify(body));
   if (!items.length) return NextResponse.json({ success: true, processed: 0 });
 
   const supabase = createAdminClient();
