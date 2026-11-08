@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../../lib/supabase/client';
+import { clearMustChangePassword } from './actions';
 
 export default function SetPasswordPage() {
   const [password, setPassword] = useState('');
@@ -30,6 +31,7 @@ export default function SetPasswordPage() {
       setError('שגיאה בשמירת הסיסמה: ' + error.message);
       return;
     }
+    await clearMustChangePassword();
     router.push('/dashboard');
     router.refresh();
   }

@@ -7,6 +7,16 @@ import { getAllPipelines, getPipeline } from '../lib/pipelines';
 import { findExistingMatch, upsertDepartmentMembership, bulkImportContactRows } from './leadIntakeCore';
 import { isManagerOfAnyDepartment, isManagerOfWorkspace, isManagerOfAnyWorkspace, isMemberOfWorkspace, requireNotFrozen, canAccessContactFiles } from '../lib/contactGuards';
 import { validateDocumentFile, cleanFilename, isPathOfContact } from '../lib/documentUploads';
+import { logAudit } from '../lib/audit';
+
+// רישום ביומן הביקורת בכל ייצוא המוני של אנשי קשר (ההורדה עצמה נעשית בדפדפן,
+// ולכן הלקוח מדווח כאן) - רק למנהלים, שהם היחידים שיכולים לייצא.
+export async function logContactsExport(count) {
+  const { supabase, user } = await requireUser();
+  if (!(await isManagerOfAnyWorkspace(supabase, user.id))) return { error: 'אין הרשאה' };
+  await logAudit({ actorId: user.id, action: 'contacts.export', detail: { count: Number(count) || 0 } });
+  return { success: true };
+}
 import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/whatsapp';

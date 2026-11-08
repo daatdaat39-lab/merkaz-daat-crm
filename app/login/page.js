@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../lib/supabase/client';
 import { startLoginOtp } from './actions';
@@ -11,6 +11,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // הפניה מה-middleware אחרי השבתת חשבון (ר' middleware.js)
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('suspended')) {
+      setError('החשבון הושבת. יש לפנות למנהל המערכת.');
+    }
+  }, []);
+
   async function handleLogin(e) {
     e.preventDefault();
     setError('');
@@ -19,7 +26,13 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setLoading(false);
-      setError('התחברות נכשלה: ' + error.message);
+      // הודעות Supabase באנגלית - מתרגמים את המקרים השכיחים
+      const msg = /banned/i.test(error.message)
+        ? 'החשבון הושבת. יש לפנות למנהל המערכת.'
+        : /invalid login credentials/i.test(error.message)
+          ? 'אימייל או סיסמה שגויים.'
+          : error.message;
+      setError('התחברות נכשלה: ' + msg);
       return;
     }
     // אימות דו-שלבי - כבוי כברירת מחדל (ר' middleware.js). כשדלוק,

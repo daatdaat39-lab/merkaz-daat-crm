@@ -48,13 +48,32 @@ export async function middleware(request) {
   // אמיתית ולא רק "מסתירים תפריט" - ר' migration 0094 להוספת הערך הזה
   // ל-workspace_members.role.
   if (user && request.nextUrl.pathname.startsWith('/dashboard')) {
-    const { data: telemarketerRow } = await supabase
-      .from('workspace_members')
-      .select('role')
-      .eq('user_id', user.id)
-      .eq('role', 'telemarketer')
-      .limit(1)
-      .maybeSingle();
+    const [{ data: telemarketerRow }, { data: me }] = await Promise.all([
+      supabase
+        .from('workspace_members')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('role', 'telemarketer')
+        .limit(1)
+        .maybeSingle(),
+      supabase.from('profiles').select('status, must_change_password').eq('id', user.id).maybeSingle(),
+    ]);
+
+    // משתמש מושבת (offboarding, migration 0184): נחסם בכל בקשה, גם אם הסשן
+    // שלו עוד בתוקף - מנתקים אותו ומפנים לכניסה עם הודעה. (בנוסף יש חסימה
+    // ברמת Supabase Auth שמונעת התחברות מחדש.)
+    if (me?.status === 'suspended') {
+      await supabase.auth.signOut();
+      const redirectResponse = NextResponse.redirect(new URL('/login?suspended=1', request.url));
+      response.cookies.getAll().forEach((c) => redirectResponse.cookies.set(c));
+      return redirectResponse;
+    }
+
+    // סיסמה זמנית שנמסרה ע"י מנהל חייבת להיות מוחלפת בכניסה הראשונה.
+    if (me?.must_change_password) {
+      return NextResponse.redirect(new URL('/auth/set-password', request.url));
+    }
+
     if (telemarketerRow) {
       const CALLING_PATH_RE = /^\/dashboard\/sales\/campaigns\/(calling(\/.*)?|[^/]+\/calling(\/.*)?)$/;
       if (!CALLING_PATH_RE.test(request.nextUrl.pathname)) {

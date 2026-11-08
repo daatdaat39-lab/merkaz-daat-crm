@@ -3,6 +3,7 @@
 import crypto from 'crypto';
 import { createClient } from '../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
+import { logAudit } from '../../lib/audit';
 
 // crypto.randomInt ולא Math.random - סיסמה זמנית היא סוד, ו-Math.random אינו
 // מחולל קריפטוגרפי (ניתן לחיזוי). אורך 12 כדי לעמוד גם במינימום 10 שנקבע
@@ -117,7 +118,7 @@ export async function inviteMemberWithPassword({ email, name, role }) {
   if (isNewUser) {
     const { error: profileError } = await admin
       .from('profiles')
-      .upsert({ id: userId, name: displayName, role: 'user', level: 'rep', current_workspace_id: ctx.workspaceId }, { onConflict: 'id' });
+      .upsert({ id: userId, name: displayName, role: 'user', level: 'rep', current_workspace_id: ctx.workspaceId, must_change_password: true }, { onConflict: 'id' });
     if (profileError) return { error: profileError.message };
   }
 
@@ -125,6 +126,8 @@ export async function inviteMemberWithPassword({ email, name, role }) {
     .from('workspace_members')
     .upsert({ workspace_id: ctx.workspaceId, user_id: userId, role: role || 'member' }, { onConflict: 'workspace_id,user_id' });
   if (memberError) return { error: memberError.message };
+
+  await logAudit({ actorId: ctx.user.id, action: 'user.invite', targetType: 'user', targetId: userId, workspaceId: ctx.workspaceId, detail: { email, role: role || 'member', isNewUser } });
 
   return {
     success: true,
@@ -155,6 +158,9 @@ export async function resetMemberPassword(targetUserId) {
   const tempPassword = generatePassword();
   const { error } = await admin.auth.admin.updateUserById(targetUserId, { password: tempPassword });
   if (error) return { error: error.message };
+  // סיסמה זמנית שנמסרת בהודעה חייבת להיות מוחלפת בכניסה הראשונה
+  await admin.from('profiles').update({ must_change_password: true }).eq('id', targetUserId);
+  await logAudit({ actorId: ctx.user.id, action: 'user.password_reset', targetType: 'user', targetId: targetUserId, workspaceId: ctx.workspaceId });
 
   return { success: true, password: tempPassword };
 }
@@ -179,6 +185,8 @@ export async function setMemberPassword(targetUserId, newPassword) {
 
   const { error } = await admin.auth.admin.updateUserById(targetUserId, { password: newPassword });
   if (error) return { error: error.message };
+  await admin.from('profiles').update({ must_change_password: true }).eq('id', targetUserId);
+  await logAudit({ actorId: ctx.user.id, action: 'user.password_set', targetType: 'user', targetId: targetUserId, workspaceId: ctx.workspaceId });
 
   return { success: true, password: newPassword };
 }
@@ -252,6 +260,7 @@ export async function changeMemberEmail(targetUserId, newEmail) {
     email_confirm: true,
   });
   if (error) return { error: error.message };
+  await logAudit({ actorId: ctx.user.id, action: 'user.email_change', targetType: 'user', targetId: targetUserId, workspaceId: ctx.workspaceId, detail: { newEmail } });
 
   return { success: true, email: newEmail };
 }
@@ -292,6 +301,7 @@ export async function setMembership(targetUserId, workspaceId, role) {
       .eq('workspace_id', workspaceId)
       .eq('user_id', targetUserId);
     if (error) return { error: error.message };
+    await logAudit({ actorId: user.id, action: 'user.membership_set', targetType: 'user', targetId: targetUserId, workspaceId, detail: { role: null } });
     return { success: true };
   }
 
@@ -299,6 +309,90 @@ export async function setMembership(targetUserId, workspaceId, role) {
     .from('workspace_members')
     .upsert({ workspace_id: workspaceId, user_id: targetUserId, role }, { onConflict: 'workspace_id,user_id' });
   if (error) return { error: error.message };
+  await logAudit({ actorId: user.id, action: 'user.membership_set', targetType: 'user', targetId: targetUserId, workspaceId, detail: { role } });
 
+  return { success: true };
+}
+
+// ---------- השבתה / הפעלה מחדש (offboarding) ----------
+// השבתה במקום מחיקה: ההיסטוריה של המשתמש (פעילות, לידים שטיפל בהם) נשמרת,
+// אבל הוא לא יכול להתחבר ולא רואה כלום. שני מנגנונים יחד: חסימה ברמת
+// Supabase Auth (ban - אי אפשר להתחבר או לחדש סשן) + profiles.status =
+// 'suspended' שנבדק ב-middleware בכל בקשה, כך שגם סשן פתוח נחסם מיד
+// (בלי לחכות לפקיעת ה-access token).
+export async function suspendUser(targetUserId, { reassignToUserId } = {}) {
+  const ctx = await getManagerContext();
+  if (!ctx) return { error: 'אין לך הרשאה' };
+  if (targetUserId === ctx.user.id) return { error: 'אי אפשר להשבית את החשבון של עצמך' };
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    return { error: e.message };
+  }
+
+  const scopeError = await checkTargetInScope(admin, ctx, targetUserId);
+  if (scopeError) return { error: scopeError };
+  if (ctx.role !== 'owner' && await isOwnerAnywhere(admin, targetUserId)) {
+    return { error: 'רק owner יכול להשבית owner' };
+  }
+
+  // העברת עבודה פתוחה (לידים, קריאות שירות פתוחות, משימות פתוחות) לנציג אחר
+  // לפני ההשבתה - בלי זה הם נשארים משויכים לחשבון שאיש לא רואה.
+  let reassigned = null;
+  if (reassignToUserId) {
+    if (reassignToUserId === targetUserId) return { error: 'אי אפשר להעביר את העבודה לאותו משתמש' };
+    const { data: receiver } = await admin.from('profiles').select('id, status').eq('id', reassignToUserId).maybeSingle();
+    if (!receiver || receiver.status === 'suspended') return { error: 'המשתמש שנבחר לקבלת העבודה לא זמין' };
+
+    const [leads, cases, tasks] = await Promise.all([
+      admin.from('contact_departments').update({ agent_id: reassignToUserId }).eq('agent_id', targetUserId).eq('opened_process', true).select('id'),
+      admin.from('service_cases').update({ assigned_to: reassignToUserId }).eq('assigned_to', targetUserId).neq('status', 'closed').select('id'),
+      admin.from('tasks').update({ assigned_to: reassignToUserId }).eq('assigned_to', targetUserId).eq('done', false).select('id'),
+    ]);
+    const firstError = leads.error || cases.error || tasks.error;
+    if (firstError) return { error: 'העברת העבודה נכשלה: ' + firstError.message };
+    reassigned = { leads: leads.data?.length || 0, cases: cases.data?.length || 0, tasks: tasks.data?.length || 0 };
+  }
+
+  const { error: banError } = await admin.auth.admin.updateUserById(targetUserId, { ban_duration: '876000h' });
+  if (banError) return { error: banError.message };
+  const { error: profileError } = await admin
+    .from('profiles')
+    .update({ status: 'suspended', suspended_at: new Date().toISOString() })
+    .eq('id', targetUserId);
+  if (profileError) return { error: profileError.message };
+
+  await logAudit({
+    actorId: ctx.user.id, action: 'user.suspend', targetType: 'user', targetId: targetUserId,
+    workspaceId: ctx.workspaceId, detail: { reassignedTo: reassignToUserId || null, reassigned },
+  });
+  return { success: true, reassigned };
+}
+
+export async function reactivateUser(targetUserId) {
+  const ctx = await getManagerContext();
+  if (!ctx) return { error: 'אין לך הרשאה' };
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    return { error: e.message };
+  }
+
+  const scopeError = await checkTargetInScope(admin, ctx, targetUserId);
+  if (scopeError) return { error: scopeError };
+
+  const { error: banError } = await admin.auth.admin.updateUserById(targetUserId, { ban_duration: 'none' });
+  if (banError) return { error: banError.message };
+  const { error: profileError } = await admin
+    .from('profiles')
+    .update({ status: 'active', suspended_at: null })
+    .eq('id', targetUserId);
+  if (profileError) return { error: profileError.message };
+
+  await logAudit({ actorId: ctx.user.id, action: 'user.reactivate', targetType: 'user', targetId: targetUserId, workspaceId: ctx.workspaceId });
   return { success: true };
 }

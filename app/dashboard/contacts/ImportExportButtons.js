@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { importContacts } from './actions';
+import { importContacts, logContactsExport } from './actions';
 
 const COLUMNS = ['first', 'last', 'idnum', 'phone', 'phone2', 'email', 'dept', 'source', 'reason', 'tags'];
 const HEADERS_HE = ['שם פרטי', 'שם משפחה', 'ת"ז', 'טלפון', 'טלפון נוסף', 'מייל', 'תחום', 'מקור', 'מהות הפנייה', 'תגיות (מופרדות בפסיק)'];
@@ -55,6 +55,7 @@ function csvCell(v) {
 
 export function ExportContactsButton({ contacts }) {
   function handleClick() {
+    logContactsExport(contacts.length);
     const rows = contacts.map((c) => [
       c.first || '', c.last || '', c.idnum || '', c.phone || '', c.phone2 || '', c.email || '', c.dept || '', c.source || '', (c.tags || []).join('; '),
     ].map(csvCell).join(','));

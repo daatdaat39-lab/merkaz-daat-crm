@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import InviteForm from './InviteForm';
 import MemberRow from './MemberRow';
 import AllUsersTable from './AllUsersTable';
+import { AUDIT_ACTION_LABELS } from '../../lib/audit';
 
 export default async function UsersManagementPage() {
   const supabase = createClient();
@@ -55,7 +56,7 @@ export default async function UsersManagementPage() {
         .order('created_at', { ascending: true });
       allWorkspaces = workspaces || [];
 
-      const { data: profiles } = await admin.from('profiles').select('id, name, hallo015_extension');
+      const { data: profiles } = await admin.from('profiles').select('id, name, hallo015_extension, status, last_seen_at');
       const { data: memberships } = await admin.from('workspace_members').select('workspace_id, user_id, role');
 
       const membershipMap = {};
@@ -72,6 +73,8 @@ export default async function UsersManagementPage() {
           email: emailsById[p.id] || '',
           memberships: membershipMap[p.id] || {},
           hallo015Extension: p.hallo015_extension || '',
+          status: p.status || 'active',
+          lastSeenAt: p.last_seen_at || null,
         }));
     } else if (canManage) {
       const { data: memberRows } = await admin
@@ -115,6 +118,35 @@ export default async function UsersManagementPage() {
     members = [];
   }
 
+  // יומן פעולות אחרון (audit_events, migration 0184) - מוצג למנהלים בלבד,
+  // עם שם המבצע והיעד במקום מזהים.
+  let auditRows = [];
+  if (canManage || isOwnerAnywhere) {
+    try {
+      const admin = createAdminClient();
+      const { data: events } = await admin
+        .from('audit_events')
+        .select('id, actor_id, action, target_id, detail, created_at')
+        .order('created_at', { ascending: false })
+        .limit(40);
+      const ids = Array.from(new Set((events || []).flatMap((e) => [e.actor_id, e.target_id]).filter(Boolean)));
+      let namesById = {};
+      if (ids.length > 0) {
+        const { data: nameRows } = await admin.from('profiles').select('id, name').in('id', ids);
+        namesById = Object.fromEntries((nameRows || []).map((p) => [p.id, p.name]));
+      }
+      auditRows = (events || []).map((e) => ({
+        id: e.id,
+        actionLabel: AUDIT_ACTION_LABELS[e.action] || e.action,
+        actor: namesById[e.actor_id] || 'מערכת',
+        target: namesById[e.target_id] || null,
+        at: e.created_at,
+      }));
+    } catch {
+      auditRows = [];
+    }
+  }
+
   return (
     <div style={{ maxWidth: isOwnerAnywhere ? 1000 : 700, margin: '0 auto', padding: '28px 24px' }}>
       <a href="/dashboard/settings" style={{ fontSize: 12.5, color: 'var(--text-secondary)', textDecoration: 'none' }}>
@@ -155,6 +187,26 @@ export default async function UsersManagementPage() {
           ))}
         </div>
       ) : null}
+
+      {auditRows.length > 0 && (
+        <details style={{ marginTop: 24, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8 }}>
+          <summary style={{ padding: '14px 18px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+            יומן פעולות אחרונות ({auditRows.length})
+          </summary>
+          <div style={{ borderTop: '1px solid var(--border)' }}>
+            {auditRows.map((e) => (
+              <div key={e.id} style={{ display: 'flex', gap: 10, padding: '9px 18px', borderBottom: '1px solid var(--bg-tertiary)', fontSize: 12.5, flexWrap: 'wrap' }}>
+                <span style={{ color: 'var(--text-muted)', minWidth: 120 }}>
+                  {new Date(e.at).toLocaleDateString('he-IL')} {new Date(e.at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                <span style={{ fontWeight: 600 }}>{e.actionLabel}</span>
+                {e.target && <span>· {e.target}</span>}
+                <span style={{ color: 'var(--text-secondary)' }}>(בוצע ע״י {e.actor})</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
