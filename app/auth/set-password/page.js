@@ -14,8 +14,8 @@ export default function SetPasswordPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    if (password.length < 6) {
-      setError('הסיסמה חייבת להכיל לפחות 6 תווים');
+    if (password.length < 10) {
+      setError('הסיסמה חייבת להכיל לפחות 10 תווים');
       return;
     }
     if (password !== confirm) {

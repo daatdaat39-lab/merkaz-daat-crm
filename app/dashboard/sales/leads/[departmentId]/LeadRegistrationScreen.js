@@ -249,12 +249,17 @@ export default function LeadRegistrationScreen({
   // מרכז-תוכן-ההודעה לכל-אחד-מ-4-סוגי-הקישור-הנשלחים (טפסים/חתימה/
   // קישור-אישי/קישור-תשלום) - שני-המודאלים-הקיימים (Email/WhatsApp)
   // נפתחים-עם-אותו-תוכן-מוכן-מראש, בלי-מנגנון-שליחה-חדש.
+  // intro = משפט הפתיחה המלא של כל סוג קישור - בעבר הורכב "קישור ל" + תווית,
+  // מה שהפיק ניסוחים שבורים כמו "קישור לקישור אישי להשלמת הרישום".
   const SEND_FIELD_META = {
-    forms: { label: 'טופס הרישום', value: formsLink },
-    signatures: { label: 'חתימה הדיגיטלית', value: signaturesLink },
-    personalLink: { label: 'קישור אישי להשלמת הרישום', value: personalLinkUrl },
-    paymentLink: { label: 'דף התשלום', value: paymentLink },
+    forms: { label: 'טופס הרישום', intro: 'מצורף הקישור למילוי טופס הרישום', value: formsLink },
+    signatures: { label: 'חתימה דיגיטלית', intro: 'מצורף הקישור לחתימה דיגיטלית', value: signaturesLink },
+    personalLink: { label: 'השלמת הרישום', intro: 'מצורף הקישור האישי להשלמת הרישום', value: personalLinkUrl },
+    paymentLink: { label: 'דף התשלום', intro: 'מצורף הקישור לדף התשלום', value: paymentLink },
   };
+  // בלי שם פרטי (שדה ריק) - "שלום רב" במקום "שלום ,".
+  const greetingName = contact.first?.trim() ? `שלום ${contact.first.trim()}` : 'שלום רב';
+  const sendSubject = (field) => [SEND_FIELD_META[field].label, selectedCourse?.name].filter(Boolean).join(' - ');
 
   const headerBlock = (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
@@ -621,8 +626,8 @@ export default function LeadRegistrationScreen({
           contactId={contact.id} workspaceId={workspaceId} departmentId={departmentId}
           fromAddress={emailConnection.email_address} toAddress={contact.email}
           firstName={contact.first} templates={emailTemplates}
-          initialSubject={`${SEND_FIELD_META[sendTarget.field].label} - ${selectedCourse?.name || ''}`}
-          initialBody={`שלום ${contact.first},\n\nקישור ל${SEND_FIELD_META[sendTarget.field].label}:\n${SEND_FIELD_META[sendTarget.field].value}\n\nתודה,\n${workspaceName || ''}`}
+          initialSubject={sendSubject(sendTarget.field)}
+          initialBody={`${greetingName},\n\n${SEND_FIELD_META[sendTarget.field].intro}:\n${SEND_FIELD_META[sendTarget.field].value}\n\nתודה,\n${workspaceName || ''}`.trim()}
           onClose={() => setSendTarget(null)}
           onSent={() => handleLinkSent(sendTarget.field)}
         />
@@ -631,7 +636,7 @@ export default function LeadRegistrationScreen({
         <WhatsAppSendModal
           contactId={contact.id} workspaceId={workspaceId} departmentId={departmentId}
           phone={contact.phone} thread={[]} templates={whatsappTemplates}
-          initialMessage={`היי ${contact.first}, קישור ל${SEND_FIELD_META[sendTarget.field].label}: ${SEND_FIELD_META[sendTarget.field].value}`}
+          initialMessage={`${greetingName}, ${SEND_FIELD_META[sendTarget.field].intro}: ${SEND_FIELD_META[sendTarget.field].value}`}
           onClose={() => setSendTarget(null)}
           onSent={() => handleLinkSent(sendTarget.field)}
         />

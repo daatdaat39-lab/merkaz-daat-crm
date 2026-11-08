@@ -26,6 +26,12 @@ const csp = [
 ].join('; ');
 
 const nextConfig = {
+  // ברירת המחדל של Server Actions היא 1MB - העלאת מסמך/תמונה (ת"ז, תעודה)
+  // מעל הגודל הזה נכשלה בשקט, במיוחד בעמוד הרישום הציבורי. 6MB מכסה את
+  // תקרת ה-5MB שנאכפת בפועל ב-lib של העלאת המסמכים (documentUploads.js).
+  experimental: {
+    serverActions: { bodySizeLimit: '6mb' },
+  },
   async headers() {
     return [
       {

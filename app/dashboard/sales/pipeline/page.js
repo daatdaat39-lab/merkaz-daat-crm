@@ -2,7 +2,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { getPipeline } from '../../lib/pipelines';
 import { getPicklistValues } from '../../lib/picklists';
-import { requireNotFrozen } from '../../lib/contactGuards';
+import { updateLeadStage } from '../../contacts/actions';
 import PipelineBoard from './PipelineBoard';
 
 export default async function SalesPipelinePage() {
@@ -42,27 +42,12 @@ export default async function SalesPipelinePage() {
   // groupTagsByDepartment בעמודי אנשי-קשר/לידים, רק רשימה שטוחה.
   const allTags = Array.from(new Set(contacts.flatMap((c) => c.tags || []))).sort();
 
-  async function moveStage(departmentRowId, stage, closedReason) {
-    'use server';
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !departmentRowId || !stage) return;
-
-    const { data: row } = await supabase.from('contact_departments').select('contact_id').eq('id', departmentRowId).single();
-    if (!row) return { error: 'שיוך לא נמצא' };
-
-    const frozenError = await requireNotFrozen(supabase, row.contact_id);
-    if (frozenError) return frozenError;
-
-    await supabase.from('contact_departments')
-      .update({ stage, closed_reason: stage === 'closed' ? (closedReason || null) : null, last_activity_at: new Date().toISOString() })
-      .eq('id', departmentRowId);
-  }
-
+  // שינוי שלב עובר דרך הפעולה המשותפת (בדיקת חברות, הקפאה, צ'קליסט רישום,
+  // אוטומציות) - לא עוד עדכון ישיר שעוקף את כולן.
   return (
     <div style={{ padding: '28px 24px' }}>
       <h1 style={{ fontFamily: 'var(--font-heading)', margin: '0 0 20px', fontSize: 20 }}>תהליכים</h1>
-      <PipelineBoard contacts={contacts} moveStageAction={moveStage} stages={pipeline.order} sideStages={pipeline.sideStages} labels={pipeline.labels} colors={pipeline.colors} closeReasons={closeReasons} allTags={allTags} />
+      <PipelineBoard contacts={contacts} moveStageAction={updateLeadStage} stages={pipeline.order} sideStages={pipeline.sideStages} labels={pipeline.labels} colors={pipeline.colors} closeReasons={closeReasons} allTags={allTags} />
     </div>
   );
 }

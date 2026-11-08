@@ -1,12 +1,17 @@
 'use server';
 
+import crypto from 'crypto';
 import { createClient } from '../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 
+// crypto.randomInt ולא Math.random - סיסמה זמנית היא סוד, ו-Math.random אינו
+// מחולל קריפטוגרפי (ניתן לחיזוי). אורך 12 כדי לעמוד גם במינימום 10 שנקבע
+// ל-setMemberPassword.
+const MIN_PASSWORD_LENGTH = 10;
 function generatePassword() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
   let pw = '';
-  for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 12; i++) pw += chars[crypto.randomInt(chars.length)];
   return pw;
 }
 
@@ -53,6 +58,18 @@ async function isOwnerAnywhere(admin, targetUserId) {
   return (data?.length || 0) > 0;
 }
 
+// admin (שאינו owner) רשאי לנהל רק חברים של המחלקה שהוא מנהל כרגע - בלי הבדיקה
+// הזו אפשר היה לאפס סיסמה/לשנות מייל לכל משתמש בארגון רק על סמך ה-id שלו
+// (השתלטות על חשבונות בין-מחלקתית). owner רשאי לנהל כל משתמש, כי מסך
+// "כל המשתמשים" מיועד לו (ר' AllUsersTable).
+async function checkTargetInScope(admin, ctx, targetUserId) {
+  if (!targetUserId) return 'משתמש לא תקין';
+  if (ctx.role === 'owner') return null;
+  const role = await getTargetRole(admin, ctx.workspaceId, targetUserId);
+  if (!role) return 'אפשר לנהל רק חברים של המחלקה שלך';
+  return null;
+}
+
 export async function inviteMemberWithPassword({ email, name, role }) {
   const ctx = await getManagerContext();
   if (!ctx) return { error: 'אין לך הרשאה להזמין משתמשים' };
@@ -93,15 +110,16 @@ export async function inviteMemberWithPassword({ email, name, role }) {
     if (existingRole === 'owner') return { error: 'רק owner יכול לשנות הרשאות של owner קיים' };
   }
 
-  // רק למשתמש חדש קובעים current_workspace_id אוטומטית - למשתמש קיים לא
-  // רוצים "לגנוב" לו את המחלקה הפעילה כרגע רק כי הוזמן גם למחלקה נוספת
-  const profileUpsert = { id: userId, name: displayName, role: 'user', level: 'rep' };
-  if (isNewUser) profileUpsert.current_workspace_id = ctx.workspaceId;
-
-  const { error: profileError } = await admin
-    .from('profiles')
-    .upsert(profileUpsert, { onConflict: 'id' });
-  if (profileError) return { error: profileError.message };
+  // פרופיל נכתב רק למשתמש חדש (כולל current_workspace_id) - משתמש קיים לא
+  // נוגעים בפרופיל שלו בכלל: לא "גונבים" לו את המחלקה הפעילה, ובעיקר לא
+  // מאפשרים ל-admin של מחלקה אחת לדרוס שם/תפקיד של משתמש מחלקה אחרת רק
+  // בהזמנה לפי מייל.
+  if (isNewUser) {
+    const { error: profileError } = await admin
+      .from('profiles')
+      .upsert({ id: userId, name: displayName, role: 'user', level: 'rep', current_workspace_id: ctx.workspaceId }, { onConflict: 'id' });
+    if (profileError) return { error: profileError.message };
+  }
 
   const { error: memberError } = await admin
     .from('workspace_members')
@@ -128,6 +146,8 @@ export async function resetMemberPassword(targetUserId) {
     return { error: e.message };
   }
 
+  const scopeError = await checkTargetInScope(admin, ctx, targetUserId);
+  if (scopeError) return { error: scopeError };
   if (ctx.role !== 'owner' && await isOwnerAnywhere(admin, targetUserId)) {
     return { error: 'רק owner יכול לאפס סיסמה של owner' };
   }
@@ -142,7 +162,7 @@ export async function resetMemberPassword(targetUserId) {
 export async function setMemberPassword(targetUserId, newPassword) {
   const ctx = await getManagerContext();
   if (!ctx) return { error: 'אין לך הרשאה' };
-  if (!newPassword || newPassword.length < 6) return { error: 'הסיסמה חייבת להכיל לפחות 6 תווים' };
+  if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) return { error: `הסיסמה חייבת להכיל לפחות ${MIN_PASSWORD_LENGTH} תווים` };
 
   let admin;
   try {
@@ -151,6 +171,8 @@ export async function setMemberPassword(targetUserId, newPassword) {
     return { error: e.message };
   }
 
+  const scopeError = await checkTargetInScope(admin, ctx, targetUserId);
+  if (scopeError) return { error: scopeError };
   if (ctx.role !== 'owner' && await isOwnerAnywhere(admin, targetUserId)) {
     return { error: 'רק owner יכול לקבוע סיסמה ל-owner' };
   }
@@ -173,6 +195,9 @@ export async function updateMemberName(targetUserId, name) {
     return { error: e.message };
   }
 
+  const scopeError = await checkTargetInScope(admin, ctx, targetUserId);
+  if (scopeError) return { error: scopeError };
+
   const { error } = await admin.from('profiles').update({ name: name.trim() }).eq('id', targetUserId);
   if (error) return { error: error.message };
 
@@ -194,6 +219,9 @@ export async function updateMemberExtension(targetUserId, extension) {
     return { error: e.message };
   }
 
+  const scopeError = await checkTargetInScope(admin, ctx, targetUserId);
+  if (scopeError) return { error: scopeError };
+
   const value = (extension || '').trim() || null;
   const { error } = await admin.from('profiles').update({ hallo015_extension: value }).eq('id', targetUserId);
   if (error) return { error: error.message };
@@ -213,6 +241,8 @@ export async function changeMemberEmail(targetUserId, newEmail) {
     return { error: e.message };
   }
 
+  const scopeError = await checkTargetInScope(admin, ctx, targetUserId);
+  if (scopeError) return { error: scopeError };
   if (ctx.role !== 'owner' && await isOwnerAnywhere(admin, targetUserId)) {
     return { error: 'רק owner יכול לשנות את כתובת המייל של owner' };
   }

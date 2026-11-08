@@ -4,6 +4,7 @@ import { getAccessToken, listNewMessageIds, getMessage } from '../../../../lib/g
 import { extractLeadFromEmail } from '../../../../lib/gmail/extractLead';
 import { findExistingMatch, upsertDepartmentMembership } from '../../../dashboard/contacts/leadIntakeCore';
 import { resolveSourceFromLink } from '../../../dashboard/components/sourceLinks';
+import { safeEqual } from '../../../../lib/security/safeEqual';
 
 // "השעון" שבודק כל תיבות המייל המחוברות ומזין לידים חדשים אוטומטית -
 // מחליף את ה-Zap. מופעל על ידי Vercel Cron (ראו vercel.json), שמוסיף
@@ -14,7 +15,7 @@ export async function GET(request) {
     return NextResponse.json({ error: 'CRON_SECRET לא מוגדר בשרת' }, { status: 500 });
   }
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${configuredSecret}`) {
+  if (!safeEqual(authHeader, `Bearer ${configuredSecret}`)) {
     return NextResponse.json({ error: 'אין הרשאה' }, { status: 401 });
   }
 

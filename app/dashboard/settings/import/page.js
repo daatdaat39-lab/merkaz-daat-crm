@@ -7,6 +7,7 @@ import KesherSyncButton from '../../contacts/KesherSyncButton';
 import KesherSyncScheduleSettings from '../../contacts/KesherSyncScheduleSettings';
 import { getAllExtraFields } from '../../lib/extraFields';
 import { isKesherConfigured } from '../../../../lib/kesher/client';
+import { isManagerOfAnyWorkspace } from '../../lib/contactGuards';
 
 // מסך ייעודי לכל כלי הייבוא/ייצוא - הועבר לכאן מעמוד "אנשי קשר" כדי לשמור
 // שם עיצוב נקי ומרווח (רק "+ איש קשר חדש"). כל הפעולות עצמן זהות לחלוטין.
@@ -14,6 +15,9 @@ export default async function ImportDataPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // ייבוא וייצוא המוני (כולל ת"ז) - למנהלים בלבד: נציג רגיל לא צריך ולא אמור
+  // להוריד את כל מאגר אנשי הקשר.
+  if (!(await isManagerOfAnyWorkspace(supabase, user.id))) redirect('/dashboard/settings');
 
   // שולפים בדפים של 1000 - זו הרשימה שאשף הייבוא משתמש בה לזיהוי כפילויות
   // בזמן העלאת קובץ; בלי הפאג'ינציה, מגבלת ברירת המחדל של PostgREST

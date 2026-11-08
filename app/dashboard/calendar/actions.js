@@ -3,7 +3,17 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { createZoomMeeting, isZoomConfigured } from '../../../lib/zoom/client';
-import { requireNotFrozen } from '../lib/contactGuards';
+import { requireNotFrozen, isMemberOfWorkspace } from '../lib/contactGuards';
+
+// פגישה שייכת למחלקה - עריכה/מחיקה רק לחברי אותה מחלקה (לפי id בלבד אפשר
+// היה לשנות/למחוק פגישות של מחלקה אחרת).
+async function requireMeetingAccess(supabase, userId, meeting) {
+  if (!meeting) return { error: 'הפגישה לא נמצאה' };
+  if (meeting.workspace_id && !(await isMemberOfWorkspace(supabase, userId, meeting.workspace_id))) {
+    return { error: 'אין לך הרשאה לפגישה הזו' };
+  }
+  return null;
+}
 
 // יוצר קישור Zoom לפגישה מסוג "זום" אם החיבור מוגדר - בכשל לא מפיל את
 // שמירת הפגישה עצמה, רק משאיר את הקישור ריק (כמו כל אינטגרציה אחרת
@@ -68,7 +78,7 @@ export async function addMeetingNoRedirect(formData) {
 }
 
 export async function updateMeeting(meetingId, formData) {
-  const { supabase } = await requireWorkspace();
+  const { supabase, user } = await requireWorkspace();
 
   const update = {
     meeting_date: formData.get('meeting_date'),
@@ -80,7 +90,9 @@ export async function updateMeeting(meetingId, formData) {
   if (!update.meeting_date || !update.meeting_time) return { error: 'יש להזין תאריך ושעה' };
 
   // אם הפגישה עברה לסוג "זום" ועדיין אין לה קישור - יוצרים אחד עכשיו
-  const { data: existing } = await supabase.from('meetings').select('contact_id, type, zoom_join_url, contacts(first, last)').eq('id', meetingId).single();
+  const { data: existing } = await supabase.from('meetings').select('contact_id, workspace_id, type, zoom_join_url, contacts(first, last)').eq('id', meetingId).single();
+  const accessError = await requireMeetingAccess(supabase, user.id, existing);
+  if (accessError) return accessError;
   if (existing?.contact_id) {
     const frozenError = await requireNotFrozen(supabase, existing.contact_id);
     if (frozenError) return frozenError;
@@ -97,8 +109,10 @@ export async function updateMeeting(meetingId, formData) {
 }
 
 export async function deleteMeeting(meetingId) {
-  const { supabase } = await requireWorkspace();
-  const { data: existing } = await supabase.from('meetings').select('contact_id').eq('id', meetingId).single();
+  const { supabase, user } = await requireWorkspace();
+  const { data: existing } = await supabase.from('meetings').select('contact_id, workspace_id').eq('id', meetingId).single();
+  const accessError = await requireMeetingAccess(supabase, user.id, existing);
+  if (accessError) return accessError;
   if (existing?.contact_id) {
     const frozenError = await requireNotFrozen(supabase, existing.contact_id);
     if (frozenError) return frozenError;

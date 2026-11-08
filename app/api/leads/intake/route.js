@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { findExistingMatch, upsertDepartmentMembership } from '../../../dashboard/contacts/leadIntakeCore';
 import { resolveSourceFromLink } from '../../../dashboard/components/sourceLinks';
+import { safeEqual } from '../../../../lib/security/safeEqual';
 
 // נקודת קליטה ללידים חיצוניים (מייל אוטומטי/טופס אתר/וואטסאפ וכו', דרך
 // Zapier/Make וכיו"ב). כתובת: POST /api/leads/intake
@@ -13,7 +14,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'LEAD_INTAKE_SECRET לא מוגדר בשרת' }, { status: 500 });
   }
   const providedSecret = request.headers.get('x-api-key');
-  if (providedSecret !== configuredSecret) {
+  if (!safeEqual(providedSecret, configuredSecret)) {
     return NextResponse.json({ error: 'אין הרשאה' }, { status: 401 });
   }
 

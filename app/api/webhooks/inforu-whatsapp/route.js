@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
+import { safeEqual } from '../../../../lib/security/safeEqual';
 
 // נקודת קצה שאליה InforUMobile שולחים POST בכל פעם שמתקבלת הודעת
 // WhatsApp נכנסת מלקוח (הוגדר ידנית מול צוות התמיכה שלהם - "Push
@@ -11,7 +12,7 @@ function normalizePhone(p) {
 
 export async function POST(request) {
   const { searchParams } = new URL(request.url);
-  if (searchParams.get('token') !== process.env.INFORU_WEBHOOK_SECRET) {
+  if (!safeEqual(searchParams.get('token'), process.env.INFORU_WEBHOOK_SECRET)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 

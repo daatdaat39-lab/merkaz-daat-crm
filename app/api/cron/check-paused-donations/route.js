@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
+import { safeEqual } from '../../../../lib/security/safeEqual';
 
 // בודק פעם ביום הוראות תרומה שהוקפאו זמנית (extra_fields.donation_paused +
 // paused_until) - כשתאריך היעד מגיע, יוצר משימת פולו-אפ לנציג המטפל
@@ -11,7 +12,7 @@ export async function GET(request) {
     return NextResponse.json({ error: 'CRON_SECRET לא מוגדר בשרת' }, { status: 500 });
   }
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${configuredSecret}`) {
+  if (!safeEqual(authHeader, `Bearer ${configuredSecret}`)) {
     return NextResponse.json({ error: 'אין הרשאה' }, { status: 401 });
   }
 

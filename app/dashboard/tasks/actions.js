@@ -3,7 +3,17 @@
 import { createClient } from '../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { requireNotFrozen } from '../lib/contactGuards';
+import { requireNotFrozen, isMemberOfWorkspace } from '../lib/contactGuards';
+
+// משימה שייכת למחלקה (workspace_id) - עריכה/סימון מותרים רק לחברי אותה מחלקה.
+// בלי הבדיקה, כל משתמש מחובר יכול לשנות משימה של מחלקה אחרת לפי id בלבד.
+async function requireTaskAccess(supabase, userId, task) {
+  if (!task) return { error: 'המשימה לא נמצאה' };
+  if (task.workspace_id && !(await isMemberOfWorkspace(supabase, userId, task.workspace_id))) {
+    return { error: 'אין לך הרשאה למשימה הזו' };
+  }
+  return null;
+}
 
 async function requireWorkspace() {
   const supabase = createClient();
@@ -14,11 +24,13 @@ async function requireWorkspace() {
 }
 
 export async function toggleTask(formData) {
-  const { supabase } = await requireWorkspace();
+  const { supabase, user } = await requireWorkspace();
   const taskId = formData.get('task_id');
   const done = formData.get('done') === 'true';
 
-  const { data: task } = await supabase.from('tasks').select('contact_id').eq('id', taskId).single();
+  const { data: task } = await supabase.from('tasks').select('contact_id, workspace_id').eq('id', taskId).single();
+  const accessError = await requireTaskAccess(supabase, user.id, task);
+  if (accessError) return accessError;
   if (task?.contact_id) {
     const frozenError = await requireNotFrozen(supabase, task.contact_id);
     if (frozenError) return frozenError;
@@ -61,7 +73,7 @@ export async function addTask(formData) {
 }
 
 export async function updateTask(taskId, formData) {
-  const { supabase } = await requireWorkspace();
+  const { supabase, user } = await requireWorkspace();
 
   const update = {
     title: formData.get('title'),
@@ -74,7 +86,9 @@ export async function updateTask(taskId, formData) {
   if (!update.title) return { error: 'יש להזין כותרת' };
 
   // בודקים הקפאה גם על איש הקשר הישן (אם היה) וגם על החדש (אם השתנה)
-  const { data: existingTask } = await supabase.from('tasks').select('contact_id').eq('id', taskId).single();
+  const { data: existingTask } = await supabase.from('tasks').select('contact_id, workspace_id').eq('id', taskId).single();
+  const accessError = await requireTaskAccess(supabase, user.id, existingTask);
+  if (accessError) return accessError;
   for (const cid of new Set([existingTask?.contact_id, update.contact_id].filter(Boolean))) {
     const frozenError = await requireNotFrozen(supabase, cid);
     if (frozenError) return frozenError;

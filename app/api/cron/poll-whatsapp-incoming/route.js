@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { pullIncomingWhatsapp } from '../../../../lib/inforu/incomingMessages';
+import { safeEqual } from '../../../../lib/security/safeEqual';
 
 // שולף הודעות-WhatsApp-נכנסות דרך ה-Pull API של InforU (ר' lib/inforu/
 // incomingMessages.js) - חלופה-עצמאית ל-Push-webhook (app/api/webhooks/
@@ -16,7 +17,7 @@ export async function GET(request) {
   if (!configuredSecret) {
     return NextResponse.json({ error: 'CRON_SECRET לא מוגדר בשרת' }, { status: 500 });
   }
-  if (request.headers.get('authorization') !== `Bearer ${configuredSecret}`) {
+  if (!safeEqual(request.headers.get('authorization'), `Bearer ${configuredSecret}`)) {
     return NextResponse.json({ error: 'אין הרשאה' }, { status: 401 });
   }
 

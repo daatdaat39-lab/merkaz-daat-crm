@@ -55,6 +55,26 @@ export async function isMemberOfWorkspace(supabase, userId, workspaceId) {
   return !!membership;
 }
 
+// גישה למסמכים רגישים (ת"ז, חתימות) של איש-קשר: מנהל (owner/admin) בכל
+// מחלקה, או חבר באחת מהמחלקות שאיש-הקשר משויך אליהן. איש-קשר בלי שום
+// שיוך-מחלקה - רק מנהלים. קובץ-שרת ל-signed-url לא יוצא בלי הבדיקה הזו.
+export async function canAccessContactFiles(supabase, userId, contactId) {
+  if (!userId || !contactId) return false;
+  const { data: memberships } = await supabase
+    .from('workspace_members')
+    .select('workspace_id, role')
+    .eq('user_id', userId);
+  if (!memberships?.length) return false;
+  if (memberships.some((m) => m.role === 'owner' || m.role === 'admin')) return true;
+
+  const { data: depts } = await supabase
+    .from('contact_departments')
+    .select('workspace_id')
+    .eq('contact_id', contactId);
+  const memberWorkspaceIds = new Set(memberships.map((m) => m.workspace_id));
+  return (depts || []).some((d) => memberWorkspaceIds.has(d.workspace_id));
+}
+
 // true אם המשתמש הוא owner/admin בכל מחלקה שהיא (לא מוגבל למחלקה אחת) -
 // לכלים "מנהלתיים" שחוצים את כל המערכת, כמו תור בדיקת כפליות
 export async function isManagerOfAnyWorkspace(supabase, userId) {

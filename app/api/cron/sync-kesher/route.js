@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { runKesherSyncCore } from '../../../dashboard/contacts/kesherSyncCore';
+import { safeEqual } from '../../../../lib/security/safeEqual';
 
 // "השעון" של סנכרון קשר - מופעל תדיר (כל 5 דקות, ר' .github/workflows/
 // sync-kesher.yml) אבל בפועל מריץ סנכרון אמיתי רק אם עבר מספיק זמן לפי
@@ -14,7 +15,7 @@ export async function GET(request) {
     return NextResponse.json({ error: 'CRON_SECRET לא מוגדר בשרת' }, { status: 500 });
   }
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${configuredSecret}`) {
+  if (!safeEqual(authHeader, `Bearer ${configuredSecret}`)) {
     return NextResponse.json({ error: 'אין הרשאה' }, { status: 401 });
   }
 

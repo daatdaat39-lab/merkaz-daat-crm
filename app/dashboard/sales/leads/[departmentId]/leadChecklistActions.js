@@ -5,6 +5,7 @@ import { createClient } from '../../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { isMemberOfWorkspace } from '../../../lib/contactGuards';
+import { validateDocumentFile, cleanFilename, isPathOfContact } from '../../../lib/documentUploads';
 import { convertLead } from './leadLockActions';
 
 const DOCUMENTS_BUCKET = 'contact-documents';
@@ -127,15 +128,23 @@ export async function uploadLeadDocumentByAgent(departmentId, requirementId, for
   if (error) return { error };
 
   const file = formData.get('file');
-  if (!file || typeof file === 'string' || file.size === 0) return { error: 'יש לבחור קובץ' };
+  // הסוג נקבע לפי תוכן הקובץ עצמו - ר' lib/documentUploads.js
+  const checked = await validateDocumentFile(file);
+  if (checked.error) return { error: checked.error };
+
+  // requirementId חייב להיות שדה-קובץ פעיל של הקורס של הליד הזה - בלי הבדיקה
+  // אפשר היה לשייך מסמך לדרישה של קורס אחר ולעוות את בדיקת "סיום רישום".
+  if (requirementId) {
+    const { data: field } = await supabase.from('course_form_fields').select('id').eq('id', requirementId).eq('course_id', row.course_id).eq('type', 'file').maybeSingle();
+    if (!field) return { error: 'דרישת-מסמך לא תקינה' };
+  }
 
   const admin = createAdminClient();
-  const ext = (file.name?.split('.').pop() || 'bin').toLowerCase();
-  const path = `${row.contact_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const path = `${row.contact_id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${checked.ext}`;
 
   const { error: uploadError } = await admin.storage
     .from(DOCUMENTS_BUCKET)
-    .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: true });
+    .upload(path, file, { contentType: checked.contentType, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
   const { error: insertError } = await admin.from('contact_documents').insert({
@@ -144,17 +153,28 @@ export async function uploadLeadDocumentByAgent(departmentId, requirementId, for
     contact_department_id: departmentId,
     requirement_id: requirementId || null,
     file_path: path,
-    original_filename: file.name || null,
+    original_filename: cleanFilename(file.name),
     uploaded_by: user.id,
   });
   if (insertError) return { error: insertError.message };
   return { success: true };
 }
 
+// חתימת URL רק לקובץ ששייך לליד הזה: מסמך רשום ב-contact_documents של
+// אותו איש-קשר, או תמונת-החתימה של הצ'קליסט של אותו ליד. נתיב אחר (כולל
+// קובץ של איש-קשר אחר) נדחה - בלי זה כל חבר-מחלקה יכול היה לבקש URL חתום
+// לכל קובץ ב-bucket הפרטי.
 export async function getSignedLeadFileUrl(departmentId, filePath) {
   const { supabase, user } = await requireUser();
-  const { error } = await requireMemberOfLead(supabase, user.id, departmentId);
+  const { row, error } = await requireMemberOfLead(supabase, user.id, departmentId);
   if (error) return { error };
+  if (!isPathOfContact(row.contact_id, filePath)) return { error: 'קובץ לא תקין' };
+
+  const [{ data: doc }, { data: checklist }] = await Promise.all([
+    supabase.from('contact_documents').select('id').eq('contact_id', row.contact_id).eq('file_path', filePath).maybeSingle(),
+    supabase.from('lead_conversion_checklist').select('signature_image_path').eq('contact_department_id', departmentId).maybeSingle(),
+  ]);
+  if (!doc && checklist?.signature_image_path !== filePath) return { error: 'הקובץ לא נמצא' };
 
   const admin = createAdminClient();
   const { data, error: signError } = await admin.storage.from(DOCUMENTS_BUCKET).createSignedUrl(filePath, 3600);
@@ -199,6 +219,10 @@ export async function submitLeadSignatureByAgent(departmentId, { typedName, agre
   const match = /^data:image\/png;base64,(.+)$/.exec(imageDataUrl || '');
   if (!match) return { error: 'חתימה לא תקינה' };
   const buffer = Buffer.from(match[1], 'base64');
+  // PNG אמיתי וקטן בלבד - לא נסמכים על הקידומת data:image/png שהלקוח שולח
+  if (buffer.length > 1024 * 1024 || buffer.length < 8 || buffer[0] !== 0x89 || buffer[1] !== 0x50 || buffer[2] !== 0x4e || buffer[3] !== 0x47) {
+    return { error: 'חתימה לא תקינה' };
+  }
 
   const admin = createAdminClient();
   const path = `${row.contact_id}/${Date.now()}-signature.png`;

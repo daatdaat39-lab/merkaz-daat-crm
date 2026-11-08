@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { normalizePhone } from '../../../../lib/hallo015/config';
+import { safeEqual } from '../../../../lib/security/safeEqual';
 
 // נקודת קצה שאליה מערכת הטלפוניה hallo015 (015) שולחת webhook - **שתי**
 // תבניות מוגדרות ידנית בפאנל שלהם (Features ← Web Urls Templates),
@@ -18,7 +19,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'HALLO015_WEBHOOK_SECRET לא מוגדר בשרת' }, { status: 500 });
   }
   const { searchParams } = new URL(request.url);
-  if (searchParams.get('token') !== configuredSecret) {
+  if (!safeEqual(searchParams.get('token'), configuredSecret)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
@@ -30,7 +31,6 @@ export async function POST(request) {
   // בדיקה אמיתית נפלה בדיוק על זה). מתקנים דפנסיבית: "," את כל ":"
   // שאחריו ישר "," או "}" (בלי ערך) עם null, ומנסים שוב לפני שנכשלים.
   const rawText = await request.text();
-  console.log('hallo015 webhook raw body:', rawText);
   // תיקון-באג-אמיתי-שאומת-בפועל (2026-11-01, חקירת חיוג-יזום): 015 שולחת
   // callid/uniqueid כמספר-גולמי-בלי-מרכאות (ר' ההערה למעלה על הטמפלט) -
   // אבל לערכים האלה (למשל "1793546684.65741166") יש כ-18 ספרות-משמעותיות,

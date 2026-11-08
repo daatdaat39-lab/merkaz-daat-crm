@@ -5,7 +5,8 @@ import { createAdminClient } from '../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { getAllPipelines, getPipeline } from '../lib/pipelines';
 import { findExistingMatch, upsertDepartmentMembership, bulkImportContactRows } from './leadIntakeCore';
-import { isManagerOfAnyDepartment, isManagerOfWorkspace, isManagerOfAnyWorkspace, requireNotFrozen } from '../lib/contactGuards';
+import { isManagerOfAnyDepartment, isManagerOfWorkspace, isManagerOfAnyWorkspace, isMemberOfWorkspace, requireNotFrozen, canAccessContactFiles } from '../lib/contactGuards';
+import { validateDocumentFile, cleanFilename, isPathOfContact } from '../lib/documentUploads';
 import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate, sendWhatsAppChat } from '../../../lib/inforu/whatsapp';
@@ -494,6 +495,9 @@ export async function updateDepartmentStage(departmentRowId, stage, closedReason
   const { supabase, user } = await requireUser();
   const { data: row } = await supabase.from('contact_departments').select('contact_id, workspace_id').eq('id', departmentRowId).single();
   if (!row) return { error: 'שיוך לא נמצא' };
+  // שינוי שלב מותר רק לחברי המחלקה של השיוך - לפי id בלבד אפשר היה לקדם/לסגור
+  // לידים של מחלקה אחרת.
+  if (!(await isMemberOfWorkspace(supabase, user.id, row.workspace_id))) return { error: 'אין לך הרשאה לשנות שלב במחלקה הזו' };
 
   const frozenError = await requireNotFrozen(supabase, row.contact_id);
   if (frozenError) return frozenError;
@@ -517,6 +521,9 @@ export async function updateLeadStage(departmentRowId, stage, closedReason) {
   const { supabase, user } = await requireUser();
   const { data: row } = await supabase.from('contact_departments').select('contact_id, workspace_id').eq('id', departmentRowId).single();
   if (!row) return { error: 'שיוך לא נמצא' };
+  // שינוי שלב מותר רק לחברי המחלקה של השיוך - לפי id בלבד אפשר היה לקדם/לסגור
+  // לידים של מחלקה אחרת.
+  if (!(await isMemberOfWorkspace(supabase, user.id, row.workspace_id))) return { error: 'אין לך הרשאה לשנות שלב במחלקה הזו' };
 
   const frozenError = await requireNotFrozen(supabase, row.contact_id);
   if (frozenError) return frozenError;
@@ -719,6 +726,7 @@ export async function bulkAutoMergePairs(pairs) {
 // כדי למנוע כרטיסים כפולים - למי שכבר קיים רק מתווסף שיוך למחלקה הזו.
 export async function importContacts(rows, workspaceId) {
   const { supabase, user } = await requireUser();
+  if (!(await isManagerOfAnyWorkspace(supabase, user.id))) return { error: 'ייבוא אנשי קשר מותר למנהלים בלבד' };
   const workspace = await resolveTargetWorkspace(supabase, user, workspaceId);
   if (!workspace.id) return { error: 'לא נמצא workspace פעיל' };
   if (!Array.isArray(rows) || rows.length === 0) return { error: 'לא נמצאו שורות לייבוא' };
@@ -1322,8 +1330,31 @@ export async function updateDepartmentExtraField(departmentRowId, key, value) {
 // ספציפי (לא-רק-מהכרטיס-הכללי), מתעד-לאיזו-שורת-contact_departments
 // בדיוק זה-שייך (migration 0167) - כדי שציר-הזמן-של-אותו-ליד-בדיוק
 // יוכל-לסנן-רק-את-מה-ששייך-לו, לא-לכל-ההיסטוריה-של-המחלקה.
+// הרשאת שליחה: workspaceId מגיע מהלקוח, ובלי בדיקה אפשר היה לשלוח מתיבת
+// המייל של כל מחלקה (ולרשום הודעות בשמה) רק כי יודעים את ה-id שלה. כאן
+// נדרש שהשולח חבר במחלקה, ושאיש-הקשר משויך אליה. כשאין מחלקה (תגובת
+// וואטסאפ משורה ללא שיוך) - מספיק שיש למשתמש גישה לאיש-הקשר.
+async function requireSendAccess(supabase, userId, contactId, workspaceId, { workspaceRequired = false } = {}) {
+  if (!workspaceId) {
+    if (workspaceRequired) return { error: 'יש לבחור מחלקה לשליחה' };
+    if (!(await canAccessContactFiles(supabase, userId, contactId))) return { error: 'אין לך הרשאה לשלוח לאיש הקשר הזה' };
+    return null;
+  }
+  if (!(await isMemberOfWorkspace(supabase, userId, workspaceId))) return { error: 'אין לך הרשאה לשלוח מהמחלקה הזו' };
+  const { data: dept } = await supabase
+    .from('contact_departments')
+    .select('id')
+    .eq('contact_id', contactId)
+    .eq('workspace_id', workspaceId)
+    .limit(1);
+  if (!dept?.length) return { error: 'איש הקשר אינו משויך למחלקה הזו' };
+  return null;
+}
+
 export async function sendContactEmail(contactId, workspaceId, subject, body, departmentId = null) {
   const { supabase, user } = await requireUser();
+  const accessError = await requireSendAccess(supabase, user.id, contactId, workspaceId, { workspaceRequired: true });
+  if (accessError) return accessError;
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
 
@@ -1355,6 +1386,8 @@ export async function sendContactEmail(contactId, workspaceId, subject, body, de
 // כדי שיוצג בטאב "פעילות". departmentId - ר' הערה ב-sendContactEmail.
 export async function sendContactWhatsApp(contactId, workspaceId, reason, templateId, departmentId = null) {
   const { supabase, user } = await requireUser();
+  const accessError = await requireSendAccess(supabase, user.id, contactId, workspaceId);
+  if (accessError) return accessError;
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
 
@@ -1385,6 +1418,8 @@ export async function sendContactWhatsApp(contactId, workspaceId, reason, templa
 // מתשובת הלקוח האחרונה להודעת התבנית. departmentId - ר' הערה ב-sendContactEmail.
 export async function sendContactWhatsAppChatMessage(contactId, workspaceId, message, departmentId = null) {
   const { supabase, user } = await requireUser();
+  const accessError = await requireSendAccess(supabase, user.id, contactId, workspaceId);
+  if (accessError) return accessError;
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
 
@@ -1409,7 +1444,8 @@ export async function sendContactWhatsAppChatMessage(contactId, workspaceId, mes
 // ניהול רשימת תבניות WhatsApp מאושרות - לבחירה בזמן שליחה (מספר
 // תבניות אפשריות, לא רק אחת קבועה)
 export async function addWhatsAppTemplate(formData) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  if (!(await isManagerOfAnyWorkspace(supabase, user.id))) return { error: 'ניהול תבניות מותר למנהלים בלבד' };
   const name = formData.get('name')?.toString().trim();
   const templateId = formData.get('template_id')?.toString().trim();
   const previewText = formData.get('preview_text')?.toString().trim() || null;
@@ -1427,7 +1463,8 @@ export async function addWhatsAppTemplate(formData) {
 }
 
 export async function deleteWhatsAppTemplate(id) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  if (!(await isManagerOfAnyWorkspace(supabase, user.id))) return { error: 'ניהול תבניות מותר למנהלים בלבד' };
   const { error } = await supabase.from('whatsapp_templates').delete().eq('id', id);
   if (error) return { error: error.message };
   return { success: true };
@@ -1435,7 +1472,8 @@ export async function deleteWhatsAppTemplate(id) {
 
 // ניהול תבניות מייל מוכנות - לשימוש חוזר בחלון שליחת מייל מהכרטיס
 export async function addEmailTemplate(formData) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  if (!(await isManagerOfAnyWorkspace(supabase, user.id))) return { error: 'ניהול תבניות מותר למנהלים בלבד' };
   const name = formData.get('name')?.toString().trim();
   const subject = formData.get('subject')?.toString().trim();
   const body = formData.get('body')?.toString().trim();
@@ -1447,7 +1485,8 @@ export async function addEmailTemplate(formData) {
 }
 
 export async function deleteEmailTemplate(id) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  if (!(await isManagerOfAnyWorkspace(supabase, user.id))) return { error: 'ניהול תבניות מותר למנהלים בלבד' };
   const { error } = await supabase.from('email_templates').delete().eq('id', id);
   if (error) return { error: error.message };
   return { success: true };
@@ -1490,37 +1529,52 @@ export async function uploadContactPhoto(contactId, formData) {
 // דרך admin-client + createSignedUrl, לעולם-לא getPublicUrl.
 export async function uploadContactDocument(contactId, formData) {
   const { supabase, user } = await requireUser();
+  if (!(await canAccessContactFiles(supabase, user.id, contactId))) return { error: 'אין לך הרשאה למסמכים של איש הקשר הזה' };
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
 
   const file = formData.get('file');
-  if (!file || typeof file === 'string' || file.size === 0) return { error: 'יש לבחור קובץ' };
-  const category = (formData.get('category') || '').toString().trim() || null;
+  // הסוג נקבע לפי תוכן הקובץ עצמו (לא לפי סיומת/contentType שהלקוח שולח)
+  const checked = await validateDocumentFile(file);
+  if (checked.error) return { error: checked.error };
+  const category = (formData.get('category') || '').toString().trim().slice(0, 80) || null;
 
   const admin = createAdminClient();
-  const ext = (file.name?.split('.').pop() || 'bin').toLowerCase();
-  const path = `${contactId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const path = `${contactId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${checked.ext}`;
 
   const { error: uploadError } = await admin.storage
     .from('contact-documents')
-    .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: true });
+    .upload(path, file, { contentType: checked.contentType, upsert: false });
   if (uploadError) return { error: uploadError.message };
 
   const { error: insertError } = await admin.from('contact_documents').insert({
     contact_id: contactId,
     category,
     file_path: path,
-    original_filename: file.name || null,
+    original_filename: cleanFilename(file.name),
     uploaded_by: user.id,
   });
   if (insertError) return { error: insertError.message };
   return { success: true };
 }
 
+// חתימת URL רק לקובץ שבאמת רשום כמסמך של איש-הקשר הזה (contact_documents)
+// ורק למי שיש לו גישה לאיש-הקשר - בלי זה כל משתמש מחובר היה יכול לבקש
+// URL חתום לכל נתיב ב-bucket (ת"ז/חתימות של אנשי-קשר אחרים).
 export async function getSignedContactFileUrl(contactId, filePath) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  if (!isPathOfContact(contactId, filePath)) return { error: 'קובץ לא תקין' };
+  if (!(await canAccessContactFiles(supabase, user.id, contactId))) return { error: 'אין לך הרשאה למסמכים של איש הקשר הזה' };
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
+
+  const { data: doc } = await supabase
+    .from('contact_documents')
+    .select('id')
+    .eq('contact_id', contactId)
+    .eq('file_path', filePath)
+    .maybeSingle();
+  if (!doc) return { error: 'המסמך לא נמצא' };
 
   const admin = createAdminClient();
   const { data, error } = await admin.storage.from('contact-documents').createSignedUrl(filePath, 3600);

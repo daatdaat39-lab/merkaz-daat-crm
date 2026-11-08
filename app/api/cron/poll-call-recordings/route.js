@@ -3,6 +3,7 @@ import { createAdminClient } from '../../../../lib/supabase/admin';
 import { listRecordings, getRecordingAudio, isRecordingsApiConfigured } from '../../../../lib/hallo015/recordings';
 import { transcribeAudio, isTranscriptionConfigured } from '../../../../lib/groq/transcribe';
 import { normalizePhone } from '../../../../lib/hallo015/config';
+import { safeEqual } from '../../../../lib/security/safeEqual';
 
 // "השעון" שמתקן שתי-בעיות-בזו-אחר-זו (שתי-פאזות, לא שני-cron-נפרדים -
 // תמלול-מיד-אחרי-תיקון-הקלטה-חדשה, בלי-להמתין-לריצה-הבאה):
@@ -24,7 +25,7 @@ export async function GET(request) {
     return NextResponse.json({ error: 'CRON_SECRET לא מוגדר בשרת' }, { status: 500 });
   }
   const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${configuredSecret}`) {
+  if (!safeEqual(authHeader, `Bearer ${configuredSecret}`)) {
     return NextResponse.json({ error: 'אין הרשאה' }, { status: 401 });
   }
 

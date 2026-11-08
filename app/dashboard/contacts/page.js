@@ -18,7 +18,9 @@ export default async function ContactsPage() {
   // שולפים בדפים של 1000 (מגבלת ברירת המחדל של PostgREST/Supabase לכל
   // קריאה בודדת) עד שמגיעים לדף לא-מלא - כדי לקבל את כל אנשי הקשר בפועל,
   // לא רק את ה-1000 הראשונים לפי created_at.
-  const contactsSelect = 'id, first, last, idnum, phone, phone2, email, dept, tags, source, frozen, created_at, contact_departments (workspace_id, stage, extra_fields, opened_process, course_id, courses:course_id (name), workspaces:workspace_id (name))';
+  // בלי idnum (ת"ז): רשימת 6,500 אנשי הקשר נטענת בשלמותה לדפדפן של כל נציג -
+  // מספרי זהות נטענים רק בכרטיס איש-הקשר עצמו, לפי הרשאה.
+  const contactsSelect = 'id, first, last, phone, phone2, email, dept, tags, source, frozen, created_at, contact_departments (workspace_id, stage, extra_fields, opened_process, course_id, courses:course_id (name), workspaces:workspace_id (name))';
   async function fetchAllContacts() {
     const pageSize = 1000;
     let page = 0;

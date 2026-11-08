@@ -44,11 +44,20 @@ export function DownloadTemplateButton() {
   );
 }
 
+// ערך שמתחיל ב-= + - @ (או טאב/CR) ייפתח באקסל כנוסחה - תוקף יכול להכניס
+// לשם איש-קשר "=HYPERLINK(...)" ולהריץ אותה אצל המנהל שמוריד את הקובץ.
+// קידומת גרש מבטלת את הפרשנות כנוסחה.
+function csvCell(v) {
+  let s = String(v ?? '');
+  if (/^[=+@\-\t\r]/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
 export function ExportContactsButton({ contacts }) {
   function handleClick() {
     const rows = contacts.map((c) => [
       c.first || '', c.last || '', c.idnum || '', c.phone || '', c.phone2 || '', c.email || '', c.dept || '', c.source || '', (c.tags || []).join('; '),
-    ].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','));
+    ].map(csvCell).join(','));
     const csv = '﻿' + [HEADERS_HE.join(','), ...rows].join('\n');
     downloadBlob(csv, `אנשי-קשר-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv;charset=utf-8;');
   }
