@@ -2,6 +2,8 @@ import { headers } from 'next/headers';
 import { createAdminClient } from '../../../lib/supabase/admin';
 import { isPublicLinkExpired, isBotUserAgent } from '../../dashboard/lib/publicLink';
 import PublicRegistrationScreen from './PublicRegistrationScreen';
+import { PageShell, MessageCard, IconCheckCircle, IconWarn } from './RegistrationChrome';
+import { getBrand } from '../../../lib/brand';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +33,8 @@ export default async function PublicRegistrationPage({ params }) {
     .select(`
       id, contact_department_id, signatures_done, signature_image_path, registration_answers, payment_link, public_token_created_at,
       contact_departments:contact_department_id (
-        course_id, contact_id,
+        course_id, contact_id, workspace_id,
+        workspaces:workspace_id (name),
         contacts:contact_id (first, frozen)
       )
     `)
@@ -41,8 +44,10 @@ export default async function PublicRegistrationPage({ params }) {
   if (!row || row.contact_departments?.contacts?.frozen) {
     return <InvalidLinkCard />;
   }
+  // ערכת מותג לפי שם המחלקה (ר' lib/brand.js) - צבעים/גופן/שם שהלקוח מכיר מהאתר
+  const brand = getBrand(row.contact_departments?.workspaces?.name);
   if (isPublicLinkExpired(row.public_token_created_at)) {
-    return <ExpiredLinkCard />;
+    return <ExpiredLinkCard brand={brand} />;
   }
 
   // הרשמה שכבר הושלמה בפועל (נוצרה רכישה שלא בוטלה): הקישור הופך לקריאה-
@@ -55,7 +60,7 @@ export default async function PublicRegistrationPage({ params }) {
     .neq('status', 'cancelled')
     .limit(1);
   if (completedPurchase?.length) {
-    return <CompletedCard firstName={row.contact_departments?.contacts?.first} />;
+    return <CompletedCard brand={brand} firstName={row.contact_departments?.contacts?.first} />;
   }
 
   // מתעדכן-בכל-טעינה (לא-רק-בשינוי) - כדי-שהנציג-יראה-הבדל בין "עוד-
@@ -91,11 +96,12 @@ export default async function PublicRegistrationPage({ params }) {
   // "אין-מה-לעשות" - כל-מה-שבאמת-נדרש (required) כבר-הושלם - מוצג
   // "תודה, הכל הושלם" במקום-הטופס-הפעיל, בלי-צורך-להרכיב-את-כל-הפרופס.
   if (!missingRequired) {
-    return <DoneCard firstName={row.contact_departments?.contacts?.first} paymentLink={row.payment_link || course?.payment_page_url || null} />;
+    return <DoneCard brand={brand} firstName={row.contact_departments?.contacts?.first} paymentLink={row.payment_link || course?.payment_page_url || null} />;
   }
 
   return (
     <PublicRegistrationScreen
+      brand={brand}
       token={token}
       firstName={row.contact_departments?.contacts?.first || ''}
       courseName={course?.name || ''}
@@ -107,71 +113,63 @@ export default async function PublicRegistrationPage({ params }) {
   );
 }
 
-function PageShell({ children }) {
-  return (
-    <div style={{ background: 'linear-gradient(180deg, var(--k-bg) 0%, var(--k-pill-bg) 100%)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{
-        maxWidth: 440, width: '100%', textAlign: 'center', background: 'var(--k-surface)',
-        border: '1px solid var(--k-border)', borderRadius: 16, padding: '40px 32px', boxShadow: '0 4px 24px rgba(0,0,0,.06)',
-      }}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 function InvalidLinkCard() {
   return (
     <PageShell>
-      <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8, color: 'var(--k-text)' }}>הקישור שגוי או שפג תוקפו</div>
-      <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>
-        ייתכן שהקישור הוחלף בקישור חדש. אנא פנה/י לנציג שלך לקבלת קישור מעודכן.
-      </div>
+      <MessageCard tone="warn" icon={<IconWarn />} title="הקישור שגוי">
+        ייתכן שהקישור הוחלף בקישור חדש או שהועתק לא במלואו.
+        <br />
+        אנא פנו לנציג שלכם לקבלת קישור מעודכן.
+      </MessageCard>
     </PageShell>
   );
 }
 
-function ExpiredLinkCard() {
+function ExpiredLinkCard({ brand }) {
   return (
-    <PageShell>
-      <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8, color: 'var(--k-text)' }}>הקישור פג תוקף</div>
-      <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>
-        מטעמי אבטחה הקישור תקף לזמן מוגבל. אנא פנה/י לנציג שלך לקבלת קישור חדש.
-      </div>
+    <PageShell brand={brand}>
+      <MessageCard tone="warn" icon={<IconWarn />} title="הקישור פג תוקף">
+        מטעמי אבטחה הקישור תקף לזמן מוגבל.
+        <br />
+        אנא פנו לנציג שלכם לקבלת קישור חדש.
+      </MessageCard>
     </PageShell>
   );
 }
 
-function CompletedCard({ firstName }) {
+function CompletedCard({ firstName, brand }) {
   return (
-    <PageShell>
-      <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 19, fontWeight: 700, marginBottom: 8, color: 'var(--k-text)' }}>
-        ההרשמה הושלמה{firstName ? `, ${firstName}` : ''}
-      </div>
-      <div style={{ fontSize: 13.5, color: 'var(--k-text-muted)' }}>
-        תודה! אין צורך במילוי נוסף. לכל שאלה אפשר לפנות לנציג שלך.
-      </div>
+    <PageShell brand={brand}>
+      <MessageCard tone="ok" icon={<IconCheckCircle size={34} />} title={`ההרשמה הושלמה${firstName ? `, ${firstName}` : ''}`}>
+        תודה! אין צורך במילוי נוסף.
+        <br />
+        לכל שאלה אפשר לפנות לנציג שלכם.
+      </MessageCard>
     </PageShell>
   );
 }
 
-function DoneCard({ firstName, paymentLink }) {
+function DoneCard({ firstName, paymentLink, brand }) {
   return (
-    <PageShell>
-      <div style={{ fontSize: 32, marginBottom: 10 }}>🎉</div>
-      <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 19, fontWeight: 700, marginBottom: 8, color: 'var(--k-text)' }}>תודה{firstName ? `, ${firstName}` : ''}!</div>
-      <div style={{ fontSize: 13.5, color: 'var(--k-text-muted)' }}>הכל הושלם. הנציג שלך ייצור איתך קשר להמשך התהליך.</div>
-      {paymentLink && (
-        <a
-          href={paymentLink} target="_blank" rel="noreferrer"
-          style={{
-            display: 'inline-block', marginTop: 20, fontFamily: 'var(--k-font-display)', fontSize: 14, fontWeight: 700,
-            color: '#fff', background: 'var(--k-accent)', borderRadius: 10, padding: '11px 28px', textDecoration: 'none',
-          }}
-        >
-          מעבר לתשלום ←
-        </a>
-      )}
+    <PageShell brand={brand}>
+      <MessageCard tone="ok" icon={<IconCheckCircle size={34} />} title={`תודה${firstName ? `, ${firstName}` : ''}!`}>
+        כל הפרטים נקלטו.
+        <br />
+        הנציג שלכם ייצור איתכם קשר להמשך התהליך.
+        {paymentLink && (
+          <div style={{ marginTop: 22 }}>
+            <a
+              href={paymentLink} target="_blank" rel="noreferrer"
+              style={{
+                display: 'inline-block', fontFamily: 'var(--k-font-display)', fontSize: 15, fontWeight: 700,
+                color: '#fff', background: 'var(--k-accent)', borderRadius: 12, padding: '13px 34px', textDecoration: 'none',
+              }}
+            >
+              מעבר לתשלום ←
+            </a>
+          </div>
+        )}
+      </MessageCard>
     </PageShell>
   );
 }

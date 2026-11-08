@@ -223,3 +223,20 @@ body {
   .hide-on-phone { display: none !important; }
   .only-phone { display: inline !important; font-size: 20px; line-height: 1; }
 }
+
+/* ============================================================
+   דף הרישום הציבורי (/register/[token]) - מצבי פוקוס והרחפה לשדות
+   ולאזורי העלאת הקבצים, שאי אפשר לבטא ב-inline style.
+   ============================================================ */
+.reg-input { transition: border-color 0.15s, box-shadow 0.15s; }
+.reg-input:focus {
+  outline: none;
+  border-color: var(--k-accent);
+  box-shadow: 0 0 0 4px rgba(97, 97, 255, 0.18);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--k-accent) 22%, transparent);
+}
+.reg-drop { transition: border-color 0.15s, background 0.15s; }
+.reg-drop:hover { border-color: var(--k-accent); }
+@media (prefers-reduced-motion: reduce) {
+  .reg-input, .reg-drop { transition: none; }
+}
