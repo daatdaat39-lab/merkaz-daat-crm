@@ -1,7 +1,17 @@
+import { headers } from 'next/headers';
 import { createAdminClient } from '../../../lib/supabase/admin';
+import { isPublicLinkExpired, isBotUserAgent } from '../../dashboard/lib/publicLink';
 import PublicRegistrationScreen from './PublicRegistrationScreen';
 
 export const dynamic = 'force-dynamic';
+
+// עמוד פרטי עם טוקן בכתובת: לא לאנדקס, ולא לשלוח את הכתובת (כולל הטוקן)
+// כ-Referer לאתרים אחרים (למשל דף התשלום החיצוני שאליו מקשרים בסוף).
+export const metadata = {
+  title: 'השלמת רישום',
+  robots: { index: false, follow: false },
+  referrer: 'no-referrer',
+};
 
 // עמוד-הקישור-האישי-הציבורי (migration 0181) - בלי-session, בלי-RLS,
 // admin-client-בלבד. **לא-גדור** ע"י middleware.js (matcher שלו הוא
@@ -19,22 +29,41 @@ export default async function PublicRegistrationPage({ params }) {
   const { data: row } = await admin
     .from('lead_conversion_checklist')
     .select(`
-      id, contact_department_id, signatures_done, signature_image_path, registration_answers, payment_link,
+      id, contact_department_id, signatures_done, signature_image_path, registration_answers, payment_link, public_token_created_at,
       contact_departments:contact_department_id (
         course_id, contact_id,
-        contacts:contact_id (first)
+        contacts:contact_id (first, frozen)
       )
     `)
     .eq('public_token', token)
     .maybeSingle();
 
-  if (!row) {
+  if (!row || row.contact_departments?.contacts?.frozen) {
     return <InvalidLinkCard />;
+  }
+  if (isPublicLinkExpired(row.public_token_created_at)) {
+    return <ExpiredLinkCard />;
+  }
+
+  // הרשמה שכבר הושלמה בפועל (נוצרה רכישה שלא בוטלה): הקישור הופך לקריאה-
+  // בלבד - אסור שמי שמחזיק בקישור ימשיך לשנות תשובות/להחליף מסמכים וחתימה
+  // אחרי שהנציג סגר את הרישום.
+  const { data: completedPurchase } = await admin
+    .from('course_purchases')
+    .select('id')
+    .eq('contact_department_id', row.contact_department_id)
+    .neq('status', 'cancelled')
+    .limit(1);
+  if (completedPurchase?.length) {
+    return <CompletedCard firstName={row.contact_departments?.contacts?.first} />;
   }
 
   // מתעדכן-בכל-טעינה (לא-רק-בשינוי) - כדי-שהנציג-יראה-הבדל בין "עוד-
   // לא-נפתח" ל"נפתח-אבל-לא-התקדם" (כרטיס "קישור אישי" במסך-הרישום).
-  await admin.from('lead_conversion_checklist').update({ public_link_last_opened_at: new Date().toISOString() }).eq('id', row.id);
+  // לא מעדכנים כשהבקשה מגיעה מתצוגה מקדימה/בוט (ר' publicLink.js).
+  if (!isBotUserAgent(headers().get('user-agent'))) {
+    await admin.from('lead_conversion_checklist').update({ public_link_last_opened_at: new Date().toISOString() }).eq('id', row.id);
+  }
 
   const courseId = row.contact_departments?.course_id;
   const [{ data: course }, { data: formFields }, { data: uploadedDocs }] = await Promise.all([
@@ -97,6 +126,30 @@ function InvalidLinkCard() {
       <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8, color: 'var(--k-text)' }}>הקישור שגוי או שפג תוקפו</div>
       <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>
         ייתכן שהקישור הוחלף בקישור חדש. אנא פנה/י לנציג שלך לקבלת קישור מעודכן.
+      </div>
+    </PageShell>
+  );
+}
+
+function ExpiredLinkCard() {
+  return (
+    <PageShell>
+      <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8, color: 'var(--k-text)' }}>הקישור פג תוקף</div>
+      <div style={{ fontSize: 13, color: 'var(--k-text-muted)' }}>
+        מטעמי אבטחה הקישור תקף לזמן מוגבל. אנא פנה/י לנציג שלך לקבלת קישור חדש.
+      </div>
+    </PageShell>
+  );
+}
+
+function CompletedCard({ firstName }) {
+  return (
+    <PageShell>
+      <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 19, fontWeight: 700, marginBottom: 8, color: 'var(--k-text)' }}>
+        ההרשמה הושלמה{firstName ? `, ${firstName}` : ''}
+      </div>
+      <div style={{ fontSize: 13.5, color: 'var(--k-text-muted)' }}>
+        תודה! אין צורך במילוי נוסף. לכל שאלה אפשר לפנות לנציג שלך.
       </div>
     </PageShell>
   );

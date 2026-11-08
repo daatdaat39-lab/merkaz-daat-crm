@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import SignaturePad from '../../dashboard/components/SignaturePad';
 import { publicSaveAnswer, publicUploadDocument, publicSubmitSignature } from './publicRegistrationActions';
 
-const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 10, padding: '11px 14px', fontSize: 14, width: '100%', boxSizing: 'border-box', background: 'var(--k-bg)', color: 'var(--k-text)' };
+const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 10, padding: '11px 14px', fontSize: 16, width: '100%', boxSizing: 'border-box', background: 'var(--k-bg)', color: 'var(--k-text)' };
 
 // עמוד-גלילה-רציף-אחד (לא-אשף-רב-שלבי) - לולאה-אחת על formFields
 // (מערכת-טפסים-בסיסית, migration 0182) ברינדור-לפי-type, בהשראת-עיצוב
@@ -116,19 +116,20 @@ function FieldBlock({ field, token, answers, onSaveAnswer, uploaded, onUploaded,
   if (field.type === 'signature') {
     return <SignatureField field={field} token={token} done={signaturesDone} onDone={onSignatureDone} />;
   }
+  const fieldId = `pub-field-${field.field_key}`;
   return (
     <div>
-      <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--k-text)', marginBottom: 7 }}>
-        {field.label}{field.required && <span style={{ color: 'var(--k-danger-text)' }}> *</span>}
-      </div>
+      <label htmlFor={fieldId} style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--k-text)', marginBottom: 7 }}>
+        {field.label}{field.required && <span style={{ color: 'var(--k-danger-text)' }} aria-label="שדה חובה"> *</span>}
+      </label>
       {field.type === 'select' ? (
-        <select defaultValue={answers[field.field_key] ?? ''} onChange={(e) => onSaveAnswer(field.field_key, e.target.value)} style={inputStyle}>
+        <select id={fieldId} defaultValue={answers[field.field_key] ?? ''} onChange={(e) => onSaveAnswer(field.field_key, e.target.value)} style={inputStyle}>
           <option value="">— בחירה —</option>
           {(field.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
         </select>
       ) : (
         <input
-          type={field.type || 'text'} defaultValue={answers[field.field_key] ?? ''}
+          id={fieldId} type={field.type || 'text'} defaultValue={answers[field.field_key] ?? ''}
           onBlur={(e) => onSaveAnswer(field.field_key, e.target.value)} style={inputStyle}
         />
       )}
@@ -170,9 +171,10 @@ function FileField({ field, token, uploaded, onUploaded }) {
         <label htmlFor={inputId} style={{ fontSize: 12.5, color: 'var(--k-accent)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 14px', cursor: isPending ? 'default' : 'pointer', flexShrink: 0 }}>
           {isPending ? 'מעלה...' : isDone ? 'החלפה' : 'העלאה'}
         </label>
-        <input id={inputId} type="file" onChange={handleChange} disabled={isPending} style={{ display: 'none' }} />
+        <input id={inputId} type="file" accept="application/pdf,image/*" onChange={handleChange} disabled={isPending} style={{ display: 'none' }} />
       </div>
-      {error && <div style={{ fontSize: 11.5, color: 'var(--k-danger-text)', marginTop: 6 }}>{error}</div>}
+      <div style={{ fontSize: 11, color: 'var(--k-text-muted)', marginTop: 5 }}>PDF או תמונה, עד 5MB</div>
+      {error && <div role="alert" style={{ fontSize: 12.5, color: 'var(--k-danger-text)', marginTop: 6 }}>{error}</div>}
     </div>
   );
 }
@@ -203,7 +205,7 @@ function SignatureField({ field, token, done, onDone }) {
       ) : (
         <>
           <SignaturePad onSubmit={handleSubmit} submitting={submitting} />
-          {error && <div style={{ fontSize: 11.5, color: 'var(--k-danger-text)', marginTop: 6 }}>{error}</div>}
+          {error && <div role="alert" style={{ fontSize: 12.5, color: 'var(--k-danger-text)', marginTop: 6 }}>{error}</div>}
         </>
       )}
     </div>

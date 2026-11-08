@@ -3,6 +3,8 @@
 import { headers } from 'next/headers';
 import { createAdminClient } from '../../../lib/supabase/admin';
 import { validateDocumentFile, cleanFilename } from '../../dashboard/lib/documentUploads';
+import { isPublicLinkExpired } from '../../dashboard/lib/publicLink';
+import { israelYmd } from '../../dashboard/lib/time';
 
 const DOCUMENTS_BUCKET = 'contact-documents';
 const MAX_ANSWER_LENGTH = 2000;
@@ -18,10 +20,55 @@ async function resolveByToken(admin, token) {
   if (!token || typeof token !== 'string' || token.length > 100) return null;
   const { data } = await admin
     .from('lead_conversion_checklist')
-    .select('id, contact_department_id, registration_answers, contact_departments:contact_department_id (course_id, contact_id, workspace_id)')
+    .select('id, contact_department_id, registration_answers, public_token_created_at, contact_departments:contact_department_id (course_id, contact_id, workspace_id, agent_id, contacts:contact_id (frozen))')
     .eq('public_token', token)
     .maybeSingle();
+  if (!data) return null;
+  // אותם כללים כמו בעמוד עצמו: קישור שפג תוקפו, איש קשר מוקפא, או הרשמה
+  // שכבר הושלמה (רכישה שלא בוטלה) - לא ניתן לכתוב דרכו יותר.
+  if (isPublicLinkExpired(data.public_token_created_at)) return null;
+  if (data.contact_departments?.contacts?.frozen) return null;
+  const { data: purchase } = await admin
+    .from('course_purchases').select('id')
+    .eq('contact_department_id', data.contact_department_id).neq('status', 'cancelled').limit(1);
+  if (purchase?.length) return null;
   return data;
+}
+
+// כשהלקוח משלים את כל שדות החובה - נפתחת משימה לנציג המטפל ("הלקוח סיים
+// למלא, לבדוק ולסיים רישום"), כדי שהנציג לא יצטרך לבדוק ידנית מי התקדם.
+// עובדת בשקט (כשל כאן לא פוגע בשמירת הלקוח), ולא יוצרת משימה כפולה.
+async function notifyAgentIfComplete(admin, row) {
+  try {
+    const dept = row.contact_departments;
+    if (!dept?.course_id) return;
+    const [{ data: fields }, { data: checklist }, { data: docs }] = await Promise.all([
+      admin.from('course_form_fields').select('id, field_key, type').eq('course_id', dept.course_id).eq('is_active', true).eq('required', true),
+      admin.from('lead_conversion_checklist').select('registration_answers, signatures_done').eq('id', row.id).maybeSingle(),
+      admin.from('contact_documents').select('requirement_id').eq('contact_department_id', row.contact_department_id),
+    ]);
+    if (!fields?.length) return;
+    const uploaded = new Set((docs || []).map((d) => d.requirement_id));
+    const answers = checklist?.registration_answers || {};
+    const missing = fields.some((f) => {
+      if (f.type === 'file') return !uploaded.has(f.id);
+      if (f.type === 'signature') return !checklist?.signatures_done;
+      const v = answers[f.field_key];
+      return v === undefined || v === null || v === '';
+    });
+    if (missing) return;
+
+    const title = 'הלקוח השלים את פרטי הרישום בקישור האישי - לבדוק ולסיים רישום';
+    const { data: existing } = await admin
+      .from('tasks').select('id').eq('contact_id', dept.contact_id).eq('title', title).eq('done', false).limit(1);
+    if (existing?.length) return;
+    await admin.from('tasks').insert({
+      workspace_id: dept.workspace_id, contact_id: dept.contact_id, title,
+      due_date: israelYmd(), assigned_to: dept.agent_id || null, created_by: dept.agent_id || null,
+    });
+  } catch (e) {
+    console.error('notifyAgentIfComplete failed:', e?.message || e);
+  }
 }
 
 // עוטף כל פעולה ציבורית: חריגה לא צפויה (שגיאת רשת/storage/גודל) חוזרת
@@ -55,6 +102,7 @@ export async function publicSaveAnswer(token, fieldKey, value) {
     const merged = { ...(row.registration_answers || {}), [fieldKey]: clean };
     const { error } = await admin.from('lead_conversion_checklist').update({ registration_answers: merged }).eq('id', row.id);
     if (error) return { error: GENERIC_ERROR };
+    await notifyAgentIfComplete(admin, row);
     return { success: true };
   });
 }
@@ -99,6 +147,7 @@ export async function publicUploadDocument(token, requirementId, formData) {
       uploaded_by: null,
     });
     if (insertError) return { error: GENERIC_ERROR };
+    await notifyAgentIfComplete(admin, row);
     return { success: true };
   });
 }
@@ -137,6 +186,7 @@ export async function publicSubmitSignature(token, { typedName, agreed, imageDat
       signatures_done_at: new Date().toISOString(),
     }).eq('id', row.id);
     if (error) return { error: GENERIC_ERROR };
+    await notifyAgentIfComplete(admin, row);
     return { success: true };
   });
 }

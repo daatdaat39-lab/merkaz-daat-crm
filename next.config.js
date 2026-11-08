@@ -43,6 +43,13 @@ const nextConfig = {
           { key: 'Content-Security-Policy', value: csp },
         ],
       },
+      // דף הרישום הציבורי: הכתובת כוללת טוקן אישי - לא נשלחת כ-Referer לאתרים
+      // אחרים (גם בלי תלות ב-metadata של העמוד). חייב לבוא *אחרי* הכלל הכללי
+      // למעלה - כשכמה כללים מתאימים לאותו נתיב, האחרון גובר.
+      {
+        source: '/register/:path*',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
     ];
   },
 };
