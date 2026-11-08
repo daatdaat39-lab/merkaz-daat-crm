@@ -107,7 +107,7 @@ export default async function DashboardLayout({ children, modal }) {
   const [{ data: allWorkspaces }, tagRows, { data: waRows }] = await Promise.all([
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     getAllContactTagRows(),
-    supabase.from('sent_whatsapp').select('phone, direction').order('sent_at', { ascending: false }).limit(500),
+    supabase.from('sent_whatsapp').select('phone, direction, read_at').order('sent_at', { ascending: false }).limit(500),
   ]);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
   const tagGroups = groupTagsByDepartment(
@@ -116,11 +116,13 @@ export default async function DashboardLayout({ children, modal }) {
 
   // סופרים שיחות WhatsApp שההודעה האחרונה בהן (לכל מספר) הגיעה מהלקוח -
   // כלומר עדיין ממתינה לתגובה שלנו
-  const latestDirectionByPhone = new Map();
+  // (עכשיו סופרים רק אלה שעוד לא נפתחו - read_at ריק, migration 0183: פתיחת
+  // מסך הוואטסאפ מסמנת "נקרא", כך שהמונה יורד ועולה שוב בהודעה חדשה.)
+  const latestByPhone = new Map();
   for (const row of waRows || []) {
-    if (!latestDirectionByPhone.has(row.phone)) latestDirectionByPhone.set(row.phone, row.direction);
+    if (!latestByPhone.has(row.phone)) latestByPhone.set(row.phone, row);
   }
-  const pendingWhatsappReplies = [...latestDirectionByPhone.values()].filter((d) => d === 'in').length;
+  const pendingWhatsappReplies = [...latestByPhone.values()].filter((r) => r.direction === 'in' && !r.read_at).length;
 
   // הודעות שלא נקראו על אנשי קשר ששותפו איתי (contact_shares, מיגרציה 0033) - לתגית הפעמון
   const { count: unreadShareCount } = await supabase

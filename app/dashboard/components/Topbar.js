@@ -171,7 +171,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
         </button>
         <button
           onClick={() => router.push('/dashboard/whatsapp')}
-          title={pendingWhatsappReplies > 0 ? `${pendingWhatsappReplies} שיחות WhatsApp ממתינות לתגובה` : 'WhatsApp — אין שיחות ממתינות'}
+          title={pendingWhatsappReplies > 0 ? `${pendingWhatsappReplies} שיחות WhatsApp עם הודעה חדשה שטרם נקראה` : 'WhatsApp — אין הודעות חדשות'}
           style={{
             position: 'relative', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg)', cursor: 'pointer', fontSize: 14,

@@ -15,7 +15,7 @@ export default async function WhatsappPage() {
   const [{ data: rows }, { data: workspaces }, { data: profile }] = await Promise.all([
     supabase
       .from('sent_whatsapp')
-      .select('id, contact_id, workspace_id, phone, direction, kind, message, reason, sent_at, contacts:contact_id (id, first, last)')
+      .select('id, contact_id, workspace_id, phone, direction, kind, message, reason, sent_at, read_at, contacts:contact_id (id, first, last)')
       .order('sent_at', { ascending: false })
       .limit(500),
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),

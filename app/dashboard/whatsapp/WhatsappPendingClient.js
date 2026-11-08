@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { sendContactWhatsAppChatMessage } from '../contacts/actions';
+import { markWhatsappRead } from './actions';
 import AddContactForm from '../contacts/AddContactForm';
 import { initials } from '../components/ui';
 
@@ -15,6 +17,19 @@ export default function WhatsappPendingClient({ pending, workspaces, defaultWork
   const [isPending, startTransition] = useTransition();
   const [sentIds, setSentIds] = useState(new Set());
   const [replyError, setReplyError] = useState('');
+  const router = useRouter();
+
+  // שורות שהיו "חדשות" (read_at ריק) בטעינה - נשארות מסומנות בביקור הנוכחי,
+  // גם אחרי שהמסך מסמן אותן כנקראו (אחרת הסימון היה נעלם לפני שרואים אותו).
+  const [unreadIds] = useState(() => new Set(pending.filter((r) => !r.read_at).map((r) => r.id)));
+
+  // פתיחת המסך = קריאה: מסמנים את כל ההודעות החדשות כנקראו, ומרעננים כדי
+  // שמונה הפעמון בסרגל העליון יתעדכן.
+  useEffect(() => {
+    if (unreadIds.size === 0) return;
+    markWhatsappRead([...unreadIds]).then((res) => { if (res?.success) router.refresh(); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleSend(row) {
     if (!replyText.trim()) return;
@@ -61,8 +76,11 @@ export default function WhatsappPendingClient({ pending, workspaces, defaultWork
                 {r.contacts ? initials(r.contacts.first, r.contacts.last) : '?'}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 500 }}>
+                <div style={{ fontSize: 13.5, fontWeight: unreadIds.has(r.id) ? 700 : 500, display: 'flex', alignItems: 'center', gap: 6 }}>
                   {r.contacts ? `${r.contacts.first} ${r.contacts.last}` : r.phone}
+                  {unreadIds.has(r.id) && (
+                    <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: 'var(--red, #b23b2f)', borderRadius: 999, padding: '1px 7px' }}>חדש</span>
+                  )}
                 </div>
                 <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {r.message || `הודעת תבנית${r.reason ? ` — ${r.reason}` : ''}`}
