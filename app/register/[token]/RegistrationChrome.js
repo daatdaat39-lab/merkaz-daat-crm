@@ -57,6 +57,18 @@ export function IconWarn({ size = 28 }) {
 }
 
 export function BrandHeader({ brand = BRAND }) {
+  // לוגו תמונה כשהוגדר למחלקה (lib/brand.js); אחרת סמל טקסטואלי בצבע המותג
+  if (brand.logo) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 0 20px' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={brand.logo.src} alt={brand.name} width={brand.logo.width} height={brand.logo.height}
+          style={{ height: 56, width: 'auto', maxWidth: '86%' }}
+        />
+      </div>
+    );
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '6px 0 18px' }}>
       <div
