@@ -12,7 +12,9 @@ export default function WhatsAppSendModal({ contactId, workspaceId, departmentId
   const [message, setMessage] = useState(initialMessage);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
-  const [templateId, setTemplateId] = useState(templates[0]?.id || '');
+  // כשיש כמה תבניות - לא מסמנים אחת מראש: בעבר התבנית הראשונה (למשל "הקדשת
+  // יום") נבחרה אוטומטית, ולחיצה על "שליחה" שלחה אותה בלי שמישהו בחר.
+  const [templateId, setTemplateId] = useState(templates.length === 1 ? templates[0].id : '');
   // הודעות שנשלחו בפועל תוך-כדי-פתיחת-החלון - כשskipRefresh=true (מתוך
   // שיחה פעילה) אין router.refresh() שיביא את ההודעה בחזרה מה-DB, אז
   // בלעדי זה הטלפן/ית לא רואה שום אישור שהיא באמת נשלחה. תצוגה-אופטימית
@@ -45,7 +47,7 @@ export default function WhatsAppSendModal({ contactId, workspaceId, departmentId
   }
 
   const sorted = [...thread, ...locallySent].sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
-  const selectedTemplate = templates.find((t) => t.id === templateId) || templates[0];
+  const selectedTemplate = templates.find((t) => t.id === templateId) || (templates.length === 1 ? templates[0] : null);
 
   // try/catch מפורש כאן - לא סומכים על כך ש-Server Action תמיד מחזירה
   // {error} ולא זורקת חריגה (רשת/timeout/כשל-לא-צפוי ב-InforU). חריגה
@@ -55,6 +57,7 @@ export default function WhatsAppSendModal({ contactId, workspaceId, departmentId
   // וואטסאפ).
   function handleSendTemplate() {
     setError(null);
+    if (!selectedTemplate) { setError('יש לבחור תבנית לפני השליחה'); return; }
     startTransition(async () => {
       try {
         const res = await sendContactWhatsApp(contactId, workspaceId, reason, selectedTemplate?.template_id, departmentId);
@@ -142,11 +145,17 @@ export default function WhatsAppSendModal({ contactId, workspaceId, departmentId
           <div style={{ padding: '10px 18px', borderBottom: '1px solid var(--k-border)', display: 'flex', gap: 8, alignItems: 'center', background: 'var(--k-pill-bg)' }}>
             <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)', whiteSpace: 'nowrap' }}>📨 תבנית:</span>
             <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} style={{ flex: 1, border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}>
+              <option value="" disabled>בחירת תבנית...</option>
               {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
-            <button onClick={handleSendTemplate} disabled={isPending} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+            <button onClick={handleSendTemplate} disabled={isPending || !selectedTemplate} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: selectedTemplate ? 'pointer' : 'default', opacity: selectedTemplate ? 1 : 0.5 }}>
               שליחה
             </button>
+          </div>
+        )}
+        {templates.length > 1 && selectedTemplate?.preview_text && (
+          <div style={{ padding: '8px 18px', borderBottom: '1px solid var(--k-border)', fontSize: 12, color: 'var(--k-text-muted)', background: 'var(--k-pill-bg)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+            <b style={{ color: 'var(--k-text)' }}>תצוגה מקדימה: </b>{selectedTemplate.preview_text}
           </div>
         )}
 

@@ -8,6 +8,7 @@ import { findExistingMatch, upsertDepartmentMembership, bulkImportContactRows } 
 import { isManagerOfAnyDepartment, isManagerOfWorkspace, isManagerOfAnyWorkspace, isMemberOfWorkspace, requireNotFrozen, canAccessContactFiles } from '../lib/contactGuards';
 import { validateDocumentFile, cleanFilename, isPathOfContact } from '../lib/documentUploads';
 import { logAudit } from '../lib/audit';
+import { findUnresolvedPlaceholders } from '../lib/templateRender';
 
 // רישום ביומן הביקורת בכל ייצוא המוני של אנשי קשר (ההורדה עצמה נעשית בדפדפן,
 // ולכן הלקוח מדווח כאן) - רק למנהלים, שהם היחידים שיכולים לייצא.
@@ -1369,6 +1370,9 @@ export async function sendContactEmail(contactId, workspaceId, subject, body, de
   if (frozenError) return frozenError;
 
   if (!subject?.trim() || !body?.trim()) return { error: 'יש למלא נושא ותוכן' };
+  // משתנה שלא הוחלף ({שם} וכד') - כמעט תמיד שגיאה בתבנית, ולא רוצים שיצא ללקוח
+  const leftovers = [...findUnresolvedPlaceholders(subject), ...findUnresolvedPlaceholders(body)];
+  if (leftovers.length) return { error: `בהודעה יש משתנה שלא הוחלף: ${leftovers[0]}` };
 
   const { data: contact } = await supabase.from('contacts').select('email').eq('id', contactId).single();
   if (!contact?.email) return { error: 'לאיש הקשר אין כתובת מייל שמורה' };

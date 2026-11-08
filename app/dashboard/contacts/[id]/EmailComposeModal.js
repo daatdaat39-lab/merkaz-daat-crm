@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { sendContactEmail } from '../actions';
+import { renderTemplate } from '../../lib/templateRender';
 
 // חלון קטן לכתיבת מייל ושליחתו מתוך המחלקה הפעילה, דרך תיבת המייל
 // המחוברת לאותה מחלקה (email_connections). נרשם גם ב-sent_emails
@@ -17,9 +18,8 @@ export default function EmailComposeModal({ contactId, workspaceId, departmentId
   function applyTemplate(id) {
     const t = templates.find((tpl) => tpl.id === id);
     if (!t) return;
-    const fill = (s) => s.replace(/\{שם\}/g, firstName || '');
-    setSubject(fill(t.subject));
-    setBody(fill(t.body));
+    setSubject(renderTemplate(t.subject, { first: firstName }));
+    setBody(renderTemplate(t.body, { first: firstName }));
   }
 
   function handleSend() {
