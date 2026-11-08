@@ -135,7 +135,7 @@ export async function checkPossibleDuplicates({ first, last, phone, email, idnum
 
 // שיוך ליד חדש לאיש קשר קיים, אחרי שהמשתמש בחר ידנית שדה-שדה מה להשאיר
 // (resolvedFields: אובייקט רגיל עם הערכים הסופיים שנבחרו, לא FormData)
-export async function mergeResolvedLead(existingId, resolvedFields, workspaceId, reason, reasonNote) {
+export async function mergeResolvedLead(existingId, resolvedFields, workspaceId, reason, reasonNote, linkWhatsappPhone) {
   const { supabase, user } = await requireUser();
   const frozenError = await requireNotFrozen(supabase, existingId);
   if (frozenError) return frozenError;
@@ -153,6 +153,7 @@ export async function mergeResolvedLead(existingId, resolvedFields, workspaceId,
 
   await upsertDepartmentMembership(supabase, existingId, workspace, reason, reasonNote);
   await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
+  if (linkWhatsappPhone) await supabase.from('sent_whatsapp').update({ contact_id: existingId }).eq('phone', linkWhatsappPhone).is('contact_id', null);
   redirect(`/dashboard/contacts/${existingId}`);
 }
 
@@ -359,6 +360,7 @@ export async function createContact(formData) {
       await upsertDepartmentMembership(supabase, existing.id, workspace, reason, reasonNote);
       await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
     }
+    await linkWhatsappPhoneIfProvided(supabase, formData, existing.id);
     redirect(`/dashboard/contacts/${existing.id}`);
   }
 
@@ -377,7 +379,18 @@ export async function createContact(formData) {
     await upsertDepartmentMembership(supabase, data.id, workspace, reason, reasonNote);
     await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
   }
+  await linkWhatsappPhoneIfProvided(supabase, formData, data.id);
   redirect(`/dashboard/contacts/${data.id}`);
+}
+
+// כש-AddContactForm נפתח מתוך שורה-לא-מזוהה במסך-וואטסאפ (link_whatsapp_phone
+// hidden field), משייכים-בדיעבד את כל היסטוריית-sent_whatsapp מאותו-מספר
+// לאיש-הקשר-שנוצר/נמצא - לא-רק-מכאן-והלאה. רק-שורות-שעדיין-ללא-contact_id,
+// כדי-שלא-לדרוס-שיוך-קיים-ושונה.
+async function linkWhatsappPhoneIfProvided(supabase, formData, contactId) {
+  const phone = (formData.get('link_whatsapp_phone') || '').toString().trim();
+  if (!phone) return;
+  await supabase.from('sent_whatsapp').update({ contact_id: contactId }).eq('phone', phone).is('contact_id', null);
 }
 
 // שולח קוד אימות למחיקת איש קשר - נקרא מה-UI לפני הצגת שדה הקוד,
@@ -1465,6 +1478,54 @@ export async function uploadContactPhoto(contactId, formData) {
   if (updateError) return { error: updateError.message };
 
   return { success: true, url: publicUrlData.publicUrl };
+}
+
+// מנגנון-מסמכים-אחד-לכל-המערכת (migration 0180, contact_documents) -
+// טאב "מסמכים" הכללי בכרטיס-איש-קשר (היה placeholder-מת-לגמרי) מציג
+// **כל** מסמכי-איש-הקשר, בלי-תלות-במחלקה/ליד - ומאפשר-כאן העלאה-כללית
+// (category חופשי, בלי contact_department_id/requirement_id). אותה
+// טבלה-בדיוק-משמשת-גם-את-צ'קליסט-ההרשמה (leadChecklistActions.js's
+// uploadLeadDocumentByAgent) - שם-ההעלאה-כן-ממלאת contact_department_id/
+// requirement_id, ואז-השורה-מופיעה-גם-כאן. bucket פרטי - גישה-תמיד-
+// דרך admin-client + createSignedUrl, לעולם-לא getPublicUrl.
+export async function uploadContactDocument(contactId, formData) {
+  const { supabase, user } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const file = formData.get('file');
+  if (!file || typeof file === 'string' || file.size === 0) return { error: 'יש לבחור קובץ' };
+  const category = (formData.get('category') || '').toString().trim() || null;
+
+  const admin = createAdminClient();
+  const ext = (file.name?.split('.').pop() || 'bin').toLowerCase();
+  const path = `${contactId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+  const { error: uploadError } = await admin.storage
+    .from('contact-documents')
+    .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: true });
+  if (uploadError) return { error: uploadError.message };
+
+  const { error: insertError } = await admin.from('contact_documents').insert({
+    contact_id: contactId,
+    category,
+    file_path: path,
+    original_filename: file.name || null,
+    uploaded_by: user.id,
+  });
+  if (insertError) return { error: insertError.message };
+  return { success: true };
+}
+
+export async function getSignedContactFileUrl(contactId, filePath) {
+  const { supabase } = await requireUser();
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.storage.from('contact-documents').createSignedUrl(filePath, 3600);
+  if (error) return { error: error.message };
+  return { success: true, url: data.signedUrl };
 }
 
 // ---------- שיתוף איש קשר בין נציגים ----------

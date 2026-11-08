@@ -23,10 +23,10 @@ export default async function CoursesPage() {
     );
   }
 
-  const [{ data: courses }, { data: tracks }, { data: questions }] = await Promise.all([
+  const [{ data: courses }, { data: tracks }, { data: formFields }] = await Promise.all([
     supabase.from('courses').select('*').order('sort_order', { ascending: true }),
     supabase.from('course_tracks').select('*').order('course_id').order('sort_order', { ascending: true }),
-    supabase.from('course_registration_questions').select('*').order('course_id').order('sort_order', { ascending: true }),
+    supabase.from('course_form_fields').select('*').order('course_id').order('sort_order', { ascending: true }),
   ]);
 
   return (
@@ -36,7 +36,7 @@ export default async function CoursesPage() {
       <p style={{ margin: '0 0 20px', fontSize: 12.5, color: 'var(--text-secondary)' }}>
         קטלוג גלובלי (לא לפי מחלקה) - משמש גם במסך-הטיפול-בליד (בחירת קורס להמרה) וגם בכרטיס-איש-קשר (הרשמות לקורסים).
       </p>
-      <CoursesClient courses={courses || []} tracks={tracks || []} questions={questions || []} />
+      <CoursesClient courses={courses || []} tracks={tracks || []} formFields={formFields || []} />
     </div>
   );
 }

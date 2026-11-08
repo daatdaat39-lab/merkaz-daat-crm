@@ -7,7 +7,7 @@ import ThreeColumnScreen from '../../../components/ThreeColumnScreen';
 import UnifiedTimeline from '../../../components/UnifiedTimeline';
 import ContactQuickActions from '../../../components/ContactQuickActions';
 import DialButton from '../../../components/DialButton';
-import FillSection from '../../../components/FillSection';
+import LeadFormFieldsQuickFill from './LeadFormFieldsQuickFill';
 import QuickActivityLogForm from '../../../contacts/[id]/QuickActivityLogForm';
 import { PersonIcon, SparkleIcon, CheckIcon, CloseXIcon } from '../../../components/icons';
 import { updateLeadCourse, updateLeadStage, assignAgentForLead } from '../../../contacts/actions';
@@ -25,7 +25,7 @@ const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted
 // סכנה בדיוק: הסתרת-טאב כשהנציג עובר לחייג מהנייד האישי שלו).
 export default function LeadWorkScreen({
   departmentId, aiActionText, aiConfidence, timelineSummary, contact, department, stageLabel, wonStage, wonStageLabel, workspaceId, workspaceName,
-  courses, checklist = null, courseTracks = [], playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps, stages = [], stageLabels = {}, agents = [],
+  courses, checklist = null, courseTracks = [], formFields = [], playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps, stages = [], stageLabels = {}, agents = [],
 }) {
   const { lockState, error: lockError, releaseOnNavigate } = useLeadLock(departmentId);
   const [agentId, setAgentId] = useState(department.agentId || '');
@@ -233,20 +233,9 @@ export default function LeadWorkScreen({
               </select>
             </div>
 
-            <FillSection
-              contactId={contact.id}
-              fields={[
-                { key: 'email', label: 'מייל (לצורך רישום)', type: 'email', currentValue: contact.email },
-                { key: 'city', label: 'עיר מגורים', currentValue: contact.city },
-                { key: 'street', label: 'רחוב (לצורך רישום)', currentValue: contact.street },
-                { key: 'house_number', label: 'מספר בית', currentValue: contact.house_number },
-                { key: 'neighborhood', label: 'שכונה', currentValue: contact.neighborhood },
-                { key: 'zip_code', label: 'מיקוד', currentValue: contact.zip_code },
-                { key: 'occupation', label: 'מקצוע', currentValue: contact.occupation },
-                { key: 'idnum', label: 'ת.ז (לצורך רישום)', currentValue: contact.idnum },
-                { key: 'birth_date', label: 'תאריך לידה', type: 'date', currentValue: contact.birth_date },
-              ]}
-            />
+            {courseId && (
+              <LeadFormFieldsQuickFill departmentId={departmentId} formFields={formFields} answers={checklist?.registration_answers || {}} />
+            )}
 
             {error && <div style={{ fontSize: 12, color: 'var(--k-danger-text)', marginTop: 10 }}>{error}</div>}
           </>

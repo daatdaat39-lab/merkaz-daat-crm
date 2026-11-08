@@ -41,6 +41,7 @@ export default function ContactDetailClient({
   nextMeeting, openTasksCount, relatedContact, agentsByWorkspace, personalInfoAlwaysOpen = [], courses = [], allInquiries, workspaceNameById, donationTransactions,
   callHistory, externalIds, closeReasons, isManager, viewerExtension = null, phoneCalls, pipelinesByWorkspace,
   commitments, additionalPhones, courseEnrollments, coursePurchases, registrationAnswers = [], registrationQuestions = [], serviceCases, seminarParticipations, relatedContacts, importConflicts = [],
+  contactDocuments = [],
 }) {
   const FALLBACK_PIPELINE = { order: [], leadStages: [], wonStage: null, sideStages: [], labels: {}, colors: {} };
   const byWorkspace = pipelinesByWorkspace || {};
@@ -491,6 +492,7 @@ export default function ContactDetailClient({
             coursePurchases={coursePurchases || []}
             registrationAnswers={registrationAnswers}
             registrationQuestions={registrationQuestions}
+            contactDocuments={contactDocuments}
             courses={courses}
             viewerExtension={viewerExtension}
             serviceCases={serviceCases || []}

@@ -17,8 +17,8 @@ async function requireManager() {
 
 export async function createCourse({
   name, code, description, price, durationType, durationDays,
-  checklistFormsEnabled, checklistPaymentEnabled, checklistSignaturesEnabled,
-  registrationFormUrl, signatureTemplateUrl,
+  checklistFormsEnabled, checklistPaymentEnabled, checklistSignaturesEnabled, checklistDocumentsEnabled,
+  registrationFormUrl, signatureTemplateUrl, paymentPageUrl,
 }) {
   const ctx = await requireManager();
   if (ctx.error) return ctx;
@@ -38,8 +38,10 @@ export async function createCourse({
     checklist_forms_enabled: checklistFormsEnabled !== false,
     checklist_payment_enabled: checklistPaymentEnabled !== false,
     checklist_signatures_enabled: checklistSignaturesEnabled !== false,
+    checklist_documents_enabled: checklistDocumentsEnabled !== false,
     registration_form_url: (registrationFormUrl || '').trim() || null,
     signature_template_url: (signatureTemplateUrl || '').trim() || null,
+    payment_page_url: (paymentPageUrl || '').trim() || null,
   });
   if (error) return { error: error.message };
   return { success: true };
@@ -47,8 +49,8 @@ export async function createCourse({
 
 export async function updateCourse(id, {
   name, code, description, price, durationType, durationDays, isActive,
-  checklistFormsEnabled, checklistPaymentEnabled, checklistSignaturesEnabled,
-  registrationFormUrl, signatureTemplateUrl,
+  checklistFormsEnabled, checklistPaymentEnabled, checklistSignaturesEnabled, checklistDocumentsEnabled,
+  registrationFormUrl, signatureTemplateUrl, paymentPageUrl,
 }) {
   const ctx = await requireManager();
   if (ctx.error) return ctx;
@@ -67,8 +69,10 @@ export async function updateCourse(id, {
   if (checklistFormsEnabled !== undefined) changes.checklist_forms_enabled = checklistFormsEnabled;
   if (checklistPaymentEnabled !== undefined) changes.checklist_payment_enabled = checklistPaymentEnabled;
   if (checklistSignaturesEnabled !== undefined) changes.checklist_signatures_enabled = checklistSignaturesEnabled;
+  if (checklistDocumentsEnabled !== undefined) changes.checklist_documents_enabled = checklistDocumentsEnabled;
   if (registrationFormUrl !== undefined) changes.registration_form_url = registrationFormUrl.trim() || null;
   if (signatureTemplateUrl !== undefined) changes.signature_template_url = signatureTemplateUrl.trim() || null;
+  if (paymentPageUrl !== undefined) changes.payment_page_url = paymentPageUrl.trim() || null;
 
   const { error } = await supabase.from('courses').update(changes).eq('id', id);
   if (error) return { error: error.message };
@@ -111,13 +115,13 @@ export async function updateCourseTrack(id, { label, isActive }) {
   return { success: true };
 }
 
-// שאלות-רישום דינמיות לכל-קורס (migration 0177) - תוכן-השאלות-עצמן
-// (לא-רק-תהליך, בניגוד ל-3-פריטי-הצ'קליסט למעלה) - אותו-דפוס-בדיוק
-// כמו workspace_extra_fields (settings/fields/actions.js) + is_active
-// כמו course_tracks (השבתה-בלבד, בלי-מחיקה-קשה - התשובות-הקיימות
-// חיות ב-lead_conversion_checklist.registration_answers כ-jsonb חופשי,
-// בלי-אכיפת-FK, אז מחיקה-קשה הייתה משאירה-תשובות-יתומות-בלי-אזהרה).
-export async function createCourseRegistrationQuestion(courseId, { fieldKey, label, type, options, required }) {
+// מערכת-טפסים-בסיסית (migration 0182) - רשימה-אחת-מסודרת-עם-type
+// במקום-שלוש-רשימות-נפרדות (שאלות/מסמכים/חתימה-קבועה) - מאפשרת-סדר-
+// חופשי (שאלה→מסמך→שאלה→חתימה, לא-רק-3-בלוקים-קבועים). אותו-דפוס-
+// הרשאה/השבתה כמו-course_tracks/השאלות-הישנות. type='file'/'signature'
+// לא-צריכים-options (רק type='select'). השבתה-בלבד - תשובות/מסמכים-
+// שכבר-נשמרו (registration_answers/contact_documents) לא-יתייתמו.
+export async function createCourseFormField(courseId, { fieldKey, label, type, options, required }) {
   const ctx = await requireManager();
   if (ctx.error) return ctx;
   const { supabase } = ctx;
@@ -125,8 +129,8 @@ export async function createCourseRegistrationQuestion(courseId, { fieldKey, lab
   const lbl = (label || '').trim();
   if (!key || !lbl) return { error: 'יש להזין מפתח טכני ותווית' };
 
-  const { count } = await supabase.from('course_registration_questions').select('id', { count: 'exact', head: true }).eq('course_id', courseId);
-  const { error } = await supabase.from('course_registration_questions').insert({
+  const { count } = await supabase.from('course_form_fields').select('id', { count: 'exact', head: true }).eq('course_id', courseId);
+  const { error } = await supabase.from('course_form_fields').insert({
     course_id: courseId,
     field_key: key,
     label: lbl,
@@ -139,7 +143,7 @@ export async function createCourseRegistrationQuestion(courseId, { fieldKey, lab
   return { success: true };
 }
 
-export async function updateCourseRegistrationQuestion(id, { label, options, required, isActive }) {
+export async function updateCourseFormField(id, { label, options, required, isActive }) {
   const ctx = await requireManager();
   if (ctx.error) return ctx;
   const { supabase } = ctx;
@@ -152,7 +156,36 @@ export async function updateCourseRegistrationQuestion(id, { label, options, req
   if (required !== undefined) changes.required = !!required;
   if (isActive !== undefined) changes.is_active = isActive;
 
-  const { error } = await supabase.from('course_registration_questions').update(changes).eq('id', id);
+  const { error } = await supabase.from('course_form_fields').update(changes).eq('id', id);
   if (error) return { error: error.message };
+  return { success: true };
+}
+
+// סידור-מחדש - מחליף sort_order עם-השכן-בכיוון-המבוקש (לא-drag&drop,
+// מספיק-ל"בסיס"). קורא-את-הרשימה-המלאה-של-הקורס-ממוינת, מאתר-את-
+// המיקום-הנוכחי, ומחליף עם-הקודם/הבא - פעולה-אחת-פשוטה-ובטוחה.
+export async function reorderCourseFormField(id, direction) {
+  const ctx = await requireManager();
+  if (ctx.error) return ctx;
+  const { supabase } = ctx;
+
+  const { data: field } = await supabase.from('course_form_fields').select('id, course_id, sort_order').eq('id', id).maybeSingle();
+  if (!field) return { error: 'השדה לא נמצא' };
+
+  const { data: siblings } = await supabase
+    .from('course_form_fields')
+    .select('id, sort_order')
+    .eq('course_id', field.course_id)
+    .order('sort_order', { ascending: true });
+  const idx = (siblings || []).findIndex((f) => f.id === id);
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (idx === -1 || swapIdx < 0 || swapIdx >= siblings.length) return { success: true };
+  const neighbor = siblings[swapIdx];
+
+  const [{ error: e1 }, { error: e2 }] = await Promise.all([
+    supabase.from('course_form_fields').update({ sort_order: neighbor.sort_order }).eq('id', field.id),
+    supabase.from('course_form_fields').update({ sort_order: field.sort_order }).eq('id', neighbor.id),
+  ]);
+  if (e1 || e2) return { error: (e1 || e2).message };
   return { success: true };
 }

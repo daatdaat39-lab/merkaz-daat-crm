@@ -2,10 +2,9 @@
 
 import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import NotConnectedButton from '../../components/NotConnectedButton';
 import { celebrate } from '../../components/celebrate';
 import { addTask } from '../../tasks/actions';
-import { updateDepartmentExtraField } from '../actions';
+import { updateDepartmentExtraField, uploadContactDocument, getSignedContactFileUrl } from '../actions';
 import { isProcessConcluded } from '../../lib/pipelineVisibility';
 import { computeFieldValue } from '../../lib/computedFields';
 import { LEGACY_COURSE_FIELD_KEYS } from '../../lib/extraFields';
@@ -23,7 +22,7 @@ import { collapseConsecutiveCalls, phoneCallKey } from '../../lib/collapseCalls'
 
 const COURSE_PURCHASE_STATUS_LABELS = { pending: 'ממתין לתשלום', completed: 'נרכש' };
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], registrationAnswers = [], registrationQuestions = [], courses = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, viewerExtension = null, relatedContact = null, openRequest = null }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], registrationAnswers = [], registrationQuestions = [], contactDocuments = [], courses = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, viewerExtension = null, relatedContact = null, openRequest = null }) {
   const [tab, setTab] = useState('activity');
   const [currentFilter, setCurrentFilter] = useState('all'); // all | processes | cases | tasks | payments
   const [notesValue, setNotesValue] = useState(notes || '');
@@ -600,14 +599,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
       )}
 
       {tab === 'documents' && (
-        <div>
-          <div style={{ fontSize: 13, color: 'var(--k-text-muted)', marginBottom: 10 }}>אין מסמכים</div>
-          <NotConnectedButton
-            label="העלאת מסמך"
-            icon="📎"
-            message="העלאת תעודת בגרות / גיליון ציונים — עדיין לא מחובר"
-          />
-        </div>
+        <ContactDocumentsTab contactId={contactId} documents={contactDocuments} frozen={frozen} />
       )}
 
       {/* "הקלטות שיחה" הוסר כטאב-נפרד - היה בדיוק תת-קבוצה-כפולה של
@@ -760,6 +752,86 @@ function ActivityGroup({ title, items, renderItem }) {
         >
           הצג פחות
         </button>
+      )}
+    </div>
+  );
+}
+
+// טאב "מסמכים" הכללי - **כל** מסמכי-איש-הקשר (contact_documents,
+// migration 0180), בלי-תלות-במחלקה/ליד - זה-בדיוק-ההבדל-מהצ'קליסט-
+// המסונן-לליד במסך-הרישום (LeadRegistrationScreen.js). אותה-טבלה
+// בדיוק - מסמך-שהועלה-דרך-ליד-ספציפי מופיע-גם-כאן. העלאה-כללית
+// (category חופשי, בלי contact_department_id/requirement_id).
+function ContactDocumentsTab({ contactId, documents, frozen }) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState('');
+  const [category, setCategory] = useState('');
+  const router = useRouter();
+
+  function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError('');
+    const formData = new FormData();
+    formData.set('file', file);
+    formData.set('category', category);
+    startTransition(async () => {
+      const res = await uploadContactDocument(contactId, formData);
+      if (res?.error) { setError(res.error); return; }
+      setCategory('');
+      router.refresh();
+    });
+    e.target.value = '';
+  }
+
+  function handleView(filePath) {
+    startTransition(async () => {
+      const res = await getSignedContactFileUrl(contactId, filePath);
+      if (res?.url) window.open(res.url, '_blank', 'noopener,noreferrer');
+    });
+  }
+
+  return (
+    <div>
+      {documents.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--k-text-muted)', marginBottom: 10 }}>אין מסמכים</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+          {documents.map((d) => (
+            <button
+              key={d.id} type="button" onClick={() => handleView(d.file_path)} disabled={isPending}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 13,
+                background: 'var(--k-surface)', color: 'var(--k-text)', cursor: 'pointer', textAlign: 'start',
+              }}
+            >
+              <span>📎 {d.original_filename || 'קובץ'}</span>
+              <span style={{ fontSize: 11, color: 'var(--k-text-muted)' }}>
+                {d.category || (d.requirement_id ? 'מסמך רישום' : 'מסמך כללי')} · {new Date(d.uploaded_at).toLocaleDateString('he-IL')}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {!frozen && (
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            value={category} onChange={(e) => setCategory(e.target.value)}
+            placeholder="סוג מסמך (אופציונלי)"
+            style={{ border: '1px solid var(--k-border)', borderRadius: 6, padding: '6px 10px', fontSize: 12.5, width: 160 }}
+          />
+          <label
+            style={{
+              border: '1px solid var(--k-border)', borderRadius: 6, padding: '6px 14px', fontSize: 12.5,
+              cursor: isPending ? 'default' : 'pointer', background: 'var(--k-surface)', color: 'var(--k-text)', opacity: isPending ? 0.6 : 1,
+            }}
+          >
+            {isPending ? 'מעלה...' : '+ העלאת מסמך'}
+            <input type="file" onChange={handleFileChange} disabled={isPending} style={{ display: 'none' }} />
+          </label>
+          {error && <span style={{ fontSize: 11.5, color: 'var(--k-danger-text)' }}>{error}</span>}
+        </div>
       )}
     </div>
   );

@@ -42,7 +42,7 @@ export default async function LeadWorkPage({ params }) {
     );
   }
 
-  const { supabase, deptRow, department, props, courses, checklist, courseTracks, pipeline } = ctx;
+  const { supabase, deptRow, department, props, courses, checklist, courseTracks, formFields, pipeline } = ctx;
 
   const [{ data: playbookItems }, { data: sendConnections }, { data: emailTemplates }] = await Promise.all([
     supabase.from('reference_content').select('id, course_id, tag, title, body').eq('kind', 'playbook').eq('is_active', true).order('sort_order'),
@@ -105,6 +105,7 @@ export default async function LeadWorkPage({ params }) {
       courses={courses}
       checklist={checklist}
       courseTracks={courseTracks}
+      formFields={formFields}
       playbookItems={playbookItems || []}
       whatsappTemplates={props.whatsappTemplates}
       emailTemplates={emailTemplates || []}

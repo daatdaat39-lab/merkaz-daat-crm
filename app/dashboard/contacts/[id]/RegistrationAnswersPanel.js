@@ -1,9 +1,10 @@
 'use client';
 
-// תצוגה קריאה-בלבד של תשובות לשאלות-רישום (course_registration_questions +
-// lead_conversion_checklist.registration_answers, migration 0177) - אותו
+// תצוגה קריאה-בלבד של תשובות לשדות-טופס-הקורס (course_form_fields +
+// lead_conversion_checklist.registration_answers, migration 0182) - אותו
 // דפוס בדיוק כמו CoursePurchasesPanel (ליד-ו). עריכה תמיד דרך מסך-הרישום
-// הייעודי (LeadRegistrationScreen.js) - כאן רק-תצוגה, בלי-כפתורי-פעולה.
+// הייעודי (LeadRegistrationScreen.js) או הצ'יפים ב-LeadFormFieldsQuickFill.js
+// במסך-הטיפול-הראשי - כאן רק-תצוגה, בלי-כפתורי-פעולה.
 // מציג רק-שאלות-עם-תשובה-לא-ריקה (עקרון "לא צריך לראות הכל תמיד").
 export default function RegistrationAnswersPanel({ questions = [], answers = {} }) {
   const answered = questions.filter((q) => {

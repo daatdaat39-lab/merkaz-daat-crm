@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { loadLeadCoreContext } from '../loadLeadCoreContext';
 import LeadRegistrationScreen from '../LeadRegistrationScreen';
+import { findPossiblePaymentMatch } from '../leadChecklistActions';
 
 // מסך-רישום נפרד (route חדש) - "שלב 2" של טיפול-בליד: טפסים/תשלומים/
 // חתימות + אישור-המרה מפורש. נגיש-תמיד מ-LeadWorkScreen (קישור "מעבר
@@ -39,7 +40,7 @@ export default async function LeadRegistrationPage({ params }) {
     );
   }
 
-  const { supabase, deptRow, department, props, courses, checklist, courseTracks, registrationQuestions, pipeline } = ctx;
+  const { supabase, deptRow, department, props, courses, checklist, courseTracks, formFields, pipeline, uploadedDocuments } = ctx;
   const selectedCourse = courses.find((c) => c.id === department.courseId);
 
   // נטענים-כאן (לא-בליבה-המשותפת) - נדרשים-רק-למסך-הזה (כפתורי "שלח
@@ -50,6 +51,14 @@ export default async function LeadRegistrationPage({ params }) {
     supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
     supabase.from('course_purchases').select('id, created_at, cohort_label').eq('contact_department_id', departmentId).neq('status', 'cancelled').maybeSingle(),
   ]);
+
+  // רמז-התאמת-תשלום רך (לא-אישור-אוטומטי) - קריאה-בלבד, ר' תיעוד
+  // ב-findPossiblePaymentMatch עצמה. מתבצעת רק-כש-יש-סכום-להשוות-אליו.
+  const paymentMatch = await findPossiblePaymentMatch(
+    props.contact.id,
+    deptRow.created_at,
+    checklist?.payment_total_amount ?? selectedCourse?.price
+  );
 
   return (
     <LeadRegistrationScreen
@@ -62,8 +71,10 @@ export default async function LeadRegistrationPage({ params }) {
       workspaceName={deptRow.workspaces?.name}
       selectedCourse={selectedCourse}
       courseTracks={courseTracks}
-      registrationQuestions={registrationQuestions}
+      formFields={formFields}
+      uploadedDocuments={uploadedDocuments}
       checklist={checklist}
+      paymentMatch={paymentMatch}
       existingPurchase={existingPurchase}
       wonStageLabel={pipeline.wonStage ? (pipeline.labels[pipeline.wonStage] || pipeline.wonStage) : null}
       sendConnections={sendConnections || []}
