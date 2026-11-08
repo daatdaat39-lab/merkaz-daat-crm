@@ -5,6 +5,7 @@ import { getPipeline } from './lib/pipelines';
 import { randomPraise } from './components/celebrate';
 import QuickAssignSelect from './QuickAssignSelect';
 import { isManagerOfWorkspace } from './lib/contactGuards';
+import { startOfIsraelDay, israelYmd } from './lib/time';
 import { kpiTile, sectionLabel } from './components/designTokens';
 import { BellIcon, CalendarIcon, WarningIcon, DotIcon, HourglassIcon, MoonIcon, CreditCardIcon, InfoIcon, InboxDownIcon, CoinsIcon } from './components/icons';
 
@@ -32,9 +33,9 @@ export default async function DashboardHome() {
   const workspaceId = profile?.current_workspace_id;
   const pipeline = await getPipeline(supabase, profile?.workspaces?.name);
 
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1).toISOString();
+  // "היום"/"אתמול" לפי שעון ישראל - השרת רץ ב-UTC, ובלי זה היום נחתך ב-02:00-03:00
+  const todayStart = startOfIsraelDay();
+  const yesterdayStart = startOfIsraelDay(new Date(), -1);
   const [{ count: outreachToday }, { count: outreachYesterday }] = await Promise.all([
     supabase.from('sent_whatsapp').select('id', { count: 'exact', head: true }).eq('sent_by', user.id).eq('direction', 'out').gte('sent_at', todayStart),
     supabase.from('sent_whatsapp').select('id', { count: 'exact', head: true }).eq('sent_by', user.id).eq('direction', 'out').gte('sent_at', yesterdayStart).lt('sent_at', todayStart),
@@ -48,9 +49,10 @@ export default async function DashboardHome() {
 
   let totalContactsCount = 0;
   let newThisWeekCount = 0;
-  let workspaceContacts = [];
+  let stageCountByKey = {};
   let meetings = [];
-  let openTasks = [];
+  let openTasksTotal = 0;
+  let meetingsTotal = 0;
   let upcomingCharges = [];
   let endingSoon = [];
   let creditIssues = [];
@@ -64,24 +66,30 @@ export default async function DashboardHome() {
 
   if (workspaceId) {
     const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const [{ count: totalCount }, { count: newCount }, { data: wc }, { data: m }, { data: t }] = await Promise.all([
+    // כל המספרים כאן הם ספירות מדויקות ב-DB (head count) ולא ספירה ב-JS על שורות
+    // שחתוכות ל-1,000. פילוח השלבים סופר רק תהליכים אמיתיים (opened_process, מאושרים).
+    const [{ count: totalCount }, { count: newCount }, stageResults, { data: m }, { count: openTasksCount }, { count: meetingsCount }] = await Promise.all([
       supabase.from('contacts').select('id', { count: 'exact', head: true }),
       supabase.from('contacts').select('id', { count: 'exact', head: true }).gte('created_at', weekAgoIso),
-      supabase.from('contact_departments').select('stage').eq('workspace_id', workspaceId),
+      Promise.all(pipeline.order.map((st) => supabase
+        .from('contact_departments').select('id', { count: 'exact', head: true })
+        .eq('workspace_id', workspaceId).eq('opened_process', true).eq('approval_status', 'approved').eq('stage', st))),
       supabase
         .from('meetings')
         .select('id, meeting_date, meeting_time, title, contacts(first,last)')
         .eq('workspace_id', workspaceId)
-        .gte('meeting_date', new Date().toISOString().slice(0, 10))
+        .gte('meeting_date', israelYmd())
         .order('meeting_date', { ascending: true })
         .limit(5),
-      supabase.from('tasks').select('id').eq('workspace_id', workspaceId).eq('done', false),
+      supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).eq('done', false),
+      supabase.from('meetings').select('id', { count: 'exact', head: true }).eq('workspace_id', workspaceId).gte('meeting_date', israelYmd()),
     ]);
     totalContactsCount = totalCount || 0;
     newThisWeekCount = newCount || 0;
-    workspaceContacts = wc || [];
+    stageCountByKey = Object.fromEntries(pipeline.order.map((st, i) => [st, stageResults[i]?.count || 0]));
     meetings = m || [];
-    openTasks = t || [];
+    openTasksTotal = openTasksCount || 0;
+    meetingsTotal = meetingsCount || 0;
 
     // חיובי הוראת קבע קרובים (7 ימים) - רק למחלקת תרומות. extra_fields
     // הוא jsonb בלי אינדקס תאריך, אז מסננים/ממיינים בקוד אחרי שליפה
@@ -171,15 +179,15 @@ export default async function DashboardHome() {
   }
 
   const stageCounts = pipeline.order.reduce((acc, s) => {
-    acc[s] = workspaceContacts.filter((c) => c.stage === s).length;
+    acc[s] = stageCountByKey[s] || 0;
     return acc;
   }, {});
 
   const statCards = [
     { label: 'סה"כ אנשי קשר', value: totalContactsCount },
     { label: 'חדשים השבוע', value: newThisWeekCount },
-    { label: 'משימות פתוחות', value: openTasks.length },
-    { label: 'פגישות קרובות', value: meetings.length },
+    { label: 'משימות פתוחות', value: openTasksTotal },
+    { label: 'פגישות קרובות', value: meetingsTotal },
   ];
 
   return (

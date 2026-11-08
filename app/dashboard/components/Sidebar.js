@@ -8,7 +8,7 @@ import LogoutButton from './LogoutButton';
 import {
   UsersIcon, CheckSquareIcon, TargetIcon, TicketIcon,
   WhatsAppIcon, MailIcon, PhoneIcon, SettingsGearIcon,
-  LockIcon, LogoutIcon,
+  LockIcon, LogoutIcon, BarChartIcon,
 } from './icons';
 
 // פריטים שהוסתרו-במכוון מהניווט (סבב-ניקוי "המערכת-עדיין-לא-פעילה") -
@@ -62,6 +62,7 @@ export default function Sidebar({
   currentWorkspaceId,
   switchWorkspaceAction,
   logoutAction,
+  showReports = false,
 }) {
   const [wsOpen, setWsOpen] = useState(false);
   const pathname = usePathname();
@@ -222,7 +223,13 @@ export default function Sidebar({
 
       {/* ניווט */}
       <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 8px 4px' }}>
-        {NAV_SECTIONS.map((section) => (
+        {NAV_SECTIONS.map((baseSection) => {
+          // "דוחות" מוצג למנהלים בלבד (owner/admin באחת המחלקות) - ר' reports/page.js
+          // שמפנה החוצה כל מי שאינו מנהל של המחלקה הנוכחית.
+          const section = baseSection.label === 'ניהול' && showReports
+            ? { ...baseSection, items: [{ href: '/dashboard/reports', label: 'דוחות', icon: BarChartIcon }, ...baseSection.items] }
+            : baseSection;
+          return (
           <div key={section.label} style={{ marginBottom: 6 }}>
             <div
               style={{
@@ -261,7 +268,8 @@ export default function Sidebar({
               );
             })}
           </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* כרטיס משתמש */}

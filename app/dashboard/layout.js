@@ -181,6 +181,7 @@ export default async function DashboardLayout({ children, modal }) {
         currentWorkspaceId={currentWorkspaceId}
         switchWorkspaceAction={switchWorkspace}
         logoutAction={handleLogout}
+        showReports={(memberships || []).some((m) => m.role === 'owner' || m.role === 'admin')}
       />
       <div className="app-main">
         <Topbar
