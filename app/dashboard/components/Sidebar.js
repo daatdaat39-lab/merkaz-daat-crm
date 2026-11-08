@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { WS_COLORS } from './ui';
 import LogoutButton from './LogoutButton';
+import { BRAND } from '../../../lib/brand';
 import {
   UsersIcon, CheckSquareIcon, TargetIcon, TicketIcon,
   WhatsAppIcon, MailIcon, PhoneIcon, SettingsGearIcon,
@@ -124,11 +125,11 @@ export default function Sidebar({
             flexShrink: 0,
           }}
         >
-          ד
+          {BRAND.mark}
         </div>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 600 }}>מרכז דעת</div>
-          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>CRM</div>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>{BRAND.name}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{BRAND.subtitle}</div>
         </div>
       </div>
 

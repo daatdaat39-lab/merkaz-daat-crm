@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../lib/supabase/client';
 import { startLoginOtp } from './actions';
+import AuthCard, { AuthError, authInputStyle, authLabelStyle, authPrimaryButtonStyle } from '../components/AuthCard';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -50,27 +51,15 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
-      <form onSubmit={handleLogin} style={{
-        background: '#FFFDF6', border: '1px solid #DFD2AC', borderRadius: 12,
-        padding: 32, width: 340, boxShadow: '0 6px 18px rgba(36,31,24,.08)',
-      }}>
-        <h1 style={{ fontFamily: 'var(--font-heading)', textAlign: 'center', marginTop: 0 }}>מרכז דעת</h1>
-        <p style={{ textAlign: 'center', color: '#6B6151', fontSize: 13, marginTop: -8 }}>התחברות למערכת</p>
-        <label style={{ fontSize: 12, color: '#6B6151' }}>אימייל</label>
-        <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-          style={{ width: '100%', padding: 10, margin: '6px 0 14px', borderRadius: 7, border: '1px solid #DFD2AC' }} />
-        <label style={{ fontSize: 12, color: '#6B6151' }}>סיסמה</label>
-        <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
-          style={{ width: '100%', padding: 10, margin: '6px 0 18px', borderRadius: 7, border: '1px solid #DFD2AC' }} />
-        {error && <div style={{ color: '#9C4A3C', fontSize: 12.5, marginBottom: 12 }}>{error}</div>}
-        <button type="submit" disabled={loading} style={{
-          width: '100%', padding: 11, borderRadius: 8, border: 'none',
-          background: '#1F4A41', color: '#fff', fontWeight: 600, cursor: 'pointer',
-        }}>
-          {loading ? 'מתחבר/ת...' : 'התחברות'}
-        </button>
-      </form>
-    </div>
+    <AuthCard title="התחברות למערכת" onSubmit={handleLogin}>
+      <label htmlFor="email" style={authLabelStyle}>אימייל</label>
+      <input id="email" type="email" required autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} style={authInputStyle} />
+      <label htmlFor="password" style={authLabelStyle}>סיסמה</label>
+      <input id="password" type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} style={authInputStyle} />
+      <AuthError message={error} />
+      <button type="submit" disabled={loading} style={authPrimaryButtonStyle(loading)}>
+        {loading ? 'מתחבר/ת...' : 'התחברות'}
+      </button>
+    </AuthCard>
   );
 }

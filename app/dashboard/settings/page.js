@@ -9,26 +9,27 @@ import { isKesherConfigured } from '../../../lib/kesher/client';
 import { isInforuConfigured, isInforuWebhookConfigured } from '../../../lib/inforu/whatsapp';
 import { isHallo015Configured } from '../../../lib/hallo015/config';
 import { isClickToDialConfigured } from '../../../lib/hallo015/clickToDial';
+import { UsersIcon, BarChartIcon, SearchIcon, InboxDownIcon, SettingsGearIcon, MailIcon, CheckSquareIcon, TicketIcon, TargetIcon, PhoneIcon, RouteIcon, SparkleIcon, ApprovalIcon } from '../components/icons';
 
 // managerOnly - לא-רק-תיאור-טקסטואלי: נאכף-בפועל (ר' SettingsPage) ע"י
 // סינון-הרשימה-עצמה, לא-רק-חסימה-אחרי-כניסה. "ייבוא נתונים" כולל ייצוא
 // המוני של ת"ז - למנהלים בלבד (גם העמוד עצמו מפנה החוצה אם אינך מנהל).
 // "ההעדפות שלי" פתוח לכולם - כך שנציג רגיל מקבל מסך הגדרות שימושי.
 const SETTINGS_LINKS = [
-  { href: '/dashboard/settings/users', icon: '👥', title: 'חברי הצוות', desc: 'ניהול משתמשים והרשאות', managerOnly: true },
-  { href: '/dashboard/settings/activity', icon: '📊', title: 'דוח פעילות נציגים', desc: 'זמן פעילות ותפוקה לכל נציג (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/duplicates', icon: '🔎', title: 'בדיקת כפליות', desc: 'סריקת אנשי קשר למיזוג כפילויות (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/import', icon: '📥', title: 'ייבוא נתונים', desc: 'ייבוא/ייצוא אנשי קשר, מערכת חיצונית, היסטוריית שיחות (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/my-preferences', icon: '⚙️', title: 'ההעדפות שלי', desc: 'תצוגה, שדות מוסתרים והעדפות אישיות' },
-  { href: '/dashboard/settings/lead-sources', icon: '📨', title: 'מקורות לידים', desc: 'חיבורי מייל לכל מחלקה, ניתוב מייל לקמפיינים, ורשימת מקורות (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/picklists', icon: '🏷', title: 'רשימות בחירה', desc: 'קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/reference-content', icon: '📋', title: 'תוכן-עזר למכירות ושירות', desc: 'תסריטי-מכירה וטיפול-בהתנגדויות, ומאגר-ידע לשירות - לפי קורס (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/courses', icon: '🎓', title: 'קטלוג קורסים', desc: 'הוספה/עריכה של קורסים - שם, מחיר, משך (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/cti-routing', icon: '☎️', title: 'ניתוב-קווים (CTI)', desc: 'מיפוי בין קו-טלפון פנימי ב-015 למחלקה, לצורך התראות-שיחה (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/pipelines', icon: '🔀', title: 'שלבי pipeline', desc: 'הוספה/עריכה/סידור שלבי התהליך לכל מחלקה (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/fields', icon: '🧩', title: 'שדות מחלקתיים', desc: 'הוספה/עריכה/סידור שדות נוספים לכל מחלקה (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/insights', icon: '💡', title: 'תובנות והצעות AI', desc: 'ניתוח מדדים אמיתיים והצעות מעשיות למחלקה (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/data-grid', icon: '🗂', title: 'ניהול נתונים מרכזי', desc: 'טבלת עריכה מהירה לכל אנשי הקשר של מחלקה - שדות בסיס, שדות נוספים ושלב (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/users', icon: UsersIcon, title: 'חברי הצוות', desc: 'ניהול משתמשים והרשאות', managerOnly: true },
+  { href: '/dashboard/settings/activity', icon: BarChartIcon, title: 'דוח פעילות נציגים', desc: 'זמן פעילות ותפוקה לכל נציג (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/duplicates', icon: SearchIcon, title: 'בדיקת כפליות', desc: 'סריקת אנשי קשר למיזוג כפילויות (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/import', icon: InboxDownIcon, title: 'ייבוא נתונים', desc: 'ייבוא/ייצוא אנשי קשר, מערכת חיצונית, היסטוריית שיחות (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/my-preferences', icon: SettingsGearIcon, title: 'ההעדפות שלי', desc: 'תצוגה, שדות מוסתרים והעדפות אישיות' },
+  { href: '/dashboard/settings/lead-sources', icon: MailIcon, title: 'מקורות לידים', desc: 'חיבורי מייל לכל מחלקה, ניתוב מייל לקמפיינים, ורשימת מקורות (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/picklists', icon: CheckSquareIcon, title: 'רשימות בחירה', desc: 'קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/reference-content', icon: TicketIcon, title: 'תוכן-עזר למכירות ושירות', desc: 'תסריטי-מכירה וטיפול-בהתנגדויות, ומאגר-ידע לשירות - לפי קורס (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/courses', icon: TargetIcon, title: 'קטלוג קורסים', desc: 'הוספה/עריכה של קורסים - שם, מחיר, משך (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/cti-routing', icon: PhoneIcon, title: 'ניתוב-קווים (CTI)', desc: 'מיפוי בין קו-טלפון פנימי ב-015 למחלקה, לצורך התראות-שיחה (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/pipelines', icon: RouteIcon, title: 'שלבי pipeline', desc: 'הוספה/עריכה/סידור שלבי התהליך לכל מחלקה (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/fields', icon: SettingsGearIcon, title: 'שדות מחלקתיים', desc: 'הוספה/עריכה/סידור שדות נוספים לכל מחלקה (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/insights', icon: SparkleIcon, title: 'תובנות והצעות AI', desc: 'ניתוח מדדים אמיתיים והצעות מעשיות למחלקה (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/data-grid', icon: ApprovalIcon, title: 'ניהול נתונים מרכזי', desc: 'טבלת עריכה מהירה לכל אנשי הקשר של מחלקה - שדות בסיס, שדות נוספים ושלב (owner/admin בלבד)', managerOnly: true },
 ];
 
 export default async function SettingsPage() {
@@ -80,7 +81,7 @@ export default async function SettingsPage() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14, marginBottom: 28 }}>
         {visibleLinks.map((item) => (
           <Link key={item.href} href={item.href} className="card-hover" style={{ ...iconBlock(), textDecoration: 'none', color: 'inherit' }}>
-            <div style={{ fontSize: 28 }}>{item.icon}</div>
+            <item.icon size={26} style={{ color: 'var(--accent)' }} />
             <div style={{ fontSize: 14, fontWeight: 600 }}>{item.title}</div>
             <div style={{ fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>{item.desc}</div>
           </Link>
