@@ -31,4 +31,6 @@ export const AUDIT_ACTION_LABELS = {
   'user.suspend': 'השבתת משתמש',
   'user.reactivate': 'הפעלת משתמש מחדש',
   'contacts.export': 'ייצוא אנשי קשר',
+  'contact.optout_set': 'סימון "לא לפנות"',
+  'contact.optout_clear': 'ביטול סימון "לא לפנות"',
 };

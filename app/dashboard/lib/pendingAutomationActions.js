@@ -11,6 +11,7 @@ import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate } from '../../../lib/inforu/whatsapp';
 import { renderTemplate, findUnresolvedPlaceholders } from './templateRender';
+import { OPTOUT_MESSAGES } from './optout';
 
 async function requireUser() {
   const supabase = createClient();
@@ -31,6 +32,12 @@ async function requireCanResolve(supabase, user, pending) {
 // על מה שהיה נכון כשהאוטומציה הופעלה). כשל בביצוע לא נבלע בשקט - מוחזר
 // כשגיאה לקורא, כדי שהנציג ידע שהאישור לא באמת יצא לפועל.
 async function executeAutomation(supabase, pending, user) {
+  // "לא לפנות" נבדק בזמן האישור (לא לפי הצילום שנשמר בהפעלת האוטומציה) -
+  // הלקוח יכול היה לבקש להפסיק בין ההפעלה לאישור.
+  const { data: optOut } = await supabase.from('contacts').select('email_optout_at, whatsapp_optout_at').eq('id', pending.contact_id).maybeSingle();
+  if (pending.action_type === 'send_whatsapp_template' && optOut?.whatsapp_optout_at) return { error: OPTOUT_MESSAGES.whatsapp };
+  if (pending.action_type === 'send_email_template' && optOut?.email_optout_at) return { error: OPTOUT_MESSAGES.email };
+
   if (pending.action_type === 'send_whatsapp_template') {
     if (!pending.contact_phone) return { error: 'לאיש הקשר אין מספר טלפון' };
     // בלי תבנית מוגדרת (או שנמחקה) לא שולחים כלום: בעבר sendWhatsAppTemplate

@@ -29,6 +29,7 @@ import ImportConflictsBanner from './ImportConflictsBanner';
 import { celebrate } from '../../components/celebrate';
 import { useFloatingWindows } from '../../components/FloatingWindows';
 import { PhoneIcon, WhatsAppIcon, MailIcon, WarningIcon } from '../../components/icons';
+import OptOutControls from './OptOutControls';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
 
@@ -207,6 +208,8 @@ export default function ContactDetailClient({
           ❄ איש הקשר מוקפא — לא ניתן לערוך, לשנות שלב, או להוסיף משימות עד הפשרה.
         </div>
       )}
+
+      <OptOutControls contact={contact} />
 
       {importConflicts.length > 0 && <ImportConflictsBanner conflicts={importConflicts} isManager={isManager} />}
 

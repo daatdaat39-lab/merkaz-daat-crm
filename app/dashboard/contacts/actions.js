@@ -9,6 +9,31 @@ import { isManagerOfAnyDepartment, isManagerOfWorkspace, isManagerOfAnyWorkspace
 import { validateDocumentFile, cleanFilename, isPathOfContact } from '../lib/documentUploads';
 import { logAudit } from '../lib/audit';
 import { findUnresolvedPlaceholders } from '../lib/templateRender';
+import { OPTOUT_MESSAGES } from '../lib/optout';
+
+// סימון/ביטול "לא לפנות" לאיש קשר, לפי ערוץ (contacts.email_optout_at /
+// whatsapp_optout_at, migration 0186). פתוח לכל מי שיש לו גישה לאיש הקשר -
+// כשלקוח מבקש להפסיק, הנציג שמדבר איתו צריך להיות מסוגל לסמן מיד, בלי
+// לחכות למנהל. כל שינוי נרשם ביומן הפעולות.
+export async function setContactOptOut(contactId, channel, enabled, note) {
+  const { supabase, user } = await requireUser();
+  const column = channel === 'email' ? 'email_optout_at' : channel === 'whatsapp' ? 'whatsapp_optout_at' : null;
+  if (!column) return { error: 'ערוץ לא תקין' };
+  if (!(await canAccessContactFiles(supabase, user.id, contactId))) return { error: 'אין לך הרשאה לאיש הקשר הזה' };
+  const frozenError = await requireNotFrozen(supabase, contactId);
+  if (frozenError) return frozenError;
+
+  const patch = { [column]: enabled ? new Date().toISOString() : null };
+  if (enabled) {
+    patch.optout_source = 'agent';
+    patch.optout_note = (note || '').toString().trim().slice(0, 200) || null;
+  }
+  const { error } = await supabase.from('contacts').update(patch).eq('id', contactId);
+  if (error) return { error: error.message };
+
+  await logAudit({ actorId: user.id, action: enabled ? 'contact.optout_set' : 'contact.optout_clear', targetType: 'contact', targetId: contactId, detail: { channel } });
+  return { success: true };
+}
 
 // רישום ביומן הביקורת בכל ייצוא המוני של אנשי קשר (ההורדה עצמה נעשית בדפדפן,
 // ולכן הלקוח מדווח כאן) - רק למנהלים, שהם היחידים שיכולים לייצא.
@@ -1374,8 +1399,9 @@ export async function sendContactEmail(contactId, workspaceId, subject, body, de
   const leftovers = [...findUnresolvedPlaceholders(subject), ...findUnresolvedPlaceholders(body)];
   if (leftovers.length) return { error: `בהודעה יש משתנה שלא הוחלף: ${leftovers[0]}` };
 
-  const { data: contact } = await supabase.from('contacts').select('email').eq('id', contactId).single();
+  const { data: contact } = await supabase.from('contacts').select('email, email_optout_at').eq('id', contactId).single();
   if (!contact?.email) return { error: 'לאיש הקשר אין כתובת מייל שמורה' };
+  if (contact.email_optout_at) return { error: OPTOUT_MESSAGES.email };
 
   const { data: connection } = await supabase
     .from('email_connections').select('email_address, refresh_token').eq('workspace_id', workspaceId).eq('purpose', 'send').single();
@@ -1405,8 +1431,9 @@ export async function sendContactWhatsApp(contactId, workspaceId, reason, templa
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
 
-  const { data: contact } = await supabase.from('contacts').select('first, phone').eq('id', contactId).single();
+  const { data: contact } = await supabase.from('contacts').select('first, phone, whatsapp_optout_at').eq('id', contactId).single();
   if (!contact?.phone) return { error: 'לאיש הקשר אין מספר טלפון שמור' };
+  if (contact.whatsapp_optout_at) return { error: OPTOUT_MESSAGES.whatsapp };
 
   // מספר-הפרמטרים בפועל של התבנית הנבחרת - לא כל התבניות בנויות אותו
   // דבר (ר' migration 0115) - ברירת מחדל 2 אם התבנית לא נמצאה ברשימה.
@@ -1439,8 +1466,9 @@ export async function sendContactWhatsAppChatMessage(contactId, workspaceId, mes
 
   if (!message?.trim()) return { error: 'יש להזין תוכן הודעה' };
 
-  const { data: contact } = await supabase.from('contacts').select('phone').eq('id', contactId).single();
+  const { data: contact } = await supabase.from('contacts').select('phone, whatsapp_optout_at').eq('id', contactId).single();
   if (!contact?.phone) return { error: 'לאיש הקשר אין מספר טלפון שמור' };
+  if (contact.whatsapp_optout_at) return { error: OPTOUT_MESSAGES.whatsapp };
 
   try {
     await sendWhatsAppChat({ phone: contact.phone, message });

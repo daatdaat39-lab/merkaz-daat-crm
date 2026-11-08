@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { pullIncomingWhatsapp } from '../../../../lib/inforu/incomingMessages';
 import { safeEqual } from '../../../../lib/security/safeEqual';
+import { flagOptOutIfKeyword } from '../../../dashboard/lib/optout';
 
 // שולף הודעות-WhatsApp-נכנסות דרך ה-Pull API של InforU (ר' lib/inforu/
 // incomingMessages.js) - חלופה-עצמאית ל-Push-webhook (app/api/webhooks/
@@ -66,6 +67,7 @@ export async function GET(request) {
       channel: item.channel,
       sent_at: item.receivedAt || new Date().toISOString(),
     });
+    await flagOptOutIfKeyword(supabase, contactId, item.message);
     processed++;
   }
 

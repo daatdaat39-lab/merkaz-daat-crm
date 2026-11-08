@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { safeEqual } from '../../../../lib/security/safeEqual';
+import { flagOptOutIfKeyword } from '../../../dashboard/lib/optout';
 
 // נקודת קצה שאליה InforUMobile שולחים POST בכל פעם שמתקבלת הודעת
 // WhatsApp נכנסת מלקוח (הוגדר ידנית מול צוות התמיכה שלהם - "Push
@@ -58,6 +59,7 @@ export async function POST(request) {
       direction: 'in',
       channel: item.Channel || null,
     });
+    await flagOptOutIfKeyword(supabase, contactId, message);
     processed++;
   }
 
