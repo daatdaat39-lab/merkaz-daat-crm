@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 
-const MOBILE_BREAKPOINT = 760;
+// מתחת ל-1100px שלוש עמודות צרות מדי (סרגל הצד ב-240px משאיר ~520px לתוכן)
+// ולכן נערמות; מעל זה - שלוש עמודות כמו בדסקטופ.
+const MOBILE_BREAKPOINT = 1100;
 
 // שלד תלת-עמודות משותף למסכי-עבודה חדשים (מכירות/שירות) - הכללה של
 // הדפוס הדו-עמודתי הקיים ב-ActiveCallPanel.js (flex 1 1 55%/45% +
@@ -30,7 +32,7 @@ export default function ThreeColumnScreen({ header, hero, right, center, left, c
   const isMobile = useIsMobile();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: isMobile ? 'auto' : 'calc(100vh - 56px)', minHeight: isMobile ? '100%' : undefined }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: isMobile ? 'auto' : 'calc(100dvh - 56px)', minHeight: isMobile ? '100%' : undefined }}>
       {header && (
         <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border, #e5e5e5)', flex: 'none' }}>
           {header}

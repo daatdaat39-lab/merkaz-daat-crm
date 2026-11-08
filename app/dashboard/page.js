@@ -200,7 +200,7 @@ export default async function DashboardHome() {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 24 }}>
         {statCards.map((s) => (
           <div key={s.label} style={kpiTile()}>
             <div style={sectionLabel}>{s.label}</div>
@@ -209,7 +209,7 @@ export default async function DashboardHome() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
         {/* פילוח לפי שלב */}
         <div style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--k-border)', fontFamily: 'var(--k-font-display)', fontSize: 16, color: 'var(--k-text)' }}>

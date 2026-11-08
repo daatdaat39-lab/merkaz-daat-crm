@@ -59,7 +59,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
   }
 
   return (
-    <div style={{
+    <div className="topbar" style={{
       background: 'var(--bg)',
       borderBottom: `1px solid var(--border)`,
       borderTop: `2px solid ${accent}`,
@@ -70,9 +70,17 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
       gap: 16,
       flexShrink: 0,
     }}>
-      <span style={{ fontSize: 15, fontWeight: 600 }}>{title}</span>
+      <button
+        type="button"
+        className="nav-toggle"
+        aria-label="פתיחת תפריט"
+        onClick={() => { document.documentElement.dataset.navOpen = '1'; }}
+      >
+        <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>☰</span>
+      </button>
+      <span className="topbar-title" style={{ fontSize: 15, fontWeight: 600 }}>{title}</span>
 
-      <div style={{ position: 'relative', width: 240 }}>
+      <div className="topbar-search" style={{ position: 'relative', width: 240 }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-secondary)',
           border: '1px solid var(--border)', borderRadius: 6, padding: '6px 12px',
@@ -140,7 +148,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
         )}
       </div>
 
-      <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div className="topbar-actions" style={{ marginInlineStart: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
         <NotConnectedButton icon={<PhoneIcon size={14} />} label="שיחות" variant="icon" message="חיבור טלפוניה — עדיין לא מחובר" />
         <button
           onClick={() => router.push('/dashboard/inbox')}
@@ -181,7 +189,7 @@ export default function Topbar({ workspaceColorIndex = 0, workspaces = [], defau
           )}
         </button>
         <AddContactForm
-          label="+ איש קשר חדש"
+          label={<><span className="hide-on-phone">+ איש קשר חדש</span><span className="only-phone" aria-label="איש קשר חדש">+</span></>}
           workspaces={workspaces}
           defaultWorkspaceId={defaultWorkspaceId}
           existingTags={existingTags}

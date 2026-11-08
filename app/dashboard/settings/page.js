@@ -11,13 +11,15 @@ import { isHallo015Configured } from '../../../lib/hallo015/config';
 import { isClickToDialConfigured } from '../../../lib/hallo015/clickToDial';
 
 // managerOnly - לא-רק-תיאור-טקסטואלי: נאכף-בפועל (ר' SettingsPage) ע"י
-// סינון-הרשימה-עצמה, לא-רק-חסימה-אחרי-כניסה. "ייבוא נתונים" נשאר-גלוי-
-// לכולם (לא-מתויג-owner/admin, שימושי-גם-לנציג-רגיל).
+// סינון-הרשימה-עצמה, לא-רק-חסימה-אחרי-כניסה. "ייבוא נתונים" כולל ייצוא
+// המוני של ת"ז - למנהלים בלבד (גם העמוד עצמו מפנה החוצה אם אינך מנהל).
+// "ההעדפות שלי" פתוח לכולם - כך שנציג רגיל מקבל מסך הגדרות שימושי.
 const SETTINGS_LINKS = [
   { href: '/dashboard/settings/users', icon: '👥', title: 'חברי הצוות', desc: 'ניהול משתמשים והרשאות', managerOnly: true },
   { href: '/dashboard/settings/activity', icon: '📊', title: 'דוח פעילות נציגים', desc: 'זמן פעילות ותפוקה לכל נציג (owner/admin בלבד)', managerOnly: true },
   { href: '/dashboard/settings/duplicates', icon: '🔎', title: 'בדיקת כפליות', desc: 'סריקת אנשי קשר למיזוג כפילויות (owner/admin בלבד)', managerOnly: true },
-  { href: '/dashboard/settings/import', icon: '📥', title: 'ייבוא נתונים', desc: 'ייבוא/ייצוא אנשי קשר, מערכת חיצונית, היסטוריית שיחות' },
+  { href: '/dashboard/settings/import', icon: '📥', title: 'ייבוא נתונים', desc: 'ייבוא/ייצוא אנשי קשר, מערכת חיצונית, היסטוריית שיחות (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/my-preferences', icon: '⚙️', title: 'ההעדפות שלי', desc: 'תצוגה, שדות מוסתרים והעדפות אישיות' },
   { href: '/dashboard/settings/lead-sources', icon: '📨', title: 'מקורות לידים', desc: 'חיבורי מייל לכל מחלקה, ניתוב מייל לקמפיינים, ורשימת מקורות (owner/admin בלבד)', managerOnly: true },
   { href: '/dashboard/settings/picklists', icon: '🏷', title: 'רשימות בחירה', desc: 'קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)', managerOnly: true },
   { href: '/dashboard/settings/reference-content', icon: '📋', title: 'תוכן-עזר למכירות ושירות', desc: 'תסריטי-מכירה וטיפול-בהתנגדויות, ומאגר-ידע לשירות - לפי קורס (owner/admin בלבד)', managerOnly: true },
@@ -85,10 +87,10 @@ export default async function SettingsPage() {
         ))}
       </div>
 
-      <WhatsAppTemplatesPanel templates={whatsappTemplates || []} />
-      <EmailTemplatesPanel templates={emailTemplates || []} />
+      {canManage && <WhatsAppTemplatesPanel templates={whatsappTemplates || []} />}
+      {canManage && <EmailTemplatesPanel templates={emailTemplates || []} />}
 
-      <div style={{ ...card(), overflow: 'hidden', marginBottom: 20 }}>
+      {canManage && <div style={{ ...card(), overflow: 'hidden', marginBottom: 20 }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 14, fontWeight: 600 }}>
           אינטגרציות
         </div>
@@ -128,7 +130,7 @@ export default async function SettingsPage() {
             )}
           </div>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }

@@ -347,7 +347,8 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
         )}
       </div>
       {!collapsed && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden' }}>
+        <div className="table-scroll">
+        <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden' }}>
           <thead>
             <tr style={{ background: 'var(--k-bg)' }}>
               <th style={{ padding: '10px 8px' }}></th>
@@ -362,6 +363,7 @@ function LeadGroup({ title, leads, agents, workspaceId, workspaceName, stages, s
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

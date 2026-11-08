@@ -71,7 +71,7 @@ export default async function ReportsPage() {
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '28px 24px' }}>
       <h1 style={{ fontFamily: 'var(--font-heading)', margin: '0 0 20px', fontSize: 20 }}>דוחות</h1>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 24 }}>
         {[
           { label: 'סה"כ אנשי קשר', value: contacts.length },
           { label: 'אחוז השלמת משימות', value: `${taskCompletionRate}%` },

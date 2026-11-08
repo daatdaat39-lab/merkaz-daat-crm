@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { WS_COLORS } from './ui';
@@ -66,13 +66,27 @@ export default function Sidebar({
   const [wsOpen, setWsOpen] = useState(false);
   const pathname = usePathname();
 
+  // מגירת הניווט בנייד (מתחת ל-900px, ר' globals.css): המצב נשמר כמאפיין
+  // data-nav-open על <html> כדי שכפתור ההמבורגר ב-Topbar (קומפוננטה אחרת)
+  // יוכל לפתוח אותה בלי context משותף. נסגרת בניווט, ב-Escape ובלחיצה על הרקע.
+  const closeNav = () => { delete document.documentElement.dataset.navOpen; };
+  useEffect(() => { closeNav(); }, [pathname]);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') closeNav(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
   const currentIndex = workspaces.findIndex((w) => w.id === currentWorkspaceId);
   const current = workspaces[currentIndex] || workspaces[0];
 
   const initials = (profile?.name || userEmail || '?').trim().slice(0, 2);
 
   return (
+    <>
+    <div className="nav-backdrop" onClick={closeNav} aria-hidden="true" />
     <aside
+      className="app-sidebar"
       style={{
         width: 240,
         borderLeft: '1px solid var(--border)',
@@ -313,5 +327,6 @@ export default function Sidebar({
         </div>
       </div>
     </aside>
+    </>
   );
 }

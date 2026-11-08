@@ -157,3 +157,69 @@ body {
   85% { opacity: 1; transform: translate(-50%, 0); }
   100% { opacity: 0; transform: translate(-50%, 10px); }
 }
+
+/* ============================================================
+   רספונסיביות - שלד המערכת (שלב 3, 8.11.2026)
+   עד עכשיו לא היה אף @media בפרויקט: סרגל הצד קבוע 240px ובטלפון נשארו
+   ~100px לתוכן. מתחת ל-900px הסרגל הופך למגירה (נפתחת מכפתור בסרגל העליון,
+   מצב הפתיחה ב-html[data-nav-open]) ושאר השלד מתכווץ. כל הכללים כאן
+   נוגעים בנראות בלבד - לא בלוגיקה.
+   ============================================================ */
+.app-shell { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
+.app-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; background: var(--bg-secondary); }
+.nav-toggle { display: none; }
+.only-phone { display: none; }
+.nav-backdrop { display: none; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.grid-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.grid-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+
+@media (max-width: 900px) {
+  .app-sidebar {
+    position: fixed !important;
+    top: 0;
+    bottom: 0;
+    inset-inline-start: 0;
+    z-index: 400;
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-width: 86vw;
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+    box-shadow: var(--shadow-md);
+    overflow-y: auto;
+  }
+  html[data-nav-open] .app-sidebar { transform: translateX(0); }
+  html[data-nav-open] .nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 26, 47, 0.45);
+    z-index: 399;
+  }
+  .nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+  }
+  .topbar { padding: 0 12px !important; gap: 8px !important; }
+  .topbar-title { display: none !important; }
+  .topbar-search { flex: 1 1 auto; width: auto !important; min-width: 0; }
+  .topbar-actions { gap: 6px !important; }
+  /* יעדי מגע נוחים לאצבע (בדסקטופ נשארים קטנים וצפופים) */
+  .topbar button, .topbar a { min-height: 40px; }
+  .page-pad { padding: 16px 12px !important; }
+}
+
+@media (max-width: 600px) {
+  .hide-on-phone { display: none !important; }
+  .only-phone { display: inline !important; font-size: 20px; line-height: 1; }
+}

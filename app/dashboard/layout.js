@@ -171,7 +171,7 @@ export default async function DashboardLayout({ children, modal }) {
 
   return (
     <FloatingWindowsProvider>
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div className="app-shell">
       <Sidebar
         profile={profile}
         userEmail={user.email}
@@ -180,7 +180,7 @@ export default async function DashboardLayout({ children, modal }) {
         switchWorkspaceAction={switchWorkspace}
         logoutAction={handleLogout}
       />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg-secondary)' }}>
+      <div className="app-main">
         <Topbar
           workspaceColorIndex={currentWorkspaceIndex}
           workspaces={allWorkspaces || []}

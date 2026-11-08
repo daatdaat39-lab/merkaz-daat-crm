@@ -119,7 +119,7 @@ export default async function ActivityReportPage() {
         זמן פעילות מבוסס על מרווח בין הכניסה הראשונה לאחרונה למערכת בכל יום — קירוב, לא מדידה מדויקת של זמן עבודה בפועל.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 20 }}>
         {kpis.map((k) => (
           <div key={k.label} style={kpiTile()}>
             <div style={sectionLabel}>{k.label}</div>

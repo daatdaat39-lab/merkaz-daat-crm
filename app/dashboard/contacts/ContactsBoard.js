@@ -177,7 +177,8 @@ export default function ContactsBoard({ contacts, allDepartments, sendConnection
           : <>מציג {visible.length} מתוך {contacts.length} אנשי קשר</>}
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden' }}>
+      <div className="table-scroll">
+      <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse', background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 14, overflow: 'hidden' }}>
         <thead>
           <tr style={{ background: 'var(--k-bg)' }}>
             {['שם', 'מחלקות', 'טלפון', 'מייל', 'מקור', 'פעולות מהירות'].map((h) => (
@@ -247,6 +248,7 @@ export default function ContactsBoard({ contacts, allDepartments, sendConnection
           )}
         </tbody>
       </table>
+      </div>
 
       {visible.length < filtered.length && (
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
