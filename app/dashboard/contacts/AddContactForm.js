@@ -13,6 +13,7 @@ const FORM_FIELDS = ['first', 'last', 'idnum', 'phone', 'phone2', 'email', 'sour
 export default function AddContactForm({
   label = '+ איש קשר חדש', modalTitle = 'איש קשר חדש',
   workspaces = [], defaultWorkspaceId = '', existingTags = [], tagGroups = null,
+  defaultPhone = '', linkWhatsappPhone = '',
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -57,7 +58,7 @@ export default function AddContactForm({
     startTransition(async () => {
       const res = await mergeResolvedLead(
         mergeCandidate.id, resolvedFields, pendingData.get('workspace_id'),
-        pendingData.get('reason'), pendingData.get('reason_note')
+        pendingData.get('reason'), pendingData.get('reason_note'), pendingData.get('link_whatsapp_phone')
       );
       if (res?.error) setError(res.error);
     });
@@ -172,10 +173,11 @@ export default function AddContactForm({
                       </select>
                     </div>
                   )}
+                  {linkWhatsappPhone && <input type="hidden" name="link_whatsapp_phone" value={linkWhatsappPhone} />}
                   <div><span style={labelStyle}>שם פרטי *</span><input name="first" required style={inputStyle} /></div>
                   <div><span style={labelStyle}>שם משפחה</span><input name="last" style={inputStyle} /></div>
                   <div><span style={labelStyle}>ת"ז</span><input name="idnum" style={inputStyle} /></div>
-                  <div><span style={labelStyle}>טלפון</span><input name="phone" style={inputStyle} /></div>
+                  <div><span style={labelStyle}>טלפון</span><input name="phone" defaultValue={defaultPhone} style={inputStyle} /></div>
                   <div><span style={labelStyle}>טלפון נוסף</span><input name="phone2" style={inputStyle} /></div>
                   <div><span style={labelStyle}>מייל</span><input name="email" type="email" style={inputStyle} /></div>
                   <div><span style={labelStyle}>מקור</span><input name="source" style={inputStyle} /></div>

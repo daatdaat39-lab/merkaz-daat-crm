@@ -13,6 +13,7 @@ import IdleLock from './components/IdleLock';
 import LogoutButton from './components/LogoutButton';
 import { FloatingWindowsProvider } from './components/FloatingWindows';
 import FloatingWindowsHost from './components/FloatingWindowsHost';
+import ModalSlotGate from './components/ModalSlotGate';
 import { groupTagsByDepartment } from './lib/tagGroups';
 import { getAllPipelines } from './lib/pipelines';
 import { getAllContactTagRows } from './lib/allContactTags';
@@ -206,7 +207,7 @@ export default async function DashboardLayout({ children, modal }) {
           )}
         </div>
       </div>
-      {modal}
+      <ModalSlotGate>{modal}</ModalSlotGate>
       <NewLeadToast workspaceId={currentWorkspaceId} />
       <ConcurrentInquiryToast workspaceId={currentWorkspaceId} userId={user.id} />
       <PendingAutomationWatcher userId={user.id} />
