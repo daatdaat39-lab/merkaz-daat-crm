@@ -114,6 +114,55 @@ export default async function ReportsPage({ searchParams }) {
   const revenueTotal = activePurchases.reduce((sum, p) => sum + (p.price == null ? 0 : Number(p.price)), 0);
   const unpricedTotal = activePurchases.filter((p) => p.price == null).length;
 
+  // ---- תנועה בין שלבים (lead_stage_events, migration 0185) ----
+  // ההיסטוריה נאספת רק מרגע שהמיגרציה רצה, ולכן המסך מציג תמיד מאיזה תאריך
+  // הנתונים קיימים. כשל בשליפה (למשל טבלה שלא קיימת) לא מפיל את הדוח.
+  let stageEvents = [];
+  try {
+    stageEvents = await fetchAllRows(() => supabase
+      .from('lead_stage_events')
+      .select('contact_department_id, from_stage, to_stage, occurred_at')
+      .eq('workspace_id', workspaceId)
+      .order('occurred_at', { ascending: true }));
+  } catch {
+    stageEvents = [];
+  }
+  const firstEventAt = stageEvents[0]?.occurred_at || null;
+  const fromMs = new Date(fromIso).getTime();
+  const arrivals = new Map();   // שלב -> כמה כניסות אליו בתקופה
+  const dwell = new Map();      // שלב -> סכום/מספר זמני שהייה לפני מעבר שקרה בתקופה
+  const wonInPeriod = new Set();
+  const toWonDurations = [];
+  const eventsByDept = new Map();
+  for (const e of stageEvents) {
+    if (!eventsByDept.has(e.contact_department_id)) eventsByDept.set(e.contact_department_id, []);
+    eventsByDept.get(e.contact_department_id).push(e);
+  }
+  for (const list of eventsByDept.values()) {
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      const t = new Date(e.occurred_at).getTime();
+      if (t < fromMs) continue;
+      arrivals.set(e.to_stage, (arrivals.get(e.to_stage) || 0) + 1);
+      if (i > 0 && e.from_stage) {
+        const spent = Math.max(0, t - new Date(list[i - 1].occurred_at).getTime());
+        const cur = dwell.get(e.from_stage) || { sum: 0, n: 0 };
+        cur.sum += spent; cur.n++;
+        dwell.set(e.from_stage, cur);
+      }
+      if (e.to_stage === pipeline.wonStage && !wonInPeriod.has(e.contact_department_id)) {
+        wonInPeriod.add(e.contact_department_id);
+        if (list[0].from_stage === null) toWonDurations.push(Math.max(0, t - new Date(list[0].occurred_at).getTime()));
+      }
+    }
+  }
+  const fmtDuration = (ms) => {
+    const hours = ms / 3600000;
+    if (hours < 48) return `${Math.round(hours)} שעות`;
+    return `${(hours / 24).toFixed(1)} ימים`;
+  };
+  const avgToWon = toWonDurations.length ? toWonDurations.reduce((a, b) => a + b, 0) / toWonDurations.length : null;
+
   const th = { textAlign: 'right', padding: '8px 14px', fontSize: 11, color: 'var(--k-text-muted)', fontWeight: 600, borderBottom: '1px solid var(--k-border)' };
   const td = { padding: '8px 14px', fontSize: 13, borderBottom: '1px solid var(--k-border)' };
 
@@ -200,6 +249,50 @@ export default async function ReportsPage({ searchParams }) {
         </div>
       </div>
 
+      <div style={card({ overflow: 'hidden', marginBottom: 14 })}>
+        <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--k-border)', fontFamily: 'var(--k-font-display)', fontSize: 16, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+          <span>תנועה בין שלבים בתקופה</span>
+          <span style={{ fontSize: 12, color: 'var(--k-text-muted)', fontFamily: 'inherit' }}>
+            {firstEventAt
+              ? `ההיסטוריה נאספת מ-${new Date(firstEventAt).toLocaleDateString('he-IL', { timeZone: 'Asia/Jerusalem' })}`
+              : 'ההיסטוריה התחילה להיאסף - עדיין לא נרשמו מעברים'}
+          </span>
+        </div>
+        {stageEvents.length === 0 ? (
+          <div style={{ padding: 18, fontSize: 13, color: 'var(--k-text-muted)' }}>
+            כל שינוי שלב מעכשיו נרשם עם התאריך. כאן יופיעו כמה לידים הגיעו לכל שלב, כמה נרשמו בפועל בתקופה, וכמה זמן ליד שוהה בכל שלב.
+          </div>
+        ) : (
+          <>
+            <div className="grid-kpi" style={{ padding: 14 }}>
+              <div style={kpiTile({ boxShadow: 'none' })}>
+                <div style={sectionLabel}>נרשמו בתקופה (לפי תאריך המעבר)</div>
+                <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 26, marginTop: 8 }}>{num(wonInPeriod.size)}</div>
+              </div>
+              <div style={kpiTile({ boxShadow: 'none' })}>
+                <div style={sectionLabel}>זמן ממוצע מכניסה לרישום</div>
+                <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 26, marginTop: 8 }}>{avgToWon == null ? '—' : fmtDuration(avgToWon)}</div>
+              </div>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead><tr><th style={th}>שלב</th><th style={th}>כניסות לשלב בתקופה</th><th style={th}>זמן ממוצע בשלב לפני מעבר</th></tr></thead>
+              <tbody>
+                {stageKeys.filter((s) => arrivals.get(s) || dwell.get(s)).map((s) => {
+                  const d = dwell.get(s);
+                  return (
+                    <tr key={s}>
+                      <td style={td}>{pipeline.labels[s] || s}</td>
+                      <td style={td}>{num(arrivals.get(s) || 0)}</td>
+                      <td style={td}>{d ? `${fmtDuration(d.sum / d.n)} (${d.n === 1 ? 'מעבר אחד' : `${num(d.n)} מעברים`})` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
+
       <div className="grid-panels" style={{ marginBottom: 14 }}>
         <div style={card({ overflow: 'hidden' })}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--k-border)', fontFamily: 'var(--k-font-display)', fontSize: 16 }}>
@@ -261,7 +354,8 @@ export default async function ReportsPage({ searchParams }) {
           <li><b>נרשמו / אחוז המרה</b> - מתוך הלידים שנפתחו בתקופה, כמה נמצאים היום בשלב ההצלחה ({pipeline.labels[pipeline.wonStage] || '—'}). זו מדידת קוהורטה: לידים חדשים שעוד בתהליך מורידים את האחוז זמנית.</li>
           <li><b>ללא טיפול מעל 24 שעות</b> - תהליכים פעילים בשלב ליד (לא כל תקופה) שהפעילות האחרונה בהם לפני יותר מ-24 שעות.</li>
           <li><b>הרשמות והכנסות</b> - רכישות קורס שנוצרו בתקופה, בלי מבוטלות. הכנסה = המחיר שנרשם בהרשמה; הרשמה בלי מחיר נספרת אבל לא מוסיפה לסכום.</li>
-          <li><b>עדיין לא נמדד:</b> זמן תגובה ראשונה לליד, מועד המעבר בין שלבים (כך שאין עדיין &quot;כמה נרשמו השבוע&quot; לפי תאריך ההרשמה עצמו), תוצאות פגישות ואיכות שיחות. הנתונים האלה לא נשמרו עד היום - אפשר להתחיל לאסוף אותם.</li>
+          <li><b>תנועה בין שלבים</b> - מתוך היסטוריית מעברי השלבים (lead_stage_events), שנאספת מהרגע שהופעלה ואינה כוללת מעברים מלפני כן. &quot;נרשמו בתקופה&quot; סופר לידים שעברו לשלב ההצלחה בתקופה, לפי תאריך המעבר עצמו. &quot;זמן בשלב&quot; = הזמן מהכניסה לשלב ועד המעבר הבא, רק למעברים שקרו בתקופה.</li>
+          <li><b>עדיין לא נמדד:</b> זמן תגובה ראשונה לליד, תוצאות פגישות ואיכות שיחות. הנתונים האלה לא נשמרים עדיין.</li>
         </ul>
       </details>
     </div>
