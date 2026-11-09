@@ -3,6 +3,7 @@
 import { useState, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { celebrate } from '../../components/celebrate';
+import TranscriptView from '../../components/TranscriptView';
 import { addTask } from '../../tasks/actions';
 import { updateDepartmentExtraField, uploadContactDocument, getSignedContactFileUrl } from '../actions';
 import { isProcessConcluded } from '../../lib/pipelineVisibility';
@@ -453,7 +454,7 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                 {c.transcript && canHearRecording(c) && (
                   <details style={{ marginTop: 6 }}>
                     <summary style={{ fontSize: 11, color: 'var(--k-text-muted)', cursor: 'pointer' }}>📝 תמלול</summary>
-                    <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 4, whiteSpace: 'pre-wrap' }}>{c.transcript}</div>
+                    <TranscriptView text={c.transcript} style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 4 }} />
                   </details>
                 )}
               </div>

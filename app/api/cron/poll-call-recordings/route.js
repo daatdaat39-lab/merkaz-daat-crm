@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { listRecordings, getRecordingAudio, isRecordingsApiConfigured } from '../../../../lib/hallo015/recordings';
-import { transcribeAudio, isTranscriptionConfigured } from '../../../../lib/groq/transcribe';
+import { transcribeAudio, transcribeAudioSegments, isTranscriptionConfigured } from '../../../../lib/groq/transcribe';
+import { buildSpeakerTranscript, NO_SPEECH_MARKER } from '../../../../lib/groq/speakerTranscript';
 import { normalizePhone } from '../../../../lib/hallo015/config';
 import { safeEqual } from '../../../../lib/security/safeEqual';
+
+// תמלול דוברים = שתי קריאות API לכל שיחה, לכן יותר זמן לפונקציה ופחות שיחות בריצה
+export const maxDuration = 60;
+const MAX_PER_RUN = 6;
+const TIME_BUDGET_MS = 40_000;
 
 // "השעון" שמתקן שתי-בעיות-בזו-אחר-זו (שתי-פאזות, לא שני-cron-נפרדים -
 // תמלול-מיד-אחרי-תיקון-הקלטה-חדשה, בלי-להמתין-לריצה-הבאה):
@@ -113,22 +119,49 @@ export async function GET(request) {
     }
   }
 
-  // פאזה ב' - תמלול
+  // פאזה ב' - תמלול (לפי דוברים; נפילה חזרה לתמלול רגיל אם הפיצול לא אפשרי)
+  //
+  // מצבי הפעלה (כולם מאחורי אותו CRON_SECRET):
+  //   ברירת מחדל        - שיחות שעדיין בלי תמלול (עד 6 בריצה: תמלול דוברים כולל
+  //                        שתי קריאות API לשיחה, ויש תקרת זמן לפונקציה)
+  //   ?redo=<id>         - תמלול מחדש לשיחה אחת (מחליף את התמלול הקיים)
+  //   ?redoOld=<n>       - תמלול מחדש ל-n שיחות ישנות שעדיין בפורמט הישן (בלי
+  //                        "נציג:/לקוח:"), מהחדשות לישנות. עד 6 בריצה.
   if (!isTranscriptionConfigured()) {
     result.transcriptionError = 'תמלול לא מוגדר בשרת (GROQ_API_KEY) - מדלג על תמלול';
   } else {
     try {
-      const { data: untranscribed } = await supabase
+      const url = new URL(request.url);
+      const redoId = url.searchParams.get('redo');
+      const redoOld = Math.min(Math.max(parseInt(url.searchParams.get('redoOld') || '0', 10) || 0, 0), MAX_PER_RUN);
+
+      let query = supabase
         .from('phone_calls')
         .select('id, recording_url')
         .not('recording_url', 'is', null)
         .ilike('recording_url', '%supabase%')
-        .is('transcript', null)
-        .order('started_at', { ascending: false })
-        .limit(20);
+        .order('started_at', { ascending: false });
+      if (redoId) {
+        query = query.eq('id', redoId).limit(1);
+      } else if (redoOld > 0) {
+        query = query.not('transcript', 'is', null)
+          .not('transcript', 'like', 'נציג:%')
+          .not('transcript', 'like', 'לקוח:%')
+          .not('transcript', 'like', `${NO_SPEECH_MARKER}%`)
+          .limit(redoOld);
+      } else {
+        query = query.is('transcript', null).limit(MAX_PER_RUN);
+      }
+      const { data: queue } = await query;
 
+      result.mode = redoId ? 'redo' : redoOld > 0 ? 'redoOld' : 'new';
       result.transcriptionFailureSample = [];
-      for (const call of untranscribed || []) {
+      result.speakerStats = [];
+      const startedAt = Date.now();
+
+      for (const call of queue || []) {
+        // לא מתחילים שיחה חדשה כשכמעט נגמר הזמן של הפונקציה - תמשיך בריצה הבאה
+        if (Date.now() - startedAt > TIME_BUDGET_MS) { result.stoppedForTime = true; break; }
         try {
           const audioRes = await fetch(call.recording_url);
           if (!audioRes.ok) {
@@ -137,14 +170,22 @@ export async function GET(request) {
             continue;
           }
           const bytes = Buffer.from(await audioRes.arrayBuffer());
-          const transcript = await transcribeAudio(bytes, 'audio/wav');
-          if (transcript) {
-            await supabase.from('phone_calls').update({ transcript }).eq('id', call.id);
+          const { text, method, stats, agentChannel, roleSource } = await transcribeCall(bytes);
+          if (text) {
+            await supabase.from('phone_calls').update({ transcript: text }).eq('id', call.id);
             result.transcribed++;
+            const counterKey = method === 'speakers' ? 'transcribedBySpeakers' : 'transcribedPlain';
+            result[counterKey] = (result[counterKey] || 0) + 1;
+            if (stats && result.speakerStats.length < 5) result.speakerStats.push({ id: call.id, ...stats, agentChannel, roleSource });
           } else {
             result.transcriptionsFailed++;
           }
         } catch (err) {
+          if (err.groqStatus === 429) {
+            // מגבלת קצב אצל Groq - עוצרים את הריצה (לא מסמנים כשל), הריצה הבאה תמשיך
+            result.rateLimited = true;
+            break;
+          }
           console.error('poll-call-recordings: תמלול נכשל עבור call', call.id, err.message);
           result.transcriptionsFailed++;
           if (result.transcriptionFailureSample.length < 3) result.transcriptionFailureSample.push({ id: call.id, stage: 'transcribe', error: err.message });
@@ -156,4 +197,21 @@ export async function GET(request) {
   }
 
   return NextResponse.json({ success: true, result });
+}
+
+// תמלול שיחה אחת: קודם לפי דוברים (פיצול ערוצים); אם ההקלטה אינה סטריאו/פורמט לא
+// נתמך, או שהצינור נכשל מסיבה שאינה מגבלת קצב - חוזרים לתמלול הרגיל כדי שלא
+// נאבד תמלול שהיה עובד היום.
+async function transcribeCall(bytes) {
+  try {
+    const out = await buildSpeakerTranscript(bytes, { transcribeSegments: (wav) => transcribeAudioSegments(wav, 'audio/wav') });
+    if (!out.unsupported && out.text) {
+      return { text: out.text, method: 'speakers', stats: out.stats, agentChannel: out.agentChannel, roleSource: out.roleSource };
+    }
+  } catch (err) {
+    if (err.groqStatus === 429) throw err;
+    console.error('poll-call-recordings: תמלול דוברים נכשל, חוזר לתמלול רגיל:', err.message);
+  }
+  const text = await transcribeAudio(bytes, 'audio/wav');
+  return { text, method: 'plain' };
 }

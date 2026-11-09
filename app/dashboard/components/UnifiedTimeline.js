@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { collapseConsecutiveCalls, phoneCallKey } from '../lib/collapseCalls';
+import TranscriptView from './TranscriptView';
 
 // ציר-זמן מאוחד אמיתי (לא כמו טאב "פעילות" הקיים ב-ContactTabs.js, שהוא 7
 // רשימות נפרדות-לפי-סוג, כל אחת ממוינת בנפרד) - שלב 2 ממודול מכירות/שירות.
@@ -103,7 +104,7 @@ function buildTimelineItems({ inquiries = [], sentEmails = [], sentWhatsapp = []
     items.push({
       type: 'phone_call', occurredAt: c.started_at,
       summary: (<><span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? 'יוצאת' : 'נכנסת'}</span><span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>{c.duration_seconds ? <span style={{ color: 'var(--text-secondary)' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}{c.__count > 1 ? <span style={{ color: 'var(--text-secondary)' }}> ×{c.__count}</span> : null}</>),
-      full: (<><span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? 'יוצאת' : 'נכנסת'}</span><span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>{c.duration_seconds ? <span style={{ color: 'var(--text-secondary)' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}{c.__count > 1 ? <span style={{ color: 'var(--text-secondary)' }}> ×{c.__count}</span> : null}{audible && <div style={{ marginTop: 6 }}><audio controls src={c.recording_url} style={{ height: 32, maxWidth: '100%' }} /></div>}{audible && c.transcript && <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>📝 {c.transcript}</div>}</>),
+      full: (<><span style={{ fontWeight: 600 }}>{c.direction === 'outbound' ? 'יוצאת' : 'נכנסת'}</span><span> · {c.answered ? 'נענתה' : 'לא נענתה'}</span>{c.duration_seconds ? <span style={{ color: 'var(--text-secondary)' }}> · {Math.round(c.duration_seconds / 60)} דק'</span> : null}{c.__count > 1 ? <span style={{ color: 'var(--text-secondary)' }}> ×{c.__count}</span> : null}{audible && <div style={{ marginTop: 6 }}><audio controls src={c.recording_url} style={{ height: 32, maxWidth: '100%' }} /></div>}{audible && c.transcript && <TranscriptView text={c.transcript} style={{ marginTop: 6, fontSize: 12, color: 'var(--text-secondary)' }} />}</>),
       hasMore: Boolean(audible || (canHearRecording(c) && c.transcript)),
     });
   }

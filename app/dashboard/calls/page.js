@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { initials } from '../components/ui';
 import { isManagerOfAnyWorkspace } from '../lib/contactGuards';
 import { collapseConsecutiveCalls, phoneCallKey } from '../lib/collapseCalls';
+import TranscriptView from '../components/TranscriptView';
 
 // 015 שולחת direction כ-"inbound"/"outbound" (אומת מריצה חיה - לא
 // "in"/"out" כמו שהונח בהתחלה).
@@ -104,7 +105,7 @@ export default async function CallsPage() {
               {c.transcript && (
                 <details style={{ marginTop: 6 }}>
                   <summary style={{ fontSize: 11.5, color: 'var(--text-secondary)', cursor: 'pointer' }}>📝 תמלול</summary>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, whiteSpace: 'pre-wrap' }}>{c.transcript}</div>
+                  <TranscriptView text={c.transcript} style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }} />
                 </details>
               )}
             </div>
