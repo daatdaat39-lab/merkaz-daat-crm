@@ -215,6 +215,8 @@ export default function LeadTableRow({ contact: c, agents, workspaceId, workspac
                   sendConnections={sendConnections}
                   whatsappTemplates={whatsappTemplates}
                   emailTemplates={emailTemplates}
+                  stageKey={c.stage}
+                  courseId={c.courseId || null}
                 />
               </div>
             )}

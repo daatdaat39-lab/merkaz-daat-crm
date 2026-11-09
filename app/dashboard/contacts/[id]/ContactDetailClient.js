@@ -525,6 +525,8 @@ export default function ContactDetailClient({
           toAddress={contact.email}
           firstName={contact.first}
           templates={emailTemplates || []}
+          stageKey={active?.stage || null}
+          courseId={active?.courseId || null}
           onClose={() => setComposeOpen(false)}
         />
       )}
@@ -537,6 +539,8 @@ export default function ContactDetailClient({
           reason={active?.inquiries?.[0]?.reason}
           thread={active ? (sentWhatsapp || []).filter((w) => w.workspace_id === active.workspaceId) : (sentWhatsapp || [])}
           templates={whatsappTemplates || []}
+          stageKey={active?.stage || null}
+          courseId={active?.courseId || null}
           onClose={() => setWhatsappOpen(false)}
           initialMessage={whatsappInitialMessage}
         />

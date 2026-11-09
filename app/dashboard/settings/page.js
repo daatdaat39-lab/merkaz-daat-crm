@@ -4,6 +4,7 @@ import Link from 'next/link';
 import NotConnectedButton from '../components/NotConnectedButton';
 import WhatsAppTemplatesPanel from './WhatsAppTemplatesPanel';
 import EmailTemplatesPanel from './EmailTemplatesPanel';
+import { TemplateCoverage } from './TemplateTargeting';
 import { card, iconBlock, sectionLabel } from '../components/designTokens';
 import { isKesherConfigured } from '../../../lib/kesher/client';
 import { isInforuConfigured, isInforuWebhookConfigured } from '../../../lib/inforu/whatsapp';
@@ -61,8 +62,31 @@ export default async function SettingsPage() {
 
   const visibleLinks = SETTINGS_LINKS.filter((item) => !item.managerOnly || canManage);
 
-  const { data: whatsappTemplates } = await supabase.from('whatsapp_templates').select('id, name, template_id, preview_text, param_count, sort_order').order('sort_order').order('created_at');
-  const { data: emailTemplates } = await supabase.from('email_templates').select('id, name, subject, body').order('created_at');
+  // תבניות + נתוני השיוך שלהן (מחלקה/שלב/קורס) - נטענים רק למנהלים, כי רק הם רואים את הפאנלים
+  let whatsappTemplates = [];
+  let emailTemplates = [];
+  let templateWorkspaces = [];
+  let stagesByWorkspace = {};
+  let templateCourses = [];
+  if (canManage) {
+    const [wa, em, ws, stages, courses, myManagerRows] = await Promise.all([
+      supabase.from('whatsapp_templates').select('id, name, template_id, preview_text, param_count, sort_order, workspace_id, stage_key, category, course_id, is_active').order('sort_order').order('created_at'),
+      supabase.from('email_templates').select('id, name, subject, body, workspace_id, stage_key, category, course_id, is_active').order('created_at'),
+      supabase.from('workspaces').select('id, name, sells_courses').order('created_at', { ascending: true }),
+      supabase.from('pipeline_stages').select('workspace_id, stage_key, label, sort_order, is_side_stage').order('sort_order', { ascending: true, nullsFirst: false }),
+      supabase.from('courses').select('id, name, is_active').order('sort_order').order('name'),
+      supabase.from('workspace_members').select('workspace_id').eq('user_id', user.id).in('role', ['owner', 'admin']),
+    ]);
+    whatsappTemplates = wa.data || [];
+    emailTemplates = em.data || [];
+    templateCourses = courses.data || [];
+    // שיוך תבנית למחלקה מותר רק למי שמנהל אותה (נאכף גם בשרת) - לכן הרשימה לבחירה מסומנת
+    const managedIds = new Set((myManagerRows.data || []).map((r) => r.workspace_id));
+    templateWorkspaces = (ws.data || []).map((w) => ({ ...w, canManage: managedIds.has(w.id) }));
+    for (const s of stages.data || []) {
+      (stagesByWorkspace[s.workspace_id] = stagesByWorkspace[s.workspace_id] || []).push(s);
+    }
+  }
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 24px' }}>
@@ -88,8 +112,18 @@ export default async function SettingsPage() {
         ))}
       </div>
 
-      {canManage && <WhatsAppTemplatesPanel templates={whatsappTemplates || []} />}
-      {canManage && <EmailTemplatesPanel templates={emailTemplates || []} />}
+      {canManage && (
+        <TemplateCoverage whatsappTemplates={whatsappTemplates} emailTemplates={emailTemplates}
+          workspaces={templateWorkspaces} stagesByWorkspace={stagesByWorkspace} />
+      )}
+      {canManage && (
+        <WhatsAppTemplatesPanel templates={whatsappTemplates} workspaces={templateWorkspaces}
+          stagesByWorkspace={stagesByWorkspace} courses={templateCourses} />
+      )}
+      {canManage && (
+        <EmailTemplatesPanel templates={emailTemplates} workspaces={templateWorkspaces}
+          stagesByWorkspace={stagesByWorkspace} courses={templateCourses} />
+      )}
 
       {canManage && <div style={{ ...card(), overflow: 'hidden', marginBottom: 20 }}>
         <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', fontSize: 14, fontWeight: 600 }}>

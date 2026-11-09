@@ -3,14 +3,18 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { addEmailTemplate, deleteEmailTemplate } from '../contacts/actions';
+import { TargetingFields, TemplateTags, TemplateTargetingEditor } from './TemplateTargeting';
 
 // ניהול תבניות מייל מוכנות - נבחרות בחלון שליחת מייל מהכרטיס במקום
-// לכתוב כל פעם מאפס.
-export default function EmailTemplatesPanel({ templates }) {
+// לכתוב כל פעם מאפס. כמו בתבניות הוואטסאפ, אפשר לשייך כל תבנית למחלקה,
+// לשלב בתהליך, לקטגוריה ולקורס (מיגרציה 0188).
+export default function EmailTemplatesPanel({ templates, workspaces, stagesByWorkspace, courses }) {
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const categoryOptions = [...new Set(templates.map((t) => t.category).filter(Boolean))];
 
   function handleAdd(formData) {
     setError(null);
@@ -45,6 +49,8 @@ export default function EmailTemplatesPanel({ templates }) {
           <input name="name" placeholder="שם התבנית (לזיהוי בלבד)" required style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
           <input name="subject" placeholder="נושא המייל" required style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13 }} />
           <textarea name="body" placeholder="תוכן המייל" rows={5} required style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '7px 10px', fontSize: 13, fontFamily: 'inherit' }} />
+          <div style={{ fontSize: 12.5, fontWeight: 600, marginTop: 4 }}>למי ומתי התבנית מוצעת</div>
+          <TargetingFields workspaces={workspaces} stagesByWorkspace={stagesByWorkspace} courses={courses} categoryOptions={categoryOptions} />
           <button type="submit" disabled={isPending} style={{ alignSelf: 'flex-start', background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' }}>
             שמירה
           </button>
@@ -56,14 +62,26 @@ export default function EmailTemplatesPanel({ templates }) {
       )}
 
       {templates.map((t) => (
-        <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, padding: '12px 18px', borderBottom: '1px solid var(--border)' }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>{t.name}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{t.subject}</div>
+        <div key={t.id} style={{ padding: '12px 18px', borderBottom: '1px solid var(--border)', opacity: t.is_active === false ? 0.7 : 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>{t.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{t.subject}</div>
+              <TemplateTags template={t} workspaces={workspaces} stagesByWorkspace={stagesByWorkspace} courses={courses} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+              <button onClick={() => setEditingId(editingId === t.id ? null : t.id)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, cursor: 'pointer' }}>
+                {editingId === t.id ? 'סגירה' : 'שיוך'}
+              </button>
+              <button onClick={() => handleDelete(t.id)} disabled={isPending} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>
+                הסרה
+              </button>
+            </div>
           </div>
-          <button onClick={() => handleDelete(t.id)} disabled={isPending} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>
-            הסרה
-          </button>
+          {editingId === t.id && (
+            <TemplateTargetingEditor kind="email" template={t} workspaces={workspaces} stagesByWorkspace={stagesByWorkspace}
+              courses={courses} categoryOptions={categoryOptions} onDone={() => setEditingId(null)} />
+          )}
         </div>
       ))}
     </div>

@@ -1,14 +1,19 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { sendContactEmail } from '../actions';
 import { renderTemplate } from '../../lib/templateRender';
+import { splitTemplates, needsGrouping } from '../../lib/templateSuggestions';
 
 // חלון קטן לכתיבת מייל ושליחתו מתוך המחלקה הפעילה, דרך תיבת המייל
 // המחוברת לאותה מחלקה (email_connections). נרשם גם ב-sent_emails
 // כך שיוצג בטאב "פעילות" בכרטיס.
-export default function EmailComposeModal({ contactId, workspaceId, departmentId = null, fromAddress, toAddress, firstName, templates = [], initialSubject = '', initialBody = '', onClose, onSent }) {
+// stageKey/courseId (אופציונליים): השלב והקורס של הליד - לפיהם מוצגות למעלה
+// "מומלצות לשלב הנוכחי" (עד 4), ושאר התבניות מקובצות לפי קטגוריה.
+export default function EmailComposeModal({ contactId, workspaceId, departmentId = null, fromAddress, toAddress, firstName, templates: allTemplates = [], stageKey = null, courseId = null, initialSubject = '', initialBody = '', onClose, onSent }) {
+  const split = useMemo(() => splitTemplates(allTemplates, { workspaceId, stageKey, courseId }), [allTemplates, workspaceId, stageKey, courseId]);
+  const templates = split.all;
   const [subject, setSubject] = useState(initialSubject);
   const [body, setBody] = useState(initialBody);
   const [error, setError] = useState(null);
@@ -57,7 +62,20 @@ export default function EmailComposeModal({ contactId, workspaceId, departmentId
             style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 12px', fontSize: 12.5, color: 'var(--k-text-muted)', background: 'var(--k-surface)' }}
           >
             <option value="" disabled>טעינת תבנית מוכנה...</option>
-            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {needsGrouping(split) ? (
+              <>
+                {split.suggested.length > 0 && (
+                  <optgroup label="מומלצות לשלב הנוכחי">
+                    {split.suggested.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </optgroup>
+                )}
+                {split.groups.map((g) => (
+                  <optgroup key={g.category} label={split.suggested.length > 0 ? `עוד · ${g.category}` : g.category}>
+                    {g.items.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </optgroup>
+                ))}
+              </>
+            ) : templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         )}
 

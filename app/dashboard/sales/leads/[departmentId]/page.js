@@ -47,7 +47,7 @@ export default async function LeadWorkPage({ params }) {
   const [{ data: playbookItems }, { data: sendConnections }, { data: emailTemplates }] = await Promise.all([
     supabase.from('reference_content').select('id, course_id, tag, title, body').eq('kind', 'playbook').eq('is_active', true).order('sort_order'),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
-    supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
+    supabase.from('email_templates').select('id, name, subject, body, workspace_id, stage_key, category, course_id, is_active').order('created_at'),
   ]);
 
   // צ'יפ-AI "מה-לעשות-עכשיו" - נוצר/מתרענן אוטומטית כאן אם stale (ר'

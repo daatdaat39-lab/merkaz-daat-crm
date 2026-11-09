@@ -221,6 +221,8 @@ export default function LeadWorkScreen({
                 whatsappTemplates={whatsappTemplates}
                 emailTemplates={emailTemplates}
                 departmentId={departmentId}
+                stageKey={stage}
+                courseId={courseId || null}
               />
               {contact.phone && <DialButton contactId={contact.id} workspaceId={workspaceId} />}
             </div>

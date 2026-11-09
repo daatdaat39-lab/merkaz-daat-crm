@@ -127,8 +127,8 @@ export default async function SalesLeadsPage() {
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     getAllContactTagRows(),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
-    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text').order('sort_order').order('created_at'),
-    supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
+    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text, sort_order, workspace_id, stage_key, category, course_id, is_active').order('sort_order').order('created_at'),
+    supabase.from('email_templates').select('id, name, subject, body, workspace_id, stage_key, category, course_id, is_active').order('created_at'),
   ]);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
   const tagGroups = groupTagsByDepartment(

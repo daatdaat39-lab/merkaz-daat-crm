@@ -1485,6 +1485,40 @@ export async function sendContactWhatsAppChatMessage(contactId, workspaceId, mes
 
 // ניהול רשימת תבניות WhatsApp מאושרות - לבחירה בזמן שליחה (מספר
 // תבניות אפשריות, לא רק אחת קבועה)
+// שיוך תבנית (מיגרציה 0188): מחלקה / שלב בתהליך / קטגוריה / קורס / פעילה.
+// כולם אופציונליים - ריק = "מתאימה לכולם", בדיוק כמו תבנית ישנה בלי שיוך.
+// קורא את השדות מטופס, מנקה ומאמת מול ה-DB (מחלקה קיימת ובניהולו של המשתמש,
+// שלב שקיים באותה מחלקה, קורס קיים) - מחזיר { error } או { fields }.
+const MAX_TEMPLATE_CATEGORY_LENGTH = 40;
+
+async function readTemplateTargeting(supabase, userId, formData) {
+  const text = (key) => formData.get(key)?.toString().trim() || null;
+  const workspaceId = text('workspace_id');
+  const stageKey = text('stage_key');
+  const courseId = text('course_id');
+  const category = text('category')?.slice(0, MAX_TEMPLATE_CATEGORY_LENGTH) || null;
+  const isActive = formData.get('is_active')?.toString() !== 'off';
+
+  if (workspaceId) {
+    const { data: ws } = await supabase.from('workspaces').select('id').eq('id', workspaceId).maybeSingle();
+    if (!ws) return { error: 'המחלקה שנבחרה לא נמצאה' };
+    if (!(await isManagerOfWorkspace(supabase, userId, workspaceId))) {
+      return { error: 'שיוך תבנית למחלקה מותר רק למנהל של אותה מחלקה' };
+    }
+  }
+  if (stageKey) {
+    if (!workspaceId) return { error: 'כדי לשייך שלב צריך לבחור קודם מחלקה' };
+    const { data: stage } = await supabase.from('pipeline_stages').select('id')
+      .eq('workspace_id', workspaceId).eq('stage_key', stageKey).maybeSingle();
+    if (!stage) return { error: 'השלב שנבחר לא קיים במחלקה הזו' };
+  }
+  if (courseId) {
+    const { data: course } = await supabase.from('courses').select('id').eq('id', courseId).maybeSingle();
+    if (!course) return { error: 'הקורס שנבחר לא נמצא' };
+  }
+  return { fields: { workspace_id: workspaceId, stage_key: stageKey, category, course_id: courseId, is_active: isActive } };
+}
+
 export async function addWhatsAppTemplate(formData) {
   const { supabase, user } = await requireUser();
   if (!(await isManagerOfAnyWorkspace(supabase, user.id))) return { error: 'ניהול תבניות מותר למנהלים בלבד' };
@@ -1498,8 +1532,26 @@ export async function addWhatsAppTemplate(formData) {
   const paramCount = Number(formData.get('param_count'));
   if (!name || !templateId) return { error: 'יש למלא שם ומספר תבנית' };
 
+  const targeting = await readTemplateTargeting(supabase, user.id, formData);
+  if (targeting.error) return { error: targeting.error };
+
   const { error } = await supabase.from('whatsapp_templates')
-    .insert({ name, template_id: templateId, preview_text: previewText, param_count: Number.isFinite(paramCount) ? paramCount : 2 });
+    .insert({ name, template_id: templateId, preview_text: previewText, param_count: Number.isFinite(paramCount) ? paramCount : 2, ...targeting.fields });
+  if (error) return { error: error.message };
+  return { success: true };
+}
+
+// עדכון השיוך של תבנית קיימת (וואטסאפ או מייל) - בלי לגעת בנוסח/במספר התבנית
+export async function updateTemplateTargeting(kind, id, formData) {
+  const table = kind === 'whatsapp' ? 'whatsapp_templates' : kind === 'email' ? 'email_templates' : null;
+  if (!table || !id) return { error: 'תבנית לא תקינה' };
+  const { supabase, user } = await requireUser();
+  if (!(await isManagerOfAnyWorkspace(supabase, user.id))) return { error: 'ניהול תבניות מותר למנהלים בלבד' };
+
+  const targeting = await readTemplateTargeting(supabase, user.id, formData);
+  if (targeting.error) return { error: targeting.error };
+
+  const { error } = await supabase.from(table).update(targeting.fields).eq('id', id);
   if (error) return { error: error.message };
   return { success: true };
 }
@@ -1521,7 +1573,10 @@ export async function addEmailTemplate(formData) {
   const body = formData.get('body')?.toString().trim();
   if (!name || !subject || !body) return { error: 'יש למלא שם, נושא ותוכן' };
 
-  const { error } = await supabase.from('email_templates').insert({ name, subject, body });
+  const targeting = await readTemplateTargeting(supabase, user.id, formData);
+  if (targeting.error) return { error: targeting.error };
+
+  const { error } = await supabase.from('email_templates').insert({ name, subject, body, ...targeting.fields });
   if (error) return { error: error.message };
   return { success: true };
 }

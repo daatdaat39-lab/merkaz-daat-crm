@@ -40,9 +40,9 @@ export default async function CaseWorkPage({ params }) {
   const [{ data: kbItems }, { data: members }, { data: whatsappTemplates }, { data: sendConnections }, { data: emailTemplates }, { data: caseNoteRows }] = await Promise.all([
     supabase.from('reference_content').select('id, course_id, tag, title, body').eq('kind', 'kb').eq('is_active', true).order('sort_order'),
     supabase.from('workspace_members').select('user_id').eq('workspace_id', caseRow.workspace_id),
-    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text, course_id').order('sort_order').order('created_at'),
+    supabase.from('whatsapp_templates').select('id, name, template_id, preview_text, course_id, sort_order, workspace_id, stage_key, category, is_active').order('sort_order').order('created_at'),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
-    supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
+    supabase.from('email_templates').select('id, name, subject, body, workspace_id, stage_key, category, course_id, is_active').order('created_at'),
     supabase.from('service_case_notes').select('id, note, created_by, created_at').eq('case_id', caseId).order('created_at', { ascending: false }),
   ]);
   const memberIds = (members || []).map((m) => m.user_id);

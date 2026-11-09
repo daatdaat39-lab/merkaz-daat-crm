@@ -3,14 +3,19 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { addWhatsAppTemplate, deleteWhatsAppTemplate } from '../contacts/actions';
+import { TargetingFields, TemplateTags, TemplateTargetingEditor } from './TemplateTargeting';
 
 // ניהול רשימת תבניות WhatsApp מאושרות - כדי שבחלון השליחה יהיה אפשר
-// לבחור בין כמה תבניות, לא רק אחת קבועה.
-export default function WhatsAppTemplatesPanel({ templates }) {
+// לבחור בין כמה תבניות, לא רק אחת קבועה. כל תבנית אפשר לשייך למחלקה,
+// לשלב בתהליך, לקטגוריה ולקורס (מיגרציה 0188) - כך הנציג מקבל המלצות
+// לפי השלב שבו הליד נמצא.
+export default function WhatsAppTemplatesPanel({ templates, workspaces, stagesByWorkspace, courses }) {
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const categoryOptions = [...new Set(templates.map((t) => t.category).filter(Boolean))];
 
   function handleAdd(formData) {
     setError(null);
@@ -55,6 +60,8 @@ export default function WhatsAppTemplatesPanel({ templates }) {
               <option value="2">2 - [#1#] ו-[#2#] (שם פרטי + סיבה)</option>
             </select>
           </div>
+          <div style={{ fontSize: 12.5, fontWeight: 600, marginTop: 4 }}>למי ומתי התבנית מוצעת</div>
+          <TargetingFields workspaces={workspaces} stagesByWorkspace={stagesByWorkspace} courses={courses} categoryOptions={categoryOptions} />
           <button type="submit" disabled={isPending} style={{ alignSelf: 'flex-start', background: 'var(--text)', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, cursor: 'pointer' }}>
             שמירה
           </button>
@@ -66,17 +73,29 @@ export default function WhatsAppTemplatesPanel({ templates }) {
       )}
 
       {templates.map((t) => (
-        <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, padding: '12px 18px', borderBottom: '1px solid var(--border)' }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 500 }}>
-              {t.name} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(#{t.template_id})</span>{' '}
-              <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 11 }}>· {t.param_count ?? 2} פרמטרים</span>
+        <div key={t.id} style={{ padding: '12px 18px', borderBottom: '1px solid var(--border)', opacity: t.is_active === false ? 0.7 : 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 500 }}>
+                {t.name} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(#{t.template_id})</span>{' '}
+                <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 11 }}>· {t.param_count ?? 2} פרמטרים</span>
+              </div>
+              {t.preview_text && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{t.preview_text}</div>}
+              <TemplateTags template={t} workspaces={workspaces} stagesByWorkspace={stagesByWorkspace} courses={courses} />
             </div>
-            {t.preview_text && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>{t.preview_text}</div>}
+            <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+              <button onClick={() => setEditingId(editingId === t.id ? null : t.id)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 12, cursor: 'pointer' }}>
+                {editingId === t.id ? 'סגירה' : 'שיוך'}
+              </button>
+              <button onClick={() => handleDelete(t.id)} disabled={isPending} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 12, cursor: 'pointer' }}>
+                הסרה
+              </button>
+            </div>
           </div>
-          <button onClick={() => handleDelete(t.id)} disabled={isPending} style={{ background: 'none', border: 'none', color: 'var(--red)', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>
-            הסרה
-          </button>
+          {editingId === t.id && (
+            <TemplateTargetingEditor kind="whatsapp" template={t} workspaces={workspaces} stagesByWorkspace={stagesByWorkspace}
+              courses={courses} categoryOptions={categoryOptions} onDone={() => setEditingId(null)} />
+          )}
         </div>
       ))}
     </div>

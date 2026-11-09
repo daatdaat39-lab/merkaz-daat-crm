@@ -1,14 +1,19 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { sendContactWhatsApp, sendContactWhatsAppChatMessage, updateContactPhone } from '../actions';
+import { splitTemplates, needsGrouping } from '../../lib/templateSuggestions';
 
 // חלון צ'אט WhatsApp מלא לאיש קשר: מציג את כל ההיסטוריה (הודעות
 // שנשלחו והודעות שהתקבלו מהלקוח, לפי כיוון) כבועות שיחה, עם תיבת
 // כתיבה בתחתית. הודעה ראשונה/כשאין עדיין שיחה פתוחה חייבת להיות
 // תבנית מאושרת (חוק WhatsApp) - לכן יש גם כפתור לשליחת התבנית הרשמית.
-export default function WhatsAppSendModal({ contactId, workspaceId, departmentId = null, phone, reason, thread = [], templates = [], onClose, onSent, initialMessage = '', skipRefresh = false }) {
+// stageKey/courseId (אופציונליים): השלב והקורס של הליד שממנו נשלחת ההודעה - לפיהם
+// מוצגות למעלה "מומלצות לשלב הנוכחי" (עד 4), ושאר התבניות מקובצות לפי קטגוריה.
+export default function WhatsAppSendModal({ contactId, workspaceId, departmentId = null, phone, reason, thread = [], templates: allTemplates = [], stageKey = null, courseId = null, onClose, onSent, initialMessage = '', skipRefresh = false }) {
+  const split = useMemo(() => splitTemplates(allTemplates, { workspaceId, stageKey, courseId }), [allTemplates, workspaceId, stageKey, courseId]);
+  const templates = split.all;
   const [message, setMessage] = useState(initialMessage);
   const [error, setError] = useState(null);
   const [isPending, startTransition] = useTransition();
@@ -146,7 +151,20 @@ export default function WhatsAppSendModal({ contactId, workspaceId, departmentId
             <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)', whiteSpace: 'nowrap' }}>📨 תבנית:</span>
             <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} style={{ flex: 1, border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 10px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' }}>
               <option value="" disabled>בחירת תבנית...</option>
-              {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {needsGrouping(split) ? (
+                <>
+                  {split.suggested.length > 0 && (
+                    <optgroup label="מומלצות לשלב הנוכחי">
+                      {split.suggested.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </optgroup>
+                  )}
+                  {split.groups.map((g) => (
+                    <optgroup key={g.category} label={split.suggested.length > 0 ? `עוד · ${g.category}` : g.category}>
+                      {g.items.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </optgroup>
+                  ))}
+                </>
+              ) : templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
             <button onClick={handleSendTemplate} disabled={isPending || !selectedTemplate} style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, cursor: selectedTemplate ? 'pointer' : 'default', opacity: selectedTemplate ? 1 : 0.5 }}>
               שליחה
