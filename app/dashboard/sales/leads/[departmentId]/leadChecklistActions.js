@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { isMemberOfWorkspace } from '../../../lib/contactGuards';
 import { validateDocumentFile, cleanFilename, isPathOfContact } from '../../../lib/documentUploads';
 import { convertLead } from './leadLockActions';
+import { normalizePaymentRef } from '../../../../../lib/kesher/paymentLink';
 
 const DOCUMENTS_BUCKET = 'contact-documents';
 
@@ -244,15 +245,47 @@ export async function submitLeadSignatureByAgent(departmentId, { typedName, agre
   return { success: true, path, typedName: typedName.trim(), signedAt };
 }
 
-// רמז-התאמת-תשלום רך (לא-אישור-אוטומטי!) - קריאה-בלבד מול
-// donation_transactions שכבר-מסתנכרנות מקשר (READ-ONLY-לצמיתות, אין-
-// webhook/דף-תשלום-אמיתי). התאמה-היוריסטית: אותו-contact_id, תאריך
-// אחרי-יצירת-הליד, סכום בטווח-±10%. המטרה - רמז-בלבד למסך-הרישום;
-// checklist.payment_arranged (צ'קבוקס-ידני) נשאר מקור-האמת-היחיד.
-export async function findPossiblePaymentMatch(contactId, leadCreatedAt, approxAmount) {
+// מזהה תשלום אישי (migration 0187) - נוצר בלחיצה על "יצירת קישור אישי"
+// ונשאר קבוע לליד (אידמפוטנטי: קריאה חוזרת מחזירה את אותו מזהה). נשלח לדף
+// התשלום של קשר בפרמטר addactiondata, ובסנכרון מחפשים אותו בעסקה.
+export async function ensureLeadPaymentRef(departmentId) {
+  const { supabase, user } = await requireUser();
+  const { row, error } = await requireMemberOfLead(supabase, user.id, departmentId);
+  if (error) return { error };
+
+  const { data: existing, error: readError } = await supabase.from('lead_conversion_checklist').select('payment_ref').eq('contact_department_id', departmentId).maybeSingle();
+  if (readError) return { error: readError.message };
+  if (existing?.payment_ref) return { success: true, ref: existing.payment_ref };
+
+  const ref = `mdc-${crypto.randomBytes(8).toString('hex')}`;
+  const res = await upsertChecklist(supabase, departmentId, row.workspace_id, user.id, { payment_ref: ref });
+  if (res.error) return res;
+  return { success: true, ref };
+}
+
+// אימות תשלום מול קשר (קריאה-בלבד מול donation_transactions שמסתנכרנות
+// מקשר - האינטגרציה נשארת READ-ONLY). שתי רמות:
+//  - 'exact': העסקה נושאת את המזהה האישי של הליד (payment_ref) - ודאות.
+//  - 'probable': אין מזהה; התאמה היוריסטית - אותו איש-קשר, תאריך אחרי יצירת
+//    הליד, סכום בטווח ±10%. רמז בלבד.
+// בשני המקרים checklist.payment_arranged (אישור ידני בלחיצה) נשאר מקור-
+// האמת היחיד לצ'קליסט - שום דבר כאן לא מסמן אותו לבד.
+export async function findPossiblePaymentMatch(contactId, leadCreatedAt, approxAmount, paymentRef) {
+  const supabase = createClient();
+
+  const ref = normalizePaymentRef(paymentRef);
+  if (ref) {
+    const { data: exact } = await supabase
+      .from('donation_transactions')
+      .select('amount, transaction_date, receipt_url, external_doc_number')
+      .eq('external_ref', ref)
+      .order('transaction_date', { ascending: false })
+      .limit(1);
+    if (exact?.[0]) return { ...exact[0], kind: 'exact' };
+  }
+
   const amount = Number(approxAmount);
   if (!contactId || !leadCreatedAt || !amount) return null;
-  const supabase = createClient();
   const { data } = await supabase
     .from('donation_transactions')
     .select('amount, transaction_date')
@@ -262,7 +295,7 @@ export async function findPossiblePaymentMatch(contactId, leadCreatedAt, approxA
     .lte('amount', amount * 1.1)
     .order('transaction_date', { ascending: true })
     .limit(1);
-  return data?.[0] || null;
+  return data?.[0] ? { ...data[0], kind: 'probable' } : null;
 }
 
 // אישור-המרה מפורש (מסך-רישום נפרד) - נקרא **רק** מכפתור-"סיום רישום"

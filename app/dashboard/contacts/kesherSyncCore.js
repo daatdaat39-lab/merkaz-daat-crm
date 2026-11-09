@@ -9,6 +9,7 @@ import { findExistingMatch, insertDonationTransaction, upsertContactExternalId, 
 import { isKesherConfigured, getKesherTransactions, getKesherObligations } from '../../../lib/kesher/client';
 import { enrollInKesherCampaign, enrollInCampaign } from '../sales/campaigns/kesherCampaign';
 import { formatIsraeliDateTime } from '../lib/dateFormat';
+import { extractPaymentRef } from '../../../lib/kesher/paymentLink';
 
 // תרומה חדשה שסונכרנה נכנסת ל-note בכל campaign_contacts פתוח-לטלפניה
 // שהתורם הזה כבר חבר בו - כדי שמנהל/טלפן יראו מיד שהיא קרתה, בלי לבדוק
@@ -85,6 +86,50 @@ async function markDoNotCallForCharidyDonor(supabase, contactId) {
       .update({ in_call_queue: false, note: row.note ? `${summary}\n\n${row.note}` : summary })
       .eq('id', row.id);
   }
+}
+
+// עסקה שנושאת מזהה תשלום אישי שלנו (payment_ref, migration 0187) שייכת לליד
+// מסוים בוודאות - לא צריך לנחש לפי פרויקט/ת.ז./טלפון, וגם לא תיזרק בגלל
+// "פרויקט לא מזוהה". מחזיר true כשהעסקה טופלה כאן (והלולאה הרגילה מדלגת
+// עליה), false כשהמזהה לא ידוע לנו (למשל קישור ישן שנמחק) - ואז הניתוב הרגיל.
+async function ingestPaymentRefTransaction(supabase, t, paymentRef, result) {
+  const { data: lead } = await supabase
+    .from('lead_conversion_checklist')
+    .select('workspace_id, contact_departments:contact_department_id (contact_id)')
+    .eq('payment_ref', paymentRef)
+    .maybeSingle();
+  const contactId = lead?.contact_departments?.contact_id;
+  if (!lead || !contactId) return false;
+
+  const docNumber = (t.NumTransaction || '').toString().trim() || null;
+  const added = await insertDonationTransaction(supabase, contactId, lead.workspace_id, 'קשר', {
+    amount: Number(t.Total) / 100, // GetTrans מחזירה אגורות (ר' הערה בלולאה הראשית)
+    date: safeDate(t.TranDate),
+    docNumber: t.NumTransaction,
+    paymentMethod: t.TransactionCreditType || t.CreditType || null,
+    transactionType: t.TransactionType || null,
+    campaignReference: t.ProjectName || null,
+    designation: t.PaymentPageName || null,
+    fundraiserName: t.User || null,
+    receiptUrl: t.OriginalDoc || t.DocumentsDetails?.DocumentDetails?.[0]?.PdfLink || null,
+    externalRef: paymentRef,
+  });
+  if (added === true) {
+    result.transactionsCreated++;
+  } else if (added === false) {
+    result.transactionsSkipped++;
+    // עסקה שנקלטה בריצה קודמת בלי המזהה - משלימים אותו (אף פעם לא דורסים).
+    if (docNumber) {
+      await supabase.from('donation_transactions')
+        .update({ external_ref: paymentRef })
+        .eq('contact_id', contactId).eq('source_system', 'קשר').eq('external_doc_number', docNumber)
+        .is('external_ref', null);
+    }
+  } else {
+    result.transactionsUnmatched++;
+  }
+  await upsertContactExternalId(supabase, contactId, 'קשר', t.NumTransaction);
+  return true;
 }
 
 // מחזיר { workspaceName, tag?, enrollCampaignName? } או null אם לא זוהה
@@ -440,6 +485,9 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
       debugTransactionMatches.push(t);
     }
     try {
+      const paymentRef = extractPaymentRef(t);
+      if (paymentRef && await ingestPaymentRefTransaction(supabase, t, paymentRef, result)) continue;
+
       const rawProject = t.ProjectName || t.Project;
       const routing = resolveRouting(rawProject, t.PaymentPageName);
       const workspace = routing ? workspaceByName.get(routing.workspaceName) : null;
@@ -569,11 +617,15 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
 
   // לוג הריצה - משמש למילוי אוטומטי של "מתאריך" בפעם הבאה (ר' getLastKesherSyncDate)
   // ולקצב-ההרצה של ה-cron (ר' app/api/cron/sync-kesher)
-  await supabase.from('kesher_sync_runs').insert({
-    from_date: fromDate, to_date: bookkeepingToDate, created_by: user.id, triggered_by: triggeredBy,
-    transactions_created: result.transactionsCreated, transactions_skipped: result.transactionsSkipped, transactions_unmatched: result.transactionsUnmatched,
-    obligations_created: result.obligationsCreated, obligations_updated: result.obligationsUpdated, obligations_unmatched: result.obligationsUnmatched,
-  });
+  // ריצה שהופעלה מוובהוק (app/api/webhooks/kesher) לא נרשמת: היא מכסה חלון
+  // קצר בלבד, ורישום שלה היה מקדם את "מתאריך" של ה-cron ומאט אותו.
+  if (triggeredBy !== 'webhook') {
+    await supabase.from('kesher_sync_runs').insert({
+      from_date: fromDate, to_date: bookkeepingToDate, created_by: user.id, triggered_by: triggeredBy,
+      transactions_created: result.transactionsCreated, transactions_skipped: result.transactionsSkipped, transactions_unmatched: result.transactionsUnmatched,
+      obligations_created: result.obligationsCreated, obligations_updated: result.obligationsUpdated, obligations_unmatched: result.obligationsUnmatched,
+    });
+  }
 
   return result;
 }

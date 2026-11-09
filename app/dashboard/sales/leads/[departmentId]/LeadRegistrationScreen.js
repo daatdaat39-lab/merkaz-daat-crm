@@ -12,8 +12,9 @@ import { useLeadLock } from './useLeadLock';
 import {
   updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures, updateLeadRegistrationAnswer,
   completeLeadRegistration, cancelCoursePurchase, uploadLeadDocumentByAgent, getSignedLeadFileUrl,
-  updateLeadPublicToken, submitLeadSignatureByAgent,
+  updateLeadPublicToken, submitLeadSignatureByAgent, ensureLeadPaymentRef,
 } from './leadChecklistActions';
+import { buildPersonalPaymentUrl } from '../../../../../lib/kesher/paymentLink';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
 const cardStyle = { background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 };
@@ -37,7 +38,7 @@ function formatSentAt(iso) {
 export default function LeadRegistrationScreen({
   departmentId, contact, workspaceId, workspaceName, selectedCourse, courseTracks = [], formFields = [],
   uploadedDocuments = [], checklist = null, wonStageLabel, paymentMatch = null,
-  sendConnections = [], whatsappTemplates = [], emailTemplates = [], existingPurchase = null,
+  sendConnections = [], whatsappTemplates = [], emailTemplates = [], existingPurchase = null, stageKey = null,
 }) {
   const { lockState, error: lockError, releaseOnNavigate } = useLeadLock(departmentId);
   const router = useRouter();
@@ -75,7 +76,27 @@ export default function LeadRegistrationScreen({
   const [copyFeedback, setCopyFeedback] = useState(false);
   const publicLinkLastOpenedAt = checklist?.public_link_last_opened_at || null;
 
+  // קישור תשלום אישי (migration 0187) - מזהה אטום לליד, נשלח לדף התשלום של
+  // קשר ומאפשר לזהות את העסקה בסנכרון בוודאות (ר' lib/kesher/paymentLink.js).
+  const [paymentRef, setPaymentRef] = useState(checklist?.payment_ref || null);
+  const [paymentRefCreating, setPaymentRefCreating] = useState(false);
+  const [paymentRefError, setPaymentRefError] = useState('');
+  const [personalPayCopied, setPersonalPayCopied] = useState(false);
+  const [origin, setOrigin] = useState('');
+
   const [, startTransition] = useTransition();
+
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+
+  // ממתינים לתשלום שנשלח בקישור האישי: בודקים מחדש אחת לכמה זמן (הסנכרון
+  // מול קשר רץ כל כמה דקות, והעסקה מופיעה כאן ברגע שהיא נקלטת).
+  const awaitingPayment = !!paymentRef && !!paymentLinkSentAt && paymentMatch?.kind !== 'exact';
+  useEffect(() => {
+    if (!awaitingPayment) return undefined;
+    const timer = setInterval(() => router.refresh(), 45000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [awaitingPayment]);
 
   useEffect(() => {
     if (publicToken || tokenCreating) return;
@@ -156,7 +177,7 @@ export default function LeadRegistrationScreen({
     } else if (field === 'signatures') {
       setSignaturesSentAt(now);
       saveSignatures({ sentAt: now });
-    } else if (field === 'paymentLink') {
+    } else if (field === 'paymentLink' || field === 'personalPayment') {
       setPaymentLinkSentAt(now);
       savePayment({ paymentLinkSentAt: now });
     }
@@ -169,6 +190,25 @@ export default function LeadRegistrationScreen({
     navigator.clipboard?.writeText(personalLinkUrl).then(() => {
       setCopyFeedback(true);
       setTimeout(() => setCopyFeedback(false), 2000);
+    });
+  }
+
+  function handleCreatePersonalPayment() {
+    setPaymentRefError('');
+    setPaymentRefCreating(true);
+    startTransition(async () => {
+      const res = await ensureLeadPaymentRef(departmentId);
+      setPaymentRefCreating(false);
+      if (res?.error) { setPaymentRefError(res.error); return; }
+      setPaymentRef(res.ref);
+    });
+  }
+
+  function handleCopyPersonalPayment() {
+    if (!personalPaymentUrl) return;
+    navigator.clipboard?.writeText(personalPaymentUrl).then(() => {
+      setPersonalPayCopied(true);
+      setTimeout(() => setPersonalPayCopied(false), 2000);
     });
   }
 
@@ -244,6 +284,14 @@ export default function LeadRegistrationScreen({
   const sentSignatures = formatSentAt(signaturesSentAt);
   const sentPaymentLink = formatSentAt(paymentLinkSentAt);
   const personalLinkUrl = publicToken && typeof window !== 'undefined' ? `${window.location.origin}/register/${publicToken}` : '';
+  // הקישור האישי לתשלום נבנה מקישור הדף הכללי + פרטי הליד + המזהה האישי.
+  // null = כתובת הדף אינה תקינה (נבדק רק כשכבר נוצר מזהה).
+  const personalPaymentUrl = paymentRef && paymentLink
+    ? buildPersonalPaymentUrl(paymentLink, {
+      ref: paymentRef, origin, firstName: contact.first, lastName: contact.last, phone: contact.phone, email: contact.email,
+      amount: paymentTotal || selectedCourse?.price, installments: paymentInstallments,
+    })
+    : '';
   const lastOpenedLabel = publicLinkLastOpenedAt ? formatSentAt(publicLinkLastOpenedAt)?.replace('נשלח', 'נפתח לאחרונה') : 'עדיין לא נפתח';
 
   // מרכז-תוכן-ההודעה לכל-אחד-מ-4-סוגי-הקישור-הנשלחים (טפסים/חתימה/
@@ -256,6 +304,7 @@ export default function LeadRegistrationScreen({
     signatures: { label: 'חתימה דיגיטלית', intro: 'מצורף הקישור לחתימה דיגיטלית', value: signaturesLink },
     personalLink: { label: 'השלמת הרישום', intro: 'מצורף הקישור האישי להשלמת הרישום', value: personalLinkUrl },
     paymentLink: { label: 'דף התשלום', intro: 'מצורף הקישור לדף התשלום', value: paymentLink },
+    personalPayment: { label: 'תשלום', intro: 'מצורף הקישור האישי לתשלום', value: personalPaymentUrl || '' },
   };
   // בלי שם פרטי (שדה ריק) - "שלום רב" במקום "שלום ,".
   const greetingName = contact.first?.trim() ? `שלום ${contact.first.trim()}` : 'שלום רב';
@@ -427,7 +476,80 @@ export default function LeadRegistrationScreen({
                     </button>
                   </div>
                   {sentPaymentLink && <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginTop: 4 }}>{sentPaymentLink}</div>}
-                  {paymentMatch && !paymentArranged && (
+
+                  {/* קישור תשלום אישי: ממלא מראש שם/טלפון/סכום ונושא מזהה
+                      אישי, כך שהעסקה בקשר מזוהה בוודאות ולא בהערכה. */}
+                  <div style={{ borderTop: '1px solid var(--k-border)', marginTop: 10, paddingTop: 8 }}>
+                    <div style={{ ...sectionLabel, marginBottom: 4 }}>קישור תשלום אישי</div>
+                    {!paymentRef ? (
+                      <>
+                        <button
+                          type="button" onClick={handleCreatePersonalPayment} disabled={paymentRefCreating || !paymentLink}
+                          style={{ fontSize: 12, fontWeight: 600, color: 'var(--k-accent)', background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 12px', cursor: paymentLink ? 'pointer' : 'default', opacity: paymentLink ? 1 : 0.5 }}
+                        >
+                          {paymentRefCreating ? 'יוצר...' : 'יצירת קישור אישי'}
+                        </button>
+                        <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginTop: 4 }}>
+                          {paymentLink
+                            ? 'הקישור ימלא מראש שם, טלפון וסכום, ויסמן את התשלום כך שנזהה אותו אוטומטית כשיתקבל.'
+                            : 'יש להזין קודם את קישור הדף הכללי למעלה.'}
+                        </div>
+                      </>
+                    ) : personalPaymentUrl ? (
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input type="text" readOnly value={personalPaymentUrl} style={{ ...inputStyle, fontSize: 11 }} />
+                        <button type="button" title="העתקה" onClick={handleCopyPersonalPayment} style={sendBtnStyle}>
+                          {personalPayCopied ? '✓' : '⧉'}
+                        </button>
+                        <button type="button" title="שלח במייל" disabled={!canEmail} onClick={() => setSendTarget({ field: 'personalPayment', channel: 'email' })} style={{ ...sendBtnStyle, opacity: !canEmail ? 0.4 : 1 }}>
+                          <MailIcon size={13} />
+                        </button>
+                        <button type="button" title="שלח בוואטסאפ" disabled={!canWhatsapp} onClick={() => setSendTarget({ field: 'personalPayment', channel: 'whatsapp' })} style={{ ...sendBtnStyle, opacity: !canWhatsapp ? 0.4 : 1 }}>
+                          <WhatsAppIcon size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 11.5, color: 'var(--k-danger-text)' }}>הקישור לדף התשלום אינו כתובת תקינה (צריך להתחיל ב-https://).</div>
+                    )}
+                    {paymentRefError && <div style={{ fontSize: 11.5, color: 'var(--k-danger-text)', marginTop: 4 }}>{paymentRefError}</div>}
+                  </div>
+
+                  {paymentMatch?.kind === 'exact' && (
+                    <div style={{ background: 'var(--k-ok-bg)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--k-ok-text)' }}>
+                        <CheckIcon size={12} /> התשלום התקבל ואומת מול קשר
+                      </div>
+                      <div style={{ fontSize: 11.5, color: 'var(--k-text)', marginTop: 3 }}>
+                        ₪{paymentMatch.amount} · {new Date(paymentMatch.transaction_date).toLocaleDateString('he-IL')}
+                        {paymentMatch.external_doc_number ? ` · עסקה ${paymentMatch.external_doc_number}` : ''}
+                        {/^https?:\/\//i.test(paymentMatch.receipt_url || '') && (
+                          <> · <a href={paymentMatch.receipt_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--k-accent)' }}>קבלה</a></>
+                        )}
+                      </div>
+                      {!paymentArranged && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaymentArranged(true);
+                            setPaymentTotal(String(paymentMatch.amount));
+                            savePayment({ arranged: true, totalAmount: paymentMatch.amount });
+                          }}
+                          style={{ marginTop: 6, fontSize: 11.5, fontWeight: 600, color: '#fff', background: 'var(--k-accent)', border: 'none', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}
+                        >
+                          אישור: התשלום הסדיר את הרישום
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {awaitingPayment && !paymentArranged && (
+                    <div style={{ background: 'var(--k-bg)', border: '1px dashed var(--k-border)', borderRadius: 8, padding: '6px 10px', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>ממתין לתשלום. העסקה תופיע כאן ברגע שתתקבל מקשר.</span>
+                      <button type="button" onClick={() => router.refresh()} style={{ fontSize: 11, color: 'var(--k-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}>
+                        בדיקה מחדש
+                      </button>
+                    </div>
+                  )}
+                  {paymentMatch && paymentMatch.kind !== 'exact' && !paymentArranged && (
                     <div style={{ background: 'var(--k-bg)', border: '1px dashed var(--k-border)', borderRadius: 8, padding: '6px 10px', marginTop: 8 }}>
                       <div style={{ fontSize: 11.5, color: 'var(--k-text)' }}>
                         ✓ נמצאה התאמה אפשרית: ₪{paymentMatch.amount} ב-{new Date(paymentMatch.transaction_date).toLocaleDateString('he-IL')}
@@ -625,7 +747,7 @@ export default function LeadRegistrationScreen({
         <EmailComposeModal
           contactId={contact.id} workspaceId={workspaceId} departmentId={departmentId}
           fromAddress={emailConnection.email_address} toAddress={contact.email}
-          firstName={contact.first} templates={emailTemplates}
+          firstName={contact.first} templates={emailTemplates} stageKey={stageKey} courseId={selectedCourse?.id || null}
           initialSubject={sendSubject(sendTarget.field)}
           initialBody={`${greetingName},\n\n${SEND_FIELD_META[sendTarget.field].intro}:\n${SEND_FIELD_META[sendTarget.field].value}\n\nתודה,\n${workspaceName || ''}`.trim()}
           onClose={() => setSendTarget(null)}
@@ -635,7 +757,7 @@ export default function LeadRegistrationScreen({
       {sendTarget?.channel === 'whatsapp' && (
         <WhatsAppSendModal
           contactId={contact.id} workspaceId={workspaceId} departmentId={departmentId}
-          phone={contact.phone} thread={[]} templates={whatsappTemplates}
+          phone={contact.phone} thread={[]} templates={whatsappTemplates} stageKey={stageKey} courseId={selectedCourse?.id || null}
           initialMessage={`${greetingName}, ${SEND_FIELD_META[sendTarget.field].intro}: ${SEND_FIELD_META[sendTarget.field].value}`}
           onClose={() => setSendTarget(null)}
           onSent={() => handleLinkSent(sendTarget.field)}

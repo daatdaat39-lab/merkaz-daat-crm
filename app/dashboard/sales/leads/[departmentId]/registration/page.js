@@ -48,7 +48,7 @@ export default async function LeadRegistrationPage({ params }) {
   // "ההרשמה כבר הושלמה" + כפתור-ביטול - ר' דיון "תקלה במעבר-שלב").
   const [{ data: sendConnections }, { data: emailTemplates }, { data: existingPurchase }] = await Promise.all([
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
-    supabase.from('email_templates').select('id, name, subject, body').order('created_at'),
+    supabase.from('email_templates').select('id, name, subject, body, workspace_id, stage_key, category, course_id, is_active').order('created_at'),
     supabase.from('course_purchases').select('id, created_at, cohort_label').eq('contact_department_id', departmentId).neq('status', 'cancelled').maybeSingle(),
   ]);
 
@@ -57,7 +57,8 @@ export default async function LeadRegistrationPage({ params }) {
   const paymentMatch = await findPossiblePaymentMatch(
     props.contact.id,
     deptRow.created_at,
-    checklist?.payment_total_amount ?? selectedCourse?.price
+    checklist?.payment_total_amount ?? selectedCourse?.price,
+    checklist?.payment_ref
   );
 
   return (
@@ -69,6 +70,7 @@ export default async function LeadRegistrationPage({ params }) {
       }}
       workspaceId={deptRow.workspace_id}
       workspaceName={deptRow.workspaces?.name}
+      stageKey={deptRow.stage}
       selectedCourse={selectedCourse}
       courseTracks={courseTracks}
       formFields={formFields}

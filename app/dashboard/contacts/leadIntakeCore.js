@@ -346,6 +346,9 @@ export async function insertDonationTransaction(supabase, contactId, workspaceId
       fundraiser_name: (donationTransaction.fundraiserName || '').toString().trim() || null,
       commitment_id: donationTransaction.commitmentId || null,
       receipt_url: (donationTransaction.receiptUrl || '').toString().trim() || null,
+      // מזהה תשלום אישי (migration 0187) - נוסף לשורה רק כשקיים, כדי שכל שאר
+      // המסלולים (ייבוא, סנכרון רגיל) ימשיכו לעבוד גם לפני שהעמודה קיימת.
+      ...(donationTransaction.externalRef ? { external_ref: donationTransaction.externalRef } : {}),
     }, { onConflict: 'contact_id,source_system,external_doc_number', ignoreDuplicates: true })
     .select('id');
   if (error) return null;
