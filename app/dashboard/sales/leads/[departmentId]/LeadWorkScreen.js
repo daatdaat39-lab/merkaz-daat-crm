@@ -14,6 +14,8 @@ import { updateLeadCourse, updateLeadStage, assignAgentForLead } from '../../../
 import { CLOSE_REASONS } from '../../../components/pipelines';
 import { convertLead, setRepConfidence } from './leadLockActions';
 import { useLeadLock } from './useLeadLock';
+import { useClaimPrompt } from './useClaimPrompt';
+import ClaimLeadModal from './ClaimLeadModal';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, width: '100%', boxSizing: 'border-box', background: 'var(--k-surface)', color: 'var(--k-text)' };
 const cardStyle = { background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 12, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 };
@@ -26,6 +28,7 @@ const sectionLabel = { fontSize: 10, fontWeight: 700, color: 'var(--k-text-muted
 export default function LeadWorkScreen({
   departmentId, aiActionText, aiConfidence, timelineSummary, contact, department, stageLabel, wonStage, wonStageLabel, workspaceId, workspaceName,
   courses, checklist = null, courseTracks = [], formFields = [], playbookItems, whatsappTemplates, emailTemplates = [], sendConnections = [], timelineProps, stages = [], stageLabels = {}, agents = [],
+  userId = null, sellsCourses = false,
 }) {
   const { lockState, error: lockError, releaseOnNavigate } = useLeadLock(departmentId);
   const [agentId, setAgentId] = useState(department.agentId || '');
@@ -52,14 +55,28 @@ export default function LeadWorkScreen({
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
+  // "לקחת אחריות על הליד?" - קופץ אחרי פעולה אמיתית של הנציג כשהליד עדיין
+  // "ליד חדש" בלי נציג (במחלקה שמוכרת קורסים). ה-hook חייב להיות כאן, מעל
+  // ה-early returns למטה.
+  const { notifyAction, claimOpen, claim, leaveOpen, claimPending, claimError } = useClaimPrompt({
+    departmentId, enabled: sellsCourses, userId, agentId, stage,
+    onClaimed: (res) => {
+      setAgentId(userId);
+      if (res?.stage) setStage(res.stage);
+      router.refresh();
+    },
+  });
+
   // שימוש-חוזר-מלא בשתי-הפעולות-שכבר-עובדות-בלוח-הלידים (LeadTableRow.js)
   // - רק-מוסיפים-את-אותה-בקרה-גם-כאן, כדי-שנציג-לא-יצטרך-לצאת-ממסך-
-  // הליד כדי-להעביר-טיפול/להתקדם-שלב (ר' דיון).
+  // הליד כדי-להעביר-טיפול/להתקדם-שלב (ר' דיון). אחרי השיוך השרת מחזיר
+  // את השלב (כלל "שיוך <- פתוח"), כדי שהרשימה הנפתחת תתעדכן מיד.
   function handleAgentChange(e) {
     const value = e.target.value;
     setAgentId(value);
     startTransition(async () => {
-      await assignAgentForLead(departmentId, value || null);
+      const res = await assignAgentForLead(departmentId, value || null);
+      if (res?.stage) setStage(res.stage);
       router.refresh();
     });
   }
@@ -79,7 +96,8 @@ export default function LeadWorkScreen({
     const value = e.target.value;
     setCourseId(value);
     startTransition(async () => {
-      await updateLeadCourse(departmentId, value || null);
+      const res = await updateLeadCourse(departmentId, value || null);
+      if (!res?.error) notifyAction();
       router.refresh();
     });
   }
@@ -223,8 +241,9 @@ export default function LeadWorkScreen({
                 departmentId={departmentId}
                 stageKey={stage}
                 courseId={courseId || null}
+                onActionDone={notifyAction}
               />
-              {contact.phone && <DialButton contactId={contact.id} workspaceId={workspaceId} />}
+              {contact.phone && <DialButton contactId={contact.id} workspaceId={workspaceId} onActionDone={notifyAction} />}
             </div>
 
             <div style={cardStyle}>
@@ -236,7 +255,7 @@ export default function LeadWorkScreen({
             </div>
 
             {courseId && (
-              <LeadFormFieldsQuickFill departmentId={departmentId} formFields={formFields} answers={checklist?.registration_answers || {}} />
+              <LeadFormFieldsQuickFill departmentId={departmentId} formFields={formFields} answers={checklist?.registration_answers || {}} onSaved={notifyAction} />
             )}
 
             {error && <div style={{ fontSize: 12, color: 'var(--k-danger-text)', marginTop: 10 }}>{error}</div>}
@@ -253,6 +272,7 @@ export default function LeadWorkScreen({
             )}
             <QuickActivityLogForm
               contactId={contact.id} department={department} stages={stages} labels={stageLabels} frozen={false}
+              onSaved={notifyAction}
             />
             <UnifiedTimeline {...timelineProps} />
           </>
@@ -386,6 +406,10 @@ export default function LeadWorkScreen({
           </>
         )}
       </div>
+
+      {claimOpen && (
+        <ClaimLeadModal onClaim={claim} onLeaveOpen={leaveOpen} pending={claimPending} error={claimError} />
+      )}
     </div>
   );
 }

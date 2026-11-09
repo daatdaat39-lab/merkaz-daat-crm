@@ -99,7 +99,7 @@ export async function createCourseTrack(courseId, label) {
   return { success: true };
 }
 
-export async function updateCourseTrack(id, { label, isActive }) {
+export async function updateCourseTrack(id, { label, isActive, startDate, endDate }) {
   const ctx = await requireManager();
   if (ctx.error) return ctx;
   const { supabase } = ctx;
@@ -109,6 +109,17 @@ export async function updateCourseTrack(id, { label, isActive }) {
     changes.label = label.trim();
   }
   if (isActive !== undefined) changes.is_active = isActive;
+  // תאריכי המסלול (migration 0189): התחלה משמשת למעבר האוטומטי "נרשם" <- "תלמיד
+  // פעיל", והשניים נכתבים להרשמה בסיום רישום. ריק = מנקה.
+  const DATE = /^\d{4}-\d{2}-\d{2}$/;
+  if (startDate !== undefined) {
+    if (startDate && !DATE.test(startDate)) return { error: 'תאריך התחלה לא תקין' };
+    changes.start_date = startDate || null;
+  }
+  if (endDate !== undefined) {
+    if (endDate && !DATE.test(endDate)) return { error: 'תאריך סיום לא תקין' };
+    changes.end_date = endDate || null;
+  }
 
   const { error } = await supabase.from('course_tracks').update(changes).eq('id', id);
   if (error) return { error: error.message };

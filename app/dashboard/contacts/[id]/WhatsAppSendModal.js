@@ -11,7 +11,7 @@ import { splitTemplates, needsGrouping } from '../../lib/templateSuggestions';
 // תבנית מאושרת (חוק WhatsApp) - לכן יש גם כפתור לשליחת התבנית הרשמית.
 // stageKey/courseId (אופציונליים): השלב והקורס של הליד שממנו נשלחת ההודעה - לפיהם
 // מוצגות למעלה "מומלצות לשלב הנוכחי" (עד 4), ושאר התבניות מקובצות לפי קטגוריה.
-export default function WhatsAppSendModal({ contactId, workspaceId, departmentId = null, phone, reason, thread = [], templates: allTemplates = [], stageKey = null, courseId = null, onClose, onSent, initialMessage = '', skipRefresh = false }) {
+export default function WhatsAppSendModal({ contactId, workspaceId, departmentId = null, phone, reason, thread = [], templates: allTemplates = [], stageKey = null, courseId = null, onClose, onSent, onActionDone, initialMessage = '', skipRefresh = false }) {
   const split = useMemo(() => splitTemplates(allTemplates, { workspaceId, stageKey, courseId }), [allTemplates, workspaceId, stageKey, courseId]);
   const templates = split.all;
   const [message, setMessage] = useState(initialMessage);
@@ -75,6 +75,9 @@ export default function WhatsAppSendModal({ contactId, workspaceId, departmentId
         } else {
           router.refresh();
         }
+        // onActionDone (בניגוד ל-onSent, שנקרא רק בהודעת צ'אט) נקרא בשני סוגי
+        // השליחה - משמש את מסך הליד להצעת "לקחת אחריות" (useClaimPrompt).
+        onActionDone?.();
       } catch (e) {
         setError(e?.message || 'שליחת ההודעה נכשלה');
       }
@@ -98,6 +101,7 @@ export default function WhatsAppSendModal({ contactId, workspaceId, departmentId
           router.refresh();
         }
         onSent?.();
+        onActionDone?.();
       } catch (e) {
         setError(e?.message || 'שליחת ההודעה נכשלה');
       }

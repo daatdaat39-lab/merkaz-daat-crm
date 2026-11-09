@@ -1,0 +1,15 @@
+name: Advance registered students (registered -> active student on course start date)
+
+on:
+  schedule:
+    - cron: '0 4 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  advance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move leads whose course start date arrived
+        run: |
+          curl -sf -X GET "https://merkaz-daat-crm-8ubv.vercel.app/api/cron/advance-registered-students" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

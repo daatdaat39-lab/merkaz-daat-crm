@@ -4,6 +4,7 @@ import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { isManagerOfWorkspace } from '../../lib/contactGuards';
 import { getPipeline } from '../../lib/pipelines';
+import { applyAgentStageRule } from '../../lib/leadStageRules';
 import { suggestManagerInsights } from '../../../../lib/ai/suggestManagerInsights';
 import { upsertStageAutomation } from '../pipelines/actions';
 
@@ -95,10 +96,17 @@ export async function applyAssignUnassignedToSelf(workspaceId, stageKey) {
   const { supabase } = ctx;
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { count, error } = await supabase.from('contact_departments')
+  const { data: updated, error } = await supabase.from('contact_departments')
     .update({ agent_id: user.id })
     .eq('workspace_id', workspaceId).eq('stage', stageKey).is('agent_id', null)
-    .select('id', { count: 'exact' });
+    .select('id');
   if (error) return { error: error.message };
-  return { success: true, count: count || 0 };
+
+  // במחלקות שמוכרות קורסים: ליד חדש ששויך עובר ל"פתוח" (כלל השיוך). לא עוצרים
+  // את הפעולה אם כלל אחד נכשל - השיוך עצמו כבר נשמר.
+  const ids = (updated || []).map((r) => r.id);
+  for (let i = 0; i < ids.length; i += 10) {
+    await Promise.all(ids.slice(i, i + 10).map((id) => applyAgentStageRule(supabase, id, user.id).catch(() => null)));
+  }
+  return { success: true, count: ids.length };
 }

@@ -43,7 +43,7 @@ export default async function LeadRegistrationPage({ params }) {
     );
   }
 
-  const { supabase, deptRow, department, props, courses, checklist, courseTracks, formFields, pipeline, uploadedDocuments } = ctx;
+  const { supabase, userId, deptRow, department, props, courses, checklist, courseTracks, formFields, pipeline, uploadedDocuments } = ctx;
   const selectedCourse = courses.find((c) => c.id === department.courseId);
 
   // נטענים-כאן (לא-בליבה-המשותפת) - נדרשים-רק-למסך-הזה (כפתורי "שלח
@@ -74,7 +74,10 @@ export default async function LeadRegistrationPage({ params }) {
       }}
       workspaceId={deptRow.workspace_id}
       workspaceName={deptRow.workspaces?.name}
-      stageKey={deptRow.stage}
+      stageKey={department.stage}
+      userId={userId}
+      agentId={department.agentId || null}
+      sellsCourses={!!deptRow.workspaces?.sells_courses}
       selectedCourse={selectedCourse}
       courseTracks={courseTracks}
       formFields={formFields}

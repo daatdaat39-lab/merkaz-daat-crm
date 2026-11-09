@@ -7,7 +7,9 @@ import { logQuickActivity } from '../actions';
 // "סיכום שיחה מהיר" - תיעוד שיחה/וואטסאפ/פגישה ישירות מהכרטיס: כותבים
 // סיכום קצר, בוחרים (אופציונלי) שלב חדש, ושמירה אחת גם רושמת פנייה
 // חדשה בהיסטוריה וגם מאפסת את שעון "טיפול אחרון".
-export default function QuickActivityLogForm({ contactId, department, stages, labels = {}, frozen, forceOpen = false, onDone }) {
+// onSaved (אופציונלי): נקרא רק אחרי שמירה מוצלחת (בניגוד ל-onDone שנקרא גם
+// בביטול) - מסך הליד משתמש בו להצעת "לקחת אחריות" (useClaimPrompt).
+export default function QuickActivityLogForm({ contactId, department, stages, labels = {}, frozen, forceOpen = false, onDone, onSaved }) {
   const [open, setOpen] = useState(forceOpen);
   const [note, setNote] = useState('');
   const [stage, setStage] = useState(department.stage);
@@ -23,6 +25,7 @@ export default function QuickActivityLogForm({ contactId, department, stages, la
       setNote('');
       setOpen(false);
       onDone?.();
+      onSaved?.();
       router.refresh();
     });
   }

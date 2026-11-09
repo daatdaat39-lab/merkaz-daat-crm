@@ -14,7 +14,9 @@ import { CheckIcon } from '../../../components/icons';
 // בניגוד ל-FillSection המשותף: שדות-שהושלמו **לא-נעלמים** - מוצגים כשורה
 // מסומנת-✓-עם-הערך, לחיצה-עליה פותחת-מחדש לעריכה (כדי שהנציג ימשיך-לראות
 // מה-כבר-נאמר-בשיחה, ויוכל-לתקן-בקלות אם-צריך).
-export default function LeadFormFieldsQuickFill({ departmentId, formFields = [], answers = {} }) {
+// onSaved (אופציונלי): נקרא אחרי שמירת שדה - מסך הליד משתמש בו להצעת "לקחת
+// אחריות" (useClaimPrompt).
+export default function LeadFormFieldsQuickFill({ departmentId, formFields = [], answers = {}, onSaved }) {
   const [openKey, setOpenKey] = useState(null);
   const [value, setValue] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -35,9 +37,10 @@ export default function LeadFormFieldsQuickFill({ departmentId, formFields = [],
 
   function save(field) {
     startTransition(async () => {
-      await updateLeadRegistrationAnswer(departmentId, field.field_key, value);
+      const res = await updateLeadRegistrationAnswer(departmentId, field.field_key, value);
       setOpenKey(null);
       setValue('');
+      if (!res?.error) onSaved?.();
       router.refresh();
     });
   }

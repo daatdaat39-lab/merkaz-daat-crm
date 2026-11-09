@@ -42,7 +42,7 @@ export default async function LeadWorkPage({ params }) {
     );
   }
 
-  const { supabase, deptRow, department, props, courses, checklist, courseTracks, formFields, pipeline } = ctx;
+  const { supabase, userId, deptRow, department, props, courses, checklist, courseTracks, formFields, pipeline } = ctx;
 
   const [{ data: playbookItems }, { data: sendConnections }, { data: emailTemplates }] = await Promise.all([
     supabase.from('reference_content').select('id, course_id, tag, title, body').eq('kind', 'playbook').eq('is_active', true).order('sort_order'),
@@ -111,6 +111,8 @@ export default async function LeadWorkPage({ params }) {
       emailTemplates={emailTemplates || []}
       sendConnections={sendConnections || []}
       agents={props.agentsByWorkspace?.[deptRow.workspace_id] || []}
+      userId={userId}
+      sellsCourses={!!deptRow.workspaces?.sells_courses}
       timelineProps={{
         // "חוקת-הליד" - רק-פעילות-ששייכת-ל-ליד-הספציפי-הזה (לא-כל-
         // המחלקה, ולא-היסטוריה-שלא-הייתה-מתוך-הכרטיס-של-הליד-הזה).

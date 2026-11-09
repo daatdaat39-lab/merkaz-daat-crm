@@ -8,7 +8,9 @@ import { PhoneIcon } from './icons';
 // מקום שבו יש כבר איש-קשר עם מספר-טלפון. אין כאן מעקב-חי-אחרי-מצב-
 // השיחה (לא בסקופ) - רק אישור ש"השיחה נשלחה", שאר-המעקב (מענה/משך/
 // הקלטה) מגיע כרגיל דרך ה-webhook של 015 לטאב "פעילות".
-export default function DialButton({ contactId, workspaceId = null, style = {} }) {
+// onActionDone (אופציונלי): נקרא אחרי חיוג שנשלח בהצלחה - מסך הליד משתמש בו
+// כדי להציע לנציג לקחת אחריות על ליד חדש (useClaimPrompt).
+export default function DialButton({ contactId, workspaceId = null, style = {}, onActionDone }) {
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState(null); // null | 'sent' | string (error)
 
@@ -19,6 +21,7 @@ export default function DialButton({ contactId, workspaceId = null, style = {} }
       if (res.error) { setStatus(res.error); return; }
       setStatus('sent');
       setTimeout(() => setStatus(null), 5000);
+      onActionDone?.();
     });
   }
 

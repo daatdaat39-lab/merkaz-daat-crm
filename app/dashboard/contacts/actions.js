@@ -50,6 +50,7 @@ import { makeCall } from '../../../lib/hallo015/clickToDial';
 import { summarizeContact } from '../../../lib/ai/summarizeContact';
 import { generateAndSendOtp, verifyOtp } from '../lib/otp';
 import { applyStageAutomations } from '../lib/stageAutomations';
+import { applyAgentStageRule } from '../lib/leadStageRules';
 import { richnessScore, hasExactReason } from '../lib/findDuplicates';
 import { loadDuplicateCandidatesWithMoneyCounts } from '../lib/duplicateCandidates';
 import { EDITABLE_FIELDS } from '../lib/contactFieldsList';
@@ -959,6 +960,7 @@ export async function approveAndAssignLead(departmentRowId, agentId) {
     })
     .eq('id', departmentRowId);
   if (error) return { error: error.message };
+  await applyAgentStageRule(supabase, departmentRowId, user.id);
   return { success: true };
 }
 
@@ -1248,7 +1250,7 @@ export async function assignAgent(contactId, workspaceId, agentId) {
 // היה-משנה-את-כולן-בבת-אחת-בטעות. כל-קריאה-חדשה-מלוח-הלידים/הכרטיס
 // צריכה-להשתמש-בזו; assignAgent נשאר-קיים-רק-לתאימות-אם-יש-עוד-קוראים.
 export async function assignAgentForLead(departmentRowId, agentId) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { data: row } = await supabase.from('contact_departments').select('contact_id').eq('id', departmentRowId).single();
   if (!row) return { error: 'שיוך מחלקה לא נמצא' };
   const frozenError = await requireNotFrozen(supabase, row.contact_id);
@@ -1259,7 +1261,12 @@ export async function assignAgentForLead(departmentRowId, agentId) {
     .update({ agent_id: agentId || null, last_activity_at: new Date().toISOString() })
     .eq('id', departmentRowId);
   if (error) return { error: error.message };
-  return { success: true };
+
+  // במחלקות שמוכרות קורסים: שיוך נציג ל"ליד חדש" <- "פתוח", והסרתו מ"פתוח"
+  // <- "ליד חדש" (app/dashboard/lib/leadStageRules.js). מחזירים את השלב כדי
+  // שהמסך הפתוח יתעדכן בלי לחכות לרענון.
+  const rule = await applyAgentStageRule(supabase, departmentRowId, user.id);
+  return { success: true, stage: rule.stage, stageChanged: rule.changed };
 }
 
 // משנה את הקורס-המשויך-לליד-הקיים (contact_departments.course_id,

@@ -4,7 +4,8 @@ import crypto from 'crypto';
 import { createClient } from '../../../../../lib/supabase/server';
 import { createAdminClient } from '../../../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
-import { isMemberOfWorkspace } from '../../../lib/contactGuards';
+import { isMemberOfWorkspace, requireNotFrozen } from '../../../lib/contactGuards';
+import { advanceToRegistering } from '../../../lib/leadStageRules';
 import { validateDocumentFile, cleanFilename, isPathOfContact } from '../../../lib/documentUploads';
 import { convertLead } from './leadLockActions';
 import { normalizePaymentRef } from '../../../../../lib/kesher/paymentLink';
@@ -321,6 +322,21 @@ export async function findPossiblePaymentMatch(contactId, leadCreatedAt, approxA
   return null;
 }
 
+// שמירה מכוונת ראשונה במסך הרישום <- השלב עובר ל"בתהליך הרשמה" (במחלקות
+// שמוכרות קורסים, ורק אם השלב הנוכחי מוקדם ממנו - לא מורידים שלב). idempotent:
+// הקליינט קורא לה פעם אחת אחרי השמירה המכוונת הראשונה, וקריאה חוזרת לא עושה
+// כלום. הכללים עצמם ב-app/dashboard/lib/leadStageRules.js.
+export async function startRegistration(departmentId) {
+  const { supabase, user } = await requireUser();
+  const { row, error } = await requireMemberOfLead(supabase, user.id, departmentId);
+  if (error) return { error };
+  const frozenError = await requireNotFrozen(supabase, row.contact_id);
+  if (frozenError) return frozenError;
+
+  const res = await advanceToRegistering(supabase, departmentId, user.id);
+  return { success: true, changed: res.changed, stage: res.stage, stageLabel: res.stageLabel || null };
+}
+
 // "בדיקה מחדש" במסך הרישום: משיכה מיידית של תשלום שהרגע בוצע, בלי לחכות
 // לסנכרון התקופתי. אותה פונקציית קריאה-בלבד של הסנכרון (GetTrans/
 // GetObligations), במצב 'recheck' המהיר - ר' kesherSyncCore.js. לא יוצרת
@@ -365,7 +381,8 @@ export async function completeLeadRegistration(departmentId) {
 
   const [{ data: course }, { data: checklist }, { data: existingPurchases }, { data: requiredFields }, { data: uploadedDocs }] = await Promise.all([
     supabase.from('courses').select('checklist_forms_enabled, checklist_payment_enabled').eq('id', row.course_id).maybeSingle(),
-    supabase.from('lead_conversion_checklist').select('*, course_tracks:track_id (label)').eq('contact_department_id', departmentId).maybeSingle(),
+    // start_date/end_date של המסלול (migration 0189) - לכל מסלול תאריכים משלו.
+    supabase.from('lead_conversion_checklist').select('*, course_tracks:track_id (label, start_date, end_date)').eq('contact_department_id', departmentId).maybeSingle(),
     // .limit(1) + אורך-מערך, לא .maybeSingle() - אם-יש-כבר-כמה-שורות-
     // היסטוריות (לפני-אינדקס-הייחוד, migration 0176) זה-לא-אמור-לזרוק.
     // רכישה-שבוטלה (cancelCoursePurchase למטה) לא-אמורה-לחסום-רישום-
@@ -393,9 +410,14 @@ export async function completeLeadRegistration(departmentId) {
     .map((f) => f.label);
   if (missingLabels.length > 0) return { error: `יש להשלים: ${missingLabels.join(', ')}` };
 
+  // תאריכי ההרשמה נלקחים מהמסלול שנבחר (לכל מסלול תאריכים משלו). convertLead
+  // כותב אותם ל-course_purchases לקורסי fixed_dates, והמעבר האוטומטי
+  // "נרשם" <- "תלמיד פעיל" נשען עליהם (app/api/cron/advance-registered-students).
   return convertLead(departmentId, {
     price: checklist?.payment_total_amount ?? null,
     cohortLabel: checklist?.course_tracks?.label || null,
+    enrollmentStartDate: checklist?.course_tracks?.start_date || undefined,
+    enrollmentEndDate: checklist?.course_tracks?.end_date || undefined,
   });
 }
 

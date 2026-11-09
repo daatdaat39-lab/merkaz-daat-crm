@@ -314,25 +314,45 @@ function TrackChip({ track, onToggleActive, disabled }) {
     );
   }
 
+  function saveDate(field, value) {
+    startTransition(async () => {
+      const res = await updateCourseTrack(track.id, { [field]: value });
+      if (!res?.error) router.refresh();
+    });
+  }
+
+  const dateInput = { ...inputStyle, width: 138, padding: '3px 6px', fontSize: 12 };
+
   return (
-    <span
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        background: track.is_active ? 'var(--bg-secondary, #f4f4f5)' : 'transparent',
-        border: '1px solid var(--border)', borderRadius: 999, padding: '3px 10px', fontSize: 12,
-        opacity: track.is_active ? 1 : 0.5,
-      }}
-    >
-      <span onClick={() => setRenaming(true)} style={{ cursor: 'pointer' }}>{track.label}</span>
-      <button
-        type="button"
-        onClick={onToggleActive}
-        disabled={disabled || isPending}
-        style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-secondary)', padding: 0 }}
-        title={track.is_active ? 'השבתה' : 'הפעלה'}
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', width: '100%', marginBottom: 4 }}>
+      <span
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: track.is_active ? 'var(--bg-secondary, #f4f4f5)' : 'transparent',
+          border: '1px solid var(--border)', borderRadius: 999, padding: '3px 10px', fontSize: 12,
+          opacity: track.is_active ? 1 : 0.5,
+        }}
       >
-        {track.is_active ? '✕' : '↺'}
-      </button>
+        <span onClick={() => setRenaming(true)} style={{ cursor: 'pointer' }}>{track.label}</span>
+        <button
+          type="button"
+          onClick={onToggleActive}
+          disabled={disabled || isPending}
+          style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-secondary)', padding: 0 }}
+          title={track.is_active ? 'השבתה' : 'הפעלה'}
+        >
+          {track.is_active ? '✕' : '↺'}
+        </button>
+      </span>
+      {/* תאריכי המסלול - התחלה משמשת למעבר האוטומטי "נרשם" <- "תלמיד פעיל" */}
+      <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        התחלה
+        <input type="date" defaultValue={track.start_date || ''} onChange={(e) => saveDate('startDate', e.target.value)} disabled={isPending} style={dateInput} />
+      </label>
+      <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        סיום
+        <input type="date" defaultValue={track.end_date || ''} onChange={(e) => saveDate('endDate', e.target.value)} disabled={isPending} style={dateInput} />
+      </label>
     </span>
   );
 }

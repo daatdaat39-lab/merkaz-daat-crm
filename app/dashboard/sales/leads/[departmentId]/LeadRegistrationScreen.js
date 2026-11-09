@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import EmailComposeModal from '../../../contacts/[id]/EmailComposeModal';
@@ -9,10 +9,12 @@ import ThreeColumnScreen from '../../../components/ThreeColumnScreen';
 import SignaturePad from '../../../components/SignaturePad';
 import { PersonIcon, CheckIcon, MailIcon, WhatsAppIcon, WarningIcon } from '../../../components/icons';
 import { useLeadLock } from './useLeadLock';
+import { useClaimPrompt } from './useClaimPrompt';
+import ClaimLeadModal from './ClaimLeadModal';
 import {
   updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures, updateLeadRegistrationAnswer,
   completeLeadRegistration, cancelCoursePurchase, uploadLeadDocumentByAgent, getSignedLeadFileUrl,
-  updateLeadPublicToken, submitLeadSignatureByAgent, ensureLeadPaymentRef, recheckKesherPayment,
+  updateLeadPublicToken, submitLeadSignatureByAgent, ensureLeadPaymentRef, recheckKesherPayment, startRegistration,
 } from './leadChecklistActions';
 import { buildPersonalPaymentUrl } from '../../../../../lib/kesher/paymentLink';
 
@@ -39,6 +41,7 @@ export default function LeadRegistrationScreen({
   departmentId, contact, workspaceId, workspaceName, selectedCourse, courseTracks = [], formFields = [],
   uploadedDocuments = [], checklist = null, wonStageLabel, paymentMatch = null,
   sendConnections = [], whatsappTemplates = [], emailTemplates = [], existingPurchase = null, stageKey = null,
+  userId = null, agentId = null, sellsCourses = false,
 }) {
   const { lockState, error: lockError, releaseOnNavigate } = useLeadLock(departmentId);
   const router = useRouter();
@@ -87,6 +90,76 @@ export default function LeadRegistrationScreen({
   const [, startTransition] = useTransition();
   const [rechecking, setRechecking] = useState(false);
   const [recheckMsg, setRecheckMsg] = useState('');
+
+  // כללי השלב של מסך הרישום (ר' app/dashboard/lib/leadStageRules.js):
+  //  - שמירה מכוונת ראשונה <- "בתהליך הרשמה" + הודעה שנעלמת לבד;
+  //  - ליד בלי נציג <- חלון "לקחת אחריות" בכל שמירה מכוונת.
+  // agentIdLocal/stageLocal הם useState ולכן לא מסתנכרנים לבד אחרי router.refresh.
+  const [agentIdLocal, setAgentIdLocal] = useState(agentId || '');
+  const [stageLocal, setStageLocal] = useState(stageKey);
+  const [stageNotice, setStageNotice] = useState('');
+  const registrationStartedRef = useRef(false);
+  const { notifyAction, claimOpen, claim, leaveOpen, claimPending, claimError } = useClaimPrompt({
+    departmentId, enabled: sellsCourses, userId, agentId: agentIdLocal, stage: stageLocal,
+    onClaimed: (res) => {
+      setAgentIdLocal(userId);
+      if (res?.stage) setStageLocal(res.stage);
+      router.refresh();
+    },
+  });
+
+  // הערכים שהמסך מציג בטעינה (כולל ברירות מחדל מהקורס), כדי ש-blur בלי שינוי
+  // לא ייחשב "שמירה מכוונת". מתעדכן בכל שמירה שבה הערך באמת השתנה.
+  const lastSavedRef = useRef(null);
+  if (lastSavedRef.current === null) {
+    const init = {
+      'forms.done': String(!!checklist?.forms_done),
+      'forms.link': checklist?.forms_link || selectedCourse?.registration_form_url || '',
+      'forms.sentAt': checklist?.forms_sent_at || '',
+      'payment.arranged': String(!!checklist?.payment_arranged),
+      'payment.totalAmount': checklist?.payment_total_amount != null ? String(checklist.payment_total_amount) : '',
+      'payment.installmentsCount': checklist?.payment_installments_count != null ? String(checklist.payment_installments_count) : '1',
+      'payment.method': checklist?.payment_method || '',
+      'payment.note': checklist?.payment_note || '',
+      'payment.paymentLink': checklist?.payment_link || selectedCourse?.payment_page_url || '',
+      'payment.paymentLinkSentAt': checklist?.payment_link_sent_at || '',
+      'signatures.done': String(!!checklist?.signatures_done),
+      'signatures.link': checklist?.signatures_link || selectedCourse?.signature_template_url || '',
+      'signatures.note': checklist?.signatures_note || '',
+      'signatures.sentAt': checklist?.signatures_sent_at || '',
+    };
+    for (const [k, v] of Object.entries(checklist?.registration_answers || {})) init[`answers.${k}`] = v === null || v === undefined ? '' : String(v);
+    lastSavedRef.current = init;
+  }
+
+  // האם אחד מהערכים בתיקון שונה ממה שנשמר לאחרונה (ומעדכן את הרשומה).
+  function trackChanges(scope, patch) {
+    let changed = false;
+    for (const [k, v] of Object.entries(patch)) {
+      const key = `${scope}.${k}`;
+      const next = v === null || v === undefined ? '' : String(v);
+      if (lastSavedRef.current[key] !== next) { lastSavedRef.current[key] = next; changed = true; }
+    }
+    return changed;
+  }
+
+  // נקראת אחרי שמירה מכוונת שבה משהו באמת השתנה (ר' trackChanges), אחרי
+  // העלאת מסמך, חתימה ושליחת קישור. מציעה לקחת אחריות, ומעבירה (פעם אחת
+  // בטעינה; בשרת זה idempotent) את השלב ל"בתהליך הרשמה".
+  function markDeliberateSave() {
+    notifyAction();
+    if (!sellsCourses || registrationStartedRef.current) return;
+    registrationStartedRef.current = true;
+    startRegistration(departmentId).then((res) => {
+      if (res?.error) { registrationStartedRef.current = false; return; }
+      if (res?.changed) {
+        setStageLocal(res.stage);
+        setStageNotice(`התהליך עבר לשלב "${res.stageLabel}"`);
+        setTimeout(() => setStageNotice(''), 6000);
+        router.refresh();
+      }
+    }).catch(() => { registrationStartedRef.current = false; });
+  }
 
   useEffect(() => { setOrigin(window.location.origin); }, []);
 
@@ -158,27 +231,33 @@ export default function LeadRegistrationScreen({
     const value = e.target.value;
     setTrackId(value);
     startTransition(() => updateLeadTrack(departmentId, value || null));
+    markDeliberateSave();
   }
 
   function saveForms(patch) {
     startTransition(() => updateLeadForms(departmentId, patch));
+    if (trackChanges('forms', patch)) markDeliberateSave();
   }
 
   function savePayment(patch) {
     startTransition(() => updateLeadPayment(departmentId, patch));
+    if (trackChanges('payment', patch)) markDeliberateSave();
   }
 
   function saveSignatures(patch) {
     startTransition(() => updateLeadSignatures(departmentId, patch));
+    if (trackChanges('signatures', patch)) markDeliberateSave();
   }
 
   function saveAnswer(fieldKey, value) {
     setAnswers((prev) => ({ ...prev, [fieldKey]: value }));
     startTransition(() => updateLeadRegistrationAnswer(departmentId, fieldKey, value));
+    if (trackChanges('answers', { [fieldKey]: value })) markDeliberateSave();
   }
 
   function handleDocUploaded(doc) {
     setDocs((prev) => [...prev, doc]);
+    markDeliberateSave();
   }
 
   function handleLinkSent(field) {
@@ -248,6 +327,7 @@ export default function LeadRegistrationScreen({
       setSignatureIp(null);
       setSignatureSignedAt(res.signedAt);
       setShowSignaturePad(false);
+      markDeliberateSave();
       router.refresh();
     });
   }
@@ -397,8 +477,13 @@ export default function LeadRegistrationScreen({
       <ThreeColumnScreen
         header={headerBlock}
         hero={
-          (amountMismatch || sectionsTotal > 0) && (
+          (amountMismatch || sectionsTotal > 0 || !!stageNotice) && (
             <>
+              {stageNotice && (
+                <div style={{ padding: '10px 24px', textAlign: 'center', background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', fontSize: 13.5, fontWeight: 700 }}>
+                  <CheckIcon size={14} /> {stageNotice}
+                </div>
+              )}
               {amountMismatch && (
                 <div style={{ padding: '10px 24px', textAlign: 'center', background: 'var(--k-danger-bg)', color: 'var(--k-danger-text)', fontSize: 13.5, fontWeight: 700 }}>
                   <WarningIcon size={14} /> שים לב: שינוי בסכום - שולם ₪{paidAmount} במקום ₪{expectedAmount} שסוכם
@@ -829,6 +914,10 @@ export default function LeadRegistrationScreen({
           onClose={() => setSendTarget(null)}
           onSent={() => handleLinkSent(sendTarget.field)}
         />
+      )}
+
+      {claimOpen && (
+        <ClaimLeadModal onClaim={claim} onLeaveOpen={leaveOpen} pending={claimPending} error={claimError} />
       )}
     </div>
   );

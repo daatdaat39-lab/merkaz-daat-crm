@@ -14,7 +14,7 @@ export async function loadLeadCoreContext(departmentId) {
 
   const { data: deptRow } = await supabase
     .from('contact_departments')
-    .select('id, contact_id, workspace_id, created_at, workspaces:workspace_id (name)')
+    .select('id, contact_id, workspace_id, created_at, workspaces:workspace_id (name, sells_courses)')
     .eq('id', departmentId)
     .maybeSingle();
   if (!deptRow) return { deptNotFound: true };
@@ -49,7 +49,7 @@ export async function loadLeadCoreContext(departmentId) {
   ]);
 
   return {
-    supabase, deptRow, department, props,
+    supabase, userId: user.id, deptRow, department, props,
     courses: courses || [], checklist: checklist || null, courseTracks: courseTracks || [], formFields: formFields || [], pipeline,
     uploadedDocuments: uploadedDocuments || [],
   };
