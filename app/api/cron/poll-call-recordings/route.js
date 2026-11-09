@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { listRecordings, getRecordingAudio, isRecordingsApiConfigured } from '../../../../lib/hallo015/recordings';
-import { transcribeAudio, transcribeAudioSegments, isTranscriptionConfigured } from '../../../../lib/groq/transcribe';
+import { transcribeAudio, transcribeAudioSegments, isTranscriptionConfigured, getTranscriptionModel } from '../../../../lib/groq/transcribe';
 import { buildSpeakerTranscript, NO_SPEECH_MARKER } from '../../../../lib/groq/speakerTranscript';
 import { normalizePhone } from '../../../../lib/hallo015/config';
 import { safeEqual } from '../../../../lib/security/safeEqual';
@@ -155,6 +155,7 @@ export async function GET(request) {
       const { data: queue } = await query;
 
       result.mode = redoId ? 'redo' : redoOld > 0 ? 'redoOld' : 'new';
+      result.sttModel = getTranscriptionModel();
       result.transcriptionFailureSample = [];
       result.speakerStats = [];
       const startedAt = Date.now();
