@@ -97,7 +97,9 @@ export default function CoursesClient({ courses, tracks = [], formFields = [] })
             <LabeledInput label="קישור לתבנית חתימה דיגיטלית (ברירת-מחדל לליד)" name="signatureTemplateUrl" />
             <LabeledInput label="קישור לדף תשלום חיצוני (Kesher) - ברירת-מחדל לליד" name="paymentPageUrl" />
           </div>
-          <ChecklistCheckboxes defaults={{ checklistFormsEnabled: true, checklistPaymentEnabled: true }} />
+          {/* הקישור החיצוני לטופס רישום כבוי כברירת מחדל: יש לנו שדות טופס משלנו
+              וקישור אישי ללקוח (course_form_fields, /register/[token]). */}
+          <ChecklistCheckboxes defaults={{ checklistFormsEnabled: false, checklistPaymentEnabled: true }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             <button type="submit" disabled={isPending} style={primaryBtn}>{isPending ? 'שומר...' : 'הוספת קורס'}</button>
             <button type="button" onClick={() => setAdding(false)} style={secondaryBtn}>ביטול</button>
