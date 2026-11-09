@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { createAdminClient } from '../../../lib/supabase/admin';
 import { isPublicLinkExpired, isBotUserAgent } from '../../dashboard/lib/publicLink';
 import PublicRegistrationScreen from './PublicRegistrationScreen';
+import PaymentStepCard from './PaymentStepCard';
 import { PageShell, MessageCard, IconCheckCircle, IconWarn } from './RegistrationChrome';
 import { getBrand } from '../../../lib/brand';
 
@@ -24,14 +25,18 @@ export const metadata = {
 // payment_page_url) נשלפים-אך-ורק-כדי-להציג-כפתור-"מעבר-לתשלום" במסך-
 // ה"תודה" (DoneCard, אחרי-שהכל-כבר-הושלם) - לא-נחשף-שום-סכום/סטטוס-
 // תשלום, רק-קישור-חיצוני.
-export default async function PublicRegistrationPage({ params }) {
+export default async function PublicRegistrationPage({ params, searchParams }) {
   const { token } = params;
   const admin = createAdminClient();
+  // m=details: פרטים בלבד, בלי שלב התשלום. כל ערך אחר (וקישורים ישנים בלי
+  // פרמטר) = "הכול": פרטים ואחריהם מעבר לתשלום, כשיש קישור תשלום.
+  const mode = searchParams?.m === 'details' ? 'details' : 'all';
 
   const { data: row } = await admin
     .from('lead_conversion_checklist')
     .select(`
       id, contact_department_id, signatures_done, signature_image_path, registration_answers, payment_link, public_token_created_at,
+      payment_total_amount, payment_installments_count,
       contact_departments:contact_department_id (
         course_id, contact_id, workspace_id,
         workspaces:workspace_id (name),
@@ -73,7 +78,7 @@ export default async function PublicRegistrationPage({ params }) {
   const courseId = row.contact_departments?.course_id;
   const [{ data: course }, { data: formFields }, { data: uploadedDocs }] = await Promise.all([
     courseId
-      ? admin.from('courses').select('name, payment_page_url').eq('id', courseId).maybeSingle()
+      ? admin.from('courses').select('name, price, payment_page_url, checklist_payment_enabled').eq('id', courseId).maybeSingle()
       : Promise.resolve({ data: null }),
     // מערכת-טפסים-בסיסית (migration 0182) - רשימה-אחת-מסודרת-עם-type
     // (טקסט/מספר/תאריך/בחירה/קובץ/חתימה) - אותו-מקור-בדיוק כמו-צד-הנציג.
@@ -93,10 +98,23 @@ export default async function PublicRegistrationPage({ params }) {
     return !answers[f.field_key];
   });
 
-  // "אין-מה-לעשות" - כל-מה-שבאמת-נדרש (required) כבר-הושלם - מוצג
-  // "תודה, הכל הושלם" במקום-הטופס-הפעיל, בלי-צורך-להרכיב-את-כל-הפרופס.
+  // שלב התשלום קיים רק בקישור "הכול" ורק כשיש קישור לדף תשלום תקין. הסכום
+  // מוצג מהסכום שהנציג קבע, ובהיעדרו ממחיר הקורס (כמו הקישור האישי לקשר).
+  const paymentBase = row.payment_link || course?.payment_page_url || '';
+  const paymentStep = mode === 'all' && course?.checklist_payment_enabled !== false && /^https?:\/\//i.test(paymentBase);
+  const paymentSummary = {
+    courseName: course?.name || '',
+    amount: Number(row.payment_total_amount) || Number(course?.price) || null,
+    installments: Number(row.payment_installments_count) || null,
+  };
+
+  // "אין-מה-לעשות" - כל-מה-שבאמת-נדרש (required) כבר-הושלם: עם שלב תשלום
+  // מוצג הסיכום וכפתור המעבר לתשלום, בלי - "תודה, הכל הושלם".
   if (!missingRequired) {
-    return <DoneCard brand={brand} firstName={row.contact_departments?.contacts?.first} paymentLink={row.payment_link || course?.payment_page_url || null} />;
+    if (paymentStep) {
+      return <PaymentStepCard brand={brand} firstName={row.contact_departments?.contacts?.first} token={token} summary={paymentSummary} />;
+    }
+    return <DoneCard brand={brand} firstName={row.contact_departments?.contacts?.first} />;
   }
 
   return (
@@ -109,6 +127,8 @@ export default async function PublicRegistrationPage({ params }) {
       initialAnswers={answers}
       initialUploadedDocuments={uploadedDocs || []}
       initialSignaturesDone={!!row.signatures_done}
+      paymentStep={paymentStep}
+      paymentSummary={paymentSummary}
     />
   );
 }
@@ -149,26 +169,13 @@ function CompletedCard({ firstName, brand }) {
   );
 }
 
-function DoneCard({ firstName, paymentLink, brand }) {
+function DoneCard({ firstName, brand }) {
   return (
     <PageShell brand={brand}>
       <MessageCard tone="ok" icon={<IconCheckCircle size={34} />} title={`תודה${firstName ? `, ${firstName}` : ''}!`}>
         כל הפרטים נקלטו.
         <br />
         הנציג שלכם ייצור איתכם קשר להמשך התהליך.
-        {paymentLink && (
-          <div style={{ marginTop: 22 }}>
-            <a
-              href={paymentLink} target="_blank" rel="noreferrer"
-              style={{
-                display: 'inline-block', fontFamily: 'var(--k-font-display)', fontSize: 15, fontWeight: 700,
-                color: '#fff', background: 'var(--k-accent)', borderRadius: 12, padding: '13px 34px', textDecoration: 'none',
-              }}
-            >
-              מעבר לתשלום ←
-            </a>
-          </div>
-        )}
       </MessageCard>
     </PageShell>
   );

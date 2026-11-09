@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import EmailComposeModal from '../../../contacts/[id]/EmailComposeModal';
 import WhatsAppSendModal from '../../../contacts/[id]/WhatsAppSendModal';
-import ThreeColumnScreen from '../../../components/ThreeColumnScreen';
 import SignaturePad from '../../../components/SignaturePad';
 import { PersonIcon, CheckIcon, MailIcon, WhatsAppIcon, WarningIcon } from '../../../components/icons';
 import { useLeadLock } from './useLeadLock';
@@ -14,7 +13,7 @@ import ClaimLeadModal from './ClaimLeadModal';
 import {
   updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures, updateLeadRegistrationAnswer,
   completeLeadRegistration, cancelCoursePurchase, uploadLeadDocumentByAgent, getSignedLeadFileUrl,
-  updateLeadPublicToken, submitLeadSignatureByAgent, ensureLeadPaymentRef, recheckKesherPayment, startRegistration,
+  updateLeadPublicToken, ensureLeadShortCode, submitLeadSignatureByAgent, ensureLeadPaymentRef, recheckKesherPayment, startRegistration,
 } from './leadChecklistActions';
 import { buildPersonalPaymentUrl } from '../../../../../lib/kesher/paymentLink';
 
@@ -25,6 +24,27 @@ const sendBtnStyle = {
   width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
   border: '1px solid var(--k-border)', borderRadius: 8, background: 'var(--k-surface)', color: 'var(--k-text)', cursor: 'pointer', flexShrink: 0,
 };
+
+// מה אפשר לשלוח ללקוח בקישור: הכול (פרטים ואחריהם תשלום), פרטים בלבד, או תשלום בלבד.
+const SEND_MODES = [
+  { key: 'all', title: 'הכול בקישור אחד', hint: 'הלקוח ממלא פרטים ואז עובר לתשלום' },
+  { key: 'details', title: 'פרטים בלבד', hint: 'מילוי פרטים, בלי תשלום' },
+  { key: 'pay', title: 'תשלום בלבד', hint: 'מעבר ישיר לדף התשלום' },
+];
+
+// פריסת המסך: סרגל צד לצד שלבים. בצר (נייד, או שהתוכן לא נכנס בשורה) הסרגל
+// עובר מעל השלבים וכפתור הסיום יורד לתחתית; הסרגל נדבק רק כשיש מקום לשני הצדדים.
+const REG_LAYOUT_CSS = `
+.reg-layout{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.reg-aside{flex:1 1 280px;min-width:0}
+.reg-main{flex:3 1 480px;min-width:0}
+.reg-finish-aside{display:none}
+.reg-finish-main{display:block}
+@media (min-width:1100px){
+  .reg-aside{position:sticky;top:12px;max-width:340px}
+  .reg-finish-aside{display:block}
+  .reg-finish-main{display:none}
+}`;
 
 function formatSentAt(iso) {
   if (!iso) return null;
@@ -76,6 +96,10 @@ export default function LeadRegistrationScreen({
   // אבל-לא-נכתב-בשרת (loader) כדי-שלא-ליצור-טוקן-לכל-ליד-שנפתח-פעם-אחת.
   const [publicToken, setPublicToken] = useState(checklist?.public_token || null);
   const [tokenCreating, setTokenCreating] = useState(false);
+  const [shortCode, setShortCode] = useState(checklist?.short_code || null);
+  const [sendMode, setSendMode] = useState('all');
+  // null = ברירת מחדל: נפתח רק השלב הראשון שעוד לא הושלם.
+  const [openSteps, setOpenSteps] = useState(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
   const publicLinkLastOpenedAt = checklist?.public_link_last_opened_at || null;
 
@@ -183,13 +207,24 @@ export default function LeadRegistrationScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [awaitingPayment]);
 
+  // טוקן הקישור הארוך נוצר בפתיחה אם חסר, ואחריו הקישור הקצר (/r /d /p).
+  // אם עמודת הקישור הקצר עוד לא קיימת (migration 0190) מציגים את הארוך.
   useEffect(() => {
-    if (publicToken || tokenCreating) return;
-    setTokenCreating(true);
-    updateLeadPublicToken(departmentId).then((res) => {
-      setTokenCreating(false);
-      if (res?.token) setPublicToken(res.token);
-    });
+    let cancelled = false;
+    (async () => {
+      let token = publicToken;
+      if (!token) {
+        setTokenCreating(true);
+        const res = await updateLeadPublicToken(departmentId);
+        setTokenCreating(false);
+        if (res?.token) { token = res.token; if (!cancelled) setPublicToken(res.token); }
+      }
+      if (token && !shortCode) {
+        const sc = await ensureLeadShortCode(departmentId);
+        if (!cancelled && sc?.code) setShortCode(sc.code);
+      }
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -218,10 +253,6 @@ export default function LeadRegistrationScreen({
 
   const doneFieldsCount = formFields.filter(isFieldDone).length;
   const missingRequiredFields = formFields.filter((f) => f.required && !isFieldDone(f));
-
-  const sectionsTotal = (showForms ? 1 : 0) + (showPayment ? 1 : 0) + formFields.length;
-  const sectionsDone = (showForms && formsDone ? 1 : 0) + (showPayment && paymentArranged ? 1 : 0) + doneFieldsCount;
-  const allDone = sectionsTotal === 0 || sectionsDone === sectionsTotal;
 
   const emailConnection = sendConnections.find((c) => c.workspace_id === workspaceId);
   const canEmail = !!emailConnection && !!contact.email;
@@ -260,9 +291,17 @@ export default function LeadRegistrationScreen({
     markDeliberateSave();
   }
 
-  function handleLinkSent(field) {
+  function handleLinkSent(field, mode) {
     const now = new Date().toISOString();
-    if (field === 'forms') {
+    if (field === 'customerLink') {
+      // קישור תשלום בלבד = מעקב שליחת תשלום; הכול/פרטים = שמירה מכוונת של הרישום.
+      if (mode === 'pay') {
+        setPaymentLinkSentAt(now);
+        savePayment({ paymentLinkSentAt: now });
+      } else {
+        markDeliberateSave();
+      }
+    } else if (field === 'forms') {
       setFormsSentAt(now);
       saveForms({ sentAt: now });
     } else if (field === 'signatures') {
@@ -277,8 +316,8 @@ export default function LeadRegistrationScreen({
   }
 
   function handleCopyLink() {
-    if (!publicToken) return;
-    navigator.clipboard?.writeText(personalLinkUrl).then(() => {
+    if (!currentCustomerLink) return;
+    navigator.clipboard?.writeText(currentCustomerLink).then(() => {
       setCopyFeedback(true);
       setTimeout(() => setCopyFeedback(false), 2000);
     });
@@ -308,7 +347,12 @@ export default function LeadRegistrationScreen({
     startTransition(async () => {
       const res = await updateLeadPublicToken(departmentId, { regenerate: true });
       setTokenCreating(false);
-      if (res?.token) setPublicToken(res.token);
+      if (res?.token) {
+        setPublicToken(res.token);
+        setShortCode(null);
+        const sc = await ensureLeadShortCode(departmentId);
+        if (sc?.code) setShortCode(sc.code);
+      }
     });
   }
 
@@ -391,7 +435,6 @@ export default function LeadRegistrationScreen({
   const sentForms = formatSentAt(formsSentAt);
   const sentSignatures = formatSentAt(signaturesSentAt);
   const sentPaymentLink = formatSentAt(paymentLinkSentAt);
-  const personalLinkUrl = publicToken && typeof window !== 'undefined' ? `${window.location.origin}/register/${publicToken}` : '';
   // הקישור האישי לתשלום נבנה מקישור הדף הכללי + פרטי הליד + המזהה האישי.
   // null = כתובת הדף אינה תקינה (נבדק רק כשכבר נוצר מזהה).
   const personalPaymentUrl = paymentRef && paymentLink
@@ -410,7 +453,8 @@ export default function LeadRegistrationScreen({
   const SEND_FIELD_META = {
     forms: { label: 'טופס הרישום', intro: 'מצורף הקישור למילוי טופס הרישום', value: formsLink },
     signatures: { label: 'חתימה דיגיטלית', intro: 'מצורף הקישור לחתימה דיגיטלית', value: signaturesLink },
-    personalLink: { label: 'השלמת הרישום', intro: 'מצורף הקישור האישי להשלמת הרישום', value: personalLinkUrl },
+    // customerLink: התווית, הנוסח והכתובת נקבעים לפי מצב השליחה שנבחר (למטה).
+    customerLink: { label: '', intro: '', value: '' },
     paymentLink: { label: 'דף התשלום', intro: 'מצורף הקישור לדף התשלום', value: paymentLink },
     personalPayment: { label: 'תשלום', intro: 'מצורף הקישור האישי לתשלום', value: personalPaymentUrl || '' },
   };
@@ -472,83 +516,182 @@ export default function LeadRegistrationScreen({
     );
   }
 
-  return (
-    <div style={{ background: 'var(--k-bg)', minHeight: '100%' }}>
-      <ThreeColumnScreen
-        header={headerBlock}
-        hero={
-          (amountMismatch || sectionsTotal > 0 || !!stageNotice) && (
-            <>
-              {stageNotice && (
-                <div style={{ padding: '10px 24px', textAlign: 'center', background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', fontSize: 13.5, fontWeight: 700 }}>
-                  <CheckIcon size={14} /> {stageNotice}
-                </div>
-              )}
-              {amountMismatch && (
-                <div style={{ padding: '10px 24px', textAlign: 'center', background: 'var(--k-danger-bg)', color: 'var(--k-danger-text)', fontSize: 13.5, fontWeight: 700 }}>
-                  <WarningIcon size={14} /> שים לב: שינוי בסכום - שולם ₪{paidAmount} במקום ₪{expectedAmount} שסוכם
-                </div>
-              )}
-              {sectionsTotal > 0 && (
-                <div style={{ padding: '18px 24px', textAlign: 'center', background: sectionsDone === sectionsTotal ? 'var(--k-ok-bg)' : 'var(--k-pill-bg)' }}>
-                  <div style={{ ...sectionLabel, color: sectionsDone === sectionsTotal ? 'var(--k-ok-text)' : 'var(--k-text-muted)', opacity: 0.8 }}>התקדמות רישום</div>
-                  <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 26, color: sectionsDone === sectionsTotal ? 'var(--k-ok-text)' : 'var(--k-text)', marginTop: 2 }}>
-                    {sectionsDone}/{sectionsTotal} שלבים הושלמו
-                  </div>
-                </div>
-              )}
-            </>
-          )
-        }
-        right={
-          <>
-            {courseTracks.length > 0 && (
-              <div style={cardStyle}>
-                <div style={sectionLabel}>מסלול</div>
+  // ===== מבנה המסך: שלבים עצמאיים שנפתחים בכל סדר + סרגל צד =====
+  // כל שלב (מסלול, פרטי הלקוח, מסמכים, חתימה, תשלום) הוא כרטיס מתקפל משלו;
+  // אין סדר כפוי (למשל אפשר להסדיר תשלום לפני מילוי הפרטים). הסרגל מציג מה
+  // נשאר ומאפשר לשלוח ללקוח קישור אחד (הכול), או פרטים בלבד, או תשלום בלבד.
+  const dataFields = formFields.filter((f) => f.type !== 'file' && f.type !== 'signature');
+  const fileFields = formFields.filter((f) => f.type === 'file');
+  const signatureFields = formFields.filter((f) => f.type === 'signature');
+  const doneOf = (list) => list.filter(isFieldDone).length;
+  const missingOf = (list) => list.filter((f) => f.required && !isFieldDone(f)).length;
+
+  const steps = [];
+  if (courseTracks.length > 0) {
+    steps.push({ key: 'track', title: 'מסלול', done: !!trackId, blocking: false, summary: trackId ? (courseTracks.find((t) => t.id === trackId)?.label || 'נבחר') : 'לא נבחר' });
+  }
+  if (dataFields.length > 0) {
+    steps.push({ key: 'details', title: 'פרטי הלקוח', done: doneOf(dataFields) === dataFields.length, blocking: missingOf(dataFields) > 0, summary: `${doneOf(dataFields)}/${dataFields.length}` });
+  }
+  if (fileFields.length > 0) {
+    steps.push({ key: 'docs', title: 'מסמכים', done: doneOf(fileFields) === fileFields.length, blocking: missingOf(fileFields) > 0, summary: `${doneOf(fileFields)}/${fileFields.length}` });
+  }
+  if (signatureFields.length > 0) {
+    steps.push({ key: 'signature', title: 'חתימה', done: signaturesDone, blocking: !signaturesDone && signatureFields.some((f) => f.required), summary: signaturesDone ? 'נחתם' : 'לא נחתם' });
+  }
+  if (showPayment) {
+    steps.push({ key: 'payment', title: 'תשלום', done: paymentArranged, blocking: !paymentArranged, summary: paymentArranged ? 'הוסדר' : 'לא הוסדר' });
+  }
+  if (showForms) {
+    steps.push({ key: 'forms', title: 'טפסים חיצוניים', done: formsDone, blocking: !formsDone, summary: formsDone ? 'בוצע' : 'לא בוצע' });
+  }
+
+  const stepsDone = steps.filter((s) => s.done).length;
+  const firstOpenKey = (steps.find((s) => !s.done) || steps[0])?.key;
+  const isOpen = (key) => (openSteps ? !!openSteps[key] : key === firstOpenKey);
+  function toggleStep(key) {
+    setOpenSteps((prev) => ({ ...(prev || { [firstOpenKey]: true }), [key]: !isOpen(key) }));
+  }
+  function goToStep(key) {
+    setOpenSteps((prev) => ({ ...(prev || { [firstOpenKey]: true }), [key]: true }));
+    setTimeout(() => document.getElementById(`step-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  }
+
+  // רק שדות חובה, הסדר תשלום וטפסים חיצוניים (כשהם מוגדרים לקורס) חוסמים
+  // סיום; שדה אופציונלי אפשר לדלג עליו (תואם את הבדיקה בשרת).
+  const blockers = [
+    ...missingRequiredFields.map((f) => f.label),
+    ...(showPayment && !paymentArranged ? ['הסדר תשלום'] : []),
+    ...(showForms && !formsDone ? ['טפסים חיצוניים'] : []),
+  ];
+  const canFinish = blockers.length === 0;
+  const optionalLeft = formFields.filter((f) => !f.required && !isFieldDone(f)).length;
+
+  // קישורי הלקוח: מקוצר (/r, /d, /p) כשכבר נוצר קוד, אחרת הכתובות הארוכות.
+  const longLink = publicToken && origin ? `${origin}/register/${publicToken}` : '';
+  const payAvailable = showPayment && /^https?:\/\//i.test(paymentLink || '');
+  const customerLinks = {
+    all: shortCode && origin ? `${origin}/r/${shortCode}` : longLink,
+    details: shortCode && origin ? `${origin}/d/${shortCode}` : (longLink ? `${longLink}?m=details` : ''),
+    pay: payAvailable ? (shortCode && origin ? `${origin}/p/${shortCode}` : personalPaymentUrl) : '',
+  };
+  const currentCustomerLink = customerLinks[sendMode] || '';
+  const customerMeta = {
+    all: { label: 'השלמת הרישום והתשלום', intro: 'מצורף הקישור להשלמת הרישום ולתשלום' },
+    details: { label: 'השלמת פרטי הרישום', intro: 'מצורף הקישור להשלמת פרטי הרישום' },
+    pay: { label: 'תשלום', intro: 'מצורף הקישור לתשלום' },
+  };
+  SEND_FIELD_META.customerLink = { ...customerMeta[sendMode], value: currentCustomerLink };
+
+  function renderDataField(field) {
+    return (
+                    <div key={field.id}>
+                      <div style={{ ...sectionLabel, marginBottom: 4 }}>
+                        {field.label}{field.required && <span style={{ color: 'var(--k-danger-text)' }}> *</span>}
+                      </div>
+                      {field.type === 'select' ? (
+                        <select
+                          value={answers[field.field_key] ?? ''}
+                          onChange={(e) => saveAnswer(field.field_key, e.target.value)}
+                          style={inputStyle}
+                        >
+                          <option value="">— בחירה —</option>
+                          {(field.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      ) : (
+                        <input
+                          type={field.type || 'text'}
+                          defaultValue={answers[field.field_key] ?? ''}
+                          onBlur={(e) => saveAnswer(field.field_key, e.target.value)}
+                          style={inputStyle}
+                        />
+                      )}
+                    </div>
+    );
+  }
+
+  function renderSignatureField(field) {
+    return (
+                      <div key={field.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                          <input
+                            type="checkbox" checked={signaturesDone}
+                            onChange={(e) => { setSignaturesDone(e.target.checked); saveSignatures({ done: e.target.checked }); }}
+                          />
+                          {field.label}{field.required && <span style={{ color: 'var(--k-danger-text)' }}> *</span>}
+                        </label>
+
+                        {signatureImagePath ? (
+                          <SignaturePreview departmentId={departmentId} filePath={signatureImagePath} typedName={signatureTypedName} signedAt={signatureSignedAt} fromPublicLink={!!signatureIp} />
+                        ) : showSignaturePad ? (
+                          <>
+                            <SignaturePad onSubmit={handleSubmitSignature} submitting={signatureSubmitting} />
+                            {signatureError && <div style={{ fontSize: 11.5, color: 'var(--k-danger-text)' }}>{signatureError}</div>}
+                            <button type="button" onClick={() => setShowSignaturePad(false)} style={{ alignSelf: 'flex-start', fontSize: 11, color: 'var(--k-text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                              ביטול
+                            </button>
+                          </>
+                        ) : (
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>הלקוח יחתום בקישור האישי</div>
+                            <button type="button" onClick={() => setShowSignaturePad(true)} style={{ fontSize: 11.5, color: 'var(--k-accent)', background: 'none', border: '1px solid var(--k-border)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
+                              חתימה כאן ועכשיו
+                            </button>
+                          </div>
+                        )}
+
+                        <div style={{ borderTop: '1px solid var(--k-border)', marginTop: 4, paddingTop: 8 }}>
+                          <div style={{ ...sectionLabel, marginBottom: 4 }}>קישור חיצוני (אופציונלי)</div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <input
+                              type="text" value={signaturesLink} onChange={(e) => setSignaturesLink(e.target.value)}
+                              onBlur={() => saveSignatures({ link: signaturesLink })}
+                              placeholder="קישור לחתימה דיגיטלית (אופציונלי)" style={inputStyle}
+                            />
+                            <button type="button" title="שלח במייל" disabled={!canEmail || !signaturesLink} onClick={() => setSendTarget({ field: 'signatures', channel: 'email' })} style={{ ...sendBtnStyle, opacity: !canEmail || !signaturesLink ? 0.4 : 1 }}>
+                              <MailIcon size={13} />
+                            </button>
+                            <button type="button" title="שלח בוואטסאפ" disabled={!canWhatsapp || !signaturesLink} onClick={() => setSendTarget({ field: 'signatures', channel: 'whatsapp' })} style={{ ...sendBtnStyle, opacity: !canWhatsapp || !signaturesLink ? 0.4 : 1 }}>
+                              <WhatsAppIcon size={13} />
+                            </button>
+                          </div>
+                          {sentSignatures && <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginTop: 4 }}>{sentSignatures}</div>}
+                        </div>
+                        <input
+                          type="text" value={signaturesNote} onChange={(e) => setSignaturesNote(e.target.value)}
+                          onBlur={() => saveSignatures({ note: signaturesNote })}
+                          placeholder="הערה (אופציונלי)" style={inputStyle}
+                        />
+                      </div>
+    );
+  }
+
+  function renderStepBody(key) {
+    switch (key) {
+      case 'track':
+        return (
                 <select value={trackId} onChange={handleTrackChange} style={inputStyle}>
                   <option value="">— בחירת מסלול —</option>
                   {courseTracks.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
-              </div>
-            )}
-
-            {/* קישור-אישי-ציבורי ללקוח (migration 0181) - אחד-מאוחד,
-                נוצר-עצלנית, עם-מצב-התקדמות-חי כדי-שהנציג יראה-מה-הלקוח-
-                כבר-מילא-ואיפה-נעצר גם-אם-לא-סיים (ר' דיון). */}
-            <div style={cardStyle}>
-              <div style={sectionLabel}>קישור אישי ללקוח</div>
-              {tokenCreating && !publicToken ? (
-                <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>יוצר קישור...</div>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input type="text" readOnly value={personalLinkUrl} style={{ ...inputStyle, fontSize: 11 }} />
-                    <button type="button" title="העתקה" onClick={handleCopyLink} style={sendBtnStyle}>
-                      {copyFeedback ? '✓' : '⧉'}
-                    </button>
-                    <button type="button" title="שלח במייל" disabled={!canEmail} onClick={() => setSendTarget({ field: 'personalLink', channel: 'email' })} style={{ ...sendBtnStyle, opacity: !canEmail ? 0.4 : 1 }}>
-                      <MailIcon size={13} />
-                    </button>
-                    <button type="button" title="שלח בוואטסאפ" disabled={!canWhatsapp} onClick={() => setSendTarget({ field: 'personalLink', channel: 'whatsapp' })} style={{ ...sendBtnStyle, opacity: !canWhatsapp ? 0.4 : 1 }}>
-                      <WhatsAppIcon size={13} />
-                    </button>
-                  </div>
-                  <button type="button" onClick={handleRegenerateLink} disabled={tokenCreating} style={{ alignSelf: 'flex-start', fontSize: 11, color: 'var(--k-text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                    🔄 רענון קישור (מבטל את הישן)
-                  </button>
-
-                  <div style={{ borderTop: '1px solid var(--k-border)', marginTop: 4, paddingTop: 8 }}>
-                    <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>{lastOpenedLabel}</div>
-                    {formFields.length > 0 && (
-                      <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginTop: 3 }}>שדות הטופס: {doneFieldsCount}/{formFields.length} הושלמו</div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {showPayment && (
-              <div style={cardStyle}>
+        );
+      case 'details':
+        return dataFields.map((field) => renderDataField(field));
+      case 'docs':
+        return fileFields.map((field) => (
+          <DocumentRequirementRow
+            key={field.id}
+            requirement={field}
+            uploaded={docs.filter((d) => d.requirement_id === field.id)}
+            departmentId={departmentId}
+            onUploaded={handleDocUploaded}
+          />
+        ));
+      case 'signature':
+        return signatureFields.map((field) => renderSignatureField(field));
+      case 'payment':
+        return (
+          <>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                   <input
                     type="checkbox" checked={paymentArranged}
@@ -723,13 +866,11 @@ export default function LeadRegistrationScreen({
                     </div>
                   )}
                 </div>
-              </div>
-            )}
           </>
-        }
-        center={
-          showForms ? (
-            <div style={cardStyle}>
+        );
+      case 'forms':
+        return (
+          <>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                 <input
                   type="checkbox" checked={formsDone}
@@ -751,147 +892,158 @@ export default function LeadRegistrationScreen({
                 </button>
               </div>
               {sentForms && <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)' }}>{sentForms}</div>}
-              <div style={{ fontSize: 10, color: 'var(--k-text-muted)' }}>שדות-הטופס (בעמודה-השמאלית) כבר נשלחים גם בקישור האישי.</div>
-            </div>
-          ) : (
-            <div style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>אין טופס-חיצוני מוגדר לקורס זה.</div>
-          )
-        }
-        left={
-          formFields.length > 0 ? (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={sectionLabel}>שדות הטופס</div>
-                <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)', fontWeight: 600 }}>
-                  {doneFieldsCount}/{formFields.length} הושלמו
-                </div>
+              <div style={{ fontSize: 10, color: 'var(--k-text-muted)' }}>שדות הטופס שלנו (פרטים, מסמכים, חתימה) נשלחים ללקוח בקישור האישי.</div>
+          </>
+        );
+      default:
+        return null;
+    }
+  }
+
+  const finishBlock = (
+    <div style={{ ...cardStyle, marginBottom: 0, alignItems: 'stretch' }}>
+      {blockers.length > 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>כדי לסיים צריך להשלים: {blockers.join(', ')}</div>
+      ) : (
+        <div style={{ fontSize: 12, color: 'var(--k-ok-text)' }}>כל מה שחובה הושלם, אפשר לסיים.</div>
+      )}
+      {optionalLeft > 0 && (
+        <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>
+          {optionalLeft === 1 ? 'נשאר פרט אופציונלי אחד' : `נשארו ${optionalLeft} פרטים אופציונליים`} - אפשר לדלג.
+        </div>
+      )}
+      {completeError && <div style={{ fontSize: 12.5, color: 'var(--k-danger-text)' }}>{completeError}</div>}
+      <button
+        type="button" onClick={handleComplete} disabled={!canFinish || completing}
+        style={{
+          fontFamily: 'var(--k-font-display)', fontSize: 15, border: 'none', borderRadius: 10, padding: '12px 20px',
+          cursor: canFinish && !completing ? 'pointer' : 'default',
+          background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', opacity: canFinish ? 1 : 0.5,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontWeight: 700,
+        }}
+      >
+        <CheckIcon size={16} /> {completing ? 'מבצע...' : `סיום רישום${wonStageLabel ? ` (${wonStageLabel})` : ''}`}
+      </button>
+    </div>
+  );
+
+  return (
+    <div style={{ background: 'var(--k-bg)', minHeight: '100%' }}>
+      <style>{REG_LAYOUT_CSS}</style>
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '20px 20px 48px' }}>
+        <div style={{ marginBottom: 16 }}>{headerBlock}</div>
+
+        {stageNotice && (
+          <div style={{ padding: '10px 16px', marginBottom: 12, borderRadius: 10, textAlign: 'center', background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', fontSize: 13.5, fontWeight: 700 }}>
+            <CheckIcon size={14} /> {stageNotice}
+          </div>
+        )}
+        {amountMismatch && (
+          <div style={{ padding: '10px 16px', marginBottom: 12, borderRadius: 10, textAlign: 'center', background: 'var(--k-danger-bg)', color: 'var(--k-danger-text)', fontSize: 13.5, fontWeight: 700 }}>
+            <WarningIcon size={14} /> שים לב: שינוי בסכום - שולם ₪{paidAmount} במקום ₪{expectedAmount} שסוכם
+          </div>
+        )}
+
+        <div className="reg-layout">
+          <aside className="reg-aside">
+            <div style={cardStyle}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                <div style={sectionLabel}>מה נשאר</div>
+                <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)', fontWeight: 600 }}>{stepsDone}/{steps.length} הושלמו</div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {formFields.map((field) => {
-                  if (field.type === 'file') {
-                    return (
-                      <DocumentRequirementRow
-                        key={field.id}
-                        requirement={field}
-                        uploaded={docs.filter((d) => d.requirement_id === field.id)}
-                        departmentId={departmentId}
-                        onUploaded={handleDocUploaded}
-                      />
-                    );
-                  }
-                  if (field.type === 'signature') {
-                    return (
-                      <div key={field.id} style={cardStyle}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                          <input
-                            type="checkbox" checked={signaturesDone}
-                            onChange={(e) => { setSignaturesDone(e.target.checked); saveSignatures({ done: e.target.checked }); }}
-                          />
-                          {field.label}{field.required && <span style={{ color: 'var(--k-danger-text)' }}> *</span>}
-                        </label>
+              <div style={{ height: 6, borderRadius: 999, background: 'var(--k-pill-bg)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${steps.length ? (stepsDone / steps.length) * 100 : 0}%`, background: 'var(--k-ok-text)', transition: 'width .2s' }} />
+              </div>
+              {steps.map((s, i) => (
+                <button
+                  key={s.key} type="button" onClick={() => goToStep(s.key)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', padding: '5px 2px', cursor: 'pointer', textAlign: 'start', color: 'var(--k-text)', font: 'inherit', fontSize: 12.5 }}
+                >
+                  <span style={{ width: 18, height: 18, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, background: s.done ? 'var(--k-ok-bg)' : 'var(--k-pill-bg)', color: s.done ? 'var(--k-ok-text)' : 'var(--k-text-muted)' }}>
+                    {s.done ? <CheckIcon size={11} /> : i + 1}
+                  </span>
+                  <span style={{ flex: 1 }}>{s.title}</span>
+                  <span style={{ fontSize: 11, color: s.done ? 'var(--k-ok-text)' : s.blocking ? 'var(--k-danger-text)' : 'var(--k-text-muted)' }}>
+                    {s.summary}{!s.done && s.blocking ? ' · חובה' : ''}
+                  </span>
+                </button>
+              ))}
+              {steps.length === 0 && <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>לקורס הזה אין שלבי רישום מוגדרים.</div>}
+            </div>
 
-                        {signatureImagePath ? (
-                          <SignaturePreview departmentId={departmentId} filePath={signatureImagePath} typedName={signatureTypedName} signedAt={signatureSignedAt} fromPublicLink={!!signatureIp} />
-                        ) : showSignaturePad ? (
-                          <>
-                            <SignaturePad onSubmit={handleSubmitSignature} submitting={signatureSubmitting} />
-                            {signatureError && <div style={{ fontSize: 11.5, color: 'var(--k-danger-text)' }}>{signatureError}</div>}
-                            <button type="button" onClick={() => setShowSignaturePad(false)} style={{ alignSelf: 'flex-start', fontSize: 11, color: 'var(--k-text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                              ביטול
-                            </button>
-                          </>
-                        ) : (
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>הלקוח יחתום בקישור האישי</div>
-                            <button type="button" onClick={() => setShowSignaturePad(true)} style={{ fontSize: 11.5, color: 'var(--k-accent)', background: 'none', border: '1px solid var(--k-border)', borderRadius: 6, padding: '3px 10px', cursor: 'pointer' }}>
-                              חתימה כאן ועכשיו
-                            </button>
-                          </div>
-                        )}
-
-                        <div style={{ borderTop: '1px solid var(--k-border)', marginTop: 4, paddingTop: 8 }}>
-                          <div style={{ ...sectionLabel, marginBottom: 4 }}>קישור חיצוני (אופציונלי)</div>
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            <input
-                              type="text" value={signaturesLink} onChange={(e) => setSignaturesLink(e.target.value)}
-                              onBlur={() => saveSignatures({ link: signaturesLink })}
-                              placeholder="קישור לחתימה דיגיטלית (אופציונלי)" style={inputStyle}
-                            />
-                            <button type="button" title="שלח במייל" disabled={!canEmail || !signaturesLink} onClick={() => setSendTarget({ field: 'signatures', channel: 'email' })} style={{ ...sendBtnStyle, opacity: !canEmail || !signaturesLink ? 0.4 : 1 }}>
-                              <MailIcon size={13} />
-                            </button>
-                            <button type="button" title="שלח בוואטסאפ" disabled={!canWhatsapp || !signaturesLink} onClick={() => setSendTarget({ field: 'signatures', channel: 'whatsapp' })} style={{ ...sendBtnStyle, opacity: !canWhatsapp || !signaturesLink ? 0.4 : 1 }}>
-                              <WhatsAppIcon size={13} />
-                            </button>
-                          </div>
-                          {sentSignatures && <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginTop: 4 }}>{sentSignatures}</div>}
-                        </div>
-                        <input
-                          type="text" value={signaturesNote} onChange={(e) => setSignaturesNote(e.target.value)}
-                          onBlur={() => saveSignatures({ note: signaturesNote })}
-                          placeholder="הערה (אופציונלי)" style={inputStyle}
-                        />
-                      </div>
-                    );
-                  }
+            <div style={cardStyle}>
+              <div style={sectionLabel}>שליחה ללקוח</div>
+              <div role="radiogroup" aria-label="מה לשלוח ללקוח" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {SEND_MODES.map((m) => {
+                  const disabled = m.key === 'pay' && !payAvailable;
+                  const selected = sendMode === m.key;
                   return (
-                    <div key={field.id}>
-                      <div style={{ ...sectionLabel, marginBottom: 4 }}>
-                        {field.label}{field.required && <span style={{ color: 'var(--k-danger-text)' }}> *</span>}
-                      </div>
-                      {field.type === 'select' ? (
-                        <select
-                          value={answers[field.field_key] ?? ''}
-                          onChange={(e) => saveAnswer(field.field_key, e.target.value)}
-                          style={inputStyle}
-                        >
-                          <option value="">— בחירה —</option>
-                          {(field.options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                      ) : (
-                        <input
-                          type={field.type || 'text'}
-                          defaultValue={answers[field.field_key] ?? ''}
-                          onBlur={(e) => saveAnswer(field.field_key, e.target.value)}
-                          style={inputStyle}
-                        />
-                      )}
-                    </div>
+                    <label
+                      key={m.key} title={disabled ? 'אין קישור לדף תשלום מוגדר לקורס' : undefined}
+                      style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '8px 10px', borderRadius: 8, border: `1px solid ${selected ? 'var(--k-accent)' : 'var(--k-border)'}`, background: selected ? 'var(--k-pill-bg)' : 'var(--k-surface)', cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1 }}
+                    >
+                      <input type="radio" name="send-mode" checked={selected} disabled={disabled} onChange={() => setSendMode(m.key)} style={{ marginTop: 2 }} />
+                      <span>
+                        <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600 }}>{m.title}</span>
+                        <span style={{ display: 'block', fontSize: 11, color: 'var(--k-text-muted)' }}>{m.hint}</span>
+                      </span>
+                    </label>
                   );
                 })}
               </div>
-            </>
-          ) : (
-            <div style={{ fontSize: 12.5, color: 'var(--k-text-muted)' }}>לקורס הזה אין שדות-טופס מוגדרים.</div>
-          )
-        }
-      />
 
-      {/* הפרדה-ויזואלית-מכוונת (קו-מפריד + רווח) בין-3-העמודות לכפתור-
-          ההמרה-הסופי - לא-צריך-להיות-ליד-לחיצה-בטעות. אותו-מיקום-בדיוק
-          כמו פס-הפעולה-התחתון ב-LeadWorkScreen.js/CaseWorkScreen.js -
-          אח-נפרד מתחת-ל-ThreeColumnScreen, לא דרך ה-children prop שלו. */}
-      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 20px 30px' }}>
-        <div style={{ borderTop: '2px solid var(--k-border)', marginTop: 20, paddingTop: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-          {!allDone && sectionsTotal > 0 && (
-            <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>יש להשלים את כל הפריטים למעלה לפני סיום הרישום.</div>
-          )}
-          {missingRequiredFields.length > 0 && (
-            <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>
-              יש להשלים: {missingRequiredFields.map((f) => f.label).join(', ')}
+              {(tokenCreating && !publicToken) || !origin ? (
+                <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>יוצר קישור...</div>
+              ) : currentCustomerLink ? (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input type="text" readOnly value={currentCustomerLink} style={{ ...inputStyle, fontSize: 11 }} />
+                  <button type="button" title="העתקה" onClick={handleCopyLink} style={sendBtnStyle}>
+                    {copyFeedback ? '✓' : '⧉'}
+                  </button>
+                  <button type="button" title="שלח במייל" disabled={!canEmail} onClick={() => setSendTarget({ field: 'customerLink', channel: 'email', mode: sendMode })} style={{ ...sendBtnStyle, opacity: !canEmail ? 0.4 : 1 }}>
+                    <MailIcon size={13} />
+                  </button>
+                  <button type="button" title="שלח בוואטסאפ" disabled={!canWhatsapp} onClick={() => setSendTarget({ field: 'customerLink', channel: 'whatsapp', mode: sendMode })} style={{ ...sendBtnStyle, opacity: !canWhatsapp ? 0.4 : 1 }}>
+                    <WhatsAppIcon size={13} />
+                  </button>
+                </div>
+              ) : sendMode === 'pay' && payAvailable ? (
+                <div>
+                  <button
+                    type="button" onClick={handleCreatePersonalPayment} disabled={paymentRefCreating}
+                    style={{ fontSize: 12, fontWeight: 600, color: 'var(--k-accent)', background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer' }}
+                  >
+                    {paymentRefCreating ? 'יוצר...' : 'יצירת קישור תשלום'}
+                  </button>
+                  {paymentRefError && <div style={{ fontSize: 11.5, color: 'var(--k-danger-text)', marginTop: 4 }}>{paymentRefError}</div>}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: 'var(--k-text-muted)' }}>לא ניתן ליצור קישור כרגע.</div>
+              )}
+
+              <div style={{ borderTop: '1px solid var(--k-border)', marginTop: 4, paddingTop: 8 }}>
+                <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>{lastOpenedLabel}</div>
+                {formFields.length > 0 && (
+                  <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginTop: 3 }}>שדות הטופס: {doneFieldsCount}/{formFields.length} הושלמו</div>
+                )}
+                {sentPaymentLink && <div style={{ fontSize: 11.5, color: 'var(--k-text-muted)', marginTop: 3 }}>קישור תשלום: {sentPaymentLink}</div>}
+              </div>
+              <button type="button" onClick={handleRegenerateLink} disabled={tokenCreating} style={{ alignSelf: 'flex-start', fontSize: 11, color: 'var(--k-text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                🔄 רענון קישור (מבטל את הישן)
+              </button>
             </div>
-          )}
-          {completeError && <div style={{ fontSize: 12.5, color: 'var(--k-danger-text)' }}>{completeError}</div>}
-          <button
-            type="button" onClick={handleComplete} disabled={(!allDone && sectionsTotal > 0) || missingRequiredFields.length > 0 || completing}
-            style={{
-              fontFamily: 'var(--k-font-display)', fontSize: 15, border: 'none', borderRadius: 10, padding: '12px 32px', cursor: 'pointer',
-              background: 'var(--k-ok-bg)', color: 'var(--k-ok-text)', opacity: ((!allDone && sectionsTotal > 0) || missingRequiredFields.length > 0) ? 0.5 : 1,
-              display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700,
-            }}
-          >
-            <CheckIcon size={16} /> {completing ? 'מבצע...' : `סיום רישום${wonStageLabel ? ` (${wonStageLabel})` : ''}`}
-          </button>
+
+            <div className="reg-finish-aside">{finishBlock}</div>
+          </aside>
+
+          <main className="reg-main">
+            {steps.map((s, i) => (
+              <StepCard key={s.key} step={s} number={i + 1} open={isOpen(s.key)} onToggle={() => toggleStep(s.key)}>
+                {renderStepBody(s.key)}
+              </StepCard>
+            ))}
+            <div className="reg-finish-main">{finishBlock}</div>
+          </main>
         </div>
       </div>
 
@@ -903,7 +1055,7 @@ export default function LeadRegistrationScreen({
           initialSubject={sendSubject(sendTarget.field)}
           initialBody={`${greetingName},\n\n${SEND_FIELD_META[sendTarget.field].intro}:\n${SEND_FIELD_META[sendTarget.field].value}\n\nתודה,\n${workspaceName || ''}`.trim()}
           onClose={() => setSendTarget(null)}
-          onSent={() => handleLinkSent(sendTarget.field)}
+          onSent={() => handleLinkSent(sendTarget.field, sendTarget.mode)}
         />
       )}
       {sendTarget?.channel === 'whatsapp' && (
@@ -912,7 +1064,7 @@ export default function LeadRegistrationScreen({
           phone={contact.phone} thread={[]} templates={whatsappTemplates} stageKey={stageKey} courseId={selectedCourse?.id || null}
           initialMessage={`${greetingName}, ${SEND_FIELD_META[sendTarget.field].intro}: ${SEND_FIELD_META[sendTarget.field].value}`}
           onClose={() => setSendTarget(null)}
-          onSent={() => handleLinkSent(sendTarget.field)}
+          onSent={() => handleLinkSent(sendTarget.field, sendTarget.mode)}
         />
       )}
 
@@ -920,6 +1072,34 @@ export default function LeadRegistrationScreen({
         <ClaimLeadModal onClaim={claim} onLeaveOpen={leaveOpen} pending={claimPending} error={claimError} />
       )}
     </div>
+  );
+}
+
+// שלב במסך הרישום: כרטיס מתקפל עצמאי (אין סדר כפוי בין השלבים). הכותרת מציגה
+// מספר/וי, שם ותקציר ("2/5", "הוסדר"), ו"חובה" כשחסר משהו שחוסם סיום.
+function StepCard({ step, number, open, onToggle, children }) {
+  const { key, title, done, blocking, summary } = step;
+  return (
+    <section id={`step-${key}`} style={{ background: 'var(--k-surface)', border: '1px solid var(--k-border)', borderRadius: 12, marginBottom: 12, scrollMarginTop: 14 }}>
+      <button
+        type="button" onClick={onToggle} aria-expanded={open}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '13px 16px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'start', color: 'var(--k-text)', font: 'inherit' }}
+      >
+        <span style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, background: done ? 'var(--k-ok-bg)' : 'var(--k-pill-bg)', color: done ? 'var(--k-ok-text)' : 'var(--k-text-muted)' }}>
+          {done ? <CheckIcon size={13} /> : number}
+        </span>
+        <span style={{ flex: 1, fontFamily: 'var(--k-font-display)', fontSize: 15 }}>{title}</span>
+        <span style={{ fontSize: 12, color: done ? 'var(--k-ok-text)' : blocking ? 'var(--k-danger-text)' : 'var(--k-text-muted)' }}>
+          {summary}{!done && blocking ? ' · חובה' : ''}
+        </span>
+        <span aria-hidden="true" style={{ color: 'var(--k-text-muted)', fontSize: 11 }}>{open ? '▴' : '▾'}</span>
+      </button>
+      {open && (
+        <div style={{ borderTop: '1px solid var(--k-border)', padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {children}
+        </div>
+      )}
+    </section>
   );
 }
 

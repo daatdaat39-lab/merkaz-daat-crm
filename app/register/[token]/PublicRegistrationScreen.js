@@ -6,6 +6,7 @@ import { publicSaveAnswer, publicUploadDocument, publicSubmitSignature } from '.
 import {
   PageShell, MessageCard, cardStyle, IconCheckCircle, IconUpload, IconPen, IconClipboard, IconFile,
 } from './RegistrationChrome';
+import PaymentStepCard, { StepIndicator } from './PaymentStepCard';
 
 // עמוד גלילה רציף אחד: לולאה על formFields (מערכת הטפסים, migration 0182) לפי
 // הסדר שהמנהל קבע, כשרצף שדות מאותו סוג נאסף לאזור אחד עם כותרת. שמירה
@@ -19,8 +20,11 @@ const SECTION_META = {
 
 const kindOf = (f) => (f.type === 'file' ? 'file' : f.type === 'signature' ? 'signature' : 'data');
 
+// paymentStep: בקישור "הכול" עם קישור תשלום - שלב 1 מתוך 2, והכפתור בסוף הוא
+// "המשך לתשלום" שמוביל לסיכום ולעמוד התשלום של קשר (PaymentStepCard).
 export default function PublicRegistrationScreen({
   brand, token, firstName, courseName, formFields = [], initialAnswers = {}, initialUploadedDocuments = [], initialSignaturesDone = false,
+  paymentStep = false, paymentSummary = {},
 }) {
   const [answers, setAnswers] = useState(initialAnswers);
   const [uploadedDocs, setUploadedDocs] = useState(initialUploadedDocuments);
@@ -56,6 +60,10 @@ export default function PublicRegistrationScreen({
     else sections.push({ kind, fields: [f] });
   }
 
+  if (submitted && paymentStep) {
+    return <PaymentStepCard brand={brand} firstName={firstName} token={token} summary={paymentSummary} />;
+  }
+
   if (submitted) {
     return (
       <PageShell brand={brand}>
@@ -70,6 +78,7 @@ export default function PublicRegistrationScreen({
 
   return (
     <PageShell wide brand={brand}>
+      {paymentStep && <StepIndicator current={1} />}
       <div style={{ ...cardStyle, padding: '26px 24px', marginBottom: 14, textAlign: 'center' }}>
         {courseName && (
           <div style={{ display: 'inline-block', fontSize: 12.5, fontWeight: 600, color: 'var(--k-accent)', background: 'var(--k-pill-bg)', borderRadius: 999, padding: '4px 14px', marginBottom: 12 }}>
@@ -95,7 +104,7 @@ export default function PublicRegistrationScreen({
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginBottom: 8 }}>
             <span style={{ color: 'var(--k-text)', fontWeight: 600 }}>
-              {pct === 100 ? 'הכול מוכן - אפשר לסיים' : `הושלמו ${progressDone} מתוך ${progressTotal}`}
+              {pct === 100 ? (paymentStep ? 'הכול מוכן - אפשר להמשיך לתשלום' : 'הכול מוכן - אפשר לסיים') : `הושלמו ${progressDone} מתוך ${progressTotal}`}
             </span>
             <span style={{ color: 'var(--k-text-muted)' }}>{pct}%</span>
           </div>
@@ -152,7 +161,7 @@ export default function PublicRegistrationScreen({
             opacity: missingRequired.length > 0 ? 0.4 : 1, transition: 'opacity .2s',
           }}
         >
-          סיום הרישום
+          {paymentStep ? 'המשך לתשלום' : 'סיום הרישום'}
         </button>
       </div>
     </PageShell>

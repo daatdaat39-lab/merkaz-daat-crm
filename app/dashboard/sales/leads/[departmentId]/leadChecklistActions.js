@@ -6,6 +6,7 @@ import { createAdminClient } from '../../../../../lib/supabase/admin';
 import { redirect } from 'next/navigation';
 import { isMemberOfWorkspace, requireNotFrozen } from '../../../lib/contactGuards';
 import { advanceToRegistering } from '../../../lib/leadStageRules';
+import { generateShortCode } from '../../../lib/shortCode';
 import { validateDocumentFile, cleanFilename, isPathOfContact } from '../../../lib/documentUploads';
 import { convertLead } from './leadLockActions';
 import { normalizePaymentRef } from '../../../../../lib/kesher/paymentLink';
@@ -206,7 +207,32 @@ export async function updateLeadPublicToken(departmentId, { regenerate } = {}) {
     public_token: token, public_token_created_at: new Date().toISOString(),
   });
   if (res.error) return res;
+  // רענון קישור מבטל גם את הקישור הקצר הישן (נוצר מחדש בקריאה הבאה). עדכון
+  // נפרד שמתעלם משגיאה, כדי שהפעולה לא תיכשל לפני ריצת מיגרציה 0190.
+  if (regenerate) await supabase.from('lead_conversion_checklist').update({ short_code: null }).eq('contact_department_id', departmentId);
   return { success: true, token };
+}
+
+// קישור קצר ללקוח (migration 0190): /r/<קוד> (הכול), /d/<קוד> (פרטים בלבד),
+// /p/<קוד> (תשלום בלבד) - כולם פותרים לאותו ליד. נוצר בקריאה ראשונה ונשמר.
+// מחזיר { error } אם העמודה עוד לא קיימת, והקליינט נופל חזרה לכתובות הארוכות.
+export async function ensureLeadShortCode(departmentId) {
+  const { supabase, user } = await requireUser();
+  const { row, error } = await requireMemberOfLead(supabase, user.id, departmentId);
+  if (error) return { error };
+
+  const { data: existing, error: readError } = await supabase
+    .from('lead_conversion_checklist').select('short_code').eq('contact_department_id', departmentId).maybeSingle();
+  if (readError) return { error: readError.message };
+  if (existing?.short_code) return { code: existing.short_code };
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = generateShortCode();
+    const res = await upsertChecklist(supabase, departmentId, row.workspace_id, user.id, { short_code: code });
+    if (!res.error) return { code };
+    if (!/duplicate|unique/i.test(res.error)) return { error: res.error };
+  }
+  return { error: 'לא הצלחנו ליצור קישור קצר' };
 }
 
 // חתימה דיגיטלית נלכדת-ע"י-הנציג (קנבס, SignaturePad.js) - בניגוד-
