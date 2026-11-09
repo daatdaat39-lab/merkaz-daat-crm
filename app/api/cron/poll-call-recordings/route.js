@@ -155,6 +155,7 @@ export async function GET(request) {
       const { data: queue } = await query;
 
       result.mode = redoId ? 'redo' : redoOld > 0 ? 'redoOld' : 'new';
+      // איזה מודל תמלול פעיל בפועל - מאפשר לוודא שפריסה עלתה (redo=<מזהה לא קיים> = בדיקה בלי עלות)
       result.sttModel = getTranscriptionModel();
       result.transcriptionFailureSample = [];
       result.speakerStats = [];
