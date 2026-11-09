@@ -7,7 +7,7 @@ import EmailComposeModal from '../../../contacts/[id]/EmailComposeModal';
 import WhatsAppSendModal from '../../../contacts/[id]/WhatsAppSendModal';
 import ThreeColumnScreen from '../../../components/ThreeColumnScreen';
 import SignaturePad from '../../../components/SignaturePad';
-import { PersonIcon, CheckIcon, MailIcon, WhatsAppIcon } from '../../../components/icons';
+import { PersonIcon, CheckIcon, MailIcon, WhatsAppIcon, WarningIcon } from '../../../components/icons';
 import { useLeadLock } from './useLeadLock';
 import {
   updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures, updateLeadRegistrationAnswer,
@@ -91,6 +91,16 @@ export default function LeadRegistrationScreen({
   // ממתינים לתשלום שנשלח בקישור האישי: בודקים מחדש אחת לכמה זמן (הסנכרון
   // מול קשר רץ כל כמה דקות, והעסקה מופיעה כאן ברגע שהיא נקלטת).
   const awaitingPayment = !!paymentRef && !!paymentLinkSentAt && paymentMatch?.kind !== 'exact';
+
+  // "שינוי בסכום": הלקוח יכול לערוך את הסכום בדף התשלום של קשר, וקשר לא
+  // שומרת אצלה את המזהה האישי - לכן משווים את מה ששולם בפועל למה שסוכם
+  // (הסכום בשדה, ובהיעדרו מחיר הקורס). אזהרה בלבד, לא חסימה ולא אישור
+  // אוטומטי - הנציג מחליט.
+  const expectedAmount = Number(paymentTotal) > 0
+    ? Number(paymentTotal)
+    : (Number(selectedCourse?.price) > 0 ? Number(selectedCourse.price) : null);
+  const paidAmount = paymentMatch ? Number(paymentMatch.amount) : null;
+  const amountMismatch = paidAmount != null && expectedAmount != null && Math.abs(paidAmount - expectedAmount) > 0.009;
   useEffect(() => {
     if (!awaitingPayment) return undefined;
     const timer = setInterval(() => router.refresh(), 45000);
@@ -242,6 +252,7 @@ export default function LeadRegistrationScreen({
 
   function handleComplete() {
     setCompleteError('');
+    if (amountMismatch && !window.confirm(`הסכום ששולם (₪${paidAmount}) שונה מהסכום שסוכם (₪${expectedAmount}). לסיים את הרישום בכל זאת?`)) return;
     setCompleting(true);
     startTransition(async () => {
       const res = await completeLeadRegistration(departmentId);
@@ -369,13 +380,22 @@ export default function LeadRegistrationScreen({
       <ThreeColumnScreen
         header={headerBlock}
         hero={
-          sectionsTotal > 0 && (
-            <div style={{ padding: '18px 24px', textAlign: 'center', background: sectionsDone === sectionsTotal ? 'var(--k-ok-bg)' : 'var(--k-pill-bg)' }}>
-              <div style={{ ...sectionLabel, color: sectionsDone === sectionsTotal ? 'var(--k-ok-text)' : 'var(--k-text-muted)', opacity: 0.8 }}>התקדמות רישום</div>
-              <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 26, color: sectionsDone === sectionsTotal ? 'var(--k-ok-text)' : 'var(--k-text)', marginTop: 2 }}>
-                {sectionsDone}/{sectionsTotal} שלבים הושלמו
-              </div>
-            </div>
+          (amountMismatch || sectionsTotal > 0) && (
+            <>
+              {amountMismatch && (
+                <div style={{ padding: '10px 24px', textAlign: 'center', background: 'var(--k-danger-bg)', color: 'var(--k-danger-text)', fontSize: 13.5, fontWeight: 700 }}>
+                  <WarningIcon size={14} /> שים לב: שינוי בסכום - שולם ₪{paidAmount} במקום ₪{expectedAmount} שסוכם
+                </div>
+              )}
+              {sectionsTotal > 0 && (
+                <div style={{ padding: '18px 24px', textAlign: 'center', background: sectionsDone === sectionsTotal ? 'var(--k-ok-bg)' : 'var(--k-pill-bg)' }}>
+                  <div style={{ ...sectionLabel, color: sectionsDone === sectionsTotal ? 'var(--k-ok-text)' : 'var(--k-text-muted)', opacity: 0.8 }}>התקדמות רישום</div>
+                  <div style={{ fontFamily: 'var(--k-font-display)', fontSize: 26, color: sectionsDone === sectionsTotal ? 'var(--k-ok-text)' : 'var(--k-text)', marginTop: 2 }}>
+                    {sectionsDone}/{sectionsTotal} שלבים הושלמו
+                  </div>
+                </div>
+              )}
+            </>
           )
         }
         right={
@@ -514,7 +534,7 @@ export default function LeadRegistrationScreen({
                     {paymentRefError && <div style={{ fontSize: 11.5, color: 'var(--k-danger-text)', marginTop: 4 }}>{paymentRefError}</div>}
                   </div>
 
-                  {paymentMatch?.kind === 'exact' && (
+                  {paymentMatch?.kind === 'exact' && !amountMismatch && (
                     <div style={{ background: 'var(--k-ok-bg)', border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--k-ok-text)' }}>
                         <CheckIcon size={12} /> התשלום התקבל ואומת מול קשר
@@ -541,7 +561,35 @@ export default function LeadRegistrationScreen({
                       )}
                     </div>
                   )}
-                  {awaitingPayment && !paymentArranged && (
+                  {amountMismatch && (
+                    <div style={{ background: 'var(--k-danger-bg)', border: '1px solid var(--k-danger-text)', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--k-danger-text)' }}>
+                        <WarningIcon size={13} /> שים לב: שינוי בסכום
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--k-text)', marginTop: 3 }}>
+                        שולם ₪{paidAmount} במקום ₪{expectedAmount} שסוכם · {new Date(paymentMatch.transaction_date).toLocaleDateString('he-IL')}
+                        {paymentMatch.external_doc_number ? ` · עסקה ${paymentMatch.external_doc_number}` : ''}
+                        {/^https?:\/\//i.test(paymentMatch.receipt_url || '') && (
+                          <> · <a href={paymentMatch.receipt_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--k-accent)' }}>קבלה</a></>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: 'var(--k-text-muted)', marginTop: 3, marginBottom: 6 }}>
+                        כדאי לברר מול הלקוח. אם זו לא התנועה של הרישום הזה (למשל תשלום אחר של אותו אדם), אפשר להתעלם.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentArranged(true);
+                          setPaymentTotal(String(paidAmount));
+                          savePayment({ arranged: true, totalAmount: paidAmount });
+                        }}
+                        style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--k-text)', background: 'var(--k-bg)', border: '1px solid var(--k-border)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}
+                      >
+                        אישור בכל זאת: ₪{paidAmount} הוא הסכום שסוכם
+                      </button>
+                    </div>
+                  )}
+                  {awaitingPayment && !paymentArranged && !amountMismatch && (
                     <div style={{ background: 'var(--k-bg)', border: '1px dashed var(--k-border)', borderRadius: 8, padding: '6px 10px', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                       <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>ממתין לתשלום. העסקה תופיע כאן ברגע שתתקבל מקשר.</span>
                       <button type="button" onClick={() => router.refresh()} style={{ fontSize: 11, color: 'var(--k-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}>
@@ -549,7 +597,7 @@ export default function LeadRegistrationScreen({
                       </button>
                     </div>
                   )}
-                  {paymentMatch && paymentMatch.kind !== 'exact' && !paymentArranged && (
+                  {paymentMatch && paymentMatch.kind !== 'exact' && paymentMatch.kind !== 'mismatch' && !amountMismatch && !paymentArranged && (
                     <div style={{ background: 'var(--k-bg)', border: '1px dashed var(--k-border)', borderRadius: 8, padding: '6px 10px', marginTop: 8 }}>
                       <div style={{ fontSize: 11.5, color: 'var(--k-text)' }}>
                         ✓ נמצאה התאמה אפשרית: ₪{paymentMatch.amount} ב-{new Date(paymentMatch.transaction_date).toLocaleDateString('he-IL')}

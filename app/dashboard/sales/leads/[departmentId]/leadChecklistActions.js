@@ -268,9 +268,14 @@ export async function ensureLeadPaymentRef(departmentId) {
 //  - 'exact': העסקה נושאת את המזהה האישי של הליד (payment_ref) - ודאות.
 //  - 'probable': אין מזהה; התאמה היוריסטית - אותו איש-קשר, תאריך אחרי יצירת
 //    הליד, סכום בטווח ±10%. רמז בלבד.
-// בשני המקרים checklist.payment_arranged (אישור ידני בלחיצה) נשאר מקור-
+//  - 'mismatch': נשלח קישור תשלום, ואחריו הגיעה אצל אותו איש-קשר באותה מחלקה
+//    עסקה בסכום שונה מהמוסכם (מעבר ל-±10%). המסך מציג אזהרה "שינוי בסכום" -
+//    לקוח יכול לערוך את הסכום בדף התשלום של קשר, וקשר לא שומרת אצלה את
+//    המזהה האישי שלנו, לכן זו הדרך היחידה לגלות את זה (ר' בדיקה ב-2026-11-09).
+// בכל המקרים checklist.payment_arranged (אישור ידני בלחיצה) נשאר מקור-
 // האמת היחיד לצ'קליסט - שום דבר כאן לא מסמן אותו לבד.
-export async function findPossiblePaymentMatch(contactId, leadCreatedAt, approxAmount, paymentRef) {
+// opts: { workspaceId, linkSentAt } - נדרשים רק לזיהוי 'mismatch'.
+export async function findPossiblePaymentMatch(contactId, leadCreatedAt, approxAmount, paymentRef, opts = {}) {
   const supabase = createClient();
 
   const ref = normalizePaymentRef(paymentRef);
@@ -295,7 +300,24 @@ export async function findPossiblePaymentMatch(contactId, leadCreatedAt, approxA
     .lte('amount', amount * 1.1)
     .order('transaction_date', { ascending: true })
     .limit(1);
-  return data?.[0] ? { ...data[0], kind: 'probable' } : null;
+  if (data?.[0]) return { ...data[0], kind: 'probable' };
+
+  // לא נמצאה עסקה בסכום המוסכם - בודקים אם בכל זאת שולם משהו אחרי שליחת
+  // הקישור. רק במחלקה של הליד ורק מתאריך שליחת הקישור, כדי שתרומה אחרת של
+  // אותו אדם (במחלקה אחרת) או תשלום ישן לא יקפיצו אזהרת שווא.
+  if (opts.workspaceId && opts.linkSentAt) {
+    const { data: other } = await supabase
+      .from('donation_transactions')
+      .select('amount, transaction_date, receipt_url, external_doc_number')
+      .eq('contact_id', contactId)
+      .eq('workspace_id', opts.workspaceId)
+      .gte('transaction_date', String(opts.linkSentAt).slice(0, 10))
+      .order('transaction_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (other?.[0]) return { ...other[0], kind: 'mismatch' };
+  }
+  return null;
 }
 
 // אישור-המרה מפורש (מסך-רישום נפרד) - נקרא **רק** מכפתור-"סיום רישום"

@@ -58,7 +58,8 @@ export default async function LeadRegistrationPage({ params }) {
     props.contact.id,
     deptRow.created_at,
     checklist?.payment_total_amount ?? selectedCourse?.price,
-    checklist?.payment_ref
+    checklist?.payment_ref,
+    { workspaceId: deptRow.workspace_id, linkSentAt: checklist?.payment_link_sent_at || null }
   );
 
   return (
