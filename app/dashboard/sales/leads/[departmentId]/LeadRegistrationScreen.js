@@ -12,7 +12,7 @@ import { useLeadLock } from './useLeadLock';
 import {
   updateLeadTrack, updateLeadForms, updateLeadPayment, updateLeadSignatures, updateLeadRegistrationAnswer,
   completeLeadRegistration, cancelCoursePurchase, uploadLeadDocumentByAgent, getSignedLeadFileUrl,
-  updateLeadPublicToken, submitLeadSignatureByAgent, ensureLeadPaymentRef,
+  updateLeadPublicToken, submitLeadSignatureByAgent, ensureLeadPaymentRef, recheckKesherPayment,
 } from './leadChecklistActions';
 import { buildPersonalPaymentUrl } from '../../../../../lib/kesher/paymentLink';
 
@@ -85,6 +85,8 @@ export default function LeadRegistrationScreen({
   const [origin, setOrigin] = useState('');
 
   const [, startTransition] = useTransition();
+  const [rechecking, setRechecking] = useState(false);
+  const [recheckMsg, setRecheckMsg] = useState('');
 
   useEffect(() => { setOrigin(window.location.origin); }, []);
 
@@ -246,6 +248,21 @@ export default function LeadRegistrationScreen({
       setSignatureIp(null);
       setSignatureSignedAt(res.signedAt);
       setShowSignaturePad(false);
+      router.refresh();
+    });
+  }
+
+  // "בדיקה מחדש": שואלת את קשר עכשיו אם הגיע תשלום חדש (במקום לחכות לסנכרון
+  // התקופתי), ואז טוענת מחדש את המסך כדי שהתשלום/האזהרה יופיעו מיד.
+  function handleRecheck() {
+    setRecheckMsg('');
+    setRechecking(true);
+    startTransition(async () => {
+      const res = await recheckKesherPayment(departmentId);
+      setRechecking(false);
+      if (res?.error) setRecheckMsg(res.error);
+      else if (res?.skipped) setRecheckMsg('בדיקה אחרת רצה זה עתה. אפשר לנסות שוב בעוד כמה שניות.');
+      else setRecheckMsg(res?.created > 0 ? 'נקלט תשלום חדש.' : 'עדיין לא התקבל תשלום חדש בקשר.');
       router.refresh();
     });
   }
@@ -589,11 +606,13 @@ export default function LeadRegistrationScreen({
                       </button>
                     </div>
                   )}
-                  {awaitingPayment && !paymentArranged && !amountMismatch && (
+                  {awaitingPayment && !paymentArranged && (
                     <div style={{ background: 'var(--k-bg)', border: '1px dashed var(--k-border)', borderRadius: 8, padding: '6px 10px', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                      <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>ממתין לתשלום. העסקה תופיע כאן ברגע שתתקבל מקשר.</span>
-                      <button type="button" onClick={() => router.refresh()} style={{ fontSize: 11, color: 'var(--k-accent)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}>
-                        בדיקה מחדש
+                      <span style={{ fontSize: 11.5, color: 'var(--k-text-muted)' }}>
+                        {recheckMsg || (amountMismatch ? 'הלקוח שילם שוב? אפשר לבדוק מחדש מול קשר.' : 'ממתין לתשלום. העסקה תופיע כאן ברגע שתתקבל מקשר.')}
+                      </span>
+                      <button type="button" onClick={handleRecheck} disabled={rechecking} style={{ fontSize: 11, fontWeight: 600, color: 'var(--k-accent)', background: 'none', border: 'none', cursor: rechecking ? 'default' : 'pointer', padding: 0, whiteSpace: 'nowrap', opacity: rechecking ? 0.6 : 1 }}>
+                        {rechecking ? 'בודק מול קשר...' : 'בדיקה מחדש'}
                       </button>
                     </div>
                   )}

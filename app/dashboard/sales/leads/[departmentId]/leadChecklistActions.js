@@ -8,6 +8,7 @@ import { isMemberOfWorkspace } from '../../../lib/contactGuards';
 import { validateDocumentFile, cleanFilename, isPathOfContact } from '../../../lib/documentUploads';
 import { convertLead } from './leadLockActions';
 import { normalizePaymentRef } from '../../../../../lib/kesher/paymentLink';
+import { runKesherSyncCore } from '../../../contacts/kesherSyncCore';
 
 const DOCUMENTS_BUCKET = 'contact-documents';
 
@@ -318,6 +319,33 @@ export async function findPossiblePaymentMatch(contactId, leadCreatedAt, approxA
     if (other?.[0]) return { ...other[0], kind: 'mismatch' };
   }
   return null;
+}
+
+// "בדיקה מחדש" במסך הרישום: משיכה מיידית של תשלום שהרגע בוצע, בלי לחכות
+// לסנכרון התקופתי. אותה פונקציית קריאה-בלבד של הסנכרון (GetTrans/
+// GetObligations), במצב 'recheck' המהיר - ר' kesherSyncCore.js. לא יוצרת
+// אנשי קשר חדשים ולא נרשמת כריצה (כמו הוובהוק). הגבלת תדירות פשוטה ברמת
+// מופע שרת, ומותרת רק לחבר במחלקה של הליד.
+let recheckRunning = false;
+let recheckLastAt = 0;
+export async function recheckKesherPayment(departmentId) {
+  const { supabase, user } = await requireUser();
+  const { error } = await requireMemberOfLead(supabase, user.id, departmentId);
+  if (error) return { error };
+
+  if (recheckRunning || Date.now() - recheckLastAt < 10000) return { skipped: true };
+  recheckRunning = true;
+  try {
+    const isoDay = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+    const result = await runKesherSyncCore(createAdminClient(), { id: null }, isoDay(-1), isoDay(1), false, 'recheck');
+    if (result.error) return { error: result.error };
+    return { success: true, created: result.transactionsCreated || 0 };
+  } catch (err) {
+    return { error: err?.message || 'הבדיקה מול קשר נכשלה' };
+  } finally {
+    recheckRunning = false;
+    recheckLastAt = Date.now();
+  }
 }
 
 // אישור-המרה מפורש (מסך-רישום נפרד) - נקרא **רק** מכפתור-"סיום רישום"

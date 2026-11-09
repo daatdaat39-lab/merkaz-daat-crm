@@ -3,6 +3,9 @@ import { loadLeadCoreContext } from '../loadLeadCoreContext';
 import LeadRegistrationScreen from '../LeadRegistrationScreen';
 import { findPossiblePaymentMatch } from '../leadChecklistActions';
 
+// "בדיקה מחדש" (recheckKesherPayment) פונה בזמן אמת לקשר - נותנים לה זמן.
+export const maxDuration = 60;
+
 // מסך-רישום נפרד (route חדש) - "שלב 2" של טיפול-בליד: טפסים/תשלומים/
 // חתימות + אישור-המרה מפורש. נגיש-תמיד מ-LeadWorkScreen (קישור "מעבר
 // לפרטי רישום") בלי-תלות-בשלב-pipeline - ר' דיון "מסך-רישום נפרד".

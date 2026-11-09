@@ -314,10 +314,36 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
   } catch (err) {
     return { error: err.message };
   }
+
+  // מצב 'recheck' (כפתור "בדיקה מחדש" במסך הרישום): בדיקה מהירה של תשלום
+  // שהרגע בוצע. מטפלים רק בעסקאות שעוד לא נקלטו אצלנו - אם אין כאלה, חוזרים
+  // מיד בלי לשלוף את ההתחייבויות (שזה החלק האיטי: מאות רשומות). כשיש עסקה
+  // חדשה, מעבדים גם את ההתחייבות שלה בלבד (כדי שהעסקה תקושר אליה כרגיל).
+  const quickRecheck = triggeredBy === 'recheck';
+  if (quickRecheck) {
+    const docNumbers = transactions.map((t) => (t.NumTransaction || '').toString().trim()).filter(Boolean);
+    let known = new Set();
+    if (docNumbers.length > 0) {
+      const { data: knownRows } = await supabase
+        .from('donation_transactions').select('external_doc_number')
+        .eq('source_system', 'קשר').in('external_doc_number', docNumbers);
+      known = new Set((knownRows || []).map((r) => String(r.external_doc_number)));
+    }
+    transactions = transactions.filter((t) => {
+      const doc = (t.NumTransaction || '').toString().trim();
+      return !doc || !known.has(doc);
+    });
+    if (transactions.length === 0) return result;
+  }
+
   try {
     obligations = await getKesherObligations({ fromDate, toDate });
   } catch (err) {
     return { error: err.message };
+  }
+  if (quickRecheck) {
+    const refs = new Set(transactions.map((t) => (t.ObligationReference || '').toString().trim()).filter(Boolean));
+    obligations = obligations.filter((o) => refs.has((o.Reference || '').toString().trim()));
   }
 
   // GetObligations לא מכיל PaymentPageName - בונים מיפוי אסמכתא (Reference
@@ -617,9 +643,9 @@ export async function runKesherSyncCore(supabase, user, fromDate, toDate, create
 
   // לוג הריצה - משמש למילוי אוטומטי של "מתאריך" בפעם הבאה (ר' getLastKesherSyncDate)
   // ולקצב-ההרצה של ה-cron (ר' app/api/cron/sync-kesher)
-  // ריצה שהופעלה מוובהוק (app/api/webhooks/kesher) לא נרשמת: היא מכסה חלון
-  // קצר בלבד, ורישום שלה היה מקדם את "מתאריך" של ה-cron ומאט אותו.
-  if (triggeredBy !== 'webhook') {
+  // ריצה שהופעלה מוובהוק (app/api/webhooks/kesher) או מ"בדיקה מחדש" לא נרשמת:
+  // היא מכסה חלון קצר בלבד, ורישום שלה היה מקדם את "מתאריך" של ה-cron ומאט אותו.
+  if (triggeredBy !== 'webhook' && triggeredBy !== 'recheck') {
     await supabase.from('kesher_sync_runs').insert({
       from_date: fromDate, to_date: bookkeepingToDate, created_by: user.id, triggered_by: triggeredBy,
       transactions_created: result.transactionsCreated, transactions_skipped: result.transactionsSkipped, transactions_unmatched: result.transactionsUnmatched,
