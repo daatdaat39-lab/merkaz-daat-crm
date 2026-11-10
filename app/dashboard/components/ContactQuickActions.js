@@ -21,7 +21,11 @@ const iconBtnStyle = {
 // stageKey/courseId (אופציונליים) - השלב והקורס של הליד, לבחירת תבניות מומלצות בחלונות השליחה.
 // onActionDone (אופציונלי): נקרא אחרי שליחה בפועל של מייל/וואטסאפ - מסך הליד
 // משתמש בו להצעת "לקחת אחריות" (useClaimPrompt). מסכים אחרים לא מעבירים אותו.
-export default function ContactQuickActions({ contact, departments = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [], departmentId = null, stageKey = null, courseId = null, onActionDone }) {
+// whatsappThread (אופציונלי) - היסטוריית-וואטסאפ-קודמת להציג בחלון-הצ'אט
+// כשנפתח (ר' "איפה-רואים-היסטוריית-שליחה" - בלעדיו המודאל תמיד נפתח ריק,
+// גם-אם-כבר-נשלחו-הודעות). ברירת-מחדל [] שומרת-על-ההתנהגות-הישנה
+// בקוראים-שלא-מעבירים-אותו (למשל רשימת-אנשי-קשר).
+export default function ContactQuickActions({ contact, departments = [], sendConnections = [], whatsappTemplates = [], emailTemplates = [], departmentId = null, stageKey = null, courseId = null, whatsappThread = [], onActionDone }) {
   const [modal, setModal] = useState(null);
 
   const emailConnection = departments
@@ -73,7 +77,7 @@ export default function ContactQuickActions({ contact, departments = [], sendCon
       {modal === 'whatsapp' && whatsappDept && (
         <WhatsAppSendModal
           contactId={contact.id} workspaceId={whatsappDept.workspaceId} departmentId={departmentId}
-          phone={contact.phone} reason={contact.latestReason} thread={[]} templates={whatsappTemplates} stageKey={stageKey} courseId={courseId}
+          phone={contact.phone} reason={contact.latestReason} thread={whatsappThread} templates={whatsappTemplates} stageKey={stageKey} courseId={courseId}
           onClose={() => setModal(null)}
           onActionDone={onActionDone}
         />

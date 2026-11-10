@@ -241,6 +241,7 @@ export default function LeadWorkScreen({
                 departmentId={departmentId}
                 stageKey={stage}
                 courseId={courseId || null}
+                whatsappThread={timelineProps.sentWhatsapp}
                 onActionDone={notifyAction}
               />
               {contact.phone && <DialButton contactId={contact.id} workspaceId={workspaceId} onActionDone={notifyAction} />}

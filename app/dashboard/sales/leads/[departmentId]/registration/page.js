@@ -46,6 +46,13 @@ export default async function LeadRegistrationPage({ params }) {
   const { supabase, userId, deptRow, department, props, courses, checklist, courseTracks, formFields, pipeline, uploadedDocuments } = ctx;
   const selectedCourse = courses.find((c) => c.id === department.courseId);
 
+  // היסטוריית-וואטסאפ-ששייכת-לליד-הזה-בדיוק - אותו עיקרון "חוקת-הליד"
+  // כמו ב-page.js הראשי, כדי שחלון-הצ'אט (WhatsAppSendModal) לא-ייפתח-
+  // ריק כשכבר-נשלחו-הודעות (ר' דיון "איפה-רואים-היסטוריית-שליחה").
+  const includeNullDept = props.departments.filter((d) => d.workspaceId === deptRow.workspace_id).length <= 1;
+  const sentWhatsapp = props.sentWhatsapp.filter((w) => w.contact_department_id === departmentId
+    || (includeNullDept && w.contact_department_id == null && w.workspace_id === deptRow.workspace_id));
+
   // נטענים-כאן (לא-בליבה-המשותפת) - נדרשים-רק-למסך-הזה (כפתורי "שלח
   // במייל/וואטסאפ" לקישורי-הטפסים/חתימה, ובדיקת-רכישה-קיימת לתצוגת-
   // "ההרשמה כבר הושלמה" + כפתור-ביטול - ר' דיון "תקלה במעבר-שלב").
@@ -89,6 +96,7 @@ export default async function LeadRegistrationPage({ params }) {
       sendConnections={sendConnections || []}
       whatsappTemplates={props.whatsappTemplates}
       emailTemplates={emailTemplates || []}
+      sentWhatsapp={sentWhatsapp}
     />
   );
 }

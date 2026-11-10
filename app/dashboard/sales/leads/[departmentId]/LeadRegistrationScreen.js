@@ -60,7 +60,7 @@ function formatSentAt(iso) {
 export default function LeadRegistrationScreen({
   departmentId, contact, workspaceId, workspaceName, selectedCourse, courseTracks = [], formFields = [],
   uploadedDocuments = [], checklist = null, wonStageLabel, paymentMatch = null,
-  sendConnections = [], whatsappTemplates = [], emailTemplates = [], existingPurchase = null, stageKey = null,
+  sendConnections = [], whatsappTemplates = [], emailTemplates = [], sentWhatsapp = [], existingPurchase = null, stageKey = null,
   userId = null, agentId = null, sellsCourses = false,
 }) {
   const { lockState, error: lockError, releaseOnNavigate } = useLeadLock(departmentId);
@@ -1061,7 +1061,7 @@ export default function LeadRegistrationScreen({
       {sendTarget?.channel === 'whatsapp' && (
         <WhatsAppSendModal
           contactId={contact.id} workspaceId={workspaceId} departmentId={departmentId}
-          phone={contact.phone} thread={[]} templates={whatsappTemplates} stageKey={stageKey} courseId={selectedCourse?.id || null}
+          phone={contact.phone} thread={sentWhatsapp} templates={whatsappTemplates} stageKey={stageKey} courseId={selectedCourse?.id || null}
           initialMessage={`${greetingName}, ${SEND_FIELD_META[sendTarget.field].intro}: ${SEND_FIELD_META[sendTarget.field].value}`}
           onClose={() => setSendTarget(null)}
           onSent={() => handleLinkSent(sendTarget.field, sendTarget.mode)}
