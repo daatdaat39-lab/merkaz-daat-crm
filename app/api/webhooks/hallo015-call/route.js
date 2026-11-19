@@ -124,31 +124,63 @@ export async function POST(request) {
   // הקפצת-מסך - ברגע-הצלצול (אירוע "Calling", לא "Hangup" יותר - ר'
   // ההערה למעלה). קריטי: מגודר **רק** ל-Calling - אחרת שני האירועים
   // (Calling+Hangup) לאותה שיחה ייצרו שתי שורות-cti_call_events ושני
-  // טוסטים-כפולים לנציג על שיחה אחת. רק לשיחות-נכנסות עם ניתוב-קו
-  // מוגדר (workspaceId שכבר-חושב-למעלה) - בלי ניתוב, אין workspace
-  // לשייך את ההתראה אליו, אז מדלגים בשקט (הרישום ב-phone_calls כבר
-  // קרה למעלה, לא תלוי בזה).
+  // טוסטים-כפולים לנציג על שיחה אחת.
+  //
+  // ניתוב ראשוני: שלוחה->נציג-ספציפי (profiles.hallo015_extension) -
+  // נבדק-בפועל בפאנל-015 (קווי-טלפון, 2026-11-19) שכל שלוחה שייכת-
+  // לאדם-אחד-ספציפי, לא-למחלקה - אז זה אות-ניתוב-מדויק-יותר מקו->מחלקה
+  // (cti_line_routing). עדיין-נופל-בחזרה לדפוס-הישן (קו->מחלקה, שידור-
+  // לכל-מי-שפתוח-על-ה-workspace) לשלוחות שעדיין-לא-משויכות-לנציג-במערכת.
   const isCallingEvent = (body.status || '').toString().trim().toLowerCase() === 'calling';
-  if (isCallingEvent && workspaceId) {
+  if (isCallingEvent && isInbound && dnumber) {
     let departmentId = null;
     let agentId = null;
-    if (contactId) {
-      // .maybeSingle() היה-זורק-שגיאה-אם-לאיש-הקשר-כמה-שורות-באותה-
-      // מחלקה (ר' course_id, migration 0164) - לוקחים-את-הפעילה-ביותר.
+    let eventWorkspaceId = workspaceId; // מה-שכבר-חושב-למעלה (cti_line_routing), אם-יש
+
+    const { data: extAgent } = await supabase.from('profiles').select('id').eq('hallo015_extension', dnumber).maybeSingle();
+    agentId = extAgent?.id || null;
+
+    if (agentId && contactId) {
+      // ההקשר-המיטבי: המחלקה-הספציפית-שבה הנציג-הזה-מטפל-באיש-הקשר-
+      // הזה - לא-מוגבל-ל-workspace-שה-ניתוב-הישן-כבר-זיהה (אם-בכלל),
+      // כדי שהלחיצה-על-הטוסט תוביל-להקשר-הנכון.
       const { data: deptRows } = await supabase
         .from('contact_departments')
-        .select('id, agent_id, last_activity_at')
+        .select('id, workspace_id, last_activity_at')
         .eq('contact_id', contactId)
-        .eq('workspace_id', workspaceId)
+        .eq('agent_id', agentId)
         .order('last_activity_at', { ascending: false });
       const dept = (deptRows || [])[0];
-      departmentId = dept?.id || null;
-      agentId = dept?.agent_id || null;
+      if (dept) { departmentId = dept.id; eventWorkspaceId = dept.workspace_id; }
     }
-    await supabase.from('cti_call_events').insert({
-      workspace_id: workspaceId, contact_id: contactId, department_id: departmentId,
-      agent_id: agentId, phone: snumber, answered: body.answered === '1' || body.answered === 1 || body.answered === true,
-    });
+
+    if (!agentId && workspaceId) {
+      // נפילה-לאחור: הדפוס-הישן (קו->מחלקה) - לשלוחות-שעדיין-לא-
+      // משויכות-לנציג-ספציפי במערכת.
+      if (contactId) {
+        // .maybeSingle() היה-זורק-שגיאה-אם-לאיש-הקשר-כמה-שורות-באותה-
+        // מחלקה (ר' course_id, migration 0164) - לוקחים-את-הפעילה-ביותר.
+        const { data: deptRows } = await supabase
+          .from('contact_departments')
+          .select('id, agent_id, last_activity_at')
+          .eq('contact_id', contactId)
+          .eq('workspace_id', workspaceId)
+          .order('last_activity_at', { ascending: false });
+        const dept = (deptRows || [])[0];
+        departmentId = dept?.id || null;
+        agentId = dept?.agent_id || null;
+      }
+    }
+
+    // בלי-ניתוב-לנציג-ספציפי ובלי-workspace (אין-גם-שלוחה-מוכרת וגם-אין-
+    // ניתוב-קו-ישן) - אין-למי-לשייך-את-ההתראה, מדלגים-בשקט (הרישום
+    // ב-phone_calls כבר-קרה-למעלה, לא-תלוי-בזה).
+    if (agentId || eventWorkspaceId) {
+      await supabase.from('cti_call_events').insert({
+        workspace_id: eventWorkspaceId, contact_id: contactId, department_id: departmentId,
+        agent_id: agentId, phone: snumber, answered: body.answered === '1' || body.answered === 1 || body.answered === true,
+      });
+    }
   }
 
   return NextResponse.json({ success: true, matched: !!contactId });

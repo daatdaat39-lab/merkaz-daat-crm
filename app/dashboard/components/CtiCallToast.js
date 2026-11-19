@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../../lib/supabase/client';
 import { PhoneIcon } from './icons';
@@ -10,11 +10,50 @@ import { PhoneIcon } from './icons';
 // הצלצול עצמו (ר' app/api/webhooks/hallo015-call/route.js). מאזינה
 // ל-cti_call_events (migration 0153) באותו דפוס בדיוק כמו
 // NewLeadToast/PendingAutomationWatcher.
-// agent_id=null = שידור-למחלקה (כל מי שפתוח על ה-workspace הזה כרגע);
-// agent_id מוגדר = מיועד לנציג ספציפי - שאר הטאבים מתעלמים.
+//
+// שני ערוצים (migration 0193, ניתוב לפי שלוחה->נציג):
+// (א) ערוץ-אישי (agent_id=eq.userId) - מגיע-ישר-לנציג-הזה בלי-תלות-
+//     באיזו-מחלקה-פתוחה-אצלו-כרגע (כל שלוחה שייכת-לאדם-ספציפי, לא-
+//     למחלקה - ר' route.js). זה-הערוץ-העיקרי-מעכשיו.
+// (ב) ערוץ-שידור-למחלקה (הדפוס-הישן) - רק-לשלוחות-שעדיין-לא-משויכות-
+//     לנציג-ספציפי במערכת, ורק-כש-המחלקה-הזו-פתוחה-אצלו-כרגע.
+//     agent_id=null = שידור-לכל-מי-שפתוח-על-ה-workspace; agent_id
+//     מוגדר = מיועד-לנציג-ספציפי, שאר-הטאבים-מתעלמים (dedup מול א').
 export default function CtiCallToast({ workspaceId, userId }) {
   const [toast, setToast] = useState(null);
   const router = useRouter();
+  const shownIds = useRef(new Set());
+
+  async function showToast(row) {
+    if (shownIds.current.has(row.id)) return;
+    shownIds.current.add(row.id);
+    const supabase = createClient();
+    let contactName = null;
+    if (row.contact_id) {
+      const { data: contact } = await supabase.from('contacts').select('first, last').eq('id', row.contact_id).maybeSingle();
+      contactName = contact ? `${contact.first || ''} ${contact.last || ''}`.trim() : null;
+    }
+    setToast({ contactId: row.contact_id, contactName, phone: row.phone });
+    setTimeout(() => setToast(null), 15000);
+  }
+
+  useEffect(() => {
+    if (!userId) return;
+    const supabase = createClient();
+
+    const channel = supabase
+      .channel(`cti-call-events-agent-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'cti_call_events', filter: `agent_id=eq.${userId}` },
+        (payload) => showToast(payload.new)
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -25,17 +64,10 @@ export default function CtiCallToast({ workspaceId, userId }) {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'cti_call_events', filter: `workspace_id=eq.${workspaceId}` },
-        async (payload) => {
+        (payload) => {
           const row = payload.new;
           if (row.agent_id && row.agent_id !== userId) return;
-
-          let contactName = null;
-          if (row.contact_id) {
-            const { data: contact } = await supabase.from('contacts').select('first, last').eq('id', row.contact_id).maybeSingle();
-            contactName = contact ? `${contact.first || ''} ${contact.last || ''}`.trim() : null;
-          }
-          setToast({ contactId: row.contact_id, contactName, phone: row.phone });
-          setTimeout(() => setToast(null), 15000);
+          showToast(row);
         }
       )
       .subscribe();
