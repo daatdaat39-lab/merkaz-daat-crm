@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { StageBadge, initials } from '../components/ui';
 import ContactQuickActions from '../components/ContactQuickActions';
-import AdvancedFilterPanel from '../components/AdvancedFilterPanel';
-import { contactMatchesAdvancedFilter } from '../components/advancedFilter';
 import { nameSimilarity } from '../lib/findDuplicates';
 import { fetchAllContactsAction } from './fetchAllContactsAction';
 
@@ -35,7 +33,6 @@ export default function ContactsBoard({ contacts, currentWorkspaceName, allDepar
   const [deptFilter, setDeptFilter] = useState('');
   const [sortBy, setSortBy] = useState('created_desc');
   const [fieldFilters, setFieldFilters] = useState({});
-  const [advancedFilters, setAdvancedFilters] = useState({});
   const router = useRouter();
 
   // `contacts` (מה-שרת) הוא-רק-אנשי-הקשר-של-המחלקה-הפעילה - ברגע-שמשהו
@@ -61,7 +58,7 @@ export default function ContactsBoard({ contacts, currentWorkspaceName, allDepar
   // "עיון-רגיל" (בלי-שום-חיפוש/סינון) - נשאר-מוגבל-למחלקה-הפעילה
   // (contacts, כפי-שהגיע-מהשרת). ברגע-שמשהו-כן-מחפש/מסנן - עוברים
   // ל-fullContacts (כל-המערכת), ומביאים-אותו-פעם-אחת-אם-עוד-אין.
-  const needsFullDataset = Boolean(search.trim()) || Boolean(deptFilter) || Object.keys(advancedFilters).length > 0;
+  const needsFullDataset = Boolean(search.trim()) || Boolean(deptFilter);
 
   useEffect(() => {
     if (!needsFullDataset || fullContacts || isLoadingAll) return;
@@ -119,10 +116,6 @@ export default function ContactsBoard({ contacts, currentWorkspaceName, allDepar
       });
     }
 
-    if (Object.keys(advancedFilters).length > 0) {
-      result = result.filter((c) => contactMatchesAdvancedFilter(c, advancedFilters, extraFieldsByDept));
-    }
-
     const sorted = [...result].sort((a, b) => {
       switch (sortBy) {
         case 'name': return `${a.first} ${a.last}`.localeCompare(`${b.first} ${b.last}`, 'he');
@@ -132,13 +125,13 @@ export default function ContactsBoard({ contacts, currentWorkspaceName, allDepar
       }
     });
     return sorted;
-  }, [baseList, search, deptFilter, fieldFilters, advancedFilters, sortBy, activeExtraFields, extraFieldsByDept]);
+  }, [baseList, search, deptFilter, fieldFilters, sortBy, activeExtraFields, extraFieldsByDept]);
 
   // בכל שינוי סינון/חיפוש/מיון - חוזרים לעמוד הראשון של התצוגה, אחרת
   // "טען עוד" שכבר נלחץ קודם היה משאיר displayLimit גבוה על תוצאה חדשה.
   useEffect(() => {
     setDisplayLimit(PAGE_SIZE);
-  }, [search, deptFilter, fieldFilters, advancedFilters, sortBy]);
+  }, [search, deptFilter, fieldFilters, sortBy]);
 
   const visible = useMemo(() => filtered.slice(0, displayLimit), [filtered, displayLimit]);
 
@@ -175,13 +168,6 @@ export default function ContactsBoard({ contacts, currentWorkspaceName, allDepar
       {isLoadingAll && (
         <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginBottom: 12 }}>מחפש גם בשאר המחלקות...</div>
       )}
-
-      <AdvancedFilterPanel
-        pipelinesByWorkspace={pipelinesByWorkspace}
-        extraFieldsByWorkspace={extraFieldsByDept}
-        value={advancedFilters}
-        onChange={setAdvancedFilters}
-      />
 
       {activeExtraFields.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 18, background: 'var(--k-pill-bg)', border: '1px solid var(--k-border)', borderRadius: 'var(--radius-lg)', padding: 12 }}>
