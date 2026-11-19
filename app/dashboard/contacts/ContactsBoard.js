@@ -8,6 +8,7 @@ import ContactQuickActions from '../components/ContactQuickActions';
 import AdvancedFilterPanel from '../components/AdvancedFilterPanel';
 import { contactMatchesAdvancedFilter } from '../components/advancedFilter';
 import { nameSimilarity } from '../lib/findDuplicates';
+import { fetchAllContactsAction } from './fetchAllContactsAction';
 
 const inputStyle = { border: '1px solid var(--k-border)', borderRadius: 100, padding: '7px 14px', fontSize: 12.5, background: 'var(--k-surface)', color: 'var(--k-text)' };
 
@@ -29,7 +30,7 @@ function groupDepartmentsByWorkspace(departments) {
 // רשימת אנשי קשר עם סינון/חיפוש/מיון בצד הלקוח - אותו דפוס בדיוק כמו
 // בעמוד הלידים (LeadsBoard.js), כדי שיהיה נוח לאתר איש קשר ספציפי גם
 // כשיש מאות רשומות, לא רק סינון לפי תגית כמו שהיה.
-export default function ContactsBoard({ contacts, allDepartments, sendConnections, whatsappTemplates, emailTemplates, stageLabels = {}, stageColors = {}, extraFieldsByDept = {}, pipelinesByWorkspace = {} }) {
+export default function ContactsBoard({ contacts, currentWorkspaceName, allDepartments, sendConnections, whatsappTemplates, emailTemplates, stageLabels = {}, stageColors = {}, extraFieldsByDept = {}, pipelinesByWorkspace = {} }) {
   const [search, setSearch] = useState('');
   const [deptFilter, setDeptFilter] = useState('');
   const [sortBy, setSortBy] = useState('created_desc');
@@ -37,12 +38,18 @@ export default function ContactsBoard({ contacts, allDepartments, sendConnection
   const [advancedFilters, setAdvancedFilters] = useState({});
   const router = useRouter();
 
+  // `contacts` (מה-שרת) הוא-רק-אנשי-הקשר-של-המחלקה-הפעילה - ברגע-שמשהו
+  // באמת-מחפש/מסנן (לא-רק-עיון-רגיל) מביאים-פעם-אחת את-כל-השאר ושומרים
+  // בזיכרון לכל-יתרת-הביקור בעמוד (fetchAllContactsAction.js).
+  const [fullContacts, setFullContacts] = useState(null);
+  const [isLoadingAll, setIsLoadingAll] = useState(false);
+
   // הרשימה מציגה DOM-row אמיתי לכל שורה (עם ContactQuickActions מקונן
-  // בכל אחת) - עם 6,500+ אנשי קשר בלי הגבלה, זה מייצר עשרות-אלפי צמתי-DOM
-  // בטעינה אחת, מה שהופך את כל המסך (וכל הקלדה בחיפוש) לאיטי. החיפוש/
-  // הסינון/המיון עצמם ממשיכים לרוץ על כל הרשימה המלאה (בלי שינוי) - רק
-  // מה שמוצג בפועל מוגבל ל-100 בכל פעם, עם "טען עוד" להמשיך.
-  const PAGE_SIZE = 100;
+  // בכל אחת) - בלי הגבלה זה מייצר הרבה-צמתי-DOM בטעינה-אחת, מה שמאט
+  // את-הציור-בדפדפן (לא-קשור-לשאילתת-השרת). החיפוש/הסינון/המיון עצמם
+  // ממשיכים לרוץ על כל הרשימה המלאה (בלי שינוי) - רק מה שמוצג בפועל
+  // מוגבל ל-20 בכל פעם, עם "טען עוד" להמשיך.
+  const PAGE_SIZE = 20;
   const [displayLimit, setDisplayLimit] = useState(PAGE_SIZE);
 
   const activeExtraFields = deptFilter ? (extraFieldsByDept[deptFilter] || []) : [];
@@ -51,8 +58,31 @@ export default function ContactsBoard({ contacts, allDepartments, sendConnection
     setFieldFilters((prev) => ({ ...prev, [key]: value }));
   }
 
+  // "עיון-רגיל" (בלי-שום-חיפוש/סינון) - נשאר-מוגבל-למחלקה-הפעילה
+  // (contacts, כפי-שהגיע-מהשרת). ברגע-שמשהו-כן-מחפש/מסנן - עוברים
+  // ל-fullContacts (כל-המערכת), ומביאים-אותו-פעם-אחת-אם-עוד-אין.
+  const needsFullDataset = Boolean(search.trim()) || Boolean(deptFilter) || Object.keys(advancedFilters).length > 0;
+
+  useEffect(() => {
+    if (!needsFullDataset || fullContacts || isLoadingAll) return;
+    let cancelled = false;
+    setIsLoadingAll(true);
+    fetchAllContactsAction().then((all) => {
+      if (!cancelled) setFullContacts(all);
+    }).finally(() => {
+      if (!cancelled) setIsLoadingAll(false);
+    });
+    return () => { cancelled = true; };
+    // isLoadingAll לא-נכלל-בכוונה ברשימת-התלויות: הכללתו גרמה לאפקט
+    // לרוץ-מחדש (ולבטל-את-עצמו, cancelled=true) בדיוק כש-setIsLoadingAll(true)
+    // הופעל - מה-שתמיד-זרק את-תוצאת-ה-fetch לפח, גם-כש-השרת-הצליח.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsFullDataset, fullContacts]);
+
+  const baseList = needsFullDataset && fullContacts ? fullContacts : contacts;
+
   const filtered = useMemo(() => {
-    let result = contacts;
+    let result = baseList;
 
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -70,7 +100,7 @@ export default function ContactsBoard({ contacts, allDepartments, sendConnection
           (c.source || '').toLowerCase().includes(q);
       });
       if (result.length === 0) {
-        result = contacts.filter((c) => nameSimilarity(`${c.first} ${c.last}`.toLowerCase(), q) >= 0.6);
+        result = baseList.filter((c) => nameSimilarity(`${c.first} ${c.last}`.toLowerCase(), q) >= 0.6);
       }
     }
     if (deptFilter) result = result.filter((c) => c.departments.some((d) => d.name === deptFilter));
@@ -102,7 +132,7 @@ export default function ContactsBoard({ contacts, allDepartments, sendConnection
       }
     });
     return sorted;
-  }, [contacts, search, deptFilter, fieldFilters, advancedFilters, sortBy, activeExtraFields, extraFieldsByDept]);
+  }, [baseList, search, deptFilter, fieldFilters, advancedFilters, sortBy, activeExtraFields, extraFieldsByDept]);
 
   // בכל שינוי סינון/חיפוש/מיון - חוזרים לעמוד הראשון של התצוגה, אחרת
   // "טען עוד" שכבר נלחץ קודם היה משאיר displayLimit גבוה על תוצאה חדשה.
@@ -142,6 +172,10 @@ export default function ContactsBoard({ contacts, allDepartments, sendConnection
         )}
       </div>
 
+      {isLoadingAll && (
+        <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginBottom: 12 }}>מחפש גם בשאר המחלקות...</div>
+      )}
+
       <AdvancedFilterPanel
         pipelinesByWorkspace={pipelinesByWorkspace}
         extraFieldsByWorkspace={extraFieldsByDept}
@@ -172,9 +206,9 @@ export default function ContactsBoard({ contacts, allDepartments, sendConnection
       )}
 
       <div style={{ fontSize: 12, color: 'var(--k-text-muted)', marginBottom: 12 }}>
-        {filtered.length !== contacts.length
-          ? <>מציג {visible.length} מתוך {filtered.length} תוצאות (מסונן מתוך {contacts.length} אנשי קשר)</>
-          : <>מציג {visible.length} מתוך {contacts.length} אנשי קשר</>}
+        {filtered.length !== baseList.length
+          ? <>מציג {visible.length} מתוך {filtered.length} תוצאות (מסונן מתוך {baseList.length} אנשי קשר{needsFullDataset ? ' - כל המחלקות' : ''})</>
+          : <>מציג {visible.length} מתוך {baseList.length} אנשי קשר{currentWorkspaceName && !needsFullDataset ? ` (${currentWorkspaceName})` : ''}</>}
       </div>
 
       <div className="table-scroll">

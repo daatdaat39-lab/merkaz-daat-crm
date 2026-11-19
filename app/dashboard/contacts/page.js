@@ -5,6 +5,8 @@ import ContactsBoard from './ContactsBoard';
 import { groupTagsByDepartment } from '../lib/tagGroups';
 import { getAllPipelinesCached } from '../lib/pipelines';
 import { getAllExtraFieldsCached } from '../lib/extraFields';
+import { getAllContactTagRows } from '../lib/allContactTags';
+import { fetchContactsPaged, fetchWorkspaceContactIds, shapeContacts } from './contactsListData';
 
 export default async function ContactsPage() {
   const supabase = createClient();
@@ -12,58 +14,45 @@ export default async function ContactsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים).
-  // שולפים בדפים של 1000 (מגבלת ברירת המחדל של PostgREST/Supabase לכל
-  // קריאה בודדת) עד שמגיעים לדף לא-מלא - כדי לקבל את כל אנשי הקשר בפועל,
-  // לא רק את ה-1000 הראשונים לפי created_at.
-  // בלי idnum (ת"ז): רשימת 6,500 אנשי הקשר נטענת בשלמותה לדפדפן של כל נציג -
-  // מספרי זהות נטענים רק בכרטיס איש-הקשר עצמו, לפי הרשאה.
-  const contactsSelect = 'id, first, last, phone, phone2, email, dept, tags, source, frozen, created_at, contact_departments (workspace_id, stage, extra_fields, opened_process, course_id, courses:course_id (name), workspaces:workspace_id (name))';
-  async function fetchAllContacts() {
-    const pageSize = 1000;
-    let page = 0;
-    let all = [];
-    while (true) {
-      const { data: pageData } = await supabase
-        .from('contacts')
-        .select(contactsSelect)
-        .order('created_at', { ascending: false })
-        .range(page * pageSize, page * pageSize + pageSize - 1);
-      if (!pageData || pageData.length === 0) break;
-      all = all.concat(pageData);
-      if (pageData.length < pageSize) break;
-      page++;
-    }
-    return all;
-  }
+  // טעינה-ראשונה מצומצמת-למחלקה-הפעילה-בלבד (לא "כל אנשי-הקשר") -
+  // ברוב-הזמן נציג עובד בתוך מחלקה-אחת, אז-אין-סיבה-להביא-את-כל-6,500+
+  // בכל-טעינת-עמוד. "חיפוש"/"סינון" בלקוח (ContactsBoard.js) מרחיבים
+  // לכל-המערכת-בפועל, רק-כש-באמת-צריך (fetchAllContactsAction.js) -
+  // הדף-הזה לא-צריך-לדעת-על-זה, רק-לספק-את-ברירת-המחדל-המהירה.
+  const { data: profileForScope } = await supabase
+    .from('profiles').select('current_workspace_id').eq('id', user.id).single();
+  const currentWorkspaceId = profileForScope?.current_workspace_id || null;
+  const scopedContactIds = currentWorkspaceId ? await fetchWorkspaceContactIds(supabase, currentWorkspaceId) : null;
 
   const [
     data,
     { data: workspaces },
-    { data: profile },
     { data: sendConnections },
     { data: whatsappTemplates },
     { data: emailTemplates },
     { byWorkspace: pipelinesByWorkspace, labels: stageLabels, colors: stageColors },
     extraFieldsByDept,
+    tagRows,
   ] = await Promise.all([
-    fetchAllContacts(),
+    fetchContactsPaged(supabase, scopedContactIds),
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
-    supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase.from('whatsapp_templates').select('id, name, template_id, preview_text, sort_order, workspace_id, stage_key, category, course_id, is_active').order('sort_order').order('created_at'),
     supabase.from('email_templates').select('id, name, subject, body, workspace_id, stage_key, category, course_id, is_active').order('created_at'),
     getAllPipelinesCached(),
     getAllExtraFieldsCached(),
+    getAllContactTagRows(),
   ]);
-  const allContacts = (data || []).map((c) => ({
-    ...c,
-    departments: (c.contact_departments || []).map((d) => ({ workspaceId: d.workspace_id, name: d.workspaces?.name || 'מחלקה', stage: d.stage, extraFields: d.extra_fields || {}, openedProcess: d.opened_process !== false, courseId: d.course_id || null, courseName: d.courses?.name || null })),
-  }));
+  const scopedContacts = shapeContacts(data);
 
-  const allTags = Array.from(new Set(allContacts.flatMap((c) => c.tags || []))).sort();
-  const allDepartments = Array.from(new Set(allContacts.flatMap((c) => c.departments.map((d) => d.name)))).sort();
-  const tagGroups = groupTagsByDepartment(allContacts);
+  // תגיות/מחלקות-לבורר - תמיד מכל-המערכת (לא-ממה-שבפועל-נטען), אחרת
+  // רשימת "כל המחלקות" הייתה-מוצגת-ריקה-כמעט-לגמרי בטעינה-הראשונה.
+  const allTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
+  const tagGroups = groupTagsByDepartment(
+    (tagRows || []).map((c) => ({ tags: c.tags, departments: (c.contact_departments || []).map((d) => ({ name: d.workspaces?.name })) }))
+  );
+  const allDepartments = Array.from(new Set((workspaces || []).map((w) => w.name))).sort();
+  const currentWorkspaceName = (workspaces || []).find((w) => w.id === currentWorkspaceId)?.name || null;
 
   return (
     <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px', background: 'var(--k-bg)', minHeight: '100%' }}>
@@ -71,16 +60,17 @@ export default async function ContactsPage() {
         <div>
           <h1 style={{ fontFamily: 'var(--k-font-display)', margin: 0, fontSize: 30, color: 'var(--k-text)' }}>אנשי קשר</h1>
           <p style={{ margin: '6px 0 0', color: 'var(--k-text-muted)', fontSize: 12.5 }}>
-            {allContacts.length} אנשי קשר (כל המחלקות)
+            {scopedContacts.length} אנשי קשר{currentWorkspaceName ? ` (${currentWorkspaceName})` : ' (כל המחלקות)'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <AddContactForm workspaces={workspaces || []} defaultWorkspaceId={profile?.current_workspace_id || ''} existingTags={allTags} tagGroups={tagGroups} />
+          <AddContactForm workspaces={workspaces || []} defaultWorkspaceId={currentWorkspaceId || ''} existingTags={allTags} tagGroups={tagGroups} />
         </div>
       </div>
 
       <ContactsBoard
-        contacts={allContacts}
+        contacts={scopedContacts}
+        currentWorkspaceName={currentWorkspaceName}
         allTags={allTags}
         tagGroups={tagGroups}
         allDepartments={allDepartments}
