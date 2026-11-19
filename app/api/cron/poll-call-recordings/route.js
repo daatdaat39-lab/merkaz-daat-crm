@@ -51,9 +51,21 @@ export async function GET(request) {
       // יותר-ישנות-ומוכנות-כבר נדחקות-החוצה ע"י-שיחות-חדשות-עוד-יותר,
       // ולעולם לא-מגיעות-לתור) - אומת-בפועל: recordingsFixed חזר ל-0
       // כש-המיון-היה-יורד, 2 ריצות-ברציפות, למרות שההתאמה-עצמה עובדת.
-      const windowHours = 3;
+      //
+      // ?backfillHours=<N> - הרצה-ידנית-חד-פעמית (לא-ה-cron הרגיל) כדי
+      // להשלים שיחות-ישנות-יותר שנפלו-מהחלון-של-3-שעות (לדוגמה כי התהליך
+      // הזה הופעל-לראשונה אחרי שהן כבר-היו-ישנות-מ-3-שעות ולעולם-לא-
+      // ייבדקו-שוב, כי החלון-הרגיל תמיד-יחסי-ל"עכשיו"). אותה-לוגיקת-
+      // התאמה-בדיוק, רק-טווח-רחב-יותר וגג-מועמדים-גבוה-יותר (יש-הרבה-
+      // יותר-שיחות בחלון-ארוך).
+      const requestUrl = new URL(request.url);
+      const backfillHoursParam = parseInt(requestUrl.searchParams.get('backfillHours') || '', 10);
+      const isBackfill = Number.isFinite(backfillHoursParam) && backfillHoursParam > 3;
+      const windowHours = isBackfill ? backfillHoursParam : 3;
+      const candidateLimit = isBackfill ? 300 : 50;
       const windowStart = new Date(Date.now() - windowHours * 60 * 60 * 1000);
       const windowEnd = new Date(Date.now() - 10 * 60 * 1000);
+      result.backfillHours = isBackfill ? windowHours : undefined;
 
       const { data: candidateCalls } = await supabase
         .from('phone_calls')
@@ -63,7 +75,7 @@ export async function GET(request) {
         .not('duration_seconds', 'is', null)
         .gt('duration_seconds', 0)
         .order('started_at', { ascending: true })
-        .limit(50);
+        .limit(candidateLimit);
 
       const needsFix = (candidateCalls || []).filter((c) => !c.recording_url || !c.recording_url.includes('supabase'));
 
