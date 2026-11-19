@@ -1,3 +1,6 @@
+import { unstable_cache } from 'next/cache';
+import { createAdminClient } from '../../../lib/supabase/admin';
+
 // גרסה DB-backed של pipelines.js הישן - שולפת שלבים מ-pipeline_stages
 // (מיגרציה 0036) במקום מהאובייקטים הקבועים PIPELINES/STAGE_LABELS/
 // STAGE_COLORS. עריכת שלבים (הוספה/הסרה/שינוי תווית/צבע/דגלים) נעשית
@@ -14,7 +17,27 @@ export async function getAllPipelines(supabase) {
     .from('pipeline_stages')
     .select('workspace_id, stage_key, label, color_bg, color_fg, sort_order, is_lead_stage, is_won_stage, is_side_stage, lead_tab, workspaces:workspace_id (name)')
     .order('sort_order', { ascending: true, nullsFirst: false });
+  return shapePipelines(rows);
+}
 
+// גרסה-ממוטמנת (5 דק', אותו-דפוס-בדיוק כמו allContactTags.js) - להגדרות-
+// pipeline-שכמעט-לא-משתנות, נקראות ב-layout.js (כל-ניווט!) ובעוד-5-
+// מקומות. client-נפרד (admin, לא-מבוסס-cookies) כי unstable_cache אוסר
+// cookies()/headers() בתוך-הפונקציה-הממוטמנת.
+export const getAllPipelinesCached = unstable_cache(
+  async () => {
+    const admin = createAdminClient();
+    const { data: rows } = await admin
+      .from('pipeline_stages')
+      .select('workspace_id, stage_key, label, color_bg, color_fg, sort_order, is_lead_stage, is_won_stage, is_side_stage, lead_tab, workspaces:workspace_id (name)')
+      .order('sort_order', { ascending: true, nullsFirst: false });
+    return shapePipelines(rows);
+  },
+  ['all-pipelines'],
+  { revalidate: 300 }
+);
+
+function shapePipelines(rows) {
   const byWorkspace = {};
   const labels = {};
   const colors = {};

@@ -192,7 +192,7 @@ export default function ContactsBoard({ contacts, allDepartments, sendConnection
           {visible.map((c) => (
             <tr key={c.id} style={{ borderBottom: '1px solid var(--k-border)' }}>
               <td style={{ padding: '12px 16px', fontSize: 13 }}>
-                <Link href={`/dashboard/contacts/${c.id}`} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit' }}>
+                <Link href={`/dashboard/contacts/${c.id}`} prefetch={false} style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: 'inherit' }}>
                   <span style={{
                     width: 28, height: 28, background: 'var(--k-pill-bg)', borderRadius: '50%',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 600, color: 'var(--k-pill-text)', flexShrink: 0,

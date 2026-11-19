@@ -9,7 +9,7 @@ import { BRAND } from '../../../lib/brand';
 import {
   UsersIcon, CheckSquareIcon, TargetIcon, TicketIcon,
   WhatsAppIcon, MailIcon, PhoneIcon, SettingsGearIcon,
-  LockIcon, LogoutIcon, BarChartIcon,
+  LockIcon, LogoutIcon, BarChartIcon, SparkleIcon,
 } from './icons';
 
 // פריטים שהוסתרו-במכוון מהניווט (סבב-ניקוי "המערכת-עדיין-לא-פעילה") -
@@ -64,6 +64,7 @@ export default function Sidebar({
   switchWorkspaceAction,
   logoutAction,
   showReports = false,
+  showAiChat = false,
 }) {
   const [wsOpen, setWsOpen] = useState(false);
   const pathname = usePathname();
@@ -227,8 +228,12 @@ export default function Sidebar({
         {NAV_SECTIONS.map((baseSection) => {
           // "דוחות" מוצג למנהלים בלבד (owner/admin באחת המחלקות) - ר' reports/page.js
           // שמפנה החוצה כל מי שאינו מנהל של המחלקה הנוכחית.
-          const section = baseSection.label === 'ניהול' && showReports
-            ? { ...baseSection, items: [{ href: '/dashboard/reports', label: 'דוחות', icon: BarChartIcon }, ...baseSection.items] }
+          // "שאל את המערכת" (צ'אט AI) מתווסף באותו תנאי, ומאחורי feature flag.
+          const managerItems = [];
+          if (showAiChat) managerItems.push({ href: '/dashboard/ai', label: 'שאל את המערכת', icon: SparkleIcon });
+          if (showReports) managerItems.push({ href: '/dashboard/reports', label: 'דוחות', icon: BarChartIcon });
+          const section = baseSection.label === 'ניהול' && managerItems.length
+            ? { ...baseSection, items: [...managerItems, ...baseSection.items] }
             : baseSection;
           return (
           <div key={section.label} style={{ marginBottom: 6 }}>
@@ -250,6 +255,7 @@ export default function Sidebar({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -277,6 +283,7 @@ export default function Sidebar({
       <div style={{ marginTop: 'auto', padding: '12px 8px', borderTop: '1px solid var(--border)' }}>
         <Link
           href="/dashboard/settings/my-preferences"
+          prefetch={false}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'none' }}
         >
           <SettingsGearIcon size={13} /> ההעדפות שלי

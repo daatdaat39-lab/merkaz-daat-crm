@@ -1,3 +1,11 @@
 {
-  "regions": ["fra1"]
+  "regions": ["fra1"],
+  "crons": [
+    { "path": "/api/cron/poll-call-recordings", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/poll-emails", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/poll-whatsapp-incoming", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/sync-kesher", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/advance-registered-students", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/check-paused-donations", "schedule": "0 6 * * *" }
+  ]
 }

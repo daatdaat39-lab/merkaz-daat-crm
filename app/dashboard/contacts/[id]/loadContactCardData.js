@@ -1,13 +1,12 @@
 'use server';
 
 import { createClient } from '../../../../lib/supabase/server';
-import { createAdminClient } from '../../../../lib/supabase/admin';
 import { groupTagsByDepartment } from '../../lib/tagGroups';
 import { getPicklistValues } from '../../lib/picklists';
-import { getAllPipelines } from '../../lib/pipelines';
+import { getAllPipelinesCached } from '../../lib/pipelines';
 import { getCampaignStages } from '../../lib/campaignStages';
 import { isManagerOfAnyWorkspace } from '../../lib/contactGuards';
-import { getAllExtraFields } from '../../lib/extraFields';
+import { getAllExtraFieldsCached } from '../../lib/extraFields';
 import { getAllContactTagRows } from '../../lib/allContactTags';
 
 // טוען את כל הנתונים של כרטיס איש קשר - מופרד מ-ContactDetailContent.js
@@ -165,25 +164,36 @@ export async function loadContactCardData(contactId) {
     payments: (donationTransactionRows || []).filter((t) => t.commitment_id === c.id),
   }));
 
-  // קטלוג-קורסים גלובלי (לא per-מחלקה) - לבורר-הקורס בפין-המחלקה
-  // (מחלקות-sells_courses=true בלבד משתמשות-בזה בפועל, ר' ContactDetailClient.js).
-  const { data: activeCourses } = await supabase.from('courses').select('id, name').eq('is_active', true).order('sort_order').order('name');
-  // שאלות-רישום-דינמיות (migration 0177) - טבלה-קטנה (שורה-לכל-שאלה-
-  // לכל-קורס), נטענת-כולה (is_active בלבד) - הסינון-לפי-course_id של
-  // המחלקה-הפעילה קורה בצד-לקוח ב-ContactTabs.js, אותו-עיקרון כמו
-  // courseTracks ב-loadLeadCoreContext.js.
-  const { data: registrationQuestions } = await supabase.from('course_form_fields').select('id, course_id, field_key, label, type').eq('is_active', true).neq('type', 'file').neq('type', 'signature');
-
-  const closeReasonRows = await getPicklistValues(supabase, 'close_reason', null);
+  // כל-השאילתות-למטה בלתי-תלויות-זו-בזו (ולא-ב-contact/departmentRows) -
+  // רצות-במקביל במקום-ברצף (שיפור-ביצועים, בלי-שינוי-תוצאה).
+  const [
+    { data: activeCourses },
+    { data: registrationQuestions },
+    closeReasonRows,
+    isManager,
+    { byWorkspace: pipelinesByWorkspace },
+    { data: viewerProfile },
+    extraFieldDefsByWorkspaceName,
+  ] = await Promise.all([
+    // קטלוג-קורסים גלובלי (לא per-מחלקה) - לבורר-הקורס בפין-המחלקה
+    // (מחלקות-sells_courses=true בלבד משתמשות-בזה בפועל, ר' ContactDetailClient.js).
+    supabase.from('courses').select('id, name').eq('is_active', true).order('sort_order').order('name'),
+    // שאלות-רישום-דינמיות (migration 0177) - טבלה-קטנה (שורה-לכל-שאלה-
+    // לכל-קורס), נטענת-כולה (is_active בלבד) - הסינון-לפי-course_id של
+    // המחלקה-הפעילה קורה בצד-לקוח ב-ContactTabs.js, אותו-עיקרון כמו
+    // courseTracks ב-loadLeadCoreContext.js.
+    supabase.from('course_form_fields').select('id, course_id, field_key, label, type').eq('is_active', true).neq('type', 'file').neq('type', 'signature'),
+    getPicklistValues(supabase, 'close_reason', null),
+    isManagerOfAnyWorkspace(supabase, user.id),
+    getAllPipelinesCached(),
+    // שדות מותאמים אישית: מה הצופה הנוכחי (לא איש הקשר!) בחר להסתיר לעצמו
+    // בכל מחלקה - העדפה פרטית, לא משפיעה על מה שנציגים אחרים רואים באותו
+    // כרטיס. ר' app/dashboard/lib/fieldPreferences.js.
+    supabase
+      .from('profiles').select('hidden_extra_fields, hidden_widgets, personal_info_always_open, hallo015_extension').eq('id', user.id).single(),
+    getAllExtraFieldsCached(),
+  ]);
   const closeReasons = closeReasonRows.length ? closeReasonRows.map((r) => r.value) : undefined;
-  const isManager = await isManagerOfAnyWorkspace(supabase, user.id);
-  const { byWorkspace: pipelinesByWorkspace } = await getAllPipelines(supabase);
-
-  // שדות מותאמים אישית: מה הצופה הנוכחי (לא איש הקשר!) בחר להסתיר לעצמו
-  // בכל מחלקה - העדפה פרטית, לא משפיעה על מה שנציגים אחרים רואים באותו
-  // כרטיס. ר' app/dashboard/lib/fieldPreferences.js.
-  const { data: viewerProfile } = await supabase
-    .from('profiles').select('hidden_extra_fields, hidden_widgets, personal_info_always_open, hallo015_extension').eq('id', user.id).single();
   const hiddenExtraFieldsByWorkspace = viewerProfile?.hidden_extra_fields || {};
   const hiddenWidgetsByWorkspace = viewerProfile?.hidden_widgets || {};
   const personalInfoAlwaysOpen = viewerProfile?.personal_info_always_open || [];
@@ -191,27 +201,23 @@ export async function loadContactCardData(contactId) {
   // הצגת-השורה) לשיחות-שהוא-עצמו-היה-מעורב-בהן, או-מנהל. ר' calls/page.js
   // לאותו-עיקרון-בדיוק, שם זה מגביל גם את עצם-הצגת-השורה.
   const viewerExtension = viewerProfile?.hallo015_extension || null;
-  const extraFieldDefsByWorkspaceName = await getAllExtraFields(supabase);
 
-  const admin = createAdminClient();
-  const { data: usersList } = await admin.auth.admin.listUsers({ perPage: 1000 });
-  const emailById = Object.fromEntries((usersList?.users || []).map((u) => [u.id, u.email]));
-
+  // שמות-נציגים/חברי-מחלקה - מ-profiles בלבד (לא-עוד auth.admin.listUsers
+  // על *כל* המשתמשים בפרויקט רק-כדי-לפענח-כמה-שמות - שורש-איטיות-אמיתי
+  // שנמדד-בפועל, ר' "תוכנית: שיפור-ביצועים"). נופל-ל-'משתמש' אם-אין-name.
   const agentIds = Array.from(new Set((departmentRows || []).map((r) => r.agent_id).filter(Boolean)));
-  const { data: agentProfiles } = agentIds.length
-    ? await supabase.from('profiles').select('id, name').in('id', agentIds)
-    : { data: [] };
-  const agentNameById = Object.fromEntries((agentProfiles || []).map((p) => [p.id, p.name || emailById[p.id] || 'משתמש']));
-
   const workspaceIds = Array.from(new Set((departmentRows || []).map((r) => r.workspace_id)));
-  const { data: memberRows } = workspaceIds.length
-    ? await supabase.from('workspace_members').select('workspace_id, user_id').in('workspace_id', workspaceIds)
-    : { data: [] };
+  const [{ data: agentProfiles }, { data: memberRows }] = await Promise.all([
+    agentIds.length ? supabase.from('profiles').select('id, name').in('id', agentIds) : Promise.resolve({ data: [] }),
+    workspaceIds.length ? supabase.from('workspace_members').select('workspace_id, user_id').in('workspace_id', workspaceIds) : Promise.resolve({ data: [] }),
+  ]);
+  const agentNameById = Object.fromEntries((agentProfiles || []).map((p) => [p.id, p.name || 'משתמש']));
+
   const memberIds = Array.from(new Set((memberRows || []).map((m) => m.user_id)));
   const { data: memberProfiles } = memberIds.length
     ? await supabase.from('profiles').select('id, name').in('id', memberIds)
     : { data: [] };
-  const memberNameById = Object.fromEntries((memberProfiles || []).map((p) => [p.id, p.name || emailById[p.id] || 'משתמש']));
+  const memberNameById = Object.fromEntries((memberProfiles || []).map((p) => [p.id, p.name || 'משתמש']));
   const agentsByWorkspace = {};
   for (const m of memberRows || []) {
     agentsByWorkspace[m.workspace_id] = agentsByWorkspace[m.workspace_id] || [];

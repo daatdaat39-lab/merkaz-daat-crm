@@ -15,7 +15,7 @@ import { FloatingWindowsProvider } from './components/FloatingWindows';
 import FloatingWindowsHost from './components/FloatingWindowsHost';
 import ModalSlotGate from './components/ModalSlotGate';
 import { groupTagsByDepartment } from './lib/tagGroups';
-import { getAllPipelines } from './lib/pipelines';
+import { getAllPipelinesCached } from './lib/pipelines';
 import { getAllContactTagRows } from './lib/allContactTags';
 
 export default async function DashboardLayout({ children, modal }) {
@@ -29,21 +29,24 @@ export default async function DashboardLayout({ children, modal }) {
   // כדי לחשב "כמה זמן היה פעיל" מבלי לבנות תשתית session מלאה
   const nowIso = new Date().toISOString();
   const today = nowIso.slice(0, 10);
-  await supabase.from('profiles').update({ last_seen_at: nowIso }).eq('id', user.id);
-  await supabase.from('user_activity_days')
-    .upsert({ user_id: user.id, day: today, first_seen_at: nowIso, last_seen_at: nowIso }, { onConflict: 'user_id,day', ignoreDuplicates: true });
-  await supabase.from('user_activity_days').update({ last_seen_at: nowIso }).eq('user_id', user.id).eq('day', today);
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('name, role, level, current_workspace_id')
-    .eq('id', user.id)
-    .single();
-
-  const { data: memberships } = await supabase
-    .from('workspace_members')
-    .select('role, workspaces (id, name)')
-    .eq('user_id', user.id);
+  // שלושת-הכתיבות-בטוחות-במקביל: ה-upsert (ignoreDuplicates) לא-משנה-
+  // שום-עמודה-בשורה-קיימת, אז ה-update-הנפרד (שתמיד-מגדיר last_seen_at)
+  // מתכנס-לתוצאה-נכונה בלי-קשר-לסדר-בין-השניים.
+  const [, , , { data: profile }, { data: memberships }] = await Promise.all([
+    supabase.from('profiles').update({ last_seen_at: nowIso }).eq('id', user.id),
+    supabase.from('user_activity_days')
+      .upsert({ user_id: user.id, day: today, first_seen_at: nowIso, last_seen_at: nowIso }, { onConflict: 'user_id,day', ignoreDuplicates: true }),
+    supabase.from('user_activity_days').update({ last_seen_at: nowIso }).eq('user_id', user.id).eq('day', today),
+    supabase
+      .from('profiles')
+      .select('name, role, level, current_workspace_id')
+      .eq('id', user.id)
+      .single(),
+    supabase
+      .from('workspace_members')
+      .select('role, workspaces (id, name)')
+      .eq('user_id', user.id),
+  ]);
 
   // תפקיד "טלפן" נעול - רואה אך ורק את תור-השיחות (החסימה האמיתית היא
   // ב-middleware.js, שרץ לפני הרנדור; כאן רק מדלגים על שלד המערכת הרגיל -
@@ -131,7 +134,7 @@ export default async function DashboardLayout({ children, modal }) {
     .eq('to_user', user.id)
     .is('read_at', null);
 
-  const { labels: stageLabels } = await getAllPipelines(supabase);
+  const { labels: stageLabels } = await getAllPipelinesCached();
 
   async function switchWorkspace(formData) {
     'use server';
@@ -182,6 +185,7 @@ export default async function DashboardLayout({ children, modal }) {
         switchWorkspaceAction={switchWorkspace}
         logoutAction={handleLogout}
         showReports={(memberships || []).some((m) => m.role === 'owner' || m.role === 'admin')}
+        showAiChat={process.env.NEXT_PUBLIC_AI_CHAT_ENABLED === 'true' && (memberships || []).some((m) => m.role === 'owner' || m.role === 'admin')}
       />
       <div className="app-main">
         <Topbar

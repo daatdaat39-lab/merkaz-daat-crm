@@ -3,16 +3,14 @@ import { redirect } from 'next/navigation';
 import AddContactForm from './AddContactForm';
 import ContactsBoard from './ContactsBoard';
 import { groupTagsByDepartment } from '../lib/tagGroups';
-import { getAllPipelines } from '../lib/pipelines';
-import { getAllExtraFields } from '../lib/extraFields';
+import { getAllPipelinesCached } from '../lib/pipelines';
+import { getAllExtraFieldsCached } from '../lib/extraFields';
 
 export default async function ContactsPage() {
   const supabase = createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-
-  const { byWorkspace: pipelinesByWorkspace, labels: stageLabels, colors: stageColors } = await getAllPipelines(supabase);
 
   // אנשי קשר משותפים לכולם - לא מסוננים לפי workspace (בניגוד ללידים).
   // שולפים בדפים של 1000 (מגבלת ברירת המחדל של PostgREST/Supabase לכל
@@ -39,13 +37,24 @@ export default async function ContactsPage() {
     return all;
   }
 
-  const [data, { data: workspaces }, { data: profile }, { data: sendConnections }, { data: whatsappTemplates }, { data: emailTemplates }] = await Promise.all([
+  const [
+    data,
+    { data: workspaces },
+    { data: profile },
+    { data: sendConnections },
+    { data: whatsappTemplates },
+    { data: emailTemplates },
+    { byWorkspace: pipelinesByWorkspace, labels: stageLabels, colors: stageColors },
+    extraFieldsByDept,
+  ] = await Promise.all([
     fetchAllContacts(),
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     supabase.from('profiles').select('current_workspace_id').eq('id', user.id).single(),
     supabase.from('email_connections').select('workspace_id, email_address').eq('purpose', 'send'),
     supabase.from('whatsapp_templates').select('id, name, template_id, preview_text, sort_order, workspace_id, stage_key, category, course_id, is_active').order('sort_order').order('created_at'),
     supabase.from('email_templates').select('id, name, subject, body, workspace_id, stage_key, category, course_id, is_active').order('created_at'),
+    getAllPipelinesCached(),
+    getAllExtraFieldsCached(),
   ]);
   const allContacts = (data || []).map((c) => ({
     ...c,
@@ -55,7 +64,6 @@ export default async function ContactsPage() {
   const allTags = Array.from(new Set(allContacts.flatMap((c) => c.tags || []))).sort();
   const allDepartments = Array.from(new Set(allContacts.flatMap((c) => c.departments.map((d) => d.name)))).sort();
   const tagGroups = groupTagsByDepartment(allContacts);
-  const extraFieldsByDept = await getAllExtraFields(supabase);
 
   return (
     <div style={{ maxWidth: 1150, margin: '0 auto', padding: '28px 24px', background: 'var(--k-bg)', minHeight: '100%' }}>

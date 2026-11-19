@@ -3,6 +3,8 @@
 // (getAllPipelines/getPipeline מבוססי pipeline_stages). ה-fallback
 // הקבוע ב-components/pipelines.js נשאר קיים למקרה קצה של מחלקה בלי
 // שורות בטבלה - לא נמחק.
+import { unstable_cache } from 'next/cache';
+import { createAdminClient } from '../../../lib/supabase/admin';
 import { getExtraFields as getExtraFieldsFallback } from '../components/pipelines';
 
 // שדות-קורסים-חופשיים-ישנים במחלקת "דעת ותבונה" בלבד - הוחלפו ע"י
@@ -27,7 +29,25 @@ export async function getAllExtraFields(supabase) {
     .from('workspace_extra_fields')
     .select('workspace_id, field_key, label, type, options, sort_order, visible_to_agents, allow_multiple, workspaces:workspace_id (name)')
     .order('sort_order', { ascending: true });
+  return shapeExtraFields(rows);
+}
 
+// גרסה-ממוטמנת (5 דק', אותו-דפוס-בדיוק כמו allContactTags.js/
+// pipelines.js) - הגדרות-שדות שכמעט-לא-משתנות, נקראות ב-6-מקומות.
+export const getAllExtraFieldsCached = unstable_cache(
+  async () => {
+    const admin = createAdminClient();
+    const { data: rows } = await admin
+      .from('workspace_extra_fields')
+      .select('workspace_id, field_key, label, type, options, sort_order, visible_to_agents, allow_multiple, workspaces:workspace_id (name)')
+      .order('sort_order', { ascending: true });
+    return shapeExtraFields(rows);
+  },
+  ['all-extra-fields'],
+  { revalidate: 300 }
+);
+
+function shapeExtraFields(rows) {
   const byWorkspaceName = {};
   for (const r of rows || []) {
     const wsName = r.workspaces?.name;
