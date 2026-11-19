@@ -10,6 +10,7 @@ import { safeEqual } from '../../../../lib/security/safeEqual';
 export const maxDuration = 60;
 const MAX_PER_RUN = 6;
 const TIME_BUDGET_MS = 40_000;
+const RECORDINGS_TIME_BUDGET_MS = 15_000; // פאזה-א' - תקציב-זמן-נפרד, לא-על-חשבון-תקציב-התמלול
 
 // "השעון" שמתקן שתי-בעיות-בזו-אחר-זו (שתי-פאזות, לא שני-cron-נפרדים -
 // תמלול-מיד-אחרי-תיקון-הקלטה-חדשה, בלי-להמתין-לריצה-הבאה):
@@ -43,26 +44,29 @@ export async function GET(request) {
     result.recordingsError = 'חיוג-יזום/API של 015 לא מוגדר בשרת (HALLO015_API_USERNAME/PASSWORD) - מדלג על תיקון-הקלטות';
   } else {
     try {
-      // חלון: לא-ישן-מדי (3 שעות) אבל-גם-לא-טרי-מדי (10 דק') - הקלטה
-      // אצל-015 לא-זמינה-מיד-אחרי-שהשיחה-הסתיימה (אומת בפאנל-שלהם:
-      // "This call ended less than 10 minutes ago - may not be available
-      // yet"). מיון-עולה (לא-יורד!) - בלי-זה, בעומס-שיחות-גבוה ה-50
-      // "הכי-חדשות" הן-תמיד-אותן-שיחות-טריות-מדי-בכל-ריצה (שיחות-מעט-
-      // יותר-ישנות-ומוכנות-כבר נדחקות-החוצה ע"י-שיחות-חדשות-עוד-יותר,
-      // ולעולם לא-מגיעות-לתור) - אומת-בפועל: recordingsFixed חזר ל-0
-      // כש-המיון-היה-יורד, 2 ריצות-ברציפות, למרות שההתאמה-עצמה עובדת.
+      // חלון: לא-טרי-מדי (10 דק') - הקלטה אצל-015 לא-זמינה-מיד-אחרי-
+      // שהשיחה-הסתיימה (אומת בפאנל-שלהם: "This call ended less than 10
+      // minutes ago - may not be available yet"). מיון-עולה (לא-יורד!) -
+      // בלי-זה, בעומס-שיחות-גבוה המועמדים-ה"הכי-חדשים" הם-תמיד-אותן-
+      // שיחות-טריות-מדי-בכל-ריצה - אומת-בפועל.
       //
-      // ?backfillHours=<N> - הרצה-ידנית-חד-פעמית (לא-ה-cron הרגיל) כדי
-      // להשלים שיחות-ישנות-יותר שנפלו-מהחלון-של-3-שעות (לדוגמה כי התהליך
-      // הזה הופעל-לראשונה אחרי שהן כבר-היו-ישנות-מ-3-שעות ולעולם-לא-
-      // ייבדקו-שוב, כי החלון-הרגיל תמיד-יחסי-ל"עכשיו"). אותה-לוגיקת-
-      // התאמה-בדיוק, רק-טווח-רחב-יותר וגג-מועמדים-גבוה-יותר (יש-הרבה-
-      // יותר-שיחות בחלון-ארוך).
+      // ברירת-המחדל הייתה 3-שעות (בהנחה-שה-cron-של-GitHub-Actions ירוץ-
+      // כל-10-דק' כמו-שמוגדר) - אבל-אומת-בפועל (היסטוריית-ריצות, 2026-11)
+      // ש-GitHub-Actions בפועל מריץ schedule-תכוף-כזה **פעם-בכמה-שעות**,
+      // לא-כל-10-דק' (מגבלה-ידועה-של-GitHub-עצמו בעומס-מערכת, לא-באג-
+      // שלנו) - עם-פערים-של-6-9-שעות-בפועל, חלון-של-3-שעות-החמיץ רוב-
+      // השיחות-לצמיתות (היא-מתיישנת-מעבר-ל-3-שעות לפני-שהריצה-הבאה-
+      // בפועל מגיעה, ואז לעולם-לא-נבדקת-שוב כי-החלון-תמיד-יחסי-ל"עכשיו").
+      // 24-שעות נותן-מרווח-בטיחות גם-מול-פערים-כאלה.
+      //
+      // ?backfillHours=<N> - עדיין-זמין להרצה-ידנית-חד-פעמית עם-חלון-
+      // רחב-עוד-יותר (לדוגמה להשלים-היסטוריה-ישנה-יותר-מ-24-שעות) - אותה-
+      // לוגיקת-התאמה-בדיוק, רק-פרמטרים-גדולים-יותר.
       const requestUrl = new URL(request.url);
       const backfillHoursParam = parseInt(requestUrl.searchParams.get('backfillHours') || '', 10);
-      const isBackfill = Number.isFinite(backfillHoursParam) && backfillHoursParam > 3;
-      const windowHours = isBackfill ? backfillHoursParam : 3;
-      const candidateLimit = isBackfill ? 300 : 50;
+      const isBackfill = Number.isFinite(backfillHoursParam) && backfillHoursParam > 24;
+      const windowHours = isBackfill ? backfillHoursParam : 24;
+      const candidateLimit = isBackfill ? 500 : 250;
       const windowStart = new Date(Date.now() - windowHours * 60 * 60 * 1000);
       const windowEnd = new Date(Date.now() - 10 * 60 * 1000);
       result.backfillHours = isBackfill ? windowHours : undefined;
@@ -78,6 +82,7 @@ export async function GET(request) {
         .limit(candidateLimit);
 
       const needsFix = (candidateCalls || []).filter((c) => !c.recording_url || !c.recording_url.includes('supabase'));
+      result.recordingsCandidates = needsFix.length;
 
       if (needsFix.length > 0) {
         const recordings = await listRecordings({
@@ -85,7 +90,12 @@ export async function GET(request) {
           endUnixSeconds: Math.floor(Date.now() / 1000),
         });
 
+        const recordingsStartedAt = Date.now();
         for (const call of needsFix) {
+          // תקציב-זמן - חלון-רחב-יכול-להכיל-הרבה-מועמדים; עוצרים-בעדינות
+          // ומשאירים-את-השאר-לריצה-הבאה (מיון-עולה כבר-מבטיח-שהישנים-
+          // ביותר-מטופלים-ראשונים, אז-אין-"רעב" לשיחה-מסוימת).
+          if (Date.now() - recordingsStartedAt > RECORDINGS_TIME_BUDGET_MS) { result.recordingsStoppedForTime = true; break; }
           // התאמה-היוריסטית (אין-מפתח-מדויק-משותף בין phone_calls ל-
           // רשומת-ההקלטה) - משך-זהה (±1 שנייה) וזמן-התחלה-קרוב (±5 דק')
           // ואחד-המספרים-שלנו (snumber/dnumber/extension) מופיע ב-
