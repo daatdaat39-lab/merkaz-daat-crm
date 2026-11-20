@@ -21,6 +21,7 @@ const SETTINGS_LINKS = [
   { href: '/dashboard/settings/activity', icon: BarChartIcon, title: 'דוח פעילות נציגים', desc: 'זמן פעילות ותפוקה לכל נציג (owner/admin בלבד)', managerOnly: true },
   { href: '/dashboard/settings/duplicates', icon: SearchIcon, title: 'בדיקת כפליות', desc: 'סריקת אנשי קשר למיזוג כפילויות (owner/admin בלבד)', managerOnly: true },
   { href: '/dashboard/settings/import', icon: InboxDownIcon, title: 'ייבוא נתונים', desc: 'ייבוא/ייצוא אנשי קשר, מערכת חיצונית, היסטוריית שיחות (owner/admin בלבד)', managerOnly: true },
+  { href: '/dashboard/settings/lists', icon: UsersIcon, title: 'בניית רשימה', desc: 'סינון קבוצת אנשי-קשר, ייצוא לקובץ, ורישום-בהיסטוריה-שלהם (owner/admin בלבד)', managerOnly: true },
   { href: '/dashboard/settings/my-preferences', icon: SettingsGearIcon, title: 'ההעדפות שלי', desc: 'תצוגה, שדות מוסתרים והעדפות אישיות' },
   { href: '/dashboard/settings/lead-sources', icon: MailIcon, title: 'מקורות לידים', desc: 'חיבורי מייל לכל מחלקה, ניתוב מייל לקמפיינים, ורשימת מקורות (owner/admin בלבד)', managerOnly: true },
   { href: '/dashboard/settings/picklists', icon: CheckSquareIcon, title: 'רשימות בחירה', desc: 'קטגוריות קמפיין, סוגי תורם וסיבות סגירה (owner/admin בלבד)', managerOnly: true },

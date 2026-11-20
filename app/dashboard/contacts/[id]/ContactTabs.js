@@ -23,7 +23,7 @@ import { collapseConsecutiveCalls, phoneCallKey } from '../../lib/collapseCalls'
 
 const COURSE_PURCHASE_STATUS_LABELS = { pending: 'ממתין לתשלום', completed: 'נרכש' };
 
-export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], registrationAnswers = [], registrationQuestions = [], contactDocuments = [], courses = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, viewerExtension = null, relatedContact = null, openRequest = null }) {
+export default function ContactTabs({ meetings, tasks, notes, contactId, toggleTaskAction, updateNotesAction, frozen, inquiries = [], sentEmails = [], sentWhatsapp = [], donationTransactions = [], commitments = [], additionalPhones = [], courseEnrollments = [], coursePurchases = [], registrationAnswers = [], registrationQuestions = [], contactDocuments = [], listEntries = [], courses = [], serviceCases = [], seminarParticipations = [], callHistory = [], agents = [], workspaceNameById = {}, phoneCalls = [], activeDepartment = null, pipeline = null, mainProcessConcluded = false, onReopenMain, onReopenCampaign, onCampaignStageChange, isManager = false, viewerExtension = null, relatedContact = null, openRequest = null }) {
   const [tab, setTab] = useState('activity');
   const [currentFilter, setCurrentFilter] = useState('all'); // all | processes | cases | tasks | payments
   const [notesValue, setNotesValue] = useState(notes || '');
@@ -457,6 +457,17 @@ export default function ContactTabs({ meetings, tasks, notes, contactId, toggleT
                     <TranscriptView text={c.transcript} style={{ fontSize: 12, color: 'var(--k-text-muted)', marginTop: 4 }} />
                   </details>
                 )}
+              </div>
+            ),
+          },
+          {
+            // "בניית רשימה" (migration 0195) - תיעוד-חד-כיווני, לא קשור-
+            // למחלקה (כמו phone_calls/call_history) - לא מסונן-לפי-activeDepartment.
+            key: 'list_entries', title: 'רשימות', shortLabel: 'רשימות', items: listEntries,
+            renderItem: (le) => (
+              <div key={le.id} style={{ border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 12px', fontSize: 12.5 }}>
+                <span style={{ color: 'var(--k-text)' }}>נכנס לרשימה: {le.list_title}</span>
+                <span style={{ color: 'var(--k-text-muted)' }}> · {new Date(le.created_at).toLocaleDateString('he-IL')}</span>
               </div>
             ),
           },
