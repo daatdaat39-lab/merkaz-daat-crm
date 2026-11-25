@@ -13,15 +13,19 @@ async function requireWorkspaceManager(workspaceId) {
   return { supabase, user };
 }
 
-export async function createLeadSource(workspaceId, { name, linkPattern }) {
+// courseId (אופציונלי, migration 0197) - הקורס שאליו ישויך ליד מהאתר שהגיע
+// מדף שתואם ל-linkPattern (ר' api/webhooks/elementor-lead).
+export async function createLeadSource(workspaceId, { name, linkPattern, courseId = null }) {
   const ctx = await requireWorkspaceManager(workspaceId);
   if (ctx.error) return ctx;
   const { supabase } = ctx;
   const cleanName = (name || '').trim();
   if (!cleanName) return { error: 'יש להזין שם מקור' };
+  const cleanPattern = (linkPattern || '').trim() || null;
+  if (courseId && !cleanPattern) return { error: 'כדי לשייך קורס יש להזין את כתובת הדף (או חלק ממנה)' };
 
   const { error } = await supabase.from('lead_sources').insert({
-    workspace_id: workspaceId, name: cleanName, link_pattern: (linkPattern || '').trim() || null,
+    workspace_id: workspaceId, name: cleanName, link_pattern: cleanPattern, course_id: courseId || null,
   });
   if (error) return { error: error.message };
   return { success: true };

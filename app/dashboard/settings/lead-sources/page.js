@@ -30,7 +30,7 @@ export default async function LeadSourcesPage() {
   const [{ data: connections }, { data: campaigns }, { data: leadSources }, { data: courses }] = await Promise.all([
     supabase.from('email_connections').select('id, workspace_id, campaign_id, purpose, email_address, last_checked_at'),
     supabase.from('campaigns').select('id, workspace_id, name, status, email_connection_id, route_match_text').order('created_at', { ascending: false }),
-    supabase.from('lead_sources').select('id, workspace_id, name, link_pattern').order('created_at', { ascending: false }),
+    supabase.from('lead_sources').select('id, workspace_id, name, link_pattern, course_id').order('created_at', { ascending: false }),
     supabase.from('courses').select('id, name').eq('is_active', true).neq('code', 'UNKNOWN').order('sort_order').order('name'),
   ]);
 

@@ -23,18 +23,28 @@ function pathOnly(rawLink) {
 // ואם לא נמצא - מחזיר את הקישור הגולמי (עדיף מידע חלקי על פני איבוד
 // המידע לגמרי).
 export async function resolveSourceFromLink(supabase, workspaceId, rawLink) {
-  if (!rawLink) return null;
+  return (await resolveSourceAndCourse(supabase, workspaceId, rawLink)).name;
+}
+
+// כמו resolveSourceFromLink, אבל מחזיר גם את הקורס שהוגדר למקור
+// (lead_sources.course_id, migration 0197) - לטפסי האתר, שבהם הדף
+// קובע גם את המפרסם וגם את הקורס. כשכמה תבניות מתאימות, הארוכה
+// (הספציפית) ביותר מנצחת. matched=false כשאף מקור לא הותאם.
+export async function resolveSourceAndCourse(supabase, workspaceId, rawLink) {
+  if (!rawLink) return { name: null, courseId: null, matched: false };
   const { decoded, path } = pathOnly(rawLink);
 
   if (workspaceId) {
     const { data: sources } = await supabase
       .from('lead_sources')
-      .select('name, link_pattern')
+      .select('name, link_pattern, course_id')
       .eq('workspace_id', workspaceId)
       .not('link_pattern', 'is', null);
-    const match = (sources || []).find((s) => s.link_pattern && (path.includes(s.link_pattern) || decoded.includes(s.link_pattern)));
-    if (match) return match.name;
+    const match = (sources || [])
+      .filter((s) => s.link_pattern && (path.includes(s.link_pattern) || decoded.includes(s.link_pattern)))
+      .sort((a, b) => b.link_pattern.length - a.link_pattern.length)[0];
+    if (match) return { name: match.name, courseId: match.course_id || null, matched: true };
   }
 
-  return SOURCE_LINK_MAP[path] || SOURCE_LINK_MAP[decoded] || rawLink;
+  return { name: SOURCE_LINK_MAP[path] || SOURCE_LINK_MAP[decoded] || rawLink, courseId: null, matched: false };
 }

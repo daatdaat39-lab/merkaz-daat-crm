@@ -42,7 +42,7 @@ export default function LeadSourcesClient({ workspaces = [], connectionsByWorksp
         defaultConnections={connectionsByWorkspace[workspaceId] || {}}
         connectionsByCampaign={connectionsByCampaign}
       />
-      <LeadSourcesSection workspace={workspace} sources={leadSourcesByWorkspace[workspaceId] || []} />
+      <LeadSourcesSection key={`sources-${workspaceId}`} workspace={workspace} sources={leadSourcesByWorkspace[workspaceId] || []} courses={courses} />
     </div>
   );
 }
@@ -245,9 +245,11 @@ function CampaignRoutingRow({ campaign, workspace, dedicatedConnection, defaultI
   );
 }
 
-function LeadSourcesSection({ workspace, sources }) {
+function LeadSourcesSection({ workspace, sources, courses = [] }) {
   const [name, setName] = useState('');
   const [linkPattern, setLinkPattern] = useState('');
+  const [courseId, setCourseId] = useState('');
+  const courseNames = Object.fromEntries(courses.map((c) => [c.id, c.name]));
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState(null);
   const router = useRouter();
@@ -255,9 +257,9 @@ function LeadSourcesSection({ workspace, sources }) {
   function handleAdd() {
     setError(null);
     startTransition(async () => {
-      const res = await createLeadSource(workspace.id, { name, linkPattern });
+      const res = await createLeadSource(workspace.id, { name, linkPattern, courseId: workspace.sells_courses ? courseId || null : null });
       if (res?.error) { setError(res.error); return; }
-      setName(''); setLinkPattern('');
+      setName(''); setLinkPattern(''); setCourseId('');
       router.refresh();
     });
   }
@@ -278,14 +280,21 @@ function LeadSourcesSection({ workspace, sources }) {
           {sources.map((s) => (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
               <span style={{ fontWeight: 600, minWidth: 100 }}>{s.name}</span>
-              <span style={{ color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.link_pattern || '—'}</span>
+              <span dir="ltr" style={{ color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>{s.link_pattern || '—'}</span>
+              {s.course_id && <span style={{ fontSize: 11.5, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>קורס: {courseNames[s.course_id] || 'לא פעיל'}</span>}
               <button type="button" onClick={() => handleDelete(s.id)} disabled={isPending} style={dangerBtn()}>מחיקה</button>
             </div>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="שם המקור (למשל: עומרי)" style={{ ...inputStyle(), width: 160 }} />
-          <input value={linkPattern} onChange={(e) => setLinkPattern(e.target.value)} placeholder="קישור/דפוס מזהה (אופציונלי)" style={{ ...inputStyle(), flex: 1, minWidth: 200 }} />
+          <input value={linkPattern} onChange={(e) => setLinkPattern(e.target.value)} placeholder="כתובת דף הנחיתה או חלק ממנה (אופציונלי)" dir="ltr" style={{ ...inputStyle(), flex: 1, minWidth: 200 }} />
+          {workspace.sells_courses && (
+            <select value={courseId} onChange={(e) => setCourseId(e.target.value)} style={inputStyle()} title="הקורס שאליו ישויכו לידים מהדף הזה">
+              <option value="">בלי קורס (למיון)</option>
+              {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
           <button type="button" onClick={handleAdd} disabled={isPending || !name.trim()} style={primaryBtnSmall()}>הוספה</button>
         </div>
         {error && <div style={{ color: 'var(--red)', fontSize: 11.5, marginTop: 6 }}>{error}</div>}

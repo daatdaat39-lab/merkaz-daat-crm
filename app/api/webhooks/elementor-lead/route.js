@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '../../../../lib/supabase/admin';
 import { findExistingMatch, upsertDepartmentMembership } from '../../../dashboard/contacts/leadIntakeCore';
-import { resolveSourceFromLink } from '../../../dashboard/components/sourceLinks';
+import { resolveSourceAndCourse } from '../../../dashboard/components/sourceLinks';
 import { STAGE_NEW_LEAD, STAGE_OPEN } from '../../../dashboard/lib/leadStageKeys';
 import { safeEqual } from '../../../../lib/security/safeEqual';
 
@@ -20,6 +20,27 @@ const LAST_LABEL = /משפחה|last|surname/i;
 const NAME_LABEL = /(^|[\s_])שם([\s:*]|$)|name/i;
 const EMAIL_VALUE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_VALUE = /^\+?[\d\s()-]{9,17}$/;
+
+const SUSPICIOUS_NAME = /https?:|www\.|\.(com|net|org|ru|info|xyz)\b|[<>{}\[\]]/i;
+const NOT_FOUND_TITLE = /הדף לא נמצא|page not found|404/i;
+
+// נייד (05X, 10 ספרות), קווי (02/03/04/08/09, 9 ספרות) או 07X (10 ספרות),
+// גם בקידומת 972. זה המסנן העיקרי נגד ספאם: בלי מספר תקין אין למי להתקשר.
+function isValidIsraeliPhone(phone) {
+  let digits = (phone || '').replace(/\D/g, '');
+  if (digits.startsWith('972')) digits = `0${digits.slice(3)}`;
+  return /^05\d{8}$/.test(digits) || /^0[23489]\d{7}$/.test(digits) || /^07\d{8}$/.test(digits);
+}
+
+// סיבות לחשד - פנייה חשודה לא נזרקת אלא ממתינה לאישור מנהל (sales/pending),
+// כדי שליד אמיתי שטעה במספר לא יאבד והנציגים לא יראו ספאם.
+function suspicionReasons(lead) {
+  const reasons = [];
+  if (!isValidIsraeliPhone(lead.phone)) reasons.push('אין טלפון תקין');
+  if (SUSPICIOUS_NAME.test(`${lead.first} ${lead.last}`)) reasons.push('שם חשוד');
+  if (NOT_FOUND_TITLE.test(lead.pageTitle)) reasons.push('נשלח מדף שלא קיים באתר');
+  return reasons;
+}
 
 function clip(value, max) {
   return (value ?? '').toString().trim().slice(0, max);
@@ -53,6 +74,7 @@ function parseSubmission(entries) {
   const advanced = new Map();
   const items = [];
   let pageUrl = '';
+  let pageTitle = '';
   let formName = '';
 
   for (const [key, raw] of entries) {
@@ -64,6 +86,8 @@ function parseSubmission(entries) {
       advanced.set(field[1], item);
     } else if (key === 'meta[page_url][value]' || (!pageUrl && /page_url|referr?er/i.test(key) && value.startsWith('http'))) {
       pageUrl = value;
+    } else if (/^meta\[page_title\]/.test(key) || key === 'page_title') {
+      pageTitle = value;
     } else if (key === 'form[name]' || key === 'form_name') {
       formName = value;
     } else if (!/^(meta|form|fields)\[/.test(key) && key !== 'form_id') {
@@ -113,6 +137,7 @@ function parseSubmission(entries) {
     email: clip(found.email, 200).toLowerCase() || null,
     note: clip(noteLines.join('\n'), 2000) || null,
     pageUrl,
+    pageTitle,
   };
 }
 
@@ -152,10 +177,26 @@ export async function POST(request) {
     else console.warn('elementor-lead: unknown or inactive course_id, falling back to placeholder course');
   }
 
+  // המקור (מפרסם) והקורס לפי הדף שממנו נשלח הטופס - טופס אחד באתר משרת
+  // הרבה דפי נחיתה, אז ההתאמה היא מול "מקורות לידים" של המחלקה
+  // (lead_sources.link_pattern + course_id). course_id מפורש בכתובת גובר.
   const sourceLink = lead.pageUrl || (searchParams.get('source') || '').trim();
-  const source = (sourceLink.startsWith('http') ? await resolveSourceFromLink(supabase, workspace.id, sourceLink) : sourceLink) || 'אתר';
+  let source = sourceLink || 'אתר';
+  if (sourceLink.startsWith('http')) {
+    const resolved = await resolveSourceAndCourse(supabase, workspace.id, sourceLink);
+    source = resolved.name || 'אתר';
+    if (!courseId && resolved.courseId && workspace.sells_courses) {
+      const { data: course } = await supabase.from('courses').select('id').eq('id', resolved.courseId).eq('is_active', true).maybeSingle();
+      if (course) courseId = course.id;
+    }
+  }
 
   const existing = await findExistingMatch(supabase, { phone: lead.phone, email: lead.email });
+
+  // פנייה חשודה מאדם שלא מוכר למערכת ממתינה לאישור מנהל; מי שכבר קיים
+  // במערכת נכנס תמיד כרגיל.
+  const reasons = existing ? [] : suspicionReasons(lead);
+  const note = reasons.length ? clip(`לבדיקה: ${reasons.join(', ')}\n${lead.note || ''}`, 2000) : lead.note;
   let contactId = existing?.id;
   const created = !existing;
 
@@ -180,7 +221,9 @@ export async function POST(request) {
 
   // courseId מועבר רק כשיש קורס תקף - undefined משאיר את ברירת המחדל של
   // upsertDepartmentMembership (שורה קיימת במחלקה / קורס "לא ידוע").
-  await upsertDepartmentMembership(supabase, contactId, workspace, REASON, lead.note, source, undefined, courseId ? { courseId } : {});
+  const options = { requiresApproval: reasons.length > 0 };
+  if (courseId) options.courseId = courseId;
+  await upsertDepartmentMembership(supabase, contactId, workspace, REASON, note, source, undefined, options);
 
-  return NextResponse.json({ success: true, contact_id: contactId, created });
+  return NextResponse.json({ success: true, contact_id: contactId, created, pending_approval: reasons.length > 0 });
 }
