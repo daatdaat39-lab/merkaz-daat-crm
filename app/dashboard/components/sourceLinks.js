@@ -46,5 +46,7 @@ export async function resolveSourceAndCourse(supabase, workspaceId, rawLink) {
     if (match) return { name: match.name, courseId: match.course_id || null, matched: true };
   }
 
-  return { name: SOURCE_LINK_MAP[path] || SOURCE_LINK_MAP[decoded] || rawLink, courseId: null, matched: false };
+  // בלי התאמה נשמרת הכתובת עצמה - מפוענחת, כדי שכתובת בעברית תהיה קריאה
+  // ולא רצף של %D7%A7...
+  return { name: SOURCE_LINK_MAP[path] || SOURCE_LINK_MAP[decoded] || decoded, courseId: null, matched: false };
 }

@@ -102,6 +102,8 @@ function parseSubmission(entries) {
   const extras = [];
   for (const item of items) {
     if (!item.value) continue;
+    // תיבת "אני מאשר" / reCAPTCHA / שדות נסתרים טכניים - לא מידע על הליד
+    if (['acceptance', 'recaptcha', 'recaptcha_v3', 'honeypot'].includes(item.type)) continue;
     const label = `${item.id} ${item.title}`;
     let slot = null;
     if (item.type === 'email' || EMAIL_LABEL.test(label)) slot = 'email';
