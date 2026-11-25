@@ -6,7 +6,7 @@ import { createLeadSource, deleteLeadSource, updateCampaignRouting, disconnectEm
 
 const PURPOSE_LABEL = { intake: 'מייל נכנס', send: 'מייל יוצא', call_recordings: 'הקלטות שיחה (015)' };
 
-export default function LeadSourcesClient({ workspaces = [], connectionsByWorkspace = {}, connectionsByCampaign = {}, campaignsByWorkspace = {}, leadSourcesByWorkspace = {} }) {
+export default function LeadSourcesClient({ workspaces = [], connectionsByWorkspace = {}, connectionsByCampaign = {}, campaignsByWorkspace = {}, leadSourcesByWorkspace = {}, courses = [], webhookBase = null }) {
   const [workspaceId, setWorkspaceId] = useState(workspaces[0]?.id || '');
   const workspace = workspaces.find((w) => w.id === workspaceId);
 
@@ -33,6 +33,8 @@ export default function LeadSourcesClient({ workspaces = [], connectionsByWorksp
         ))}
       </div>
 
+      {/* key - כדי שבחירת הקורס תתאפס כשעוברים מחלקה */}
+      <WebsiteWebhookSection key={workspaceId} workspace={workspace} courses={courses} webhookBase={webhookBase} />
       <EmailConnectionsSection workspace={workspace} connections={connectionsByWorkspace[workspaceId] || {}} />
       <CampaignRoutingSection
         workspace={workspace}
@@ -50,6 +52,69 @@ function sectionCard() {
 }
 function sectionHeader() {
   return { padding: '12px 16px', borderBottom: '1px solid var(--border, #e5e5e5)', background: 'var(--bg-secondary, #f9f9f9)', fontSize: 13.5, fontWeight: 600 };
+}
+
+// מחולל כתובת Webhook לטפסי האתר (Elementor) - ר' api/webhooks/elementor-lead.
+// המחלקה (והקורס, במחלקה שמוכרת קורסים) נקבעים לפי הכתובת שמדביקים בכל
+// טופס, כך שדף נחיתה חדש לא דורש שינוי קוד.
+function WebsiteWebhookSection({ workspace, courses, webhookBase }) {
+  const [courseId, setCourseId] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const url = webhookBase
+    ? `${webhookBase}&workspace_id=${workspace.id}${workspace.sells_courses && courseId ? `&course_id=${courseId}` : ''}`
+    : '';
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div style={sectionCard()}>
+      <div style={sectionHeader()}>חיבור טפסי האתר (Elementor) - "{workspace.name}"</div>
+      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {!webhookBase ? (
+          <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+            החיבור עדיין לא הופעל בשרת (חסר המשתנה ELEMENTOR_WEBHOOK_SECRET).
+          </div>
+        ) : (
+          <>
+            {workspace.sells_courses && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, flexWrap: 'wrap' }}>
+                הקורס של דף הנחיתה:
+                <select value={courseId} onChange={(e) => setCourseId(e.target.value)} style={inputStyle()}>
+                  <option value="">דף כללי - קורס לא ידוע (למיון)</option>
+                  {courses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </label>
+            )}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <input
+                readOnly value={url} dir="ltr" onFocus={(e) => e.target.select()}
+                style={{ ...inputStyle(), flex: 1, minWidth: 240, fontFamily: 'monospace', fontSize: 11.5 }}
+              />
+              <button type="button" onClick={handleCopy} style={primaryBtnSmall()}>{copied ? 'הועתק ✓' : 'העתקה'}</button>
+            </div>
+            {url.includes('localhost') && (
+              <div style={{ fontSize: 11.5, color: 'var(--amber)' }}>
+                הכתובת נבנתה מסביבת פיתוח מקומית - להעתקה לאתר יש לפתוח את המסך הזה במערכת החיה.
+              </div>
+            )}
+            <div style={{ fontSize: 11.5, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+              בעריכת הטופס באלמנטור: Actions After Submit ← הוספת Webhook ← להדביק את הכתובת, ולהפעיל Advanced Data.
+              כל ליד שיישלח מהטופס ייכנס למחלקה הזו כ"ליד חדש". הכתובת כוללת מפתח סודי - לא לשתף אותה מחוץ להגדרות האתר.
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // purpose='call_recordings' חורג מהתבנית "מייל למחלקה" - phone_calls

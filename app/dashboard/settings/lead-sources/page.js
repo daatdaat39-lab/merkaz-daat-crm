@@ -1,5 +1,6 @@
 import { createClient } from '../../../../lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { isManagerOfAnyWorkspace } from '../../lib/contactGuards';
 import LeadSourcesClient from './LeadSourcesClient';
 
@@ -24,13 +25,24 @@ export default async function LeadSourcesPage() {
     );
   }
 
-  const { data: workspaces } = await supabase.from('workspaces').select('id, name').order('created_at', { ascending: true });
+  const { data: workspaces } = await supabase.from('workspaces').select('id, name, sells_courses').order('created_at', { ascending: true });
 
-  const [{ data: connections }, { data: campaigns }, { data: leadSources }] = await Promise.all([
+  const [{ data: connections }, { data: campaigns }, { data: leadSources }, { data: courses }] = await Promise.all([
     supabase.from('email_connections').select('id, workspace_id, campaign_id, purpose, email_address, last_checked_at'),
     supabase.from('campaigns').select('id, workspace_id, name, status, email_connection_id, route_match_text').order('created_at', { ascending: false }),
     supabase.from('lead_sources').select('id, workspace_id, name, link_pattern').order('created_at', { ascending: false }),
+    supabase.from('courses').select('id, name').eq('is_active', true).neq('code', 'UNKNOWN').order('sort_order').order('name'),
   ]);
+
+  // בסיס כתובת ה-Webhook לטפסי האתר (api/webhooks/elementor-lead) - כולל
+  // את הטוקן הסודי, ולכן נבנה רק כאן, אחרי בדיקת המנהל למעלה.
+  const requestHeaders = headers();
+  const host = requestHeaders.get('x-forwarded-host') || requestHeaders.get('host');
+  const proto = requestHeaders.get('x-forwarded-proto') || 'https';
+  const webhookSecret = process.env.ELEMENTOR_WEBHOOK_SECRET;
+  const webhookBase = webhookSecret && host
+    ? `${proto}://${host}/api/webhooks/elementor-lead?token=${encodeURIComponent(webhookSecret)}`
+    : null;
 
   const connectionsByWorkspace = {};
   const connectionsByCampaign = {};
@@ -68,6 +80,8 @@ export default async function LeadSourcesPage() {
         connectionsByCampaign={connectionsByCampaign}
         campaignsByWorkspace={campaignsByWorkspace}
         leadSourcesByWorkspace={leadSourcesByWorkspace}
+        courses={courses || []}
+        webhookBase={webhookBase}
       />
     </div>
   );
