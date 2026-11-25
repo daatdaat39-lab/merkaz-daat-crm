@@ -10,6 +10,8 @@ import { validateDocumentFile, cleanFilename, isPathOfContact } from '../lib/doc
 import { logAudit } from '../lib/audit';
 import { findUnresolvedPlaceholders } from '../lib/templateRender';
 import { OPTOUT_MESSAGES } from '../lib/optout';
+import { noteOutbound, linkPhoneToContact } from '../../../lib/whatsapp/conversations';
+import { normalizePhoneDigits as waPhoneDigits } from './phoneRouting';
 
 // סימון/ביטול "לא לפנות" לאיש קשר, לפי ערוץ (contacts.email_optout_at /
 // whatsapp_optout_at, migration 0186). פתוח לכל מי שיש לו גישה לאיש הקשר -
@@ -191,7 +193,7 @@ export async function mergeResolvedLead(existingId, resolvedFields, workspaceId,
 
   await upsertDepartmentMembership(supabase, existingId, workspace, reason, reasonNote);
   await maybeSwitchActiveWorkspace(supabase, user, workspace.id);
-  if (linkWhatsappPhone) await supabase.from('sent_whatsapp').update({ contact_id: existingId }).eq('phone', linkWhatsappPhone).is('contact_id', null);
+  if (linkWhatsappPhone) await linkPhoneToContact(supabase, linkWhatsappPhone, existingId);
   redirect(`/dashboard/contacts/${existingId}`);
 }
 
@@ -428,7 +430,8 @@ export async function createContact(formData) {
 async function linkWhatsappPhoneIfProvided(supabase, formData, contactId) {
   const phone = (formData.get('link_whatsapp_phone') || '').toString().trim();
   if (!phone) return;
-  await supabase.from('sent_whatsapp').update({ contact_id: contactId }).eq('phone', phone).is('contact_id', null);
+  // לפי 9 ספרות אחרונות, כולל השיחה עצמה והמחלקה/ליד - ר' linkPhoneToContact
+  await linkPhoneToContact(supabase, phone, contactId);
 }
 
 // שולח קוד אימות למחיקת איש קשר - נקרא מה-UI לפני הצגת שדה הקוד,
@@ -683,6 +686,7 @@ export async function mergeContacts(keepId, duplicateId, resolvedFields) {
   const { error: whatsappError } = await supabase
     .from('sent_whatsapp').update({ contact_id: keepId }).eq('contact_id', duplicateId);
   if (whatsappError) return { error: whatsappError.message };
+  await supabase.from('whatsapp_conversations').update({ contact_id: keepId }).eq('contact_id', duplicateId);
 
   // מצרף (לא דורס) הערות חופשיות - אלה לא בטבלת-בת נפרדת, אז בלי הצירוף
   // הזה הן היו נעלמות לגמרי עם מחיקת הכפול למטה
@@ -1431,15 +1435,31 @@ export async function sendContactEmail(contactId, workspaceId, subject, body, de
 
 // שליחת הודעת WhatsApp ראשונה (תבנית מאושרת) לאיש קשר, ורישום ב-sent_whatsapp
 // כדי שיוצג בטאב "פעילות". departmentId - ר' הערה ב-sendContactEmail.
-export async function sendContactWhatsApp(contactId, workspaceId, reason, templateId, departmentId = null) {
+// יעד השליחה: ברירת המחדל היא הטלפון הראשי. toPhone (אופציונלי) מאפשר לענות
+// למספר שממנו הלקוח כתב בפועל - רק אם המספר שייך לאיש הקשר (טלפון ראשי/נוסף,
+// contact_phones, או שיחת וואטסאפ שכבר קושרה אליו), כדי שאי אפשר יהיה לשלוח
+// למספר שרירותי בשם איש קשר.
+async function resolveWhatsappTarget(supabase, contactId, contact, toPhone) {
+  if (!toPhone) return contact?.phone || null;
+  const digits = waPhoneDigits(toPhone);
+  if (!digits) return null;
+  if ([contact?.phone, contact?.phone2].some((p) => p && waPhoneDigits(p) === digits)) return toPhone;
+  const { data: extra } = await supabase.from('contact_phones').select('phone').eq('contact_id', contactId);
+  if ((extra || []).some((p) => waPhoneDigits(p.phone) === digits)) return toPhone;
+  const { data: linked } = await supabase.from('whatsapp_conversations').select('id').eq('phone_digits', digits).eq('contact_id', contactId).maybeSingle();
+  return linked ? toPhone : null;
+}
+
+export async function sendContactWhatsApp(contactId, workspaceId, reason, templateId, departmentId = null, toPhone = null) {
   const { supabase, user } = await requireUser();
   const accessError = await requireSendAccess(supabase, user.id, contactId, workspaceId);
   if (accessError) return accessError;
   const frozenError = await requireNotFrozen(supabase, contactId);
   if (frozenError) return frozenError;
 
-  const { data: contact } = await supabase.from('contacts').select('first, phone, whatsapp_optout_at').eq('id', contactId).single();
-  if (!contact?.phone) return { error: 'לאיש הקשר אין מספר טלפון שמור' };
+  const { data: contact } = await supabase.from('contacts').select('first, phone, phone2, whatsapp_optout_at').eq('id', contactId).single();
+  const targetPhone = await resolveWhatsappTarget(supabase, contactId, contact, toPhone);
+  if (!targetPhone) return { error: toPhone ? 'המספר הזה לא שייך לאיש הקשר' : 'לאיש הקשר אין מספר טלפון שמור' };
   if (contact.whatsapp_optout_at) return { error: OPTOUT_MESSAGES.whatsapp };
 
   // מספר-הפרמטרים בפועל של התבנית הנבחרת - לא כל התבניות בנויות אותו
@@ -1450,21 +1470,40 @@ export async function sendContactWhatsApp(contactId, workspaceId, reason, templa
   const paramCount = templateRow?.param_count ?? 2;
 
   try {
-    await sendWhatsAppTemplate({ phone: contact.phone, firstName: contact.first, reason, templateId, paramCount });
+    await sendWhatsAppTemplate({ phone: targetPhone, firstName: contact.first, reason, templateId, paramCount });
   } catch (err) {
     return { error: err.message };
   }
 
+  const conversationId = await noteOutbound(supabase, { phone: targetPhone, contactId, workspaceId, departmentId, userId: user.id, text: reason ? `תבנית - ${reason}` : 'הודעת תבנית' });
   await supabase.from('sent_whatsapp').insert({
-    contact_id: contactId, workspace_id: workspaceId, phone: contact.phone, reason, sent_by: user.id, contact_department_id: departmentId,
+    contact_id: contactId, workspace_id: workspaceId, phone: targetPhone, reason, sent_by: user.id, contact_department_id: departmentId, conversation_id: conversationId,
   });
 
   return { success: true };
 }
 
+// מצב שיחת הוואטסאפ של איש קשר, לחלון השליחה (WhatsAppSendModal): מתי הלקוח
+// כתב לאחרונה (לחישוב חלון 24 השעות - על כל ההודעות שלו, בלי סינון מחלקה),
+// ואם החלון נפתח ממקום שלא טען היסטוריה - גם ההודעות עצמן.
+export async function getContactWhatsappState(contactId, includeThread = false) {
+  const { supabase, user } = await requireUser();
+  if (!(await canAccessContactFiles(supabase, user.id, contactId))) return { error: 'אין לך גישה לאיש הקשר הזה' };
+  const { data: lastIn } = await supabase.from('sent_whatsapp').select('sent_at')
+    .eq('contact_id', contactId).eq('direction', 'in').order('sent_at', { ascending: false }).limit(1);
+  let thread = null;
+  if (includeThread) {
+    const { data: rows } = await supabase.from('sent_whatsapp')
+      .select('id, direction, kind, message, reason, sent_at')
+      .eq('contact_id', contactId).order('sent_at', { ascending: false }).limit(200);
+    thread = (rows || []).reverse();
+  }
+  return { lastInboundAt: lastIn?.[0]?.sent_at || null, thread };
+}
+
 // שליחת הודעת WhatsApp חופשית (לא תבנית) - אפשרי רק בתוך 24 שעות
 // מתשובת הלקוח האחרונה להודעת התבנית. departmentId - ר' הערה ב-sendContactEmail.
-export async function sendContactWhatsAppChatMessage(contactId, workspaceId, message, departmentId = null) {
+export async function sendContactWhatsAppChatMessage(contactId, workspaceId, message, departmentId = null, toPhone = null) {
   const { supabase, user } = await requireUser();
   const accessError = await requireSendAccess(supabase, user.id, contactId, workspaceId);
   if (accessError) return accessError;
@@ -1473,18 +1512,20 @@ export async function sendContactWhatsAppChatMessage(contactId, workspaceId, mes
 
   if (!message?.trim()) return { error: 'יש להזין תוכן הודעה' };
 
-  const { data: contact } = await supabase.from('contacts').select('phone, whatsapp_optout_at').eq('id', contactId).single();
-  if (!contact?.phone) return { error: 'לאיש הקשר אין מספר טלפון שמור' };
+  const { data: contact } = await supabase.from('contacts').select('phone, phone2, whatsapp_optout_at').eq('id', contactId).single();
+  const targetPhone = await resolveWhatsappTarget(supabase, contactId, contact, toPhone);
+  if (!targetPhone) return { error: toPhone ? 'המספר הזה לא שייך לאיש הקשר' : 'לאיש הקשר אין מספר טלפון שמור' };
   if (contact.whatsapp_optout_at) return { error: OPTOUT_MESSAGES.whatsapp };
 
   try {
-    await sendWhatsAppChat({ phone: contact.phone, message });
+    await sendWhatsAppChat({ phone: targetPhone, message });
   } catch (err) {
     return { error: err.message };
   }
 
+  const conversationId = await noteOutbound(supabase, { phone: targetPhone, contactId, workspaceId, departmentId, userId: user.id, text: message });
   await supabase.from('sent_whatsapp').insert({
-    contact_id: contactId, workspace_id: workspaceId, phone: contact.phone, kind: 'chat', message, sent_by: user.id, contact_department_id: departmentId,
+    contact_id: contactId, workspace_id: workspaceId, phone: targetPhone, kind: 'chat', message, sent_by: user.id, contact_department_id: departmentId, conversation_id: conversationId,
   });
 
   return { success: true };

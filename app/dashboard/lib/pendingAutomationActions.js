@@ -10,6 +10,7 @@ import { isManagerOfWorkspace } from './contactGuards';
 import { getAccessToken } from '../../../lib/gmail/client';
 import { sendEmail } from '../../../lib/gmail/send';
 import { sendWhatsAppTemplate } from '../../../lib/inforu/whatsapp';
+import { noteOutbound } from '../../../lib/whatsapp/conversations';
 import { renderTemplate, findUnresolvedPlaceholders } from './templateRender';
 import { OPTOUT_MESSAGES } from './optout';
 
@@ -50,10 +51,15 @@ async function executeAutomation(supabase, pending, user) {
       templateId: template.template_id, paramCount: template.param_count ?? 2,
     });
     // רישום בהיסטוריית ההודעות של איש הקשר (בעבר שליחה אוטומטית לא נרשמה בשום מקום)
+    const automationReason = `אוטומציה - ${pending.stage_label || 'שינוי שלב'}`;
+    const conversationId = await noteOutbound(supabase, {
+      phone: pending.contact_phone, contactId: pending.contact_id, workspaceId: pending.workspace_id,
+      departmentId: pending.contact_department_id || null, userId: user.id, text: `תבנית - ${automationReason}`,
+    });
     await supabase.from('sent_whatsapp').insert({
       contact_id: pending.contact_id, workspace_id: pending.workspace_id, phone: pending.contact_phone,
-      reason: `אוטומציה - ${pending.stage_label || 'שינוי שלב'}`, sent_by: user.id,
-      contact_department_id: pending.contact_department_id || null,
+      reason: automationReason, sent_by: user.id,
+      contact_department_id: pending.contact_department_id || null, conversation_id: conversationId,
     });
     return { success: true };
   }

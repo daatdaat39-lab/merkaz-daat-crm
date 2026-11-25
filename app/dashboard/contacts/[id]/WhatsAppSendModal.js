@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { sendContactWhatsApp, sendContactWhatsAppChatMessage, updateContactPhone } from '../actions';
+import { sendContactWhatsApp, sendContactWhatsAppChatMessage, updateContactPhone, getContactWhatsappState } from '../actions';
 import { splitTemplates, needsGrouping } from '../../lib/templateSuggestions';
+import { serviceWindow } from '../../lib/whatsappTime';
 
 // חלון צ'אט WhatsApp מלא לאיש קשר: מציג את כל ההיסטוריה (הודעות
 // שנשלחו והודעות שהתקבלו מהלקוח, לפי כיוון) כבועות שיחה, עם תיבת
@@ -51,7 +52,25 @@ export default function WhatsAppSendModal({ contactId, workspaceId, departmentId
     setEditingPhone(false);
   }
 
-  const sorted = [...thread, ...locallySent].sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
+  // חלון 24 השעות: מתי הלקוח כתב לאחרונה - נשלף מהשרת על כל ההודעות שלו
+  // (ה-thread שמגיע כ-prop מסונן לפי מחלקה, ובחלק מהמסכים בכלל ריק). כשה-
+  // thread ריק נטענת גם ההיסטוריה עצמה, כדי שהחלון לא ייפתח בלי השיחה.
+  // עד שהתשובה חוזרת (windowState=null) שדה הכתיבה נשאר פתוח.
+  const [loadedThread, setLoadedThread] = useState(null);
+  const [windowState, setWindowState] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    getContactWhatsappState(contactId, thread.length === 0).then((res) => {
+      if (cancelled || !res || res.error) return;
+      if (res.thread) setLoadedThread(res.thread);
+      setWindowState(serviceWindow(res.lastInboundAt));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactId]);
+  const freeTextBlocked = windowState ? !windowState.open : false;
+
+  const sorted = [...(thread.length ? thread : loadedThread || []), ...locallySent].sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at));
   const selectedTemplate = templates.find((t) => t.id === templateId) || (templates.length === 1 ? templates[0] : null);
 
   // try/catch מפורש כאן - לא סומכים על כך ש-Server Action תמיד מחזירה
@@ -206,18 +225,24 @@ export default function WhatsAppSendModal({ contactId, workspaceId, departmentId
 
         {error && <div style={{ padding: '6px 18px', color: 'var(--k-danger-text)', fontSize: 12.5 }}>שגיאה: {error}</div>}
 
-        <div style={{ padding: 12, borderTop: '1px solid var(--k-border)', display: 'flex', gap: 8 }}>
+        {windowState && (
+          <div style={{ padding: '6px 18px 0', fontSize: 11.5, fontWeight: 600, color: windowState.open ? 'var(--k-ok-text)' : 'var(--k-caution-text)' }}>
+            {windowState.open ? '🟢' : '🔒'} {windowState.label}
+          </div>
+        )}
+        <div style={{ padding: 12, borderTop: windowState ? 'none' : '1px solid var(--k-border)', display: 'flex', gap: 8 }}>
           <input
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSendChat(); }}
-            placeholder="הודעה חופשית... (רק אם הלקוח כבר ענה בתוך 24 שעות)"
-            style={{ flex: 1, border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 14px', fontSize: 13, background: 'var(--k-surface)', color: 'var(--k-text)' }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !freeTextBlocked) handleSendChat(); }}
+            disabled={freeTextBlocked}
+            placeholder={freeTextBlocked ? 'טקסט חופשי לא זמין כרגע - יש לשלוח תבנית' : 'הודעה חופשית...'}
+            style={{ flex: 1, border: '1px solid var(--k-border)', borderRadius: 8, padding: '8px 14px', fontSize: 13, background: 'var(--k-surface)', color: 'var(--k-text)', opacity: freeTextBlocked ? 0.6 : 1 }}
           />
           <button
             onClick={handleSendChat}
-            disabled={isPending || !message.trim()}
-            style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 13, cursor: 'pointer', opacity: isPending ? 0.6 : 1 }}
+            disabled={isPending || !message.trim() || freeTextBlocked}
+            style={{ background: 'var(--k-accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 13, cursor: 'pointer', opacity: isPending || freeTextBlocked ? 0.6 : 1 }}
           >
             שליחה
           </button>

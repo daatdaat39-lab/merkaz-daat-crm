@@ -1,61 +1,69 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '../../../lib/supabase/client';
 import { WhatsAppIcon } from './icons';
 
-// הקפצת-התראה-חיה להודעת-WhatsApp נכנסת - אותו דפוס בדיוק כמו
-// CtiCallToast (שיחות-נכנסות): מאזינה ל-INSERT על sent_whatsapp עם
-// direction='in' בתוך ה-workspace הפעיל, ואז בודקת מי-הנציג-המטפל
-// באיש-הקשר הזה (contact_departments.agent_id) - אם-יש-נציג-ספציפי
-// ושונה-ממני, לא-מציגה; אם-אין-נציג-מוגדר (null), מציגה-לכולם (שידור-
-// למחלקה, בדיוק כמו agent_id=null ב-cti_call_events).
-export default function WhatsappInToast({ workspaceId, userId }) {
+// הקפצת-התראה-חיה להודעת-WhatsApp נכנסת, לפי השיחה (whatsapp_conversations,
+// migration 0196): מוצגת לבעל השיחה; שיחה בלי בעלים - לכל חברי המחלקה שלה;
+// מספר לא מזוהה (בלי מחלקה) - לכולם. בנוסף, כל שינוי בשיחות מרענן את
+// הנתונים שבשלד (מונה הפעמון) בלי לחכות לניווט.
+export default function WhatsappInToast({ userId, workspaceIds = [] }) {
   const [toast, setToast] = useState(null);
   const router = useRouter();
+  const workspaceKey = workspaceIds.join(',');
+  const lastShown = useRef({});
 
   useEffect(() => {
-    if (!workspaceId) return;
     const supabase = createClient();
+    const mine = new Set(workspaceKey ? workspaceKey.split(',') : []);
+    let refreshTimer = null;
+    let hideTimer = null;
 
     const channel = supabase
-      .channel(`sent-whatsapp-in-${workspaceId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'sent_whatsapp', filter: `workspace_id=eq.${workspaceId}` },
-        async (payload) => {
-          const row = payload.new;
-          if (row.direction !== 'in') return;
+      .channel('whatsapp-conversations-toast')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_conversations' }, async (payload) => {
+        const row = payload.new;
+        if (!row?.id) return;
+        if (row.workspace_id && !mine.has(row.workspace_id)) return;
 
-          let contactName = null;
-          if (row.contact_id) {
-            const [{ data: contact }, { data: dept }] = await Promise.all([
-              supabase.from('contacts').select('first, last').eq('id', row.contact_id).maybeSingle(),
-              supabase.from('contact_departments').select('agent_id').eq('contact_id', row.contact_id).eq('workspace_id', workspaceId).maybeSingle(),
-            ]);
-            if (dept?.agent_id && dept.agent_id !== userId) return;
-            contactName = contact ? `${contact.first || ''} ${contact.last || ''}`.trim() : null;
-          }
+        clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(() => router.refresh(), 1500);
 
-          setToast({ contactId: row.contact_id, contactName, phone: row.phone, message: row.message });
-          setTimeout(() => setToast(null), 15000);
+        // טוסט רק להודעה נכנסת חדשה (לא לשינוי בעלים/סטטוס על אותה הודעה)
+        // "חדשה" = נכנסה ברבע השעה האחרונה (המשיכה מ-InforU רצה כל 5 דקות, אז
+        // הודעה מגיעה באיחור של כמה דקות); אחרת זה עדכון על שיחה ישנה (קישור
+        // לאיש קשר, "אני מטפל") ולא סיבה להקפיץ התראה.
+        if (row.status !== 'waiting_us' || row.last_direction !== 'in' || !row.last_inbound_at) return;
+        if (Date.now() - new Date(row.last_inbound_at).getTime() > 15 * 60000) return;
+        if (lastShown.current[row.id] === row.last_inbound_at) return;
+        lastShown.current[row.id] = row.last_inbound_at;
+        if (row.assigned_to && row.assigned_to !== userId) return;
+
+        let contactName = null;
+        if (row.contact_id) {
+          const { data: contact } = await supabase.from('contacts').select('first, last').eq('id', row.contact_id).maybeSingle();
+          contactName = contact ? `${contact.first || ''} ${contact.last || ''}`.trim() : null;
         }
-      )
+        setToast({ conversationId: row.id, contactName, phone: row.phone, message: row.last_message_preview });
+        clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => setToast(null), 15000);
+      })
       .subscribe();
 
     return () => {
+      clearTimeout(refreshTimer);
+      clearTimeout(hideTimer);
       supabase.removeChannel(channel);
     };
-  }, [workspaceId, userId]);
+  }, [workspaceKey, userId, router]);
 
   if (!toast) return null;
 
-  const href = toast.contactId ? `/dashboard/contacts/${toast.contactId}` : '/dashboard/whatsapp';
-
   return (
     <button
-      onClick={() => { router.push(href); setToast(null); }}
+      onClick={() => { router.push(`/dashboard/whatsapp?c=${toast.conversationId}`); setToast(null); }}
       style={{
         position: 'fixed', bottom: 28, insetInlineEnd: 304, zIndex: 500,
         background: '#15803d', color: '#fff', border: '2px solid #22a85c', borderRadius: 14,

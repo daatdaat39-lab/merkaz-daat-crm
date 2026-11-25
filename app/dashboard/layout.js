@@ -7,6 +7,7 @@ import ConcurrentInquiryToast from './components/ConcurrentInquiryToast';
 import PendingAutomationWatcher from './components/PendingAutomationWatcher';
 import CtiCallToast from './components/CtiCallToast';
 import WhatsappInToast from './components/WhatsappInToast';
+import { WAIT_ALERT_MINUTES } from './lib/whatsappTime';
 import AgentPresenceHeartbeat from './components/AgentPresenceHeartbeat';
 import CelebrationHost from './components/CelebrationHost';
 import IdleLock from './components/IdleLock';
@@ -107,25 +108,32 @@ export default async function DashboardLayout({ children, modal }) {
   // ממטמון משותף (5 דקות, ר' lib/allContactTags.js) במקום לסרוק מחדש את
   // כל 6,500+ אנשי הקשר בכל טעינת עמוד בדשבורד - זה רץ פה, ממש בשלד, כך
   // שזו הייתה השאילתה היקרה ביותר שרצה על כל ניווט במערכת.
-  const [{ data: allWorkspaces }, tagRows, { data: waRows }] = await Promise.all([
+  const [{ data: allWorkspaces }, tagRows, { data: waitingConversations }, { data: waReads }] = await Promise.all([
     supabase.from('workspaces').select('id, name').order('created_at', { ascending: true }),
     getAllContactTagRows(),
-    supabase.from('sent_whatsapp').select('phone, direction, read_at').order('sent_at', { ascending: false }).limit(500),
+    supabase.from('whatsapp_conversations').select('id, workspace_id, last_inbound_at, waiting_since').eq('status', 'waiting_us').limit(1000),
+    supabase.from('whatsapp_conversation_reads').select('conversation_id, last_read_at').eq('user_id', user.id),
   ]);
   const existingTags = Array.from(new Set((tagRows || []).flatMap((c) => c.tags || []))).sort();
   const tagGroups = groupTagsByDepartment(
     (tagRows || []).map((c) => ({ tags: c.tags, departments: (c.contact_departments || []).map((d) => ({ name: d.workspaces?.name })) }))
   );
 
-  // סופרים שיחות WhatsApp שההודעה האחרונה בהן (לכל מספר) הגיעה מהלקוח -
-  // כלומר עדיין ממתינה לתגובה שלנו
-  // (עכשיו סופרים רק אלה שעוד לא נפתחו - read_at ריק, migration 0183: פתיחת
-  // מסך הוואטסאפ מסמנת "נקרא", כך שהמונה יורד ועולה שוב בהודעה חדשה.)
-  const latestByPhone = new Map();
-  for (const row of waRows || []) {
-    if (!latestByPhone.has(row.phone)) latestByPhone.set(row.phone, row);
-  }
-  const pendingWhatsappReplies = [...latestByPhone.values()].filter((r) => r.direction === 'in' && !r.read_at).length;
+  // מונה הוואטסאפ בפעמון (whatsapp_conversations, migration 0196): שיחות
+  // שממתינות לתגובה, במחלקות שלי או בלי מחלקה, שאני עוד לא פתחתי ("נקרא"
+  // אישי). למנהל מחלקה נספרות גם שיחות שממתינות מעל הסף האדום, גם אם כבר
+  // פתח אותן - חריגה שדורשת טיפול.
+  const waMyWorkspaceIds = new Set(workspaces.filter((w) => !w.restricted).map((w) => w.id));
+  const waManagedIds = new Set(workspaces.filter((w) => ['owner', 'admin'].includes(w.role)).map((w) => w.id));
+  const waReadAt = new Map((waReads || []).map((r) => [r.conversation_id, r.last_read_at]));
+  const waNow = Date.now();
+  const pendingWhatsappReplies = (waitingConversations || []).filter((c) => {
+    if (c.workspace_id && !waMyWorkspaceIds.has(c.workspace_id)) return false;
+    const readAt = waReadAt.get(c.id);
+    const unread = !readAt || (c.last_inbound_at && new Date(c.last_inbound_at) > new Date(readAt));
+    const overdue = c.waiting_since && waNow - new Date(c.waiting_since).getTime() >= WAIT_ALERT_MINUTES * 60000;
+    return unread || (overdue && waManagedIds.has(c.workspace_id));
+  }).length;
 
   // הודעות שלא נקראו על אנשי קשר ששותפו איתי (contact_shares, מיגרציה 0033) - לתגית הפעמון
   const { count: unreadShareCount } = await supabase
@@ -219,7 +227,7 @@ export default async function DashboardLayout({ children, modal }) {
       <ConcurrentInquiryToast workspaceId={currentWorkspaceId} userId={user.id} />
       <PendingAutomationWatcher userId={user.id} />
       <CtiCallToast workspaceId={currentWorkspaceId} userId={user.id} />
-      <WhatsappInToast workspaceId={currentWorkspaceId} userId={user.id} />
+      <WhatsappInToast userId={user.id} workspaceIds={workspaces.filter((w) => !w.restricted).map((w) => w.id)} />
       <AgentPresenceHeartbeat workspaceId={currentWorkspaceId} />
       <CelebrationHost />
       <IdleLock userEmail={user.email} />
